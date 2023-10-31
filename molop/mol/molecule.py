@@ -18,8 +18,10 @@ from molop.utils.types import RdMol
 RDLogger.DisableLog("rdApp.*")
 
 
-class Molecule:
+class BaseMolecule:
     """
+    TODO update comments
+
     Molecule base class.
     Parameters:
         smiles str:
@@ -283,13 +285,14 @@ class Molecule:
         if self._is_none:
             return None
         if self._coords:
-            pass
+            self._coords = self._rd_mol.GetConformer().GetPositions()
+            Chem.MolToXYZFile(self.to_mol(), path)
         mol_add_H = self.copy()
         mol_add_H.addHs()
         mol_add_H.embedMolecule(random_state=random_state)
         Chem.MolToXYZFile(mol_add_H.to_mol(), path)
 
-    def __eq__(self, other: "Molecule") -> bool:
+    def __eq__(self, other: Union["BaseMolecule", "Molecule"]) -> bool:
         """
         Check if two molecules are equal. If the two molecules are equal, the Molecule A is the substructure of the Molecule B as well as the Molecule B is the substructure of the Molecule A
         Args:
@@ -297,7 +300,7 @@ class Molecule:
         Returns:
             True if both molecules are the same.
         """
-        if not isinstance(other, (Molecule)):
+        if not isinstance(other, BaseMolecule):
             return False
         if self._is_none and other._is_none:
             return True
@@ -311,20 +314,20 @@ class Molecule:
 
     def is_equal(
         self,
-        other: Union["Molecule", RdMol, str],
+        other: Union["BaseMolecule", "Molecule", RdMol, str],
         use_chirality=False,
     ) -> bool:
-        if isinstance(other, (Molecule)):
+        if isinstance(other, BaseMolecule):
             return self == other
         if isinstance(other, RdMol):
-            return self == Molecule(rd_mol=other, use_chirality=use_chirality)
+            return self == BaseMolecule(rd_mol=other, use_chirality=use_chirality)
         return (
-            self == Molecule(smiles=other, use_chirality=use_chirality)
+            self == BaseMolecule(smiles=other, use_chirality=use_chirality)
             if isinstance(other, str)
             else False
         )
 
-    def __lt__(self, other: "Molecule") -> bool:
+    def __lt__(self, other: Union["BaseMolecule", "Molecule"]) -> bool:
         """
         Check if the first given object is less than the second.
         Following the rules: 1. Number of heavy atoms; 2. MolWt
@@ -333,10 +336,8 @@ class Molecule:
         Returns:
             True if the first object is less than the second.
         """
-        if not isinstance(other, (Molecule)):
-            raise MolError(
-                'Comparisons can only be made with class "Molecule"'
-            )
+        if not isinstance(other, BaseMolecule):
+            raise MolError('Comparisons can only be made with class "Molecule"')
         if self._is_none:
             return True
         elif other._is_none:
@@ -377,7 +378,7 @@ class Molecule:
 
     def __repr__(self) -> str:
         chirality_flag = " chirality" if self._use_chirality else ""
-        return f"Melecule({self}{chirality_flag})"
+        return f"{self.__class__.__name__}({self}_{chirality_flag})"
 
     def __hash__(self) -> int:
         """
@@ -415,7 +416,7 @@ class Molecule:
         """
         return self._rd_mol
 
-    def copy(self) -> "Molecule":
+    def copy(self) -> Union["BaseMolecule", "Molecule"]:
         """
         Returns:
             Copy of self.
@@ -430,3 +431,23 @@ class Molecule:
             return
         self._rd_mol = Chem.MolFromSmiles(Chem.MolToSmiles(self._rd_mol))
         self._rd_mol = Chem.AddHs(self._rd_mol)
+
+
+class Molecule(BaseMolecule):
+    """
+    Molecule class.
+    """
+
+    def __init__(
+        self,
+        smiles: str = None,
+        rd_mol: RdMol = None,
+        sanitize: bool = True,
+        use_chirality: bool = False,
+    ):
+        super().__init__(
+            smiles,
+            rd_mol,
+            sanitize,
+            use_chirality,
+        )

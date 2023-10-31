@@ -6,6 +6,7 @@ LastEditTime: 2023-10-30 17:39:15
 Description: 请填写简介
 """
 import os
+from molop.mol import Molecule
 
 
 class BaseParser:
@@ -19,6 +20,7 @@ class BaseParser:
         self._coords = []
         self._charge = None
         self._multi = None
+        self._bond_pairs = None
 
     def parse(self):
         """
@@ -83,3 +85,10 @@ class BaseParser:
                     f"{atom:3} {coord[0]:>15.8f} {coord[1]:>15.8f} {coord[2]:>15.8f}\n"
                 )
         f.close()
+
+    def to_MolOP_Molecule(self):
+        pass
+
+    def get_bond_pairs(self):
+        if self._bond_pairs:
+            return self._bond_pairs

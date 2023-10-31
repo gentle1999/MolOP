@@ -1,15 +1,8 @@
-'''
-Author: TMJ
-Date: 2023-10-30 15:38:58
-LastEditors: TMJ
-LastEditTime: 2023-10-30 17:31:47
-Description: 请填写简介
-'''
 """
 Author: TMJ
 Date: 2023-10-30 15:38:58
 LastEditors: TMJ
-LastEditTime: 2023-10-30 15:42:58
+LastEditTime: 2023-10-30 19:28:05
 Description: 请填写简介
 """
 import os
@@ -51,7 +44,7 @@ class Gaussian16GJFParser(BaseParser):
             self._atoms.append(atom)
             self._coords.extend([float(x), float(y), float(z)])
 
-    #TODO gjf文件中还有很多其他信息，例如基组，计算参数等
+    # TODO gjf文件中还有很多其他信息，例如基组，计算参数等
 
 
 class Gaussian16LOGParser(BaseParser):
