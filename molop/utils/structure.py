@@ -68,15 +68,17 @@ def get_bond_pair(mol: RdMol) -> List[Tuple[Tuple[int, int], int]]:
     """
     bond_pair = []
     for bond in mol.GetBonds():
-        bond_pair.append(
+        bond_pair.extend(
             (
-                (bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()),
+                bond.GetBeginAtomIdx(),
+                bond.GetEndAtomIdx(),
                 bond_list.index(bond.GetBondType()),
             )
         )
-        bond_pair.append(
+        bond_pair.extend(
             (
-                (bond.GetEndAtomIdx(), bond.GetBeginAtomIdx()),
+                bond.GetEndAtomIdx(),
+                bond.GetBeginAtomIdx(),
                 bond_list.index(bond.GetBondType()),
             )
         )
@@ -84,6 +86,7 @@ def get_bond_pair(mol: RdMol) -> List[Tuple[Tuple[int, int], int]]:
 
 
 def bond_matrix_2_mol(atom_numbers: List[int], bond_matrix: List[List[int]]) -> RdMol:
+    # TODO 速度有待优化
     molecule = Chem.RWMol()
     atom_index = []
     for atom_number in atom_numbers:
@@ -104,20 +107,25 @@ def bond_matrix_2_mol(atom_numbers: List[int], bond_matrix: List[List[int]]) -> 
                 )
     return molecule.GetMol()
 
-def bond_pairs_2_mol(atom_numbers: List[int], bond_pairs: List[Tuple[Tuple[int, int], int]]) -> RdMol:
+
+def bond_pairs_2_mol(
+    atom_numbers: List[int], bond_pairs: List[int]
+) -> RdMol:
+    # TODO 速度有待优化
     molecule = Chem.RWMol()
     atom_index = []
     for atom_number in atom_numbers:
         atom = Chem.Atom(atom_number)
         molecular_index = molecule.AddAtom(atom)
         atom_index.append(molecular_index)
-    for (atom_x, atom_y), bond in bond_pairs:
-            if atom_x <= atom_y:
-                continue
-            if bond == 0:
-                continue
-            else:
-                molecule.AddBond(atom_index[atom_x], atom_index[atom_y], bond_list[bond])
+    bond_pairs_ = [bond_pairs[i : i + 3] for i in range(0, len(bond_pairs), 3)]
+    for atom_x, atom_y, bond in bond_pairs_:
+        if atom_x <= atom_y:
+            continue
+        if bond == 0:
+            continue
+        else:
+            molecule.AddBond(atom_index[atom_x], atom_index[atom_y], bond_list[bond])
     return molecule.GetMol()
 
 

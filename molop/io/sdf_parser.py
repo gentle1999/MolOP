@@ -20,7 +20,7 @@ class SDFParser(BaseParser):
         _, file_format = os.path.splitext(file_path)
         if file_format != ".sdf":
             raise ValueError("File format must be .sdf")
-        self.parse()
+        self._parse()
 
-    def parse(self):
+    def _parse(self):
         pass
