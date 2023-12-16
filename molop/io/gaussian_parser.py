@@ -7,6 +7,9 @@ Description: 请填写简介
 """
 import os
 import re
+
+import parse
+
 from molop.io.base_parser import BaseParser, MultiFrameBaseParser
 
 
@@ -80,7 +83,6 @@ class Gaussian16GJFParser(MultiFrameBaseParser):
         fr.close()
         for i, line in enumerate(lines):
             if re.match(r"%[^=]+", line):
-                print(line)
                 attr, value = line.strip().split("%")[1].split("=")
                 self.__setattr__(f"_G16{attr}_attach_info", value)
             if re.match(r"^\s*\#", line):

@@ -306,6 +306,7 @@ def save_mol(m, file_path, overwrite=False):
 
 
 def fix_radical(mol):
+    # TODO 缺键补自由基
     radical_idxs = [
         idx for idx, atom in enumerate(mol.GetAtoms()) if atom.GetNumRadicalElectrons()
     ]
@@ -314,8 +315,12 @@ def fix_radical(mol):
         for radical_idx in radical_idxs:
             m.GetAtomWithIdx(radical_idx).SetNumRadicalElectrons(0)
         m.AddBond(radical_idxs[0], radical_idxs[1], Chem.BondType.SINGLE)
-        return m
+        return m.GetMol()
     return mol
+
+def fix_charge(mol):
+    # TODO 缺键补电荷
+    pass
 
 
 def fix_dative(mol):

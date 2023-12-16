@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2023-11-02 10:28:29
+ * @LastEditTime: 2023-11-02 16:40:51
  * @Description: 请填写简介
 -->
 # MolOP
@@ -11,7 +11,14 @@ This repository, **Molecule OPerator**, which is the basic molecule information 
 
 ## Features
 - Automatically extract molecule information from the Input and Output files of the common QM calculation softwares.
+  - GJF bug fixing
+  - XYZ done
+  - SDF TODO
+  - Other formats TODO
 - Offer the moleculer geometry and structure edit functions.
+  - Substructure replacement
+  - Orientation change
+  - Other functions
 - No TS or Reaction support.
 
 ## Installation for Development

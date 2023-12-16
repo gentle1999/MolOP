@@ -5,11 +5,17 @@ LastEditors: TMJ
 LastEditTime: 2023-11-01 13:22:48
 Description: 请填写简介
 """
-from abc import ABC
 import os
+from abc import ABC
+
+import numpy as np
+from openbabel import pybel
+from rdkit import Chem
+
 from molop.mol import Molecule
-from molop.utils.types import RdMol
 from molop.utils import geometry, structure
+from molop.utils.types import RdMol
+
 
 class BaseParser(ABC):
     """
@@ -18,16 +24,19 @@ class BaseParser(ABC):
     """
 
     def __init__(self, block):
-        self._block = block
-        self._FilePath_attach_info = None
-        self._frameID_attach_info = None
-        self._atoms_attach_info = []
-        self._coords_attach_info = []
-        self._charge_attach_info = None
-        self._multi_attach_info = None
-        self._bond_pairs_attach_info = None
+        self._block = block  # 原始文本片段
+        self._FilePath_attach_info = None  # 原始文件路径
+        self._frameID_attach_info = None  # 原始文件中的帧坐标
+        self._atoms_attach_info = []  # 分子的原子标记，长度为n
+        self._coords_attach_info = []  # 分子的坐标标记，长度为3n
+        self._charge_attach_info = None  # 分子的全局电荷
+        self._multi_attach_info = None  # 分子的全局多重度
+        self._bond_pairs_attach_info = None  # 分子的成键对
         # TODO local spin
+        self._local_spin_attach_info = None  # 分子的局部自旋（可选），长度为n
         # TODO local charge
+        self._local_charge_attach_info = None  # 分子的局部电荷（可选），长度为n
+        self._RdMol = None  # 分子的合法RdMol对象
 
     def _parse(self):
         """
@@ -56,7 +65,7 @@ class BaseParser(ABC):
         return self._atoms_attach_info
 
     def __str__(self) -> str:
-        return f"{os.path.basename(self._FilePath_attach_info)}({self._frameID_attach_info})"
+        return f"{self.__class__.__name__}({os.path.basename(self._FilePath_attach_info)})[{self._frameID_attach_info}]"
 
     def __hash__(self) -> int:
         return hash(str(self))
@@ -101,21 +110,44 @@ class BaseParser(ABC):
         f.close()
 
     def to_RdMol(self) -> RdMol:
-        if all(self._bond_pairs_attach_info, self._atoms_attach_info, self._coords_attach_info):
-            mol = structure.bond_pairs_2_mol(self._atoms_attach_info, self.get_bond_pairs())
+        if all(
+            (
+                self._bond_pairs_attach_info,
+                self._atoms_attach_info,
+                self._coords_attach_info,
+            )
+        ):
+            mol = structure.bond_pairs_2_mol(
+                self._atoms_attach_info, self.get_bond_pairs()
+            )
+            geometry.set_conformer_position(
+                mol, np.array(self._coords_attach_info).reshape(-1, 3)
+            )
+            self._RdMol = mol
+            return mol
+        m = pybel.readstring("xyz", self.to_XYZ_block())
+        mol = Chem.MolFromMolBlock(
+            m.write(format="sdf"), removeHs=False, sanitize=False
+        )
+        self._RdMol = mol
+        return mol
 
-            return
-        
+    @property
+    def rdmol(self):
+        if self._RdMol is not None:
+            return self._RdMol
+        return self.to_RdMol()
 
-    def to_MolOP_Molecule(self) -> Molecule:
-        pass
+    def to_MolOP_Molecule(self, sanitize=False, use_chirality=True) -> Molecule:
+        return Molecule(
+            rd_mol=self.to_RdMol(), sanitize=sanitize, use_chirality=use_chirality
+        )
 
     def get_bond_pairs(self):
         if self._bond_pairs_attach_info:
             return self._bond_pairs_attach_info
-        else:
-            mol = self.to_RdMol()
-
+        mol = self.to_RdMol()
+        return structure.get_bond_pair(mol)
 
 
 class MultiFrameBaseParser(ABC):

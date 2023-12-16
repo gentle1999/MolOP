@@ -13,6 +13,7 @@ from typing import Iterable, List, Sequence, Optional
 import numpy as np
 import pandas as pd
 from rdkit import Chem
+from rdkit.Chem import AllChem
 from rdkit.Geometry import Point3D
 from scipy.spatial.transform import Rotation as R
 
@@ -99,6 +100,18 @@ def xyz_to_point(xyz: Sequence) -> Point3D:
 
 
 def set_conformer_position(mol: RdMol, positions: np.ndarray, conformer_id=0):
+    """Set conformer position of a molecule.
+
+    Parameters:
+        mol RdMol:
+            molecule to be set conformer position
+        positions np.ndarray:
+            conformer position
+        conformer_id int:
+            conformer id
+    """
+    if mol.GetNumConformers() == 0:
+        AllChem.EmbedMolecule(mol)
     for atom in mol.GetAtoms():
         mol.GetConformer(conformer_id).SetAtomPosition(
             atom.GetIdx(), xyz_to_point(positions[atom.GetIdx()])
