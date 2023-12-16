@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2023-11-02 16:40:51
+ * @LastEditTime: 2023-12-16 21:52:50
  * @Description: 请填写简介
 -->
 # MolOP
@@ -27,7 +27,7 @@ This repository, **Molecule OPerator**, which is the basic molecule information 
 # clone the repository
 git clone http://10.72.201.45:13000/tmj/MolOP.git
 cd MolOP
-conda create -n molop python=3.8
+conda create -n  
 conda activate molop
 # install the dependencies
 pip install -r requirements.txt
