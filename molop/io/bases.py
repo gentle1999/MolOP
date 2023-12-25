@@ -1,6 +1,6 @@
 import os
 from abc import ABC, abstractmethod
-from typing import Any, List, Literal, Tuple
+from typing import Any, List, str, Tuple, Union
 
 from rdkit import Chem
 
@@ -10,7 +10,7 @@ class MolBlock(ABC):
     Abstract class for a molecule block.
     """
 
-    _atoms: List[Literal]
+    _atoms: List[Union[str, int]]
     _bonds: List[Tuple[int, int, int]]
     _charge: int
     _multiplicity: int
@@ -22,7 +22,7 @@ class MolBlock(ABC):
         """
 
     @property
-    def atoms(self) -> List[Literal]:
+    def atoms(self) -> List[str]:
         """
         Get the atoms.
         """
@@ -57,19 +57,19 @@ class MolBlock(ABC):
         return self._coords
 
     @abstractmethod
-    def to_XYZ_block(self) -> Literal:
+    def to_XYZ_block(self) -> str:
         raise NotImplementedError
 
     @abstractmethod
-    def to_SDF_block(self) -> Literal:
+    def to_SDF_block(self) -> str:
         raise NotImplementedError
 
     @abstractmethod
-    def to_SMILES(self) -> Literal:
+    def to_SMILES(self) -> str:
         raise NotImplementedError
 
     @abstractmethod
-    def to_InChI(self) -> Literal:
+    def to_InChI(self) -> str:
         raise NotImplementedError
 
     @abstractmethod
@@ -81,14 +81,14 @@ class BaseBlockParser(MolBlock):
     """
     Base class for block parsers.
     """
-    _file_path : Literal
+    _file_path : str
     _frameID : int = 0
 
-    def __init__(self, block: Literal) -> None:
+    def __init__(self, block: str) -> None:
         self._block = block
 
     @property
-    def block(self) -> Literal:
+    def block(self) -> str:
         return self._block
 
     def __str__(self) -> str:
@@ -105,8 +105,8 @@ class BaseFileParser:
     """
     Base class for multi-frame parsers.
     """
-    _file_path : Literal
-    _blocks : List[Literal] = []
+    _file_path : str
+    _blocks : List[str] = []
     _frames : List[BaseBlockParser] = []
     __index : int = 0
 
@@ -144,7 +144,7 @@ class BaseFileParser:
         return self._file_path
 
     @property
-    def blocks(self) -> List[Literal]:
+    def blocks(self) -> List[str]:
         return self._blocks
 
     @property
