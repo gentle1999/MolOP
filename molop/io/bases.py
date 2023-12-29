@@ -100,6 +100,17 @@ class BaseBlockParser(MolBlock):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({str(self)})"
     
+class QMBaseBlockParser(BaseBlockParser):
+    """
+    Base class for QM block parsers.
+    """
+    _energy : float # Hartree
+    _partial_charges: List[float] = []
+    _gradient : List[float] = []
+    _hessian : List[List[float]] = []
+    _normal_modes : List[float] = []
+    _normal_mode_frequencies : List[float] = []
+    
 
 class BaseFileParser:
     """
