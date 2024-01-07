@@ -1,14 +1,14 @@
-'''
+"""
 Author: TMJ
 Date: 2023-10-30 15:40:03
 LastEditors: TMJ
-LastEditTime: 2023-10-30 15:43:23
+LastEditTime: 2024-01-07 14:02:21
 Description: 请填写简介
-'''
+"""
 import os
+
 from molop.io.gaussian_parser import Gaussian16GJFParser, Gaussian16LOGParser
 from molop.io.xyz_parser import XYZParser
-
 
 parsers = {
     ".gjf": Gaussian16GJFParser,
