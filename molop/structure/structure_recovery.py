@@ -110,7 +110,11 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin
     omol = fix_dipole_type_b(omol)
 
     for atom in omol.atoms:
-        if atom.atomicnum == 7 and atom.OBAtom.GetExplicitValence() == 4:
+        if (
+            atom.atomicnum == 7
+            and atom.OBAtom.GetExplicitValence() == 4
+            and atom.OBAtom.GetFormalCharge() == 0
+        ):
             atom.OBAtom.SetFormalCharge(1)
             charge -= 1
 
@@ -218,9 +222,15 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin
     spin_atoms = [satom for satom in omol.atoms if get_spin(satom.OBAtom) == 1]
     for spin_atom_1, spin_atom_2 in itertools.combinations(spin_atoms, 2):
         if spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom):
-            if spin_atom_1.atomicnum == 6 and spin_atom_1.OBAtom.GetExplicitValence() >= 4:
+            if (
+                spin_atom_1.atomicnum == 6
+                and spin_atom_1.OBAtom.GetExplicitValence() >= 4
+            ):
                 continue
-            if spin_atom_2.atomicnum == 6 and spin_atom_2.OBAtom.GetExplicitValence() >= 4:
+            if (
+                spin_atom_2.atomicnum == 6
+                and spin_atom_2.OBAtom.GetExplicitValence() >= 4
+            ):
                 continue
             spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).SetBondOrder(
                 spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).GetBondOrder() + 1,
@@ -240,4 +250,3 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin
                 f"Charge {charge} cannot be allocated to the molecule. Charge {abs(charge) - charge_to_be_allocated} found."
             )
     return omol
-
