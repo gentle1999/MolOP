@@ -259,3 +259,4 @@ $RECYCLE.BIN/
 .nfs*
 
 test.ipynb
+*.log

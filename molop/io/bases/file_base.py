@@ -6,9 +6,9 @@ LastEditTime: 2024-01-07 14:06:43
 Description: 请填写简介
 """
 import os
-from typing import Any, List, Tuple, Union, str, Literal
+from typing import List, Literal
 
-from .molblock_base import MolBlock, BaseBlockParser, QMBaseBlockParser
+from .molblock_base import BaseBlockParser, QMBaseBlockParser
 
 
 class BaseFileParser:
@@ -17,12 +17,13 @@ class BaseFileParser:
     """
 
     _file_path: str
-    _blocks: List[str] = []
-    __frames: List[BaseBlockParser] = []
-    __index: int = 0
+    __frames: List[BaseBlockParser]
+    __index: int
 
-    def __init__(self, file_path) -> None:
+    def __init__(self, file_path: str) -> None:
         self._file_path = file_path
+        self.__frames: List[BaseBlockParser] = []
+        self.__index: int = 0
 
     def __iter__(self):
         self.__index = 0
@@ -39,7 +40,7 @@ class BaseFileParser:
         return self.__frames[frameID]
 
     def __len__(self) -> int:
-        return len(self._blocks)
+        return len(self.__frames)
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__}({os.path.basename(self._file_path)})"
@@ -55,20 +56,30 @@ class BaseFileParser:
         return self._file_path
 
     @property
-    def blocks(self) -> List[str]:
-        return self._blocks
-
-    @property
     def frames(self) -> List[BaseBlockParser]:
         return self.__frames
-    
+
+    def append(self, frame: BaseBlockParser) -> None:
+        frame._file_path = self._file_path
+        frame._frameID = len(self.__frames)
+        if frame._frameID > 0:
+            self.__frames[frame._frameID - 1]._next_block = frame
+        self.__frames.append(frame)
+
+
 class BaseQMFileParser(BaseFileParser):
     """
     Base class for QM multi-frame parsers.
     """
 
-    _state: Literal["Normal Termination", "Convergence"]
+    _parameter_comment: str
+    _show_progress: bool
 
-    def __init__(self, file_path) -> None:
+    def __init__(self, file_path: str, show_progress=False) -> None:
         super().__init__(file_path)
-    
+        self._parameter_comment: str = None
+        self._show_progress: bool = show_progress
+
+    @property
+    def parameter_comment(self) -> str:
+        return self._parameter_comment

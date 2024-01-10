@@ -11,13 +11,12 @@ import shutil
 from copy import deepcopy
 from typing import List, Tuple
 
-
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem
 from tqdm import tqdm
 
-from . import geometry
-from .types import RdConformer, RdMol
+from ..utils import geometry
+from ..utils.types import RdConformer, RdMol
 
 RDLogger.DisableLog("rdApp.*")
 
@@ -47,86 +46,32 @@ bond_list = [
 ]
 
 
-def get_bond_matrix(mol: RdMol) -> List[List[int]]:
-    """
-    Get bond matrix of mol.
-    """
-    adjacency_matrix = Chem.rdmolops.GetAdjacencyMatrix(mol)
-    for bond in mol.GetBonds():
-        adjacency_matrix[
-            bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
-        ] = bond_list.index(bond.GetBondType())
-        adjacency_matrix[
-            bond.GetEndAtomIdx(), bond.GetBeginAtomIdx()
-        ] = bond_list.index(bond.GetBondType())
-    return adjacency_matrix
-
-
-def get_bond_pair(mol: RdMol) -> List[Tuple[Tuple[int, int], int]]:
+def get_bond_pairs(mol: RdMol) -> List[Tuple[int, int, int]]:
     """
     Get bond pair of mol.
     """
-    bond_pair = []
-    for bond in mol.GetBonds():
-        bond_pair.extend(
-            (
-                bond.GetBeginAtomIdx(),
-                bond.GetEndAtomIdx(),
-                bond_list.index(bond.GetBondType()),
-            )
+    return [
+        (
+            bond.GetBeginAtomIdx(),
+            bond.GetEndAtomIdx(),
+            bond_list.index(bond.GetBondType()),
         )
-        bond_pair.extend(
-            (
-                bond.GetEndAtomIdx(),
-                bond.GetBeginAtomIdx(),
-                bond_list.index(bond.GetBondType()),
-            )
-        )
-    return bond_pair
+        for bond in mol.GetBonds()
+    ]
 
 
-def bond_matrix_2_mol(atom_numbers: List[int], bond_matrix: List[List[int]]) -> RdMol:
-    # TODO 速度有待优化
-    molecule = Chem.RWMol()
-    atom_index = []
-    for atom_number in atom_numbers:
-        atom = Chem.Atom(atom_number)
-        molecular_index = molecule.AddAtom(atom)
-        atom_index.append(molecular_index)
-
-    # 在原子和原子直接加入指定种类的键
-    for index_x, row_vector in enumerate(bond_matrix):
-        for index_y, bond in enumerate(row_vector):
-            if index_y <= index_x:
-                continue
-            if bond == 0:
-                continue
-            else:
-                molecule.AddBond(
-                    atom_index[index_x], atom_index[index_y], bond_list[bond]
-                )
-    return molecule.GetMol()
+def get_formal_charges(mol: RdMol) -> List[int]:
+    """
+    Get formal charge of mol.
+    """
+    return [atom.GetFormalCharge() for atom in mol.GetAtoms()]
 
 
-def bond_pairs_2_mol(
-    atom_numbers: List[int], bond_pairs: List[int]
-) -> RdMol:
-    # TODO 速度有待优化
-    molecule = Chem.RWMol()
-    atom_index = []
-    for atom_number in atom_numbers:
-        atom = Chem.Atom(atom_number)
-        molecular_index = molecule.AddAtom(atom)
-        atom_index.append(molecular_index)
-    bond_pairs_ = [bond_pairs[i : i + 3] for i in range(0, len(bond_pairs), 3)]
-    for atom_x, atom_y, bond in bond_pairs_:
-        if atom_x <= atom_y:
-            continue
-        if bond == 0:
-            continue
-        else:
-            molecule.AddBond(atom_index[atom_x], atom_index[atom_y], bond_list[bond])
-    return molecule.GetMol()
+def get_formal_spins(mol: RdMol) -> List[int]:
+    """
+    Get formal spin of mol.
+    """
+    return [atom.GetNumRadicalElectrons() for atom in mol.GetAtoms()]
 
 
 def get_sub_mol(origin_mol: RdMol, scale: List[int]):
@@ -303,49 +248,3 @@ def save_mol(m, file_path, overwrite=False):
     except Exception:
         os.remove(f"{file_path}.sdf")
     Chem.MolToXYZFile(m, f"{file_path}.xyz")
-
-
-def fix_radical(mol):
-    # TODO 缺键补自由基
-    radical_idxs = [
-        idx for idx, atom in enumerate(mol.GetAtoms()) if atom.GetNumRadicalElectrons()
-    ]
-    if len(radical_idxs):
-        m = Chem.RWMol(mol)
-        for radical_idx in radical_idxs:
-            m.GetAtomWithIdx(radical_idx).SetNumRadicalElectrons(0)
-        m.AddBond(radical_idxs[0], radical_idxs[1], Chem.BondType.SINGLE)
-        return m.GetMol()
-    return mol
-
-def fix_charge(mol):
-    # TODO 缺键补电荷
-    pass
-
-
-def fix_dative(mol):
-    pt = Chem.GetPeriodicTable()
-    dative_atom_idxs = [
-        idx
-        for idx, atom in enumerate(mol.GetAtoms())
-        if atom.GetExplicitValence()
-        > atom.GetFormalCharge() + pt.GetDefaultValence(atom.GetAtomicNum())
-    ]
-
-
-def fix_mol(mol):
-    m = fix_radical(mol)
-    m = fix_dative(m)
-    return m
-
-
-"""def load_mol(file_path) -> RdMol:
-    # attempt to read sdf first, if false then read xyz
-    file_name = ".".join(file_path.split(".")[:-1])
-    try:
-        mol = Chem.MolFromMolFile(f"{file_name}.sdf", removeHs=False)
-    except Exception:
-        mol = Chem.MolFromMolFile(
-            MolFormatConversion(f"{file_name}.xyz"), removeHs=False
-        )
-    return fix_radical(mol)"""

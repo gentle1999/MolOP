@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2023-12-16 21:52:50
+ * @LastEditTime: 2024-01-10 18:51:20
  * @Description: 请填写简介
 -->
 # MolOP
@@ -10,18 +10,32 @@
 This repository, **Molecule OPerator**, which is the basic molecule information extraction and operation unit of the [Open TS DataBase](http://10.72.201.45:13000/tmj/OTSDB-Core) project.
 
 ## Features
-- Automatically extract molecule information from the Input and Output files of the common QM calculation softwares.
-  - GJF bug fixing
-  - XYZ done
-  - SDF TODO
-  - Other formats TODO
-- Offer the moleculer geometry and structure edit functions.
-  - Substructure replacement
-  - Orientation change
-  - Other functions
-- No TS or Reaction support.
 
-## Installation for Development
+- Automatically extract molecule information from the Input and Output files of the common QM calculation softwares. Offer a [molecular graph recovery algrothm](molop/structure/structure_recovery.py) from the simple coodinates of atoms based on the initial work by [OpenBabel](https://openbabel.org/index.html), which can be easily used in the file reading process.
+  - Coords file
+    - GJF `Done`
+    - XYZ `Done`
+    - SDF `Done`
+  - QM output file
+    - G16 LOG `Done`
+    - xTB `TODO`
+    - ORCA `TODO`
+- Offer the moleculer geometry and structure edit functions. `TODO`
+  - Substructure replacement `TODO`
+  - Orientation change `TODO`
+  - Other functions `TODO`
+
+## Get Start
+
+See the [Tutorial Notebook](tutorial/get_start.ipynb) for more details.
+
+## Installation for Users
+
+```bash
+pip install git+http://10.72.201.45:13000/tmj/MolOP.git
+```
+
+## Installation for Developers
 
 ```bash
 # clone the repository
@@ -30,9 +44,6 @@ cd MolOP
 conda create -n  
 conda activate molop
 # install the dependencies
-pip install -r requirements.txt
+conda install openbabel -c conda-forge # openbabel is a necessary dependence
 pip install .
 ```
-
-## Development
-
