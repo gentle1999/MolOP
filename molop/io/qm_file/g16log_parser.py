@@ -279,8 +279,10 @@ class G16LOGBlockParser(QMBaseBlockParser):
 
 
 class G16LOGParser(BaseQMFileParser):
-    def __init__(self, file_path: str, show_progress=False):
+    def __init__(self, file_path: str, charge=None, multiplicity=None, show_progress=False):
         super().__init__(file_path, show_progress)
+        self.__force_charge = charge
+        self.__force_multiplicity = multiplicity
         _, file_format = os.path.splitext(file_path)
         if file_format != ".log":
             raise ValueError("File format must be .log")
@@ -298,6 +300,10 @@ class G16LOGParser(BaseQMFileParser):
             int,
             re.findall(r"Charge\s*=\s*(\d+)\s+Multiplicity\s*=\s*(\d+)", full_text)[0],
         )
+        if self.__force_charge is not None:
+            charge = self.__force_charge
+        if self.__force_multiplicity is not None:
+            multi = self.__force_multiplicity
         pattern = r"""\s+\*+
 \s+Gaussian\s+\d+\:\s+[A-Za-z0-9-.]+\s+\d+-[A-Za-z]{3}-\d{4}
 \s+\d+-[A-Za-z]{3}-\d{4}\s+
