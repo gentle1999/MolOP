@@ -302,9 +302,10 @@ class G16LOGParser(BaseQMFileParser):
 \s+Gaussian\s+\d+\:\s+[A-Za-z0-9-.]+\s+\d+-[A-Za-z]{3}-\d{4}
 \s+\d+-[A-Za-z]{3}-\d{4}\s+
 \s+\*+
-([a-zA-Z%0-9.=\s]+)
+([a-zA-Z%0-9.=\s\_\\\/\*\+\-]+)
 \s+-+
-([a-zA-Z%0-9.=\s#(),/]+)"""
+([a-zA-Z%0-9.\=\s\-\+#(),\*\/\\^\n]+)
+\s+-+"""
         self._parameter_comment = "\n".join(re.findall(pattern, full_text)[0])
         n_atom = int(re.findall(r"NAtoms=\s*(\d+)", full_text)[0])
         block_starts = [
