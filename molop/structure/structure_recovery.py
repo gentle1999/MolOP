@@ -88,7 +88,6 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin
     # Inner salts other than dipoles are not considered.
     # That means, you will not get molecules that have both positive and negative charges, except for the dipole.
     # Anyway, if charges have been all allocated, the spin remained will be used in the next step.
-    charge_to_be_allocated = abs(charge)
 
     # Step 2.1: Whatever the charge is, there is possibility that the dipole exists. Find them first.
     # Hope not to have dipoles along with other charges.
@@ -109,6 +108,13 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin
     # Negative charges are mutually resonant at any position of the atoms on either side.
     # Nevertheless, I pact that atoms with spin 1 carry a formal charge -1.
     omol = fix_dipole_type_b(omol)
+
+    for atom in omol.atoms:
+        if atom.atomicnum == 7 and atom.OBAtom.GetExplicitValence() == 4:
+            atom.OBAtom.SetFormalCharge(1)
+            charge -= 1
+
+    charge_to_be_allocated = abs(charge)
 
     if charge > 0:
         # Step 2.2.1: If metal found, allocate all the positive charge to it.
