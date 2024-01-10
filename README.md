@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-01-10 18:51:20
+ * @LastEditTime: 2024-01-10 19:36:38
  * @Description: 请填写简介
 -->
 # MolOP
@@ -32,6 +32,7 @@ See the [Tutorial Notebook](tutorial/get_start.ipynb) for more details.
 ## Installation for Users
 
 ```bash
+conda install openbabel -c conda-forge # openbabel is a necessary dependence
 pip install git+http://10.72.201.45:13000/tmj/MolOP.git
 ```
 
