@@ -70,7 +70,7 @@ def fix_dipole_type_b(mol: pybel.Molecule):
     return mol
 
 
-def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0):
+def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin=True):
     if abs(charge) > 2:
         raise ValueError("Charge must be between -2 and 2")
     if spin > 2 or spin < 0:
@@ -212,6 +212,10 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0):
     spin_atoms = [satom for satom in omol.atoms if get_spin(satom.OBAtom) == 1]
     for spin_atom_1, spin_atom_2 in itertools.combinations(spin_atoms, 2):
         if spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom):
+            if spin_atom_1.atomicnum == 6 and spin_atom_1.OBAtom.GetExplicitValence() >= 4:
+                continue
+            if spin_atom_2.atomicnum == 6 and spin_atom_2.OBAtom.GetExplicitValence() >= 4:
+                continue
             spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).SetBondOrder(
                 spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).GetBondOrder() + 1,
             )
@@ -219,9 +223,15 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0):
     totol_spin = sum(
         get_spin(atom.OBAtom) for atom in omol.atoms if not atom.OBAtom.IsMetal()
     )
-    if charge_to_be_allocated > 0 or totol_spin != spin:
-        raise ValueError(
-            f"Charge {charge} and spin {spin} cannot be allocated to the molecule. Charge {abs(charge) - charge_to_be_allocated} and spin {totol_spin} found."
-        )
+    if Check_spin:
+        if charge_to_be_allocated > 0 or totol_spin != spin:
+            raise ValueError(
+                f"Charge {charge} and spin {spin} cannot be allocated to the molecule. Charge {abs(charge) - charge_to_be_allocated} and spin {totol_spin} found."
+            )
+    else:
+        if charge_to_be_allocated > 0:
+            raise ValueError(
+                f"Charge {charge} cannot be allocated to the molecule. Charge {abs(charge) - charge_to_be_allocated} found."
+            )
     return omol
 

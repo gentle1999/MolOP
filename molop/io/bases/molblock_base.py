@@ -49,6 +49,7 @@ class MolBlock(ABC):
         self._formal_spins: List[int] = None
         self._omol: pybel.Molecule = None
         self._rdmol: Union[Chem.rdchem.RWMol, Chem.rdchem.Mol] = None
+        self._check_spin = True
 
     @property
     def atoms(self) -> List[str]:
@@ -116,7 +117,10 @@ class MolBlock(ABC):
         if self._omol is None:
             if self._bonds is None:
                 self._omol = xyz_block_to_omol(
-                    self.to_XYZ_block(), self._charge, (self._multiplicity - 1) // 2
+                    self.to_XYZ_block(),
+                    self._charge,
+                    (self._multiplicity - 1) // 2,
+                    self._check_spin,
                 )
             else:
                 omol = pybel.readstring("sdf", self.to_SDF_block())
@@ -291,6 +295,7 @@ class QMBaseBlockParser(BaseBlockParser):
 
     def __init__(self, block: str) -> None:
         super().__init__(block)
+        self._check_spin = False
 
         self._parameter_comment: str = None
         self._energy: float = None
