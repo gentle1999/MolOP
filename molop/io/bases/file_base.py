@@ -2,13 +2,17 @@
 Author: TMJ
 Date: 2024-01-07 13:50:55
 LastEditors: TMJ
-LastEditTime: 2024-01-07 14:06:43
+LastEditTime: 2024-01-11 09:56:24
 Description: 请填写简介
 """
 import os
-from typing import List, Literal
+from typing import List, Union
 
-from .molblock_base import BaseBlockParser, QMBaseBlockParser
+from molop.io.bases.molblock_base import BaseBlockParser, QMBaseBlockParser
+from molop.io.coords_file.GJFBlockParser import GJFBlockParser
+from molop.io.coords_file.SDFBlockParser import SDFBlockParser
+from molop.io.coords_file.XYZBlockParser import XYZBlockParser
+from molop.io.qm_file.G16LOGBlockParser import G16LOGBlockParser
 
 
 class BaseFileParser:
@@ -17,26 +21,50 @@ class BaseFileParser:
     """
 
     _file_path: str
-    __frames: List[BaseBlockParser]
+    __frames: List[
+        Union[
+            BaseBlockParser,
+            GJFBlockParser,
+            SDFBlockParser,
+            XYZBlockParser,
+            G16LOGBlockParser,
+        ],
+    ]
     __index: int
 
     def __init__(self, file_path: str) -> None:
         self._file_path = file_path
-        self.__frames: List[BaseBlockParser] = []
+        self.__frames = []
         self.__index: int = 0
 
     def __iter__(self):
         self.__index = 0
         return self
 
-    def __next__(self) -> BaseBlockParser:
+    def __next__(
+        self,
+    ) -> Union[
+        BaseBlockParser,
+        GJFBlockParser,
+        SDFBlockParser,
+        XYZBlockParser,
+        G16LOGBlockParser,
+    ]:
         if self.__index >= len(self):
             raise StopIteration
         else:
             self.__index += 1
             return self.__frames[self.__index - 1]
 
-    def __getitem__(self, frameID: int) -> BaseBlockParser:
+    def __getitem__(
+        self, frameID: int
+    ) -> Union[
+        BaseBlockParser,
+        GJFBlockParser,
+        SDFBlockParser,
+        XYZBlockParser,
+        G16LOGBlockParser,
+    ]:
         return self.__frames[frameID]
 
     def __len__(self) -> int:
@@ -56,10 +84,31 @@ class BaseFileParser:
         return self._file_path
 
     @property
-    def frames(self) -> List[BaseBlockParser]:
+    def frames(
+        self,
+    ) -> List[
+        Union[
+            BaseBlockParser,
+            GJFBlockParser,
+            SDFBlockParser,
+            XYZBlockParser,
+            G16LOGBlockParser,
+        ]
+    ]:
         return self.__frames
 
-    def append(self, frame: BaseBlockParser) -> None:
+    def append(
+        self,
+        frame: Union[
+            BaseBlockParser,
+            GJFBlockParser,
+            SDFBlockParser,
+            XYZBlockParser,
+            G16LOGBlockParser,
+        ],
+    ) -> None:
+        if not issubclass(type(frame), BaseBlockParser):
+            raise TypeError(f"{type(frame)} is not a subclass of {BaseBlockParser}")
         frame._file_path = self._file_path
         frame._frameID = len(self.__frames)
         if frame._frameID > 0:

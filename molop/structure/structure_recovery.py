@@ -118,6 +118,25 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin
             atom.OBAtom.SetFormalCharge(1)
             charge -= 1
 
+    
+    for atom in omol.atoms:
+        if (
+            atom.atomicnum == 6
+            and atom.OBAtom.GetExplicitValence() == 5
+            and atom.OBAtom.GetFormalCharge() == 0
+        ):
+            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                if (
+                    neighbour_atom.GetAtomicNum() in HETEROATOM
+                    and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
+                ):
+                    atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
+                    )
+                    neighbour_atom.SetFormalCharge(-1)
+                    charge += 1
+                    break
+
     charge_to_be_allocated = abs(charge)
 
     if charge > 0:
@@ -152,7 +171,7 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin
         for atom in omol.atoms:
             if charge_to_be_allocated <= 0:
                 break
-            if atom.atomicnum in HETEROATOM:
+            if atom.atomicnum in HETEROATOM and atom.OBAtom.GetFormalCharge() == 0:
                 spin_atoms = [
                     satom for satom in omol.atoms if get_spin(satom.OBAtom) == 1
                 ]
@@ -177,7 +196,11 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin
         for atom in omol.atoms:
             if charge_to_be_allocated <= 0:
                 break
-            if atom.atomicnum in (1, 6) and get_spin(atom.OBAtom) == 1:
+            if (
+                atom.atomicnum in (1, 6)
+                and get_spin(atom.OBAtom) == 1
+                and atom.OBAtom.GetFormalCharge() == 0
+            ):
                 atom.OBAtom.SetFormalCharge(1)
                 charge_to_be_allocated -= 1
 
@@ -198,9 +221,14 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin
         for atom in omol.atoms:
             if charge_to_be_allocated <= 0:
                 break
-            if atom.atomicnum in (1, 6) and get_spin(atom.OBAtom) == 1:
+            if (
+                atom.atomicnum in (1, 6)
+                and get_spin(atom.OBAtom) == 1
+                and atom.OBAtom.GetFormalCharge() == 0
+            ):
                 atom.OBAtom.SetFormalCharge(-1)
                 charge_to_be_allocated -= 1
+
 
     for atom in omol.atoms:
         if atom.OBAtom.IsMetal():

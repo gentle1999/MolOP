@@ -1,11 +1,12 @@
-'''
+"""
 Author: TMJ
 Date: 2023-10-30 15:40:03
 LastEditors: TMJ
 LastEditTime: 2024-01-10 20:39:40
 Description: 请填写简介
-'''
+"""
 import os
+from typing import Union
 
 from molop.io.bases.file_base import BaseFileParser
 from molop.io.coords_file.xyz_parser import XYZParser
@@ -22,7 +23,9 @@ parsers = {
 }
 
 
-def AutoParser(file_path, charge=0, multiplicity=1) -> BaseFileParser:
+def AutoParser(
+    file_path, charge=0, multiplicity=1
+) -> Union[BaseFileParser, XYZParser, SDFParser, GJFParser, G16LOGParser]:
     _, file_format = os.path.splitext(file_path)
     try:
         parser = parsers[file_format]
