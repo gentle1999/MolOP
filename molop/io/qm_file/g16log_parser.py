@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-09 20:19:06
 LastEditors: TMJ
-LastEditTime: 2024-01-11 12:00:19
+LastEditTime: 2024-01-11 12:08:30
 Description: 请填写简介
 '''
 import os
@@ -34,7 +34,7 @@ class G16LOGParser(BaseQMFileParser):
             int,
             re.findall(r"Charge\s*=\s*([\-\+\d]+)\s+Multiplicity\s*=\s*(\d+)", full_text)[0],
         )
-        print(charge, multi)
+        # print(charge, multi)
         if self.__force_charge is not None:
             charge = self.__force_charge
         if self.__force_multiplicity is not None:
