@@ -292,10 +292,12 @@ class QMBaseBlockParser(BaseBlockParser):
     ]
 
     _state: Dict[str, bool]
+    _only_extract_structure: bool
 
-    def __init__(self, block: str) -> None:
+    def __init__(self, block: str, only_extract_structure=False) -> None:
         super().__init__(block)
         self._check_spin = False
+        self._only_extract_structure = only_extract_structure
 
         self._parameter_comment: str = None
         self._energy: float = None

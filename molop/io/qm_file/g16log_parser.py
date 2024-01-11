@@ -1,10 +1,10 @@
-'''
+"""
 Author: TMJ
 Date: 2024-01-09 20:19:06
 LastEditors: TMJ
-LastEditTime: 2024-01-11 12:08:30
+LastEditTime: 2024-01-11 14:07:32
 Description: 请填写简介
-'''
+"""
 import os
 import re
 
@@ -13,8 +13,15 @@ from molop.io.qm_file.G16LOGBlockParser import G16LOGBlockParser
 
 
 class G16LOGParser(BaseQMFileParser):
-    def __init__(self, file_path: str, charge=None, multiplicity=None, show_progress=False):
-        super().__init__(file_path, show_progress)
+    def __init__(
+        self,
+        file_path: str,
+        charge=None,
+        multiplicity=None,
+        show_progress=False,
+        only_extract_structure=False,
+    ):
+        super().__init__(file_path, show_progress, only_extract_structure)
         self.__force_charge = charge
         self.__force_multiplicity = multiplicity
         _, file_format = os.path.splitext(file_path)
@@ -32,9 +39,10 @@ class G16LOGParser(BaseQMFileParser):
         full_text = "".join(lines)
         charge, multi = map(
             int,
-            re.findall(r"Charge\s*=\s*([\-\+\d]+)\s+Multiplicity\s*=\s*(\d+)", full_text)[0],
+            re.findall(
+                r"Charge\s*=\s*([\-\+\d]+)\s+Multiplicity\s*=\s*(\d+)", full_text
+            )[0],
         )
-        # print(charge, multi)
         if self.__force_charge is not None:
             charge = self.__force_charge
         if self.__force_multiplicity is not None:
@@ -60,5 +68,6 @@ class G16LOGParser(BaseQMFileParser):
                     multiplicity=multi,
                     n_atom=n_atom,
                     parameter_comment=self._parameter_comment,
+                    only_extract_structure=self._only_extract_structure,
                 ),
             )
