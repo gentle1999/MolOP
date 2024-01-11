@@ -109,16 +109,43 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin
     # Nevertheless, I pact that atoms with spin 1 carry a formal charge -1.
     omol = fix_dipole_type_b(omol)
 
+    CN_in_doubt = 0
+    doubt_pair = []
+    for atom in omol.atoms:
+        if (
+            atom.atomicnum == 6
+            and atom.OBAtom.GetFormalCharge() == 0
+            and atom.OBAtom.GetExplicitValence() == 4
+        ):
+            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                if (
+                    atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
+                    and neighbour_atom.GetAtomicNum() == 7
+                    and neighbour_atom.GetExplicitValence() == 4
+                ):
+                    CN_in_doubt += 1
+                    doubt_pair.append((atom.OBAtom, neighbour_atom))
+    if CN_in_doubt % 2 == 0 and CN_in_doubt > 0:
+        for atom_1, atom_2 in doubt_pair[: CN_in_doubt // 2]:
+            atom_1.SetFormalCharge(-1)
+            atom_1.GetBond(atom_2).SetBondOrder(
+                atom_1.GetBond(atom_2).GetBondOrder() - 1
+            )
+            charge += 1
+
     for atom in omol.atoms:
         if (
             atom.atomicnum == 7
             and atom.OBAtom.GetExplicitValence() == 4
             and atom.OBAtom.GetFormalCharge() == 0
+            and all(
+                atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 1
+                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
+            )
         ):
             atom.OBAtom.SetFormalCharge(1)
             charge -= 1
 
-    
     for atom in omol.atoms:
         if (
             atom.atomicnum == 6
@@ -175,19 +202,19 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin
                 spin_atoms = [
                     satom for satom in omol.atoms if get_spin(satom.OBAtom) == 1
                 ]
-
-                distances = {
-                    spin_atom: atom.OBAtom.GetDistance(spin_atom.OBAtom)
-                    for spin_atom in spin_atoms
-                }
-                closet_spin_atom: pybel.Atom = min(distances, key=distances.get)
-                if distances[closet_spin_atom] <= 1.05 * (
-                    pt.GetRcovalent(atom.atomicnum)
-                    + pt.GetRcovalent(closet_spin_atom.atomicnum)
-                ):
-                    omol.OBMol.AddBond(atom.idx, closet_spin_atom.idx, 1)
-                    atom.OBAtom.SetFormalCharge(1)
-                    charge_to_be_allocated -= 1
+                if len(spin_atoms):
+                    distances = {
+                        spin_atom: atom.OBAtom.GetDistance(spin_atom.OBAtom)
+                        for spin_atom in spin_atoms
+                    }
+                    closet_spin_atom: pybel.Atom = min(distances, key=distances.get)
+                    if distances[closet_spin_atom] <= 1.05 * (
+                        pt.GetRcovalent(atom.atomicnum)
+                        + pt.GetRcovalent(closet_spin_atom.atomicnum)
+                    ):
+                        omol.OBMol.AddBond(atom.idx, closet_spin_atom.idx, 1)
+                        atom.OBAtom.SetFormalCharge(1)
+                        charge_to_be_allocated -= 1
 
         # Step 2.2.4: If no heteroatom (with the neighboring free radical) found, allocate the positive charge to the carbon or hydrogen atom with free radical.
         # Explaination:
@@ -228,7 +255,6 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin
             ):
                 atom.OBAtom.SetFormalCharge(-1)
                 charge_to_be_allocated -= 1
-
 
     for atom in omol.atoms:
         if atom.OBAtom.IsMetal():

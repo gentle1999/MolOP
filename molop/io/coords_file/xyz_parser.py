@@ -18,10 +18,10 @@ class XYZParser(BaseFileParser):
     Make sure molecules in the file have same charge and multiplicity.
     """
 
-    def __init__(self, file_path: str, charge=0, multiplicity=1):
+    def __init__(self, file_path: str, charge=None, multiplicity=None):
         super().__init__(file_path)
-        self._charge = charge
-        self._multiplicity = multiplicity
+        self._charge = charge if charge else 0
+        self._multiplicity = multiplicity if multiplicity else 1
         _, file_format = os.path.splitext(file_path)
         if file_format != ".xyz":
             raise ValueError("File format must be .xyz")

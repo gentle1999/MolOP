@@ -10,10 +10,11 @@ class GJFBlockParser(BaseBlockParser):
     Parser for XYZ Blocks.
     """
 
-    def __init__(self, block: str):
+    def __init__(self, block: str, charge=0, multiplicity=1, parameter_comment=None):
         super().__init__(block)
-        self._charge = int(block.split("\n")[0].split()[0])
-        self._multiplicity = int(block.split("\n")[0].split()[1])
+        self._charge = charge
+        self._multiplicity = multiplicity
+        self._parameter_comment = parameter_comment
         self._parse()
 
     def _parse(self):
@@ -32,3 +33,7 @@ class GJFBlockParser(BaseBlockParser):
                         float(z) * atom_ureg.angstrom,
                     )
                 )
+
+    @property
+    def parameter_comment(self) -> str:
+        return self._parameter_comment
