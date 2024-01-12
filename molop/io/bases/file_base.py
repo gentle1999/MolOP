@@ -115,6 +115,22 @@ class BaseFileParser:
             self.__frames[frame._frameID - 1]._next_block = frame
         self.__frames.append(frame)
 
+    def to_XYZ_block(self) -> str:
+        return "\n".join([frame.to_XYZ_block() for frame in self.__frames])
+
+    def to_SDF_block(self) -> str:
+        return "$$$$\n".join([frame.to_SDF_block() for frame in self.__frames])
+
+    def to_XYZ_file(self, file_path: str):
+        with open(file_path, "w") as f:
+            f.write(self.to_XYZ_block())
+        f.close()
+
+    def to_SDF_file(self, file_path: str):
+        with open(file_path, "w") as f:
+            f.write(self.to_SDF_block())
+        f.close()
+
 
 class BaseQMFileParser(BaseFileParser):
     """

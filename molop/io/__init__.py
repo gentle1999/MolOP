@@ -12,8 +12,10 @@ from molop.io.bases.file_base import BaseFileParser
 from molop.io.coords_file.gjf_parser import GJFParser
 from molop.io.coords_file.sdf_parser import SDFParser
 from molop.io.coords_file.xyz_parser import XYZParser
+from molop.io.qm_file.g16irc_parser import G16IRCParser
 from molop.io.qm_file.g16log_parser import G16LOGParser
 from molop.io.qm_file.xtbout_parser import XTBOUTParser
+
 from molop.logger.logger import logger
 
 parsers = {
@@ -21,7 +23,8 @@ parsers = {
     ".log": (G16LOGParser,),
     ".xyz": (XYZParser,),
     ".sdf": (SDFParser,),
-    ".out": (XTBOUTParser,),
+    ".out": (XTBOUTParser, G16IRCParser),
+    ".irc": (G16IRCParser,),
 }
 
 
@@ -46,9 +49,7 @@ def AutoParser(
                 return parser(file_path)
         except:
             if idx == len(parsers[file_format]) - 1:
-                logger.error(
-                    f"Failed to parse file {file_path} with {parser.__name__}"
-                )
+                logger.error(f"Failed to parse file {file_path} with {parser.__name__}")
                 raise Exception(f"Failed to parse file {file_path}")
             logger.warning(
                 f"Failed to parse file {file_path} with {parser.__name__}, try {parsers[file_format][idx+1].__name__} instead"

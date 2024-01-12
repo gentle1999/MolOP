@@ -250,6 +250,7 @@ class QMBaseBlockParser(BaseBlockParser):
     _parameter_comment: str
     _energy: float
     _partial_charges: List[float]
+    _spin_densities: List[float]
     _gradient: List[Tuple[float]]
     _hessian: List[List[float]]
     _frequencies: List[
@@ -279,6 +280,10 @@ class QMBaseBlockParser(BaseBlockParser):
             "thermal energy",
             "thermal enthalpy",
             "thermal gibbs free energy",
+            "zero-point correction",
+            "thermal energy correction",
+            "thermal enthalpy correction",
+            "thermal gibbs free energy correction",
         ],
         float,
     ]
@@ -295,6 +300,7 @@ class QMBaseBlockParser(BaseBlockParser):
         self._parameter_comment: str = None
         self._energy: float = None
         self._partial_charges: List[float] = []
+        self._spin_densities: List[float] = []
         self._gradient: List[Tuple[float]] = []
         self._hessian: List[List[float]] = []
         self._alpha_FMO_orbits: List[float] = []
@@ -320,6 +326,10 @@ class QMBaseBlockParser(BaseBlockParser):
     @property
     def partial_charges(self) -> List[float]:
         return self._partial_charges
+
+    @property
+    def spin_densities(self) -> List[float]:
+        return self._spin_densities
 
     @property
     def gradient(self) -> List[float]:

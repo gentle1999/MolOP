@@ -44,7 +44,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
 
     def _parse(self):
         self._parse_energy()
-        self._parse_partial_charges()
+        self._parse_partial_charges_and_spins()
         self._parse_gradient()
         self._parse_orbitals("Alpha")
         self._parse_orbitals("Beta")
@@ -96,16 +96,20 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 return
         self._state["SCF Done"] = False
 
-    def _parse_partial_charges(self):
+    def _parse_partial_charges_and_spins(self):
         lines = self._block.splitlines()
         charges_section = False
         charges = []
+        spins = []
         for line in reversed(lines):
             if len(charges) == self.__n_atom:
                 self._partial_charges = list(reversed(charges))
+                self._spin_densities = list(reversed(spins))
                 break
             if charges_section:
                 charges.append(float(line.split()[2]))
+                if len(line.split()) == 4:
+                    spins.append(float(line.split()[3]))
             if "sum of mulliken charges" in line.lower():
                 charges_section = True
 

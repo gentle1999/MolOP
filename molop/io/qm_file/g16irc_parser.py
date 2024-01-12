@@ -13,7 +13,29 @@ from molop.io.qm_file.G16LOGBlockParser import G16LOGBlockParser
 from molop.logger.logger import logger
 
 
-class G16LOGParser(BaseQMFileParser):
+class G16IRCBlockParser(G16LOGBlockParser):
+    def __init__(
+        self,
+        block: str,
+        charge=0,
+        multiplicity=1,
+        n_atom=1,
+        version=None,
+        parameter_comment=None,
+        only_extract_structure=False,
+    ):
+        super().__init__(
+            block,
+            charge,
+            multiplicity,
+            n_atom,
+            version,
+            parameter_comment,
+            only_extract_structure,
+        )
+
+
+class G16IRCParser(BaseQMFileParser):
     def __init__(
         self,
         file_path: str,
@@ -26,8 +48,8 @@ class G16LOGParser(BaseQMFileParser):
         self.__force_charge = charge
         self.__force_multiplicity = multiplicity
         _, file_format = os.path.splitext(file_path)
-        if file_format != ".log":
-            raise ValueError("File format must be .log")
+        if file_format not in (".out", ".irc"):
+            raise ValueError("File format must be .log or .irc")
         self._parse()
 
     def _parse(self):
@@ -69,7 +91,7 @@ class G16LOGParser(BaseQMFileParser):
         ] + [len(lines)]
         for idx, start in enumerate(block_starts[:-1]):
             self.append(
-                G16LOGBlockParser(
+                G16IRCBlockParser(
                     "".join(lines[start : block_starts[idx + 1]]),
                     charge=charge,
                     multiplicity=multi,

@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-01-12 20:10:47
+ * @LastEditTime: 2024-01-12 21:00:57
  * @Description: 请填写简介
 -->
 # MolOP
@@ -18,7 +18,7 @@ This repository, **Molecule OPerator**, which is the basic molecule information 
     - SDF `Done`
   - QM output file
     - G16 LOG `Done`
-    - G16 IRC `TODO`
+    - G16 IRC `Done`
     - xTB OUT `DONE`
     - ORCA `TODO`
 - Offer the moleculer geometry and structure edit functions. `TODO`
