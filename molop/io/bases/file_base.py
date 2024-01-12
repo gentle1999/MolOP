@@ -124,6 +124,7 @@ class BaseQMFileParser(BaseFileParser):
     _parameter_comment: str
     _show_progress: bool
     _only_extract_structure: bool
+    _version: str
 
     def __init__(
         self, file_path: str, show_progress=False, only_extract_structure=False
@@ -132,7 +133,12 @@ class BaseQMFileParser(BaseFileParser):
         self._parameter_comment: str = None
         self._show_progress: bool = show_progress
         self._only_extract_structure: bool = only_extract_structure
+        self._version = None
 
     @property
     def parameter_comment(self) -> str:
         return self._parameter_comment
+
+    @property
+    def version(self) -> str:
+        return self._version

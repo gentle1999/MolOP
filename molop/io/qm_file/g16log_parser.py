@@ -10,6 +10,7 @@ import re
 
 from molop.io.bases.file_base import BaseQMFileParser
 from molop.io.qm_file.G16LOGBlockParser import G16LOGBlockParser
+from molop.logger.logger import logger
 
 
 class G16LOGParser(BaseQMFileParser):
@@ -48,14 +49,20 @@ class G16LOGParser(BaseQMFileParser):
         if self.__force_multiplicity is not None:
             multi = self.__force_multiplicity
         pattern = r"""\s+\*+
-\s+Gaussian\s+\d+\:\s+[A-Za-z0-9-.]+\s+\d+-[A-Za-z]{3}-\d{4}
+\s+(Gaussian\s+\d+\:\s+[A-Za-z0-9-.]+\s+\d+-[A-Za-z]{3}-\d{4})
 \s+\d+-[A-Za-z]{3}-\d{4}\s+
 \s+\*+
 ([a-zA-Z%0-9.=\s\_\\\/\*\+\-]+)
 \s+-+
 ([a-zA-Z%0-9.\=\s\-\+#(),\*\/\\^\n]+)
 \s+-+"""
-        self._parameter_comment = "\n".join(re.findall(pattern, full_text)[0])
+        try:
+            version, para_1, para_2 = re.findall(pattern, full_text)[0]
+        except:
+            logger.error(f"No version found in {self._file_path}")
+            raise ValueError(f"No version found in {self._file_path}")
+        self._version = version
+        self._parameter_comment = "\n".join((para_1, para_2))
         n_atom = int(re.findall(r"NAtoms=\s*(\d+)", full_text)[0])
         block_starts = [
             idx for idx, line in enumerate(lines) if "Input orientation:" in line
@@ -67,6 +74,7 @@ class G16LOGParser(BaseQMFileParser):
                     charge=charge,
                     multiplicity=multi,
                     n_atom=n_atom,
+                    version=version,
                     parameter_comment=self._parameter_comment,
                     only_extract_structure=self._only_extract_structure,
                 ),

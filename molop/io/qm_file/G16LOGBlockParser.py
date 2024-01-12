@@ -1,10 +1,10 @@
-from molop.io.bases.molblock_base import QMBaseBlockParser
-from molop.logger import logger
-from molop.unit import atom_ureg
-
-
+import os
 import re
 from typing import Literal
+
+from molop.io.bases.molblock_base import QMBaseBlockParser
+from molop.logger.logger import logger
+from molop.unit import atom_ureg
 
 
 class G16LOGBlockParser(QMBaseBlockParser):
@@ -18,6 +18,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
         charge=0,
         multiplicity=1,
         n_atom=1,
+        version=None,
         parameter_comment=None,
         only_extract_structure=False,
     ):
@@ -25,7 +26,18 @@ class G16LOGBlockParser(QMBaseBlockParser):
         self._charge = charge
         self._multiplicity = multiplicity
         self.__n_atom = n_atom
+        self._version = version
         self._parameter_comment = parameter_comment
+        self._sum_energy = {
+            "zero-point": None,
+            "thermal energy": None,
+            "thermal enthalpy": None,
+            "thermal gibbs free energy": None,
+            "zero-point correction": None,
+            "thermal energy correction": None,
+            "thermal enthalpy correction": None,
+            "thermal gibbs free energy correction": None,
+        }
         self._parse_coords()
         if not self._only_extract_structure:
             self._parse()
@@ -82,6 +94,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
                     float(line.split()[1]) * atom_ureg.hartree / atom_ureg.particle
                 )
                 return
+        self._state["SCF Done"] = False
 
     def _parse_partial_charges(self):
         lines = self._block.splitlines()
@@ -115,7 +128,9 @@ class G16LOGBlockParser(QMBaseBlockParser):
                         )
                     )
                 except ValueError:
-                    logger.warning("Failed to set gradient line")
+                    logger.warning(
+                        f"Failed to set gradient line {i} in {self._file_path}"
+                    )
         self._gradient = raw_gradient
 
     def _parse_orbitals(self, orbital: Literal["Alpha", "Beta"]):
@@ -210,41 +225,37 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 break
 
     def _parse_sum_energy(self):
-        lines = self._block.splitlines()
-        for line in reversed(lines):
-            if "Sum of electronic and thermal Free Energies=" in line:
-                self._sum_energy["thermal gibbs free energy"] = (
-                    float(line.split()[-1]) * atom_ureg.hartree / atom_ureg.particle
-                )
-            elif "Sum of electronic and thermal Enthalpies=" in line:
-                self._sum_energy["thermal enthalpy"] = (
-                    float(line.split()[-1]) * atom_ureg.hartree / atom_ureg.particle
-                )
-            elif "Sum of electronic and thermal Energies=" in line:
-                self._sum_energy["thermal energy"] = (
-                    float(line.split()[-1]) * atom_ureg.hartree / atom_ureg.particle
-                )
-            elif "Sum of electronic and zero-point Energies=" in line:
-                self._sum_energy["zero-point"] = (
-                    float(line.split()[-1]) * atom_ureg.hartree / atom_ureg.particle
-                )
-            elif "Thermal correction to Gibbs Free Energy=" in line:
-                self._correction["thermal gibbs free energy"] = (
-                    float(line.split()[-1]) * atom_ureg.hartree / atom_ureg.particle
-                )
-            elif "Thermal correction to Enthalpy=" in line:
-                self._correction["thermal enthalpy"] = (
-                    float(line.split()[-1]) * atom_ureg.hartree / atom_ureg.particle
-                )
-            elif "Thermal correction to Energy=" in line:
-                self._correction["thermal energy"] = (
-                    float(line.split()[-1]) * atom_ureg.hartree / atom_ureg.particle
-                )
-            elif "Zero-point correction=" in line:
-                self._correction["zero-point"] = (
-                    float(line.split()[-2]) * atom_ureg.hartree / atom_ureg.particle
-                )
-                break
+        def get_energy(pattern: str):
+            match = re.findall(
+                pattern,
+                self._block,
+            )
+            if match:
+                return float(match[0]) * atom_ureg.hartree / atom_ureg.particle
+        self._sum_energy["thermal gibbs free energy"] = get_energy(
+            r"Sum of electronic and thermal Free Energies=\s+([\-0-9.]+)"
+        )
+        self._sum_energy["thermal enthalpy"] = get_energy(
+            r"Sum of electronic and thermal Enthalpies=\s+([\-0-9.]+)"
+        )
+        self._sum_energy["thermal energy"] = get_energy(
+            r"Sum of electronic and thermal Energies=\s+([\-0-9.]+)"
+        )
+        self._sum_energy["zero-point"] = get_energy(
+            r"Sum of electronic and zero-point Energies=\s+([\-0-9.]+)"
+        )
+        self._sum_energy["thermal gibbs free energy correction"] = get_energy(
+            r"Thermal correction to Gibbs Free Energy=\s+([\-0-9.]+)"
+        )
+        self._sum_energy["thermal enthalpy correction"] = get_energy(
+            r"Thermal correction to Enthalpy=\s+([\-0-9.]+)"
+        )
+        self._sum_energy["thermal energy correction"] = get_energy(
+            r"Thermal correction to Energy=\s+([\-0-9.]+)"
+        )
+        self._sum_energy["zero-point correction"] = get_energy(
+            r"Zero-point correction=\s+([\-0-9.]+)"
+        )
 
     def _parse_hessian(self):
         lines = self._block.splitlines()
@@ -264,13 +275,14 @@ class G16LOGBlockParser(QMBaseBlockParser):
             n = self.__n_atom * 3
             if len(hess_val) != n * (n + 1) // 2:
                 logger.warning(
-                    f"The number of elements {len(hess_val)} in the Hessian matrix is not consistent with the number of atoms {self.__n_atom}."
+                    f"The number of elements {len(hess_val)} in the Hessian matrix is not consistent with the number of atoms {self.__n_atom} in {self._file_path}"
                 )
             else:
                 self._hessian = hess_val
 
     def _parse_state(self):
         lines = self._block.splitlines()
+        self._state["Normal termination"] = False
         for line in reversed(lines):
             if "Normal termination" in line:
                 self._state["Normal termination"] = True
@@ -282,3 +294,4 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 self._state["RMS Force"] = True if "YES" in line else False
             elif "Maximum Force" in line:
                 self._state["Maximum Force"] = True if "YES" in line else False
+                return

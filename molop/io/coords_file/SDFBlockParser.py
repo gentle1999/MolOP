@@ -1,10 +1,20 @@
-from molop.io.bases.molblock_base import BaseBlockParser
-from molop.structure.structure import get_bond_pairs, get_formal_charges, get_formal_spins
-from molop.unit import atom_ureg
-
-
+'''
+Author: TMJ
+Date: 2024-01-11 09:58:27
+LastEditors: TMJ
+LastEditTime: 2024-01-12 14:22:09
+Description: 请填写简介
+'''
 from openbabel import pybel
 from rdkit import Chem
+
+from molop.io.bases.molblock_base import BaseBlockParser
+from molop.structure.structure import (
+    get_bond_pairs,
+    get_formal_charges,
+    get_formal_spins,
+)
+from molop.unit import atom_ureg
 
 
 class SDFBlockParser(BaseBlockParser):

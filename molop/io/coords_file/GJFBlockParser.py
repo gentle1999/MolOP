@@ -1,8 +1,14 @@
+'''
+Author: TMJ
+Date: 2024-01-11 09:58:35
+LastEditors: TMJ
+LastEditTime: 2024-01-12 14:21:49
+Description: 请填写简介
+'''
+import re
+
 from molop.io.bases.molblock_base import BaseBlockParser
 from molop.unit import atom_ureg
-
-
-import re
 
 
 class GJFBlockParser(BaseBlockParser):

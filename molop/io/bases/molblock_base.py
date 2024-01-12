@@ -7,18 +7,18 @@ Description: 请填写简介
 """
 import os
 from abc import ABC, abstractmethod
-from typing import Any, List, Tuple, Union, Dict, Literal
+from typing import Any, Dict, List, Literal, Tuple, Union
 
 from openbabel import pybel
 from rdkit import Chem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
-from molop.structure.structure_recovery import xyz_block_to_omol
 from molop.structure.structure import (
     get_bond_pairs,
     get_formal_charges,
     get_formal_spins,
 )
+from molop.structure.structure_recovery import xyz_block_to_omol
 
 
 class MolBlock(ABC):
@@ -246,6 +246,7 @@ class QMBaseBlockParser(BaseBlockParser):
     Should contain all the QM information pre-defined.
     """
 
+    _version: str
     _parameter_comment: str
     _energy: float
     _partial_charges: List[float]
@@ -272,15 +273,6 @@ class QMBaseBlockParser(BaseBlockParser):
     _beta_FMO_orbits: List[float]
     _alpha_energy: Dict[Literal["gap", "homo", "lumo"], float]
     _beta_energy: Dict[Literal["gap", "homo", "lumo"], float]
-    _correction: Dict[
-        Literal[
-            "zero-point",
-            "thermal energy",
-            "thermal enthalpy",
-            "thermal gibbs free energy",
-        ],
-        float,
-    ]
     _sum_energy: Dict[
         Literal[
             "zero-point",
@@ -299,6 +291,7 @@ class QMBaseBlockParser(BaseBlockParser):
         self._check_spin = False
         self._only_extract_structure = only_extract_structure
 
+        self._version: str = None
         self._parameter_comment: str = None
         self._energy: float = None
         self._partial_charges: List[float] = []
@@ -316,18 +309,7 @@ class QMBaseBlockParser(BaseBlockParser):
             "homo": None,
             "lumo": None,
         }
-        self._correction = {
-            "zero-point": None,
-            "thermal energy": None,
-            "thermal enthalpy": None,
-            "thermal gibbs free energy": None,
-        }
-        self._sum_energy = {
-            "zero-point": None,
-            "thermal energy": None,
-            "thermal enthalpy": None,
-            "thermal gibbs free energy": None,
-        }
+        self._sum_energy = {}
         self._frequencies = []
         self._state = {}
 
@@ -372,10 +354,6 @@ class QMBaseBlockParser(BaseBlockParser):
         return self._beta_energy
 
     @property
-    def correction(self):
-        return self._correction
-
-    @property
     def sum_energy(self):
         return self._sum_energy
 
@@ -386,3 +364,7 @@ class QMBaseBlockParser(BaseBlockParser):
     @property
     def parameter_comment(self) -> str:
         return self._parameter_comment
+
+    @property
+    def version(self) -> str:
+        return self._version

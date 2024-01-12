@@ -1,15 +1,8 @@
-'''
+"""
 Author: TMJ
 Date: 2023-10-30 14:00:45
 LastEditors: TMJ
 LastEditTime: 2024-01-11 09:42:04
-Description: 请填写简介
-'''
-"""
-Author: TMJ
-Date: 2023-03-22 10:30:12
-LastEditors: TMJ
-LastEditTime: 2024-01-09 10:39:28
 Description: 请填写简介
 """
 from setuptools import setup
