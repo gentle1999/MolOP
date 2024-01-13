@@ -18,12 +18,11 @@ class SDFParser(BaseFileParser):
     """
     Parser for SDF files.
     """
+    _allowed_formats = (".sdf",)
 
     def __init__(self, file_path: str):
+        self._check_formats(file_path)
         super().__init__(file_path)
-        _, file_format = os.path.splitext(file_path)
-        if file_format != ".sdf":
-            raise ValueError("File format must be .sdf")
         self._parse()
 
     def _parse(self):

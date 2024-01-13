@@ -59,6 +59,10 @@ class MolBlock(ABC):
         return [Chem.Atom(atom).GetSymbol() for atom in self._atoms]
 
     @property
+    def elements(self) -> List[str]:
+        return list(set(self.atoms))
+
+    @property
     def coords(self) -> List[Tuple[float]]:
         """
         Get the coordinates.
@@ -194,6 +198,48 @@ class MolBlock(ABC):
     def to_InChI(self) -> str:
         return Chem.MolToInchi(self.rdmol)
 
+    def to_XYZ_file(self, file_path: str):
+        with open(file_path, "w") as f:
+            f.write(self.to_XYZ_block())
+        f.close()
+
+    def to_SDF_file(self, file_path: str):
+        with open(file_path, "w") as f:
+            f.write(self.to_SDF_block())
+        f.close()
+
+    def calc_rdkit_descs(self, desc_names: List[str] = None) -> Dict[str, float]:
+        from molop.descriptor.descriptor import calc_rdkit_descs
+
+        return calc_rdkit_descs(self.rdmol, desc_names=desc_names)
+
+    def calc_dscribe_descs(
+        self,
+        desc_names: List[
+            Literal[
+                "SOAP",
+                "ACSF",
+                "MBTR",
+                "LMBTR",
+            ]
+        ] = None,
+    ):
+        """
+        Require additional dependencies:
+            - [dscribe](https://singroup.github.io/dscribe/latest/)
+            - [ase](https://wiki.fysik.dtu.dk/ase/index.html)
+        """
+        from molop.descriptor.descriptor import calc_dscribe_descs
+
+        self.to_SDF_file(".temp.sdf")
+        ans = calc_dscribe_descs(
+            species=self.elements,
+            atoms_path=".temp.sdf",
+            desc_names=desc_names,
+        )
+        os.remove(".temp.sdf")
+        return ans
+
     @abstractmethod
     def __str__(self) -> str:
         raise NotImplementedError
@@ -287,6 +333,7 @@ class QMBaseBlockParser(BaseBlockParser):
         ],
         float,
     ]
+    _nbo_analysis: List[Dict[str, Dict[str, float]]]
 
     _state: Dict[str, bool]
     _only_extract_structure: bool
@@ -317,6 +364,7 @@ class QMBaseBlockParser(BaseBlockParser):
         }
         self._sum_energy = {}
         self._frequencies = []
+        self._nbo_analysis = []
         self._state = {}
 
     @property

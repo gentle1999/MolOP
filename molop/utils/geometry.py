@@ -267,7 +267,7 @@ def standard_orient_all_conformer(mol: RdMol, idx_list: Sequence[int]):
         standard_orient(mol, idx_list, conformer.GetId())
 
 
-def unigue_conformer(mol: RdMol, idx: int):
+def unique_conformer(mol: RdMol, idx: int):
     temp_mol = deepcopy(mol)
     conformer_idx = [conf.GetId() for conf in temp_mol.GetConformers()]
     for conformer_id in conformer_idx:

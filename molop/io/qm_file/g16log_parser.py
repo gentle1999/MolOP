@@ -14,6 +14,7 @@ from molop.logger.logger import logger
 
 
 class G16LOGParser(BaseQMFileParser):
+    _allowed_formats = (".log",)
     def __init__(
         self,
         file_path: str,
@@ -22,12 +23,10 @@ class G16LOGParser(BaseQMFileParser):
         show_progress=False,
         only_extract_structure=False,
     ):
+        self._check_formats(file_path)
         super().__init__(file_path, show_progress, only_extract_structure)
         self.__force_charge = charge
         self.__force_multiplicity = multiplicity
-        _, file_format = os.path.splitext(file_path)
-        if file_format != ".log":
-            raise ValueError("File format must be .log")
         self._parse()
 
     def _parse(self):

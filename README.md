@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-01-12 21:00:57
+ * @LastEditTime: 2024-01-13 22:24:08
  * @Description: 请填写简介
 -->
 # MolOP
@@ -19,7 +19,7 @@ This repository, **Molecule OPerator**, which is the basic molecule information 
   - QM output file
     - G16 LOG `Done`
     - G16 IRC `Done`
-    - xTB OUT `DONE`
+    - xTB OUT `Done`
     - ORCA `TODO`
 - Offer the moleculer geometry and structure edit functions. `TODO`
   - Substructure replacement `TODO`
@@ -37,6 +37,14 @@ conda install openbabel -c conda-forge # openbabel is a necessary dependence
 pip install git+http://10.72.201.45:13000/tmj/MolOP.git
 ```
 
+For additional descriptor calculation, you need to install the requirements below:
+
+```bash
+pip install --upgrade --user ase
+pip install dscribe
+pip install mordred
+```
+
 ## Installation for Developers
 
 ```bash
@@ -47,5 +55,7 @@ conda create -n
 conda activate molop
 # install the dependencies
 conda install openbabel -c conda-forge # openbabel is a necessary dependence
+pip install --upgrade --user ase
+pip install dscribe
 pip install .
 ```

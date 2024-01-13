@@ -15,6 +15,8 @@ from molop.logger.logger import logger
 
 
 class XTBOUTParser(BaseQMFileParser):
+    _allowed_formats = (".out",)
+
     def __init__(
         self,
         file_path: str,
@@ -23,12 +25,10 @@ class XTBOUTParser(BaseQMFileParser):
         show_progress=False,
         only_extract_structure=False,
     ):
+        self._check_formats(file_path)
         super().__init__(file_path, show_progress, only_extract_structure)
         self.__force_charge = charge
         self.__force_multiplicity = multiplicity
-        _, file_format = os.path.splitext(file_path)
-        if file_format != ".out":
-            raise ValueError("File format must be .out")
         self._parse()
 
     def _parse(self):
@@ -56,7 +56,9 @@ class XTBOUTParser(BaseQMFileParser):
         try:
             charge = int(re.findall(r"charge\s+\:\s+([\-\+0-9]+)", full_text)[0])
         except:
-            charge = int(float(re.findall(r"total charge\s+([\-\+0-9]+)", full_text)[0]))
+            charge = int(
+                float(re.findall(r"total charge\s+([\-\+0-9]+)", full_text)[0])
+            )
         if self.__force_charge is not None:
             charge = self.__force_charge
         multi = 1
@@ -76,7 +78,7 @@ class XTBOUTParser(BaseQMFileParser):
             raise ValueError(
                 f"No parameter comment found or illegal characters in {self._file_path}"
             )
-        
+
         self.append(
             XTBOUTBlockParser(
                 full_text,

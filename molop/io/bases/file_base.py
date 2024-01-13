@@ -6,13 +6,24 @@ LastEditTime: 2024-01-11 09:56:24
 Description: 请填写简介
 """
 import os
-from typing import List, Union
+from typing import List, Union, Tuple, TypeVar
 
 from molop.io.bases.molblock_base import BaseBlockParser, QMBaseBlockParser
 from molop.io.coords_file.GJFBlockParser import GJFBlockParser
 from molop.io.coords_file.SDFBlockParser import SDFBlockParser
 from molop.io.coords_file.XYZBlockParser import XYZBlockParser
+from molop.io.qm_file.G16IRCBlockParser import G16IRCBlockParser
 from molop.io.qm_file.G16LOGBlockParser import G16LOGBlockParser
+from molop.io.qm_file.XTBOUTBlockParser import XTBOUTBlockParser
+
+BlockType = Union[
+    GJFBlockParser,
+    SDFBlockParser,
+    XYZBlockParser,
+    G16LOGBlockParser,
+    G16IRCBlockParser,
+    XTBOUTBlockParser,
+]
 
 
 class BaseFileParser:
@@ -21,21 +32,26 @@ class BaseFileParser:
     """
 
     _file_path: str
-    __frames: List[
-        Union[
-            BaseBlockParser,
-            GJFBlockParser,
-            SDFBlockParser,
-            XYZBlockParser,
-            G16LOGBlockParser,
-        ],
-    ]
+    __frames: List[BlockType]
     __index: int
+    _allowed_formats: Tuple[str]
 
     def __init__(self, file_path: str) -> None:
         self._file_path = file_path
         self.__frames = []
         self.__index: int = 0
+
+    def _check_formats(self, file_path: str) -> None:
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"{file_path} not found.")
+        elif not os.path.isfile(file_path):
+            raise IsADirectoryError(f"{file_path} is not a file.")
+        else:
+            _, file_format = os.path.splitext(file_path)
+            if file_format not in self._allowed_formats:
+                raise ValueError(
+                    f"File format {file_format} not in {self._allowed_formats}"
+                )
 
     def __iter__(self):
         self.__index = 0
@@ -43,28 +59,14 @@ class BaseFileParser:
 
     def __next__(
         self,
-    ) -> Union[
-        BaseBlockParser,
-        GJFBlockParser,
-        SDFBlockParser,
-        XYZBlockParser,
-        G16LOGBlockParser,
-    ]:
+    ) -> BlockType:
         if self.__index >= len(self):
             raise StopIteration
         else:
             self.__index += 1
             return self.__frames[self.__index - 1]
 
-    def __getitem__(
-        self, frameID: int
-    ) -> Union[
-        BaseBlockParser,
-        GJFBlockParser,
-        SDFBlockParser,
-        XYZBlockParser,
-        G16LOGBlockParser,
-    ]:
+    def __getitem__(self, frameID: int) -> BlockType:
         return self.__frames[frameID]
 
     def __len__(self) -> int:
@@ -86,26 +88,12 @@ class BaseFileParser:
     @property
     def frames(
         self,
-    ) -> List[
-        Union[
-            BaseBlockParser,
-            GJFBlockParser,
-            SDFBlockParser,
-            XYZBlockParser,
-            G16LOGBlockParser,
-        ]
-    ]:
+    ) -> List[BlockType]:
         return self.__frames
 
     def append(
         self,
-        frame: Union[
-            BaseBlockParser,
-            GJFBlockParser,
-            SDFBlockParser,
-            XYZBlockParser,
-            G16LOGBlockParser,
-        ],
+        frame: BlockType,
     ) -> None:
         if not issubclass(type(frame), BaseBlockParser):
             raise TypeError(f"{type(frame)} is not a subclass of {BaseBlockParser}")
@@ -130,6 +118,13 @@ class BaseFileParser:
         with open(file_path, "w") as f:
             f.write(self.to_SDF_block())
         f.close()
+
+    @property
+    def info(self):
+        return (
+            f"frame num: {len(self)}; atom num: {len(self[-1])}\n"
+            + f"first SMILES: {self[0].to_SMILES()}"
+        )
 
 
 class BaseQMFileParser(BaseFileParser):

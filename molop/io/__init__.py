@@ -30,7 +30,15 @@ parsers = {
 
 def AutoParser(
     file_path, charge=None, multiplicity=None, only_extract_structure=False
-) -> Union[BaseFileParser, XYZParser, SDFParser, GJFParser, G16LOGParser, XTBOUTParser]:
+) -> Union[
+    BaseFileParser,
+    XYZParser,
+    SDFParser,
+    GJFParser,
+    G16LOGParser,
+    XTBOUTParser,
+    G16IRCParser,
+]:
     _, file_format = os.path.splitext(file_path)
     if file_format not in parsers:
         raise NotImplementedError("Unknown file format: {}".format(file_format))

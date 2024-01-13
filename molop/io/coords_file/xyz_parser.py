@@ -17,14 +17,13 @@ class XYZParser(BaseFileParser):
     Supports one or more molecules in one file.
     Make sure molecules in the file have same charge and multiplicity.
     """
+    _allowed_formats = (".xyz",)
 
     def __init__(self, file_path: str, charge=None, multiplicity=None):
+        self._check_formats(file_path)
         super().__init__(file_path)
         self._charge = charge if charge else 0
         self._multiplicity = multiplicity if multiplicity else 1
-        _, file_format = os.path.splitext(file_path)
-        if file_format != ".xyz":
-            raise ValueError("File format must be .xyz")
         self._parse()
 
     def _parse(self):

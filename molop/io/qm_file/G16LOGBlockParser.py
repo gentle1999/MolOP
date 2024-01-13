@@ -52,6 +52,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
         self._parse_sum_energy()
         self._parse_hessian()
         self._parse_state()
+        self._parse_nbo()
 
     def _parse_coords(self):
         lines = self._block.splitlines()
@@ -236,6 +237,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
             )
             if match:
                 return float(match[0]) * atom_ureg.hartree / atom_ureg.particle
+
         self._sum_energy["thermal gibbs free energy"] = get_energy(
             r"Sum of electronic and thermal Free Energies=\s+([\-0-9.]+)"
         )
@@ -299,3 +301,19 @@ class G16LOGBlockParser(QMBaseBlockParser):
             elif "Maximum Force" in line:
                 self._state["Maximum Force"] = True if "YES" in line else False
                 return
+
+    def _parse_nbo(self):
+        lines = self._block.splitlines()
+        for idx, line in enumerate(lines):
+            if "Summary of Natural Population Analysis" in line:
+                for i in range(idx + 6, idx + 6 + self.__n_atom):
+                    _, _, natural_charge, core, valence, rydberg, _ = lines[i].split()
+                    self._nbo_analysis.append(
+                        {
+                            "natural_charge": float(natural_charge),
+                            "core": float(core),
+                            "valence": float(valence),
+                            "rydberg": float(rydberg),
+                        }
+                    )
+                break

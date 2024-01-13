@@ -17,13 +17,13 @@ class GJFParser(BaseFileParser):
     Parser for GJF files.
     """
 
+    _allowed_formats = (".gjf",)
+
     def __init__(self, file_path: str, charge=0, multiplicity=1):
+        self._check_formats(file_path)
         super().__init__(file_path)
         self.__force_charge = charge
         self.__force_multiplicity = multiplicity
-        _, file_format = os.path.splitext(file_path)
-        if file_format != ".gjf":
-            raise ValueError("File format must be .gjf")
         self._parse()
 
     def _parse(self):

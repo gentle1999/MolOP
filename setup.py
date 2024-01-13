@@ -20,6 +20,7 @@ setup(
         "molop.unit",
         "molop.logger",
         "molop.structure",
+        "molop.descriptor",
         "molop.io",
         "molop.io.bases",
         "molop.io.qm_file",
