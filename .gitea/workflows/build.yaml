@@ -5,14 +5,14 @@ on:
     branches: [main]
 
 jobs:
-  container-building:
+  build-wheel:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
         uses: https://gitea.com/actions/checkout@v3
+      - run: echo "[distutils]\nindex-servers = gitea\n\n[gitea]\nrepository = https://gitea.example.com/api/packages/${{ secrets.OWNER }}/pypi\nusername = ${{ secrets.OWNER }\npassword = ${{ secrets.PASSWORD }}" > ~/.pypric
       - name: Deploy latest
         run: |
-          echo "[distutils]\nindex-servers = gitea\n\n[gitea]\nrepository = https://gitea.example.com/api/packages/${{ secrets.OWNER }}/pypi\nusername = ${{ secrets.OWNER }\npassword = ${{ secrets.PASSWORD }}" > ~/.pypric
           pip install twine
           python setup.py bdist_wheel
           python3 -m twine upload --repository gitea dist/*
