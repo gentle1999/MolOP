@@ -23,7 +23,6 @@ jobs:
           username = ${{ secrets.OWNER }}
           password = ${{ secrets.PASSWORD }}
           EOF
-      - run: cat ~/.pypirc
       - name: Deploy latest
         run: |
           pip install twine
