@@ -1,0 +1,19 @@
+name: MolOP wheel building
+run-name: ${{ gitea.actor }} is Running 🚀
+on:
+  push:
+    branches: [main]
+
+jobs:
+  container-building:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: https://gitea.com/actions/checkout@v3
+      - name: Deploy latest
+        run: |
+          echo "[distutils]\nindex-servers = gitea\n\n[gitea]\nrepository = https://gitea.example.com/api/packages/${{ secrets.OWNER }}/pypi\nusername = ${{ secrets.OWNER }\npassword = ${{ secrets.PASSWORD }}" > ~/.pypric
+          pip install twine
+          python setup.py bdist_wheel
+          python3 -m twine upload --repository gitea dist/*
+      - run: echo "🍏 This job's status is ${{ job.status }}."

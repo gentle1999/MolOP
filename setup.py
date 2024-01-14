@@ -1,3 +1,10 @@
+'''
+Author: TMJ
+Date: 2023-10-30 14:00:45
+LastEditors: TMJ
+LastEditTime: 2024-01-14 19:44:02
+Description: 请填写简介
+'''
 """
 Author: TMJ
 Date: 2023-10-30 14:00:45
@@ -10,7 +17,7 @@ from setuptools import setup
 setup(
     name="molop",
     version="0.1.0",
-    url="http://10.72.201.45:13000/TMJ/MolOP",
+    url="http://10.72.201.58:13000/TMJ/MolOP",
     author="TMJ",
     author_email="mj_t@zju.edu.cn",
     packages=[
@@ -36,6 +43,7 @@ setup(
         "tqdm",
         "pint",
     ],
+    python_requires=">=3.8",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",

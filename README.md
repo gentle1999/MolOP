@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-01-13 22:24:08
+ * @LastEditTime: 2024-01-14 19:40:52
  * @Description: 请填写简介
 -->
 # MolOP
@@ -34,7 +34,7 @@ See the [Tutorial Notebook](tutorial/get_start.ipynb) for more details.
 
 ```bash
 conda install openbabel -c conda-forge # openbabel is a necessary dependence
-pip install git+http://10.72.201.45:13000/tmj/MolOP.git
+pip install --index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ molop
 ```
 
 For additional descriptor calculation, you need to install the requirements below:
