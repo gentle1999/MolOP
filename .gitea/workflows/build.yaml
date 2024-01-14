@@ -14,7 +14,7 @@ jobs:
         run: pip config set global.index-url https://mirrors.zju.edu.cn/pypi/web/simple
       - name: register to gitea
         run: | 
-          cat > ~/.pypric << EOF
+          cat > ~/.pypirc << EOF
           [distutils]
           index-servers = gitea
 
@@ -23,10 +23,10 @@ jobs:
           username = ${{ secrets.OWNER }}
           password = ${{ secrets.PASSWORD }}
           EOF
-      - run: cat ~/.pypric
+      - run: cat ~/.pypirc
       - name: Deploy latest
         run: |
           pip install twine
           python setup.py bdist_wheel
-          python3 -m twine upload --repository gitea dist/*
+          python -m twine upload --repository gitea dist/*
       - run: echo "🍏 This job's status is ${{ job.status }}."
