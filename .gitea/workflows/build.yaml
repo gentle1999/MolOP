@@ -10,7 +10,14 @@ jobs:
     steps:
       - name: Check out repository code
         uses: https://gitea.com/actions/checkout@v3
-      - run: echo "[distutils]\nindex-servers = gitea\n\n[gitea]\nrepository = https://gitea.example.com/api/packages/${{ secrets.OWNER }}/pypi\nusername = ${{ secrets.OWNER }\npassword = ${{ secrets.PASSWORD }}" > ~/.pypric
+      - name: set mirror
+        run: pip config set global.index-url https://mirrors.zju.edu.cn/pypi/web/simple
+      - name: register to gitea
+        run: | 
+          export OWNER=${{ secrets.OWNER }}
+          export PASSWORD=${{ secrets.PASSWORD }}
+          echo "[distutils]\nindex-servers = gitea\n\n[gitea]\nrepository = https://gitea.example.com/api/packages/$OWNER/pypi\nusername = $OWNER\npassword = $PASSWORD" > ~/.pypric
+      - run: cat ~/.pypric
       - name: Deploy latest
         run: |
           pip install twine
