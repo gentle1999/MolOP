@@ -2,21 +2,14 @@
 Author: TMJ
 Date: 2023-10-30 14:00:45
 LastEditors: TMJ
-LastEditTime: 2024-01-14 22:22:34
-Description: 请填写简介
-"""
-"""
-Author: TMJ
-Date: 2023-10-30 14:00:45
-LastEditors: TMJ
-LastEditTime: 2024-01-11 09:42:04
+LastEditTime: 2024-01-15 20:23:29
 Description: 请填写简介
 """
 from setuptools import setup
 
 setup(
     name="molop",
-    version="0.1.2",
+    version="0.1.3",
     description="Molcule OPerator",
     url="http://10.72.201.58:13000/TMJ/MolOP",
     author="TMJ",
@@ -37,7 +30,7 @@ setup(
     ],
     install_requires=[
         # List of dependencies required by your project
-        "rdkit>=2023.9.1",
+        "rdkit>=2023.9.4",
         "scipy>=1.10.1",
         "numpy>=1.24.2",
         "pandas>=2.0.3",
@@ -45,7 +38,7 @@ setup(
         "tqdm>=4.66.1",
         "pint>=0.21.1",
     ],
-    extras_require={"full": ["mordred", "dscribe", "ase"]},
+    extras_require={"full": ["mordred>=1.2.0", "dscribe>=2.1.0", "ase>=3.22.1"]},
     python_requires=">=3.8",
     classifiers=[
         "Programming Language :: Python :: 3",

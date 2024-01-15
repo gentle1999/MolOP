@@ -11,6 +11,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
     """
     Parser for G16 log Blocks.
     """
+
     _block_type = "G16 LOG"
 
     def __init__(
@@ -141,14 +142,14 @@ class G16LOGBlockParser(QMBaseBlockParser):
 
     def _parse_orbitals(self, orbital: Literal["Alpha", "Beta"]):
         occ_patern = (
-            r"\s+Alpha\s+occ.\s+eigenvalues\s--\s+([-0-9.\s]+)"
+            r"\s+Alpha\s+occ.\s+eigenvalues\s--\s([-0-9.\s]+)"
             if orbital == "Alpha"
-            else r"\s+Beta\s+occ.\s+eigenvalues\s--\s+([-0-9.\s]+)"
+            else r"\s+Beta\s+occ.\s+eigenvalues\s--\s([-0-9.\s]+)"
         )
         virt_patern = (
-            r"\s+Alpha\s+virt.\s+eigenvalues\s--\s+([-0-9.\s]+)"
+            r"\s+Alpha\s+virt.\s+eigenvalues\s--\s([-0-9.\s]+)"
             if orbital == "Alpha"
-            else r"\s+Beta\s+virt.\s+eigenvalues\s--\s+([-0-9.\s]+)"
+            else r"\s+Beta\s+virt.\s+eigenvalues\s--\s([-0-9.\s]+)"
         )
         lines = self._block.splitlines()
         orbitals = []
@@ -160,7 +161,13 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 orbitals.extend(
                     (
                         e * atom_ureg.hartree / atom_ureg.particle
-                        for e in map(float, match_occ[0].split())
+                        for e in map(
+                            float,
+                            [
+                                match_occ[0][j : j + 10]
+                                for j in range(0, len(match_occ[0]), 10)
+                            ],
+                        )
                     )
                 )
                 homo_idx += len(match_occ[0].split())
@@ -168,7 +175,13 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 orbitals.extend(
                     (
                         e * atom_ureg.hartree / atom_ureg.particle
-                        for e in map(float, match_virt[0].split())
+                        for e in map(
+                            float,
+                            [
+                                match_virt[0][j : j + 10]
+                                for j in range(0, len(match_virt[0]), 10)
+                            ],
+                        )
                     )
                 )
         if len(orbitals) > 0:
