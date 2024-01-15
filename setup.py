@@ -16,7 +16,7 @@ from setuptools import setup
 
 setup(
     name="molop",
-    version="0.1.1",
+    version="0.1.2",
     description="Molcule OPerator",
     url="http://10.72.201.58:13000/TMJ/MolOP",
     author="TMJ",
@@ -38,12 +38,12 @@ setup(
     install_requires=[
         # List of dependencies required by your project
         "rdkit>=2023.9.1",
-        "scipy",
-        "numpy",
-        "pandas",
-        "networkx",
-        "tqdm",
-        "pint",
+        "scipy>=1.10.1",
+        "numpy>=1.24.2",
+        "pandas>=2.0.3",
+        "networkx>=2.8.8",
+        "tqdm>=4.66.1",
+        "pint>=0.21.1",
     ],
     extras_require={"full": ["mordred", "dscribe", "ase"]},
     python_requires=">=3.8",
