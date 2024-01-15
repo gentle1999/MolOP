@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-11 09:58:01
 LastEditors: TMJ
-LastEditTime: 2024-01-12 14:22:23
+LastEditTime: 2024-01-15 09:49:30
 Description: 请填写简介
 '''
 import re
@@ -15,6 +15,7 @@ class XYZBlockParser(BaseBlockParser):
     """
     Parser for XYZ Blocks.
     """
+    _block_type = "XYZ"
 
     def __init__(self, block: str, charge=0, multiplicity=1):
         super().__init__(block)

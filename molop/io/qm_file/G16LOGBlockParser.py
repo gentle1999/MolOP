@@ -11,6 +11,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
     """
     Parser for G16 log Blocks.
     """
+    _block_type = "G16 LOG"
 
     def __init__(
         self,
@@ -136,7 +137,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
                     logger.warning(
                         f"Failed to set gradient line {i} in {self._file_path}"
                     )
-        self._gradient = raw_gradient
+        self._gradients = raw_gradient
 
     def _parse_orbitals(self, orbital: Literal["Alpha", "Beta"]):
         occ_patern = (

@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-01-14 19:40:52
+ * @LastEditTime: 2024-01-15 10:38:28
  * @Description: 请填写简介
 -->
 # MolOP
@@ -40,9 +40,7 @@ pip install --index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ 
 For additional descriptor calculation, you need to install the requirements below:
 
 ```bash
-pip install --upgrade --user ase
-pip install dscribe
-pip install mordred
+pip install --index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ molop[full]
 ```
 
 ## Installation for Developers
@@ -55,7 +53,5 @@ conda create -n
 conda activate molop
 # install the dependencies
 conda install openbabel -c conda-forge # openbabel is a necessary dependence
-pip install --upgrade --user ase
-pip install dscribe
 pip install .
 ```

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-11 09:58:27
 LastEditors: TMJ
-LastEditTime: 2024-01-12 14:22:09
+LastEditTime: 2024-01-15 09:49:22
 Description: 请填写简介
 '''
 from openbabel import pybel
@@ -19,8 +19,9 @@ from molop.unit import atom_ureg
 
 class SDFBlockParser(BaseBlockParser):
     """
-    Parser for XYZ Blocks.
+    Parser for SDF Blocks.
     """
+    _block_type = "SDF"
 
     def __init__(self, block: str):
         super().__init__(block)

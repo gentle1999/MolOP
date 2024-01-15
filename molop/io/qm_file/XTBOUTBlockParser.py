@@ -13,6 +13,8 @@ class XTBOUTBlockParser(QMBaseBlockParser):
     Parser for xTB out Blocks.
     """
 
+    _block_type = "XTB OUT"
+
     def __init__(
         self,
         block: str,
@@ -71,10 +73,14 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         lines = self._block.splitlines()
         for line in reversed(lines):
             if "total E" in line:
-                self._energy = float(line.split()[-1]) * atom_ureg.hartree
+                self._energy = (
+                    float(line.split()[-1]) * atom_ureg.hartree / atom_ureg.particle
+                )
                 return
             if "TOTAL ENERGY" in line:
-                self._energy = float(line.split()[-3]) * atom_ureg.hartree
+                self._energy = (
+                    float(line.split()[-3]) * atom_ureg.hartree / atom_ureg.particle
+                )
                 return
         raise ValueError("Energy not found")
 
@@ -95,10 +101,12 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         self.alpha_energy["homo"] = (
             float(re.findall("([\+\-0-9.]+)\s+\(HOMO\)", self._block)[-1])
             * atom_ureg.eV
+            / atom_ureg.particle
         )
         self.alpha_energy["lumo"] = (
             float(re.findall("([\+\-0-9.]+)\s+\(LUMO\)", self._block)[-1])
             * atom_ureg.eV
+            / atom_ureg.particle
         )
         self.alpha_energy["gap"] = self.alpha_energy["lumo"] - self.alpha_energy["homo"]
 

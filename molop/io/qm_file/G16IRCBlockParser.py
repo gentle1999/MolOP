@@ -9,6 +9,7 @@ from molop.io.qm_file.G16LOGBlockParser import G16LOGBlockParser
 
 
 class G16IRCBlockParser(G16LOGBlockParser):
+    _block_type = "G16 IRC"
     def __init__(
         self,
         block: str,

@@ -37,7 +37,7 @@ class BaseFileParser:
     _allowed_formats: Tuple[str]
 
     def __init__(self, file_path: str) -> None:
-        self._file_path = file_path
+        self._file_path = os.path.abspath(file_path)
         self.__frames = []
         self.__index: int = 0
 
@@ -119,11 +119,12 @@ class BaseFileParser:
             f.write(self.to_SDF_block())
         f.close()
 
-    @property
-    def info(self):
-        return (
-            f"frame num: {len(self)}; atom num: {len(self[-1])}\n"
-            + f"first SMILES: {self[0].to_SMILES()}"
+    def summary(self):
+        print(
+            f"file path: {self._file_path}\n"
+            + f"frame num: {len(self)}\n"
+            + f"first SMILES: {self[0].to_SMILES()}\n"
+            + f"last SMILES: {self[-1].to_SMILES()}\n"
         )
 
 

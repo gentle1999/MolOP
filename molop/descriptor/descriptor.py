@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-13 21:26:08
 LastEditors: TMJ
-LastEditTime: 2024-01-13 21:58:52
+LastEditTime: 2024-01-15 10:30:45
 Description: 请填写简介
 '''
 from typing import List, Dict, Literal, Union
@@ -80,3 +80,8 @@ def calc_dscribe_descs(
             for desc_name, desc in descs.items()
             if desc_name in desc_names
         }
+    
+def calc_mordred_descs(mol):
+    from mordred import Calculator, descriptors
+    calc = Calculator(descriptors, ignore_3D=True)
+    return calc.pandas([mol]).to_dict()

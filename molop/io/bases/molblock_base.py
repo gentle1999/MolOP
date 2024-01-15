@@ -7,9 +7,12 @@ Description: 请填写简介
 """
 import os
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
+from copy import deepcopy
 from typing import Any, Dict, List, Literal, Tuple, Union
 
 from openbabel import pybel
+from pint.facets.plain import PlainQuantity
 from rdkit import Chem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
@@ -63,11 +66,18 @@ class MolBlock(ABC):
         return list(set(self.atoms))
 
     @property
-    def coords(self) -> List[Tuple[float]]:
+    def coords(self) -> List[Tuple[PlainQuantity]]:
         """
         Get the coordinates.
         """
         return self._coords
+
+    @property
+    def dimensionless_coords(self):
+        return (
+            str(self.coords[0][0].units),
+            [[coord.m for coord in atom] for atom in (self.coords)],
+        )
 
     @property
     def charge(self) -> int:
@@ -240,6 +250,11 @@ class MolBlock(ABC):
         os.remove(".temp.sdf")
         return ans
 
+    def calc_mordred_descs(self):
+        from molop.descriptor.descriptor import calc_mordred_descs
+
+        return calc_mordred_descs(self.rdmol)
+
     @abstractmethod
     def __str__(self) -> str:
         raise NotImplementedError
@@ -260,6 +275,7 @@ class BaseBlockParser(MolBlock):
     Only need basic information.
     """
 
+    _block_type: str
     _file_path: str
     _frameID: int
     _block: str
@@ -285,6 +301,29 @@ class BaseBlockParser(MolBlock):
     def next(self):
         return self._next_block
 
+    def to_dict(self):
+        return {
+            "type": self._block_type,
+            "file_path": self._file_path,
+            "SMILES": self.to_SMILES(),
+            "frameID": self._frameID,
+            "atoms": self.atoms,
+            "coords": self.dimensionless_coords,
+            "bonds": self.bonds,
+            "total charge": self.charge,
+            "total multiplicity": self.multiplicity,
+        }
+
+    def summary(self):
+        print(
+            f"type: {self._block_type}\n"
+            + f"file path: {self._file_path}\n"
+            + f"frameID: {self._frameID}\n"
+            + f"SMILES: {self.to_SMILES()}\n"
+            + f"atom number: {len(self)}\n"
+            + f"total charge: {self.charge}\n"
+        )
+
 
 class QMBaseBlockParser(BaseBlockParser):
     """
@@ -297,7 +336,7 @@ class QMBaseBlockParser(BaseBlockParser):
     _energy: float
     _partial_charges: List[float]
     _spin_densities: List[float]
-    _gradient: List[Tuple[float]]
+    _gradients: List[Tuple[PlainQuantity]]
     _hessian: List[List[float]]
     _frequencies: List[
         Dict[
@@ -311,15 +350,15 @@ class QMBaseBlockParser(BaseBlockParser):
             ],
             Union[
                 bool,
-                float,
-                List[Tuple[float]],
+                PlainQuantity,
+                List[Tuple[PlainQuantity]],
             ],
         ],
     ]
-    _alpha_FMO_orbits: List[float]
-    _beta_FMO_orbits: List[float]
-    _alpha_energy: Dict[Literal["gap", "homo", "lumo"], float]
-    _beta_energy: Dict[Literal["gap", "homo", "lumo"], float]
+    _alpha_FMO_orbits: List[PlainQuantity]
+    _beta_FMO_orbits: List[PlainQuantity]
+    _alpha_energy: Dict[Literal["gap", "homo", "lumo"], PlainQuantity]
+    _beta_energy: Dict[Literal["gap", "homo", "lumo"], PlainQuantity]
     _sum_energy: Dict[
         Literal[
             "zero-point",
@@ -331,9 +370,9 @@ class QMBaseBlockParser(BaseBlockParser):
             "thermal enthalpy correction",
             "thermal gibbs free energy correction",
         ],
-        float,
+        PlainQuantity,
     ]
-    _nbo_analysis: List[Dict[str, Dict[str, float]]]
+    _nbo_analysis: List[Dict[str, Dict[str, PlainQuantity]]]
 
     _state: Dict[str, bool]
     _only_extract_structure: bool
@@ -345,13 +384,13 @@ class QMBaseBlockParser(BaseBlockParser):
 
         self._version: str = None
         self._parameter_comment: str = None
-        self._energy: float = None
+        self._energy: PlainQuantity = None
         self._partial_charges: List[float] = []
         self._spin_densities: List[float] = []
-        self._gradient: List[Tuple[float]] = []
+        self._gradients: List[Tuple[PlainQuantity]] = []
         self._hessian: List[List[float]] = []
-        self._alpha_FMO_orbits: List[float] = []
-        self._beta_FMO_orbits: List[float] = []
+        self._alpha_FMO_orbits: List[PlainQuantity] = []
+        self._beta_FMO_orbits: List[PlainQuantity] = []
         self._alpha_energy = {
             "gap": None,
             "homo": None,
@@ -368,8 +407,15 @@ class QMBaseBlockParser(BaseBlockParser):
         self._state = {}
 
     @property
-    def energy(self) -> float:
+    def energy(self) -> PlainQuantity:
         return self._energy
+
+    @property
+    def dimensionless_energy(self):
+        return (
+            str(self.energy.units),
+            self.energy.m,
+        )
 
     @property
     def partial_charges(self) -> List[float]:
@@ -380,8 +426,15 @@ class QMBaseBlockParser(BaseBlockParser):
         return self._spin_densities
 
     @property
-    def gradient(self) -> List[float]:
-        return self._gradient
+    def gradients(self):
+        return self._gradients
+
+    @property
+    def dimensionless_gradients(self):
+        return (
+            str(self.gradients[0][0].units),
+            [[gradient.m for gradient in atom] for atom in self.gradients],
+        )
 
     @property
     def hessian(self) -> List[float]:
@@ -392,31 +445,96 @@ class QMBaseBlockParser(BaseBlockParser):
         return [freq for freq in self._frequencies if freq["is imaginary"]]
 
     @property
+    def dimensionless_imaginary_frequencies(self):
+        return [freq for freq in self.dimensionless_frequencies if freq["is imaginary"]]
+
+    @property
     def frequencies(self):
         return self._frequencies
+
+    @property
+    def dimensionless_frequencies(self):
+        return [
+            {
+                "is imaginary": freq["is imaginary"],
+                "freq": (str(freq["freq"].units), freq["freq"].m),
+                "Reduced masses": (
+                    str(freq["Reduced masses"].units),
+                    freq["Reduced masses"].m,
+                ),
+                "IR intensities": (
+                    str(freq["IR intensities"].units),
+                    freq["IR intensities"].m,
+                ),
+                "force constants": (
+                    str(freq["force constants"].units),
+                    freq["force constants"].m,
+                ),
+                "normal coordinates": (
+                    str(freq["normal coordinates"][0][0].units),
+                    [
+                        [coord.m for coord in atom]
+                        for atom in freq["normal coordinates"]
+                    ],
+                ),
+            }
+            for freq in self._frequencies
+        ]
 
     @property
     def alpha_FMO_orbits(self):
         return self._alpha_FMO_orbits
 
     @property
+    def dimensionless_alpha_FMO_orbits(self):
+        return (
+            str(self.alpha_FMO_orbits[0].units),
+            [orbit.m for orbit in self.alpha_FMO_orbits],
+        )
+
+    @property
     def alpha_energy(self):
         return self._alpha_energy
+
+    @property
+    def dimensionless_alpha_energy(self):
+        return {
+            key: (str(value.units), value.m) for key, value in self.alpha_energy.items()
+        }
 
     @property
     def beta_FMO_orbits(self):
         return self._beta_FMO_orbits
 
     @property
+    def dimensionless_beta_FMO_orbits(self):
+        return (
+            str(self.beta_FMO_orbits[0].units),
+            [orbit.m for orbit in self.beta_FMO_orbits],
+        )
+
+    @property
     def beta_energy(self):
         return self._beta_energy
+
+    @property
+    def dimensionless_beta_energy(self):
+        return {
+            key: (str(value.units), value.m) for key, value in self.beta_energy.items()
+        }
 
     @property
     def sum_energy(self):
         return self._sum_energy
 
     @property
-    def state(self) -> str:
+    def dimensionless_sum_energy(self):
+        return {
+            key: (str(value.units), value.m) for key, value in self.sum_energy.items()
+        }
+
+    @property
+    def state(self):
         return self._state
 
     @property
@@ -426,3 +544,56 @@ class QMBaseBlockParser(BaseBlockParser):
     @property
     def version(self) -> str:
         return self._version
+
+    @property
+    def nbo_analysis(self):
+        return self._nbo_analysis
+
+    def to_dict(self):
+        return {
+            **super().to_dict(),
+            **{
+                "version": self.version,
+                "parameter_comment": self.parameter_comment,
+                "state": self.state,
+                "energy": self.dimensionless_energy,
+                "sum_energy": self.dimensionless_sum_energy,
+                "gradients": self.dimensionless_gradients,
+                "frequencies": self.dimensionless_frequencies,
+                "imaginary_frequencies": self.dimensionless_imaginary_frequencies,
+                "partial_charges": self.partial_charges,
+                "spin_densities": self.spin_densities,
+                "alpha_FMO_orbits": self.dimensionless_alpha_FMO_orbits,
+                "alpha_energy": self.dimensionless_alpha_energy,
+                "beta_FMO_orbits": self.dimensionless_beta_FMO_orbits,
+                "beta_energy": self.dimensionless_beta_energy,
+                "nbo_analysis": self.nbo_analysis,
+                "hessian": self.hessian,
+            },
+        }
+    
+    def summary(self):
+        print(
+            f"type: {self._block_type}\n"
+            + f"file path: {self._file_path}\n"
+            + f"frameID: {self._frameID}\n"
+            + f"SMILES: {self.to_SMILES()}\n"
+            + f"atom number: {len(self)}\n"
+            + f"total charge: {self.charge}\n"
+            + f"version: {self.version}\n"
+            + f"parameter comment: \n{self.parameter_comment}\n"
+            + f"state: {self.state}\n"
+            + f"energy: {self.energy}\n"
+            + f"sum energy: {self.sum_energy}\n"
+            + f"gradients number: {len(self.gradients)}\n"
+            + f"frequencies number: {len(self.frequencies)}\n"
+            + f"imaginary frequencies number: {len(self.imaginary_frequencies)}\n"
+            + f"partial charges number: {len(self.partial_charges)}\n"
+            + f"spin densities number: {len(self.spin_densities)}\n"
+            + f"alpha FMO orbits number: {len(self.alpha_FMO_orbits)}\n"
+            + f"alpha energy: {self.alpha_energy}\n"
+            + f"beta FMO orbits number: {len(self.beta_FMO_orbits)}\n"
+            + f"beta energy: {self.beta_energy}\n"
+            + f"nbo analysis number: {len(self.nbo_analysis)}\n"
+            + f"hessian number: {len(self.hessian)}\n"
+        )
