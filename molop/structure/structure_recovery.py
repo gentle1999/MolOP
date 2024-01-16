@@ -69,7 +69,7 @@ def fix_dipole_type_a(mol: pybel.Molecule):
                 mol.OBMol.GetBond(atom_2.idx, center_idx + 1).SetBondOrder(3)
                 mol.atoms[center_idx].OBAtom.SetFormalCharge(1)
                 atom_1.OBAtom.SetFormalCharge(-1)
-                
+
     return mol
 
 
@@ -120,69 +120,70 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, check_spin
     # Known issues: Molecule like `C=[O+][N-]N[CH-]C(=O)C` can not distinguish between the part CON and NNC.
     # To maintain the robustness of the script, the script will only process the first ternary it recognizes as a dipole.
     # This type of case is rare in real-world. Hope not to see it. :(
-    omol = fix_dipole_type_a(omol)
+    if charge >= 0:
+        omol = fix_dipole_type_a(omol)
 
-    # Step 2.1.2(Type B): Dipole like [CH]#[N+]-[O-]. This type only allow N (maybe P) to be the center.
-    # OpenBabel will set the central atom N (maybe P) with spin 1, the neutral atom with spin 2, and the negative atom with spin 1.
-    # Thus, find the combination of the three atoms follow rule above.
-    # Negative charges are mutually resonant at any position of the atoms on either side.
-    # Nevertheless, I pact that atoms with spin 1 carry a formal charge -1.
-    omol = fix_dipole_type_b(omol)
+        # Step 2.1.2(Type B): Dipole like [CH]#[N+]-[O-]. This type only allow N (maybe P) to be the center.
+        # OpenBabel will set the central atom N (maybe P) with spin 1, the neutral atom with spin 2, and the negative atom with spin 1.
+        # Thus, find the combination of the three atoms follow rule above.
+        # Negative charges are mutually resonant at any position of the atoms on either side.
+        # Nevertheless, I pact that atoms with spin 1 carry a formal charge -1.
+        omol = fix_dipole_type_b(omol)
 
-    CN_in_doubt = 0
-    doubt_pair = []
-    for atom in omol.atoms:
-        if (
-            atom.atomicnum == 6
-            and atom.OBAtom.GetFormalCharge() == 0
-            and atom.OBAtom.GetExplicitValence() == 4
-        ):
-            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
-                if (
-                    atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
-                    and neighbour_atom.GetAtomicNum() == 7
-                    and neighbour_atom.GetExplicitValence() == 4
-                ):
-                    CN_in_doubt += 1
-                    doubt_pair.append((atom.OBAtom, neighbour_atom))
-    if CN_in_doubt % 2 == 0 and CN_in_doubt > 0:
-        for atom_1, atom_2 in doubt_pair[: CN_in_doubt // 2]:
-            atom_1.SetFormalCharge(-1)
-            atom_1.GetBond(atom_2).SetBondOrder(
-                atom_1.GetBond(atom_2).GetBondOrder() - 1
-            )
-            charge += 1
+        CN_in_doubt = 0
+        doubt_pair = []
+        for atom in omol.atoms:
+            if (
+                atom.atomicnum == 6
+                and atom.OBAtom.GetFormalCharge() == 0
+                and atom.OBAtom.GetExplicitValence() == 4
+            ):
+                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                    if (
+                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
+                        and neighbour_atom.GetAtomicNum() == 7
+                        and neighbour_atom.GetExplicitValence() == 4
+                    ):
+                        CN_in_doubt += 1
+                        doubt_pair.append((atom.OBAtom, neighbour_atom))
+        if CN_in_doubt % 2 == 0 and CN_in_doubt > 0:
+            for atom_1, atom_2 in doubt_pair[: CN_in_doubt // 2]:
+                atom_1.SetFormalCharge(-1)
+                atom_1.GetBond(atom_2).SetBondOrder(
+                    atom_1.GetBond(atom_2).GetBondOrder() - 1
+                )
+                charge += 1
 
-    for atom in omol.atoms:
-        if (
-            atom.atomicnum == 7
-            and atom.OBAtom.GetExplicitValence() == 4
-            and atom.OBAtom.GetFormalCharge() == 0
-            and all(
-                atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 1
-                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
-            )
-        ):
-            atom.OBAtom.SetFormalCharge(1)
-            charge -= 1
+        for atom in omol.atoms:
+            if (
+                atom.atomicnum == 7
+                and atom.OBAtom.GetExplicitValence() == 4
+                and atom.OBAtom.GetFormalCharge() == 0
+                and all(
+                    atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 1
+                    for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
+                )
+            ):
+                atom.OBAtom.SetFormalCharge(1)
+                charge -= 1
 
-    for atom in omol.atoms:
-        if (
-            atom.atomicnum == 6
-            and atom.OBAtom.GetExplicitValence() == 5
-            and atom.OBAtom.GetFormalCharge() == 0
-        ):
-            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
-                if (
-                    neighbour_atom.GetAtomicNum() in HETEROATOM
-                    and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
-                ):
-                    atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
-                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
-                    )
-                    neighbour_atom.SetFormalCharge(-1)
-                    charge += 1
-                    break
+        for atom in omol.atoms:
+            if (
+                atom.atomicnum == 6
+                and atom.OBAtom.GetExplicitValence() == 5
+                and atom.OBAtom.GetFormalCharge() == 0
+            ):
+                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                    if (
+                        neighbour_atom.GetAtomicNum() in HETEROATOM
+                        and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
+                    ):
+                        atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                            atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
+                        )
+                        neighbour_atom.SetFormalCharge(-1)
+                        charge += 1
+                        break
 
     charge_to_be_allocated = abs(charge)
 
@@ -275,6 +276,24 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, check_spin
             ):
                 atom.OBAtom.SetFormalCharge(-1)
                 charge_to_be_allocated -= 1
+        for atom in omol.atoms:
+            if charge_to_be_allocated <= 0:
+                break
+            if (
+                atom.atomicnum in (7,)
+                and atom.OBAtom.GetFormalCharge() == 0
+                and atom.OBAtom.GetExplicitValence() == 4
+            ):
+                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                    if (
+                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() >= 2
+                        and neighbour_atom.GetFormalCharge() == 0
+                    ):
+                        atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                            atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
+                        )
+                        neighbour_atom.SetFormalCharge(-1)
+                        charge_to_be_allocated -= 1
 
     for atom in omol.atoms:
         if atom.OBAtom.IsMetal():

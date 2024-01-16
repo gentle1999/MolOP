@@ -203,6 +203,9 @@ class MolBlock(ABC):
         return Chem.MolToMolBlock(self.rdmol)
 
     def to_SMILES(self) -> str:
+        return Chem.MolToSmiles(self.rdmol)
+    
+    def to_standard_SMILES(self) -> str:
         return rdMolStandardize.StandardizeSmiles(Chem.MolToSmiles(self.rdmol))
 
     def to_InChI(self) -> str:
