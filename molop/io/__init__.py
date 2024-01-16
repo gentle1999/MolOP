@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2023-10-30 15:40:03
 LastEditors: TMJ
-LastEditTime: 2024-01-10 20:39:40
+LastEditTime: 2024-01-16 10:42:00
 Description: 请填写简介
 """
 import os
@@ -29,9 +29,12 @@ parsers = {
 
 
 def AutoParser(
-    file_path, charge=None, multiplicity=None, only_extract_structure=False
+    file_path,
+    charge=None,
+    multiplicity=None,
+    only_extract_structure=False,
+    only_last_frame=False,
 ) -> Union[
-    BaseFileParser,
     XYZParser,
     SDFParser,
     GJFParser,
@@ -44,12 +47,13 @@ def AutoParser(
         raise NotImplementedError("Unknown file format: {}".format(file_format))
     for idx, parser in enumerate(parsers[file_format]):
         try:
-            if parser in (G16LOGParser, XTBOUTParser):
+            if parser in (G16LOGParser, XTBOUTParser, G16IRCParser):
                 return parser(
                     file_path,
                     charge=charge,
                     multiplicity=multiplicity,
                     only_extract_structure=only_extract_structure,
+                    only_last_frame=only_last_frame,
                 )
             elif parser in (XYZParser, GJFParser):
                 return parser(file_path, charge=charge, multiplicity=multiplicity)

@@ -47,9 +47,28 @@ def fix_dipole_type_a(mol: pybel.Molecule):
                 or get_spin(atom_2.OBAtom) != 1
             ):
                 continue
-            mol.OBMol.GetBond(atom_1.idx, center_idx + 1).SetBondOrder(2)
-            mol.atoms[center_idx].OBAtom.SetFormalCharge(1)
-            atom_2.OBAtom.SetFormalCharge(-1)
+            if (
+                mol.OBMol.GetBond(atom_1.idx, center_idx + 1).GetBondOrder() == 1
+                and mol.OBMol.GetBond(atom_2.idx, center_idx + 1).GetBondOrder() == 1
+            ):
+                mol.OBMol.GetBond(atom_1.idx, center_idx + 1).SetBondOrder(2)
+                mol.atoms[center_idx].OBAtom.SetFormalCharge(1)
+                atom_2.OBAtom.SetFormalCharge(-1)
+            elif (
+                mol.OBMol.GetBond(atom_1.idx, center_idx + 1).GetBondOrder() == 2
+                and mol.OBMol.GetBond(atom_2.idx, center_idx + 1).GetBondOrder() == 1
+            ):
+                mol.OBMol.GetBond(atom_1.idx, center_idx + 1).SetBondOrder(3)
+                mol.atoms[center_idx].OBAtom.SetFormalCharge(1)
+                atom_2.OBAtom.SetFormalCharge(-1)
+            elif (
+                mol.OBMol.GetBond(atom_1.idx, center_idx + 1).GetBondOrder() == 1
+                and mol.OBMol.GetBond(atom_2.idx, center_idx + 1).GetBondOrder() == 2
+            ):
+                mol.OBMol.GetBond(atom_2.idx, center_idx + 1).SetBondOrder(3)
+                mol.atoms[center_idx].OBAtom.SetFormalCharge(1)
+                atom_1.OBAtom.SetFormalCharge(-1)
+                
     return mol
 
 
@@ -70,7 +89,7 @@ def fix_dipole_type_b(mol: pybel.Molecule):
     return mol
 
 
-def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin=True):
+def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, check_spin=True):
     if abs(charge) > 2:
         raise ValueError("Charge must be between -2 and 2")
     if spin > 2 or spin < 0:
@@ -293,7 +312,7 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, Check_spin
     totol_spin = sum(
         get_spin(atom.OBAtom) for atom in omol.atoms if not atom.OBAtom.IsMetal()
     )
-    if Check_spin:
+    if check_spin:
         if charge_to_be_allocated > 0 or totol_spin != spin:
             raise ValueError(
                 f"Charge {charge} and spin {spin} cannot be allocated to the molecule. Charge {abs(charge) - charge_to_be_allocated} and spin {totol_spin} found."

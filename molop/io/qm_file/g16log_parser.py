@@ -1,10 +1,10 @@
-"""
+'''
 Author: TMJ
 Date: 2024-01-09 20:19:06
 LastEditors: TMJ
-LastEditTime: 2024-01-11 14:07:32
+LastEditTime: 2024-01-16 10:39:02
 Description: 请填写简介
-"""
+'''
 import os
 import re
 
@@ -15,6 +15,7 @@ from molop.logger.logger import logger
 
 class G16LOGParser(BaseQMFileParser):
     _allowed_formats = (".log",)
+
     def __init__(
         self,
         file_path: str,
@@ -22,9 +23,12 @@ class G16LOGParser(BaseQMFileParser):
         multiplicity=None,
         show_progress=False,
         only_extract_structure=False,
+        only_last_frame=False,
     ):
         self._check_formats(file_path)
-        super().__init__(file_path, show_progress, only_extract_structure)
+        super().__init__(
+            file_path, show_progress, only_extract_structure, only_last_frame
+        )
         self.__force_charge = charge
         self.__force_multiplicity = multiplicity
         self._parse()
@@ -66,6 +70,8 @@ class G16LOGParser(BaseQMFileParser):
         block_starts = [
             idx for idx, line in enumerate(lines) if "Input orientation:" in line
         ] + [len(lines)]
+        if self._only_last_frame:
+            block_starts = block_starts[-2:]
         for idx, start in enumerate(block_starts[:-1]):
             self.append(
                 G16LOGBlockParser(

@@ -136,15 +136,21 @@ class BaseQMFileParser(BaseFileParser):
     _parameter_comment: str
     _show_progress: bool
     _only_extract_structure: bool
+    _only_last_frame: bool
     _version: str
 
     def __init__(
-        self, file_path: str, show_progress=False, only_extract_structure=False
+        self,
+        file_path: str,
+        show_progress=False,
+        only_extract_structure=False,
+        only_last_frame=False,
     ) -> None:
         super().__init__(file_path)
         self._parameter_comment: str = None
         self._show_progress: bool = show_progress
         self._only_extract_structure: bool = only_extract_structure
+        self._only_last_frame = only_last_frame
         self._version = None
 
     @property

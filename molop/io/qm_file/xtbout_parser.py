@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-12 09:24:49
 LastEditors: TMJ
-LastEditTime: 2024-01-12 14:03:48
+LastEditTime: 2024-01-16 10:40:46
 Description: 请填写简介
 """
 
@@ -24,9 +24,12 @@ class XTBOUTParser(BaseQMFileParser):
         multiplicity=None,
         show_progress=False,
         only_extract_structure=False,
+        only_last_frame=False,
     ):
         self._check_formats(file_path)
-        super().__init__(file_path, show_progress, only_extract_structure)
+        super().__init__(
+            file_path, show_progress, only_extract_structure, only_last_frame
+        )
         self.__force_charge = charge
         self.__force_multiplicity = multiplicity
         self._parse()

@@ -52,7 +52,7 @@ class MolBlock(ABC):
         self._formal_spins: List[int] = None
         self._omol: pybel.Molecule = None
         self._rdmol: Union[Chem.rdchem.RWMol, Chem.rdchem.Mol] = None
-        self._check_spin = True
+        self._check_spin = False
 
     @property
     def atoms(self) -> List[str]:
