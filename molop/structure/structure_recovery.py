@@ -32,6 +32,25 @@ def get_spin(atom: ob.OBAtom) -> int:
     )
 
 
+def clean_neighbor_spins(omol):
+    spin_atoms = [satom for satom in omol.atoms if get_spin(satom.OBAtom) == 1]
+    for spin_atom_1, spin_atom_2 in itertools.combinations(spin_atoms, 2):
+        if spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom):
+            if (
+                spin_atom_1.atomicnum == 6
+                and spin_atom_1.OBAtom.GetExplicitValence() >= 4
+            ):
+                continue
+            if (
+                spin_atom_2.atomicnum == 6
+                and spin_atom_2.OBAtom.GetExplicitValence() >= 4
+            ):
+                continue
+            spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).SetBondOrder(
+                spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).GetBondOrder() + 1,
+            )
+
+
 def fix_dipole_type_a(mol: pybel.Molecule):
     spin_atoms = [atom for atom in mol.atoms if get_spin(atom.OBAtom) == 1]
     for atom_1, atom_2 in itertools.combinations(spin_atoms, 2):
@@ -198,6 +217,16 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, check_spin
                     neighbour_atom.SetFormalCharge(-1)
                     charge += 1
                     break
+            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                if (
+                    neighbour_atom.GetAtomicNum() in (6,)
+                    and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
+                    and atom.OBAtom.GetExplicitValence() == 5
+                ):
+                    atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
+                    )
+                    break
 
     charge_to_be_allocated = abs(charge)
 
@@ -266,6 +295,8 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, check_spin
                 atom.OBAtom.SetFormalCharge(1)
                 charge_to_be_allocated -= 1
 
+    clean_neighbor_spins(omol)
+
     if charge < 0:
         # Step 2.3.1: Try to find the heteroatom with negative charge first.
         for atom in omol.atoms:
@@ -290,6 +321,7 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, check_spin
             ):
                 atom.OBAtom.SetFormalCharge(-1)
                 charge_to_be_allocated -= 1
+
         for atom in omol.atoms:
             if charge_to_be_allocated <= 0:
                 break
@@ -326,22 +358,7 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, check_spin
                         atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() + 1
                     )
 
-    spin_atoms = [satom for satom in omol.atoms if get_spin(satom.OBAtom) == 1]
-    for spin_atom_1, spin_atom_2 in itertools.combinations(spin_atoms, 2):
-        if spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom):
-            if (
-                spin_atom_1.atomicnum == 6
-                and spin_atom_1.OBAtom.GetExplicitValence() >= 4
-            ):
-                continue
-            if (
-                spin_atom_2.atomicnum == 6
-                and spin_atom_2.OBAtom.GetExplicitValence() >= 4
-            ):
-                continue
-            spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).SetBondOrder(
-                spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).GetBondOrder() + 1,
-            )
+    clean_neighbor_spins(omol)
     omol.OBMol.MakeDativeBonds()
     totol_spin = sum(
         get_spin(atom.OBAtom) for atom in omol.atoms if not atom.OBAtom.IsMetal()
