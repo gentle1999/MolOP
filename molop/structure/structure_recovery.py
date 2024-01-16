@@ -112,15 +112,15 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, check_spin
     # Step 2.1: Whatever the charge is, there is possibility that the dipole exists. Find them first.
     # Hope not to have dipoles along with other charges.
 
-    # Step 2.1.1(Type A): Dipole like [CH2]=[O+]-[NH-].
-    # OpenBabel will set the central atom to be neutral and the other two atoms neutral with spin 1.
-    # Thus, find the combination of the two atoms with spin 1 and one heteroatom between them with spin 0.
-    # Negative charges are mutually resonant at any position of the atoms on either side.
-    # So it is straightforward to set one of the atoms as neutral and the other as charge -1.
-    # Known issues: Molecule like `C=[O+][N-]N[CH-]C(=O)C` can not distinguish between the part CON and NNC.
-    # To maintain the robustness of the script, the script will only process the first ternary it recognizes as a dipole.
-    # This type of case is rare in real-world. Hope not to see it. :(
     if charge >= 0:
+        # Step 2.1.1(Type A): Dipole like [CH2]=[O+]-[NH-].
+        # OpenBabel will set the central atom to be neutral and the other two atoms neutral with spin 1.
+        # Thus, find the combination of the two atoms with spin 1 and one heteroatom between them with spin 0.
+        # Negative charges are mutually resonant at any position of the atoms on either side.
+        # So it is straightforward to set one of the atoms as neutral and the other as charge -1.
+        # Known issues: Molecule like `C=[O+][N-]N[CH-]C(=O)C` can not distinguish between the part CON and NNC.
+        # To maintain the robustness of the script, the script will only process the first ternary it recognizes as a dipole.
+        # This type of case is rare in real-world. Hope not to see it. :(
         omol = fix_dipole_type_a(omol)
 
         # Step 2.1.2(Type B): Dipole like [CH]#[N+]-[O-]. This type only allow N (maybe P) to be the center.
@@ -167,23 +167,23 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, check_spin
                 atom.OBAtom.SetFormalCharge(1)
                 charge -= 1
 
-        for atom in omol.atoms:
-            if (
-                atom.atomicnum == 6
-                and atom.OBAtom.GetExplicitValence() == 5
-                and atom.OBAtom.GetFormalCharge() == 0
-            ):
-                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
-                    if (
-                        neighbour_atom.GetAtomicNum() in HETEROATOM
-                        and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
-                    ):
-                        atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
-                            atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
-                        )
-                        neighbour_atom.SetFormalCharge(-1)
-                        charge += 1
-                        break
+    for atom in omol.atoms:
+        if (
+            atom.atomicnum == 6
+            and atom.OBAtom.GetExplicitValence() == 5
+            and atom.OBAtom.GetFormalCharge() == 0
+        ):
+            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                if (
+                    neighbour_atom.GetAtomicNum() in HETEROATOM
+                    and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
+                ):
+                    atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
+                    )
+                    neighbour_atom.SetFormalCharge(-1)
+                    charge += 1
+                    break
 
     charge_to_be_allocated = abs(charge)
 

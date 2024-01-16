@@ -1,22 +1,15 @@
-'''
-Author: TMJ
-Date: 2023-10-30 14:00:45
-LastEditors: TMJ
-LastEditTime: 2024-01-16 15:02:58
-Description: 请填写简介
-'''
 """
 Author: TMJ
 Date: 2023-10-30 14:00:45
 LastEditors: TMJ
-LastEditTime: 2024-01-15 20:23:29
+LastEditTime: 2024-01-16 15:02:58
 Description: 请填写简介
 """
 from setuptools import setup
 
 setup(
     name="molop",
-    version="0.1.6",
+    version="0.1.7",
     description="Molcule OPerator",
     url="http://10.72.201.58:13000/TMJ/MolOP",
     author="TMJ",
