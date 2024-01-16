@@ -45,6 +45,7 @@ def fix_dipole_type_a(mol: pybel.Molecule):
                 mol.atoms[center_idx].atomicnum not in (7, 8)
                 or get_spin(atom_1.OBAtom) != 1
                 or get_spin(atom_2.OBAtom) != 1
+                or get_spin(mol.atoms[center_idx].OBAtom) != 0
             ):
                 continue
             if (

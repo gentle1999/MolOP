@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-01-15 16:26:58
+ * @LastEditTime: 2024-01-16 15:01:30
  * @Description: 请填写简介
 -->
 # MolOP
@@ -34,13 +34,13 @@ See the [Tutorial Notebook](tutorial/get_start.ipynb) for more details.
 
 ```bash
 conda install openbabel -c conda-forge # openbabel is a necessary dependence
-pip install --index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop
+pip install --index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop --upgrade
 ```
 
 For additional descriptor calculation, you need to install the requirements below:
 
 ```bash
-pip install --index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop[full]
+pip install --index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop[full] --upgrade
 ```
 
 ## Installation for Developers
