@@ -33,7 +33,7 @@ def get_spin(atom: ob.OBAtom) -> int:
 
 
 def clean_neighbor_spins(omol):
-    spin_atoms = [satom for satom in omol.atoms if get_spin(satom.OBAtom) == 1]
+    spin_atoms = [satom for satom in omol.atoms if get_spin(satom.OBAtom) >= 1]
     for spin_atom_1, spin_atom_2 in itertools.combinations(spin_atoms, 2):
         if spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom):
             if (
@@ -130,6 +130,29 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, check_spin
 
     # Step 2.1: Whatever the charge is, there is possibility that the dipole exists. Find them first.
     # Hope not to have dipoles along with other charges.
+    for atom in omol.atoms:
+        if (
+            atom.atomicnum == 7
+            and atom.OBAtom.GetExplicitValence() == 4
+            and atom.OBAtom.GetFormalCharge() == 0
+            and all(
+                atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 2
+                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
+            )
+        ):
+            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                if (
+                    atom.atomicnum == 7
+                    and atom.OBAtom.GetExplicitValence() == 4
+                    and atom.OBAtom.GetFormalCharge() == 0
+                    and all(
+                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 2
+                        for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
+                    )
+                ):
+                    atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
+                    )
 
     if charge >= 0:
         # Step 2.1.1(Type A): Dipole like [CH2]=[O+]-[NH-].
@@ -173,7 +196,6 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, check_spin
                 )
                 charge += 1
 
-
     for atom in omol.atoms:
         if (
             atom.atomicnum == 6
@@ -215,7 +237,7 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, check_spin
                         atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
                     )
                     break
-                
+
     for atom in omol.atoms:
         if (
             atom.atomicnum == 7

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-07 13:47:18
 LastEditors: TMJ
-LastEditTime: 2024-01-09 16:01:09
+LastEditTime: 2024-01-16 21:16:59
 Description: 请填写简介
 """
 import os
@@ -14,12 +14,16 @@ from typing import Any, Dict, List, Literal, Tuple, Union
 from openbabel import pybel
 from pint.facets.plain import PlainQuantity
 from rdkit import Chem
+from rdkit.Chem import AllChem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
 from molop.structure.structure import (
+    check_mol_equal,
     get_bond_pairs,
     get_formal_charges,
     get_formal_spins,
+    get_resonance_structures,
+    structure_score,
 )
 from molop.structure.structure_recovery import xyz_block_to_omol
 
@@ -164,7 +168,17 @@ class MolBlock(ABC):
                     atom.SetFormalCharge(charge)
                     atom.SetNumRadicalElectrons(spin)
                 self._rdmol = rwmol
+            self._resonance()
+
         return self._rdmol
+
+    def _resonance(self):
+        resmols = get_resonance_structures(
+            self._rdmol,
+            flags=Chem.ResonanceFlags.ALLOW_INCOMPLETE_OCTETS
+        )
+        resmols.sort(key=structure_score)
+        self._rdmol = resmols[0]
 
     def basic_check(self) -> bool:
         """
@@ -203,10 +217,11 @@ class MolBlock(ABC):
         return Chem.MolToMolBlock(self.rdmol)
 
     def to_SMILES(self) -> str:
-        return Chem.MolToSmiles(self.rdmol)
+        smiles = Chem.MolToSmiles(self.rdmol)
+        return smiles
 
     def to_standard_SMILES(self) -> str:
-        return rdMolStandardize.StandardizeSmiles(Chem.MolToSmiles(self.rdmol))
+        return rdMolStandardize.StandardizeSmiles(self.to_SMILES())
 
     def to_InChI(self) -> str:
         return Chem.MolToInchi(self.rdmol)

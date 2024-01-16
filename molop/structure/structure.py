@@ -74,6 +74,22 @@ def get_formal_spins(mol: RdMol) -> List[int]:
     return [atom.GetNumRadicalElectrons() for atom in mol.GetAtoms()]
 
 
+def get_resonance_structures(rdmol, flags=0):
+    suppl = Chem.ResonanceMolSupplier(rdmol, flags)
+    return [mol for mol in suppl]
+
+
+def structure_score(rdmol):
+    s = 0
+    s += sum(atom.GetNumRadicalElectrons() for atom in rdmol.GetAtoms())
+    s += sum(abs(atom.GetFormalCharge()) for atom in rdmol.GetAtoms())
+    return s
+
+
+def check_mol_equal(rdmol_1, rdmol_2):
+    return rdmol_1.HasSubstructMatch(rdmol_2) and rdmol_2.HasSubstructMatch(rdmol_1)
+
+
 def get_sub_mol(origin_mol: RdMol, scale: List[int]):
     sub_mol = Chem.RWMol(Chem.MolFromSmiles(""))
     for idx in scale:
