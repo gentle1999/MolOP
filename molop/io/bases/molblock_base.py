@@ -204,7 +204,7 @@ class MolBlock(ABC):
 
     def to_SMILES(self) -> str:
         return Chem.MolToSmiles(self.rdmol)
-    
+
     def to_standard_SMILES(self) -> str:
         return rdMolStandardize.StandardizeSmiles(Chem.MolToSmiles(self.rdmol))
 
@@ -574,7 +574,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 "hessian": self.hessian,
             },
         }
-    
+
     def summary(self):
         print(
             f"type: {self._block_type}\n"
@@ -585,18 +585,21 @@ class QMBaseBlockParser(BaseBlockParser):
             + f"total charge: {self.charge}\n"
             + f"version: {self.version}\n"
             + f"parameter comment: \n{self.parameter_comment}\n"
-            + f"state: {self.state}\n"
-            + f"energy: {self.energy}\n"
-            + f"sum energy: {self.sum_energy}\n"
-            + f"gradients number: {len(self.gradients)}\n"
-            + f"frequencies number: {len(self.frequencies)}\n"
-            + f"imaginary frequencies number: {len(self.imaginary_frequencies)}\n"
-            + f"partial charges number: {len(self.partial_charges)}\n"
-            + f"spin densities number: {len(self.spin_densities)}\n"
-            + f"alpha FMO orbits number: {len(self.alpha_FMO_orbits)}\n"
-            + f"alpha energy: {self.alpha_energy}\n"
-            + f"beta FMO orbits number: {len(self.beta_FMO_orbits)}\n"
-            + f"beta energy: {self.beta_energy}\n"
-            + f"nbo analysis number: {len(self.nbo_analysis)}\n"
-            + f"hessian number: {len(self.hessian)}\n"
         )
+        if not self._only_extract_structure:
+            print(
+                f"state: {self.state}\n"
+                + f"energy: {self.energy}\n"
+                + f"sum energy: {self.sum_energy}\n"
+                + f"gradients number: {len(self.gradients)}\n"
+                + f"frequencies number: {len(self.frequencies)}\n"
+                + f"imaginary frequencies number: {len(self.imaginary_frequencies)}\n"
+                + f"partial charges number: {len(self.partial_charges)}\n"
+                + f"spin densities number: {len(self.spin_densities)}\n"
+                + f"alpha FMO orbits number: {len(self.alpha_FMO_orbits)}\n"
+                + f"alpha energy: {self.alpha_energy}\n"
+                + f"beta FMO orbits number: {len(self.beta_FMO_orbits)}\n"
+                + f"beta energy: {self.beta_energy}\n"
+                + f"nbo analysis number: {len(self.nbo_analysis)}\n"
+                + f"hessian number: {len(self.hessian)}\n"
+            )
