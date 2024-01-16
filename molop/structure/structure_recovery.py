@@ -177,6 +177,20 @@ def xyz_block_to_omol(xyz_block: str, charge: int = 0, spin: int = 0, check_spin
                 if (
                     neighbour_atom.GetAtomicNum() in HETEROATOM
                     and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
+                    and atom.OBAtom.GetExplicitValence() == 5
+                    and neighbour_atom.GetExplicitValence()
+                    - pt.GetDefaultValence(neighbour_atom.GetAtomicNum())
+                    == 1
+                ):
+                    atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
+                    )
+                    break
+            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                if (
+                    neighbour_atom.GetAtomicNum() in HETEROATOM
+                    and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
+                    and atom.OBAtom.GetExplicitValence() == 5
                 ):
                     atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
                         atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
