@@ -140,7 +140,7 @@ class MolBlock(ABC):
                     self.to_XYZ_block(),
                     self._charge,
                     (self._multiplicity - 1) // 2,
-                    self._check_spin,
+                    check_spin=self._check_spin,
                 )
             else:
                 omol = pybel.readstring("sdf", self.to_SDF_block())
@@ -271,10 +271,10 @@ class MolBlock(ABC):
         os.remove(".temp.sdf")
         return ans
 
-    def calc_mordred_descs(self):
+    def calc_mordred_descs(self, **kwargs):
         from molop.descriptor.descriptor import calc_mordred_descs
 
-        return calc_mordred_descs(self.rdmol)
+        return calc_mordred_descs(self.rdmol, **kwargs)
 
     @abstractmethod
     def __str__(self) -> str:
