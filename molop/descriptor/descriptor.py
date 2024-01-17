@@ -84,4 +84,4 @@ def calc_dscribe_descs(
 def calc_mordred_descs(mol):
     from mordred import Calculator, descriptors
     calc = Calculator(descriptors, ignore_3D=True)
-    return calc.pandas([mol]).to_dict()
+    return calc.pandas([mol], quiet=True).to_dict()

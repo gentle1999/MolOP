@@ -42,6 +42,7 @@ class MolBlock(ABC):
     _formal_spins: List[int]
     _omol: pybel.Molecule
     _rdmol: Union[Chem.rdchem.RWMol, Chem.rdchem.Mol]
+    _iter_resonance: bool
 
     def __init__(self):
         """
@@ -57,6 +58,7 @@ class MolBlock(ABC):
         self._omol: pybel.Molecule = None
         self._rdmol: Union[Chem.rdchem.RWMol, Chem.rdchem.Mol] = None
         self._check_spin = False
+        self._iter_resonance = False
 
     @property
     def atoms(self) -> List[str]:
@@ -168,7 +170,8 @@ class MolBlock(ABC):
                     atom.SetFormalCharge(charge)
                     atom.SetNumRadicalElectrons(spin)
                 self._rdmol = rwmol
-            self._resonance()
+            if self._iter_resonance:
+                self._resonance()
 
         return self._rdmol
 
