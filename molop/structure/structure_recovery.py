@@ -11,14 +11,11 @@ HETEROATOM = (7, 8, 9, 15, 16, 17, 35, 53)
 
 def get_spin(atom: ob.OBAtom) -> int:
     if atom.GetAtomicNum() == 6:
-        if atom.GetFormalCharge() > 0:
-            return pt.GetDefaultValence(atom.GetAtomicNum()) - atom.GetExplicitValence()
-        if atom.GetFormalCharge() <= 0:
-            return (
-                pt.GetDefaultValence(atom.GetAtomicNum())
-                + atom.GetFormalCharge()
-                - atom.GetExplicitValence()
-            )
+        return (
+            pt.GetDefaultValence(atom.GetAtomicNum())
+            + atom.GetFormalCharge()
+            - atom.GetExplicitValence()
+        )
     elif atom.GetAtomicNum() in (7, 15):
         if atom.GetExplicitValence() == 5:
             return 0
@@ -32,10 +29,18 @@ def get_spin(atom: ob.OBAtom) -> int:
     )
 
 
-def clean_neighbor_spins(omol):
+def clean_neighbor_spins(omol: pybel.Molecule):
     spin_atoms = [satom for satom in omol.atoms if get_spin(satom.OBAtom) >= 1]
     for spin_atom_1, spin_atom_2 in itertools.combinations(spin_atoms, 2):
-        if spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom):
+        if (
+            spin_atom_1.OBAtom.GetBond(spin_atom_1.OBAtom)
+            and pt.GetDefaultValence(spin_atom_1.OBAtom.GetAtomicNum())
+            - spin_atom_1.OBAtom.GetExplicitValence()
+            > 0
+            and pt.GetDefaultValence(spin_atom_1.OBAtom.GetAtomicNum())
+            - spin_atom_1.OBAtom.GetExplicitValence()
+            > 0
+        ):
             if (
                 spin_atom_1.atomicnum == 6
                 and spin_atom_1.OBAtom.GetExplicitValence() >= 4
@@ -49,6 +54,26 @@ def clean_neighbor_spins(omol):
             spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).SetBondOrder(
                 spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).GetBondOrder() + 1,
             )
+
+
+def fix_under_bonded_dipole(omol: pybel.Molecule):
+    for atom_1 in omol.atoms:
+        if atom_1.OBAtom.GetFormalCharge() == 1:
+            for atom_2 in ob.OBAtomAtomIter(atom_1.OBAtom):
+                if (
+                    atom_2.GetFormalCharge() == -1
+                    and pt.GetDefaultValence(atom_1.OBAtom.GetAtomicNum())
+                    - atom_1.OBAtom.GetExplicitValence()
+                    > 0
+                    and pt.GetDefaultValence(atom_2.GetAtomicNum())
+                    - atom_2.GetExplicitValence()
+                    > 0
+                ):
+                    atom_1.OBAtom.GetBond(atom_2).SetBondOrder(
+                        atom_1.OBAtom.GetBond(atom_2).GetBondOrder() + 1
+                    )
+                    atom_1.OBAtom.SetFormalCharge(0)
+                    atom_2.SetFormalCharge(0)
 
 
 def fix_dipole_type_a(mol: pybel.Molecule):
@@ -163,6 +188,62 @@ def xyz_block_to_omol(
     # Therfore, the steps following will try to fix the charge and spin information.
     omol = pybel.readstring("xyz", xyz_block)
 
+    for atom in omol.atoms:
+        if (
+            atom.atomicnum == 6
+            and atom.OBAtom.GetExplicitValence() == 5
+            and atom.OBAtom.GetFormalCharge() == 0
+        ):
+            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                if (
+                    neighbour_atom.GetAtomicNum() in HETEROATOM
+                    and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
+                    and atom.OBAtom.GetExplicitValence() == 5
+                    and neighbour_atom.GetExplicitValence()
+                    - pt.GetDefaultValence(neighbour_atom.GetAtomicNum())
+                    == 1
+                ):
+                    atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
+                    )
+                    break
+            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                if (
+                    neighbour_atom.GetAtomicNum() in HETEROATOM
+                    and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
+                    and atom.OBAtom.GetExplicitValence() == 5
+                ):
+                    atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
+                    )
+                    if given_charge < 0:
+                        neighbour_atom.SetFormalCharge(-1)
+                        given_charge += 1
+                    break
+            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                if (
+                    neighbour_atom.GetAtomicNum() in (6,)
+                    and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
+                    and atom.OBAtom.GetExplicitValence() == 5
+                ):
+                    atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
+                    )
+                    break
+
+    for atom in omol.atoms:
+        if (
+            atom.atomicnum == 7
+            and atom.OBAtom.GetExplicitValence() == 4
+            and atom.OBAtom.GetFormalCharge() == 0
+            and all(
+                atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 1
+                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
+            )
+        ):
+            atom.OBAtom.SetFormalCharge(1)
+            given_charge -= 1
+
     if greed_search:
         possible_resonances = get_radical_resonances(omol)
     else:
@@ -247,61 +328,6 @@ def xyz_block_to_omol(
                     )
                     charge += 1
 
-        for atom in resonance.atoms:
-            if (
-                atom.atomicnum == 6
-                and atom.OBAtom.GetExplicitValence() == 5
-                and atom.OBAtom.GetFormalCharge() == 0
-            ):
-                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
-                    if (
-                        neighbour_atom.GetAtomicNum() in HETEROATOM
-                        and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
-                        and atom.OBAtom.GetExplicitValence() == 5
-                        and neighbour_atom.GetExplicitValence()
-                        - pt.GetDefaultValence(neighbour_atom.GetAtomicNum())
-                        == 1
-                    ):
-                        atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
-                            atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
-                        )
-                        break
-                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
-                    if (
-                        neighbour_atom.GetAtomicNum() in HETEROATOM
-                        and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
-                        and atom.OBAtom.GetExplicitValence() == 5
-                    ):
-                        atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
-                            atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
-                        )
-                        neighbour_atom.SetFormalCharge(-1)
-                        charge += 1
-                        break
-                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
-                    if (
-                        neighbour_atom.GetAtomicNum() in (6,)
-                        and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
-                        and atom.OBAtom.GetExplicitValence() == 5
-                    ):
-                        atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
-                            atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
-                        )
-                        break
-
-        for atom in resonance.atoms:
-            if (
-                atom.atomicnum == 7
-                and atom.OBAtom.GetExplicitValence() == 4
-                and atom.OBAtom.GetFormalCharge() == 0
-                and all(
-                    atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 1
-                    for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
-                )
-            ):
-                atom.OBAtom.SetFormalCharge(1)
-                charge -= 1
-
         charge_to_be_allocated = abs(charge)
 
         if charge > 0:
@@ -372,8 +398,8 @@ def xyz_block_to_omol(
                     atom.OBAtom.SetFormalCharge(1)
                     charge_to_be_allocated -= 1
 
+        fix_under_bonded_dipole(resonance)
         clean_neighbor_spins(resonance)
-
         if charge < 0:
             # Step 2.3.1: Try to find the heteroatom with negative charge first.
             for atom in resonance.atoms:
@@ -447,12 +473,15 @@ def xyz_block_to_omol(
                         atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
                             atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() + 1
                         )
-
+        fix_under_bonded_dipole(resonance)
         clean_neighbor_spins(resonance)
 
         resonance.OBMol.MakeDativeBonds()
-        recovered_resonances.append((resonance, charge_to_be_allocated))
+        if charge_to_be_allocated == 0:
+            recovered_resonances.append((resonance, charge_to_be_allocated))
 
+    if len(recovered_resonances) == 0:
+        raise("No legal molecule resonance found")
     recovered_resonances.sort(key=omol_score)
     final_omol = recovered_resonances[0][0]
     totol_spin = sum(
@@ -462,10 +491,5 @@ def xyz_block_to_omol(
         if charge_to_be_allocated > 0 or totol_spin != spin:
             raise ValueError(
                 f"Charge {charge} and spin {spin} cannot be allocated to the molecule. Charge {abs(charge) - charge_to_be_allocated} and spin {totol_spin} found."
-            )
-    else:
-        if charge_to_be_allocated > 0:
-            raise ValueError(
-                f"Charge {charge} cannot be allocated to the molecule. Charge {abs(charge) - charge_to_be_allocated} found."
             )
     return final_omol

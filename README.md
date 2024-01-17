@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-01-16 15:01:30
+ * @LastEditTime: 2024-01-17 19:27:30
  * @Description: 请填写简介
 -->
 # MolOP
@@ -29,6 +29,8 @@ This repository, **Molecule OPerator**, which is the basic molecule information 
 ## Get Start
 
 See the [Tutorial Notebook](tutorial/get_start.ipynb) for more details.
+
+All teat cases shown in the [test_cases.ipynb](tutorial/test_cases.ipynb) file. You can experience the powerful molecular structure recovery provided by MolOP.
 
 ## Installation for Users
 
