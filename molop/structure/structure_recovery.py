@@ -177,7 +177,7 @@ def xyz_block_to_omol(
     # Howerver, the lack is that OpenBabel does not consider the charge and spin information.
     # Therfore, the steps following will try to fix the charge and spin information.
     omol = pybel.readstring("xyz", xyz_block)
-    
+
     # N-BCP
     smarts = pybel.Smarts("[#6]1([#6]2)([#6]3)[#7]23[#6]1")
     n_bcp = smarts.findall(omol)
@@ -193,7 +193,6 @@ def xyz_block_to_omol(
                 if omol.atoms[idx - 1].atomicnum == 6:
                     bcp_c = idx
         omol.OBMol.DeleteBond(omol.OBMol.GetBond(bcp_n, bcp_c))
-
 
     for atom in omol.atoms:
         if (
@@ -286,6 +285,11 @@ def xyz_block_to_omol(
                     atom_1.GetBond(atom_2).GetBondOrder() - 1
                 )
                 given_charge += 1
+        if CN_in_doubt == 1 and given_charge == 0:
+            for atom_1, atom_2 in doubt_pair:
+                atom_1.GetBond(atom_2).SetBondOrder(
+                    atom_1.GetBond(atom_2).GetBondOrder() - 1
+                )
 
         for atom in omol.atoms:
             if (
