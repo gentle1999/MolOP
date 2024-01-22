@@ -438,6 +438,7 @@ def xyz_block_to_omol(
             resonance = fix_dipole_type_b(resonance)
 
         charge_to_be_allocated = abs(charge)
+        clean_neighbor_spins(resonance)
 
         if charge > 0:
             # Step 2.2.1: If metal found, allocate all the positive charge to it.

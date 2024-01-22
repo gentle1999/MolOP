@@ -172,6 +172,10 @@ class MolBlock(ABC):
                     self._rdmol = Chem.MolFromMolBlock(
                         self.omol.write("sdf"), removeHs=False
                     )
+                    if self._rdmol is None:
+                        raise ValueError(
+                            f"{self._file_path}: rdkit determinebonds failed. MolOP structure recovery failed."
+                        )
                     self._bonds = get_bond_pairs(self._rdmol)
                     self._formal_charges = get_formal_charges(self._rdmol)
                     self._formal_spins = get_formal_spins(self._rdmol)
