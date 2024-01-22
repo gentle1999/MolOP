@@ -159,12 +159,94 @@ def omol_score(omol_tuple: Tuple[pybel.Molecule, int]):
     return score
 
 
+def clean_resonances_1(omol: pybel.Molecule):
+    smarts = pybel.Smarts("[#8]=[#6]([!-])[*]=[*][#7-,#6-]")
+    res = smarts.findall(omol)
+    while len(res):
+        idxs = res[0]
+        omol.OBMol.GetBond(idxs[4], idxs[5]).SetBondOrder(2)
+        omol.OBMol.GetBond(idxs[3], idxs[4]).SetBondOrder(1)
+        omol.OBMol.GetBond(idxs[1], idxs[3]).SetBondOrder(2)
+        omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
+        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(-1)
+        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(0)
+        res = smarts.findall(omol)
+    return omol
+
+
+def clean_resonances_2(omol: pybel.Molecule):
+    smarts = pybel.Smarts("[#7+,#6+]=[*]-[*]=[*]-[#8-]")
+    res = smarts.findall(omol)
+    while len(res):
+        idxs = res[0]
+        omol.OBMol.GetBond(idxs[3], idxs[4]).SetBondOrder(2)
+        omol.OBMol.GetBond(idxs[2], idxs[3]).SetBondOrder(1)
+        omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(2)
+        omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
+        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(0)
+        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(0)
+        res = smarts.findall(omol)
+    return omol
+
+
+def clean_resonances_3(omol: pybel.Molecule):
+    smarts = pybel.Smarts("[#7+]=[*]-[#6-,#8-]")
+    res = smarts.findall(omol)
+    while len(res):
+        idxs = res[0]
+        omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(2)
+        omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
+        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(0)
+        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(0)
+        res = smarts.findall(omol)
+    return omol
+
+
+def clean_resonances_4(omol: pybel.Molecule):
+    smarts = pybel.Smarts("[#8]=[#6][#6-,#7-]")
+    res = smarts.findall(omol)
+    while len(res):
+        idxs = res[0]
+        omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(2)
+        omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
+        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(-1)
+        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(0)
+        res = smarts.findall(omol)
+    return omol
+
+
+def clean_resonances_5(omol: pybel.Molecule):
+    smarts = pybel.Smarts("[#6]=[#6]=[#6-,#7-]")
+    res = smarts.findall(omol)
+    while len(res):
+        idxs = res[0]
+        omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(3)
+        omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
+        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(-1)
+        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(0)
+        res = smarts.findall(omol)
+    return omol
+
+
+def clean_resonances(omol: pybel.Molecule):
+    processes = [
+        clean_resonances_1,
+        clean_resonances_2,
+        clean_resonances_3,
+        clean_resonances_4,
+        clean_resonances_5,
+    ]
+    for process in processes:
+        omol = process(omol)
+    return omol
+
+
 def xyz_block_to_omol(
     xyz_block: str,
     given_charge: int = 0,
     given_spin: int = 0,
     greed_search=True,
-    check_spin=True,
+    check_spin=False,
 ):
     if abs(given_charge) > 2:
         raise ValueError("Charge must be between -2 and 2")
@@ -519,4 +601,4 @@ def xyz_block_to_omol(
             raise ValueError(
                 f"Charge {charge} and spin {spin} cannot be allocated to the molecule. Charge {abs(charge) - charge_to_be_allocated} and spin {totol_spin} found."
             )
-    return final_omol
+    return clean_resonances(final_omol)

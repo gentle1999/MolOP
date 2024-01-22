@@ -14,9 +14,10 @@ from typing import Any, Dict, List, Literal, Tuple, Union
 from openbabel import pybel
 from pint.facets.plain import PlainQuantity
 from rdkit import Chem
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, rdDetermineBonds
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
+from molop.logger.logger import logger
 from molop.structure.structure import (
     check_mol_equal,
     get_bond_pairs,
@@ -151,12 +152,29 @@ class MolBlock(ABC):
     def rdmol(self) -> Chem.rdchem.Mol:
         if self._rdmol is None:
             if self._bonds is None:
-                self._rdmol = Chem.MolFromMolBlock(
-                    self.omol.write("sdf"), removeHs=False
-                )
-                self._bonds = get_bond_pairs(self._rdmol)
-                self._formal_charges = get_formal_charges(self._rdmol)
-                self._formal_spins = get_formal_spins(self._rdmol)
+                try:
+                    # try rdkit determinebonds first
+                    # Issues known:
+                    # - Can not recognize radicals
+                    # - Can not recognize Metals
+                    raw_mol = Chem.MolFromXYZBlock(self.to_XYZ_block())
+                    conn_mol = Chem.Mol(raw_mol)
+                    rdDetermineBonds.DetermineBonds(conn_mol, charge=self._charge)
+                    self._rdmol = conn_mol
+                    self._bonds = get_bond_pairs(self._rdmol)
+                    self._formal_charges = get_formal_charges(self._rdmol)
+                    self._formal_spins = get_formal_spins(self._rdmol)
+                except:
+                    logger.info(
+                        f"{self._file_path}: rdkit determinebonds failed. Use MolOP structure recovery instead."
+                    )
+                    # If failed, use our implementation
+                    self._rdmol = Chem.MolFromMolBlock(
+                        self.omol.write("sdf"), removeHs=False
+                    )
+                    self._bonds = get_bond_pairs(self._rdmol)
+                    self._formal_charges = get_formal_charges(self._rdmol)
+                    self._formal_spins = get_formal_spins(self._rdmol)
             else:
                 assert (
                     self._formal_charges and self._formal_spins
@@ -177,8 +195,7 @@ class MolBlock(ABC):
 
     def _resonance(self):
         resmols = get_resonance_structures(
-            self._rdmol,
-            flags=Chem.ResonanceFlags.ALLOW_INCOMPLETE_OCTETS
+            self._rdmol, flags=Chem.ResonanceFlags.ALLOW_INCOMPLETE_OCTETS
         )
         resmols.sort(key=structure_score)
         self._rdmol = resmols[0]
@@ -333,6 +350,8 @@ class BaseBlockParser(MolBlock):
             "bonds": self.bonds,
             "total charge": self.charge,
             "total multiplicity": self.multiplicity,
+            "formal charges": self.formal_charges,
+            "formal spins": self.formal_spins,
         }
 
     def summary(self):

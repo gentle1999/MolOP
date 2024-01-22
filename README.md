@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-01-17 19:27:30
+ * @LastEditTime: 2024-01-22 18:41:10
  * @Description: 请填写简介
 -->
 # MolOP
@@ -11,7 +11,7 @@ This repository, **Molecule OPerator**, which is the basic molecule information 
 
 ## Features
 
-- Automatically extract molecule information from the Input and Output files of the common QM calculation softwares. Offer a [molecular graph recovery algrothm](molop/structure/structure_recovery.py) from the simple coodinates of atoms based on the initial work by [OpenBabel](https://openbabel.org/index.html), which can be easily used in the file reading process.
+- Automatically extract molecule information from the Input and Output files of the common QM calculation softwares.
   - Coords file
     - GJF `Done`
     - XYZ `Done`
@@ -21,6 +21,11 @@ This repository, **Molecule OPerator**, which is the basic molecule information 
     - G16 IRC `Done`
     - xTB OUT `Done`
     - ORCA `TODO`
+
+- Offer a [molecular graph recovery algorithm](molop/structure/structure_recovery.py) from the simple coodinates of atoms based on the initial work by [OpenBabel](https://openbabel.org/index.html), which can be easily used in the file reading process. This algorithm is different from the rdDetermineBonds (Original code implemented by [Jensen group](https://github.com/jensengroup/xyz2mol) and integrated in RDKit from the 2022.09 release, which is not suitable for the free radicals and complex containing metal. See [rdDetermineBonds_cannot_do](tutorial/rdDetermineBonds_cannot_do.ipynb) to learn more about the difference).
+  
+  Although our algorithm overcome the free radicals and metal problem and tested on the [test_cases](tutorial/test_cases.ipynb) file, it is still not perfect. There is no denying that, rdDetermineBonds works well for normal organic molecules. Thus, we would give molecule structure recovery recovered by rdDetermineBonds first, if error happens, we will use our algorithm to recover the molecule structure instead. We hope that this strategy can take advantage of both approaches.
+
 - Offer the moleculer geometry and structure edit functions. `TODO`
   - Substructure replacement `TODO`
   - Orientation change `TODO`
@@ -30,7 +35,7 @@ This repository, **Molecule OPerator**, which is the basic molecule information 
 
 See the [Tutorial Notebook](tutorial/get_start.ipynb) for more details.
 
-All teat cases shown in the [test_cases.ipynb](tutorial/test_cases.ipynb) file. You can experience the powerful molecular structure recovery provided by MolOP.
+All teat cases shown in the [test_cases](tutorial/test_cases.ipynb) file.
 
 ## Installation for Users
 
