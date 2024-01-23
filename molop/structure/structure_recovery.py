@@ -439,6 +439,7 @@ def xyz_block_to_omol(
 
         charge_to_be_allocated = abs(charge)
         clean_neighbor_spins(resonance)
+        clean_neighbor_spins(resonance)
 
         if charge > 0:
             # Step 2.2.1: If metal found, allocate all the positive charge to it.
@@ -509,6 +510,7 @@ def xyz_block_to_omol(
                     charge_to_be_allocated -= 1
 
         fix_under_bonded_dipole(resonance)
+        clean_neighbor_spins(resonance)
         clean_neighbor_spins(resonance)
         if charge < 0:
             # Step 2.3.1: Try to find the heteroatom with negative charge first.
@@ -584,6 +586,7 @@ def xyz_block_to_omol(
                             atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() + 1
                         )
         fix_under_bonded_dipole(resonance)
+        clean_neighbor_spins(resonance)
         clean_neighbor_spins(resonance)
 
         resonance.OBMol.MakeDativeBonds()
