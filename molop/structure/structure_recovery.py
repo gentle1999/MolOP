@@ -42,7 +42,8 @@ def clean_neighbor_spins(omol: pybel.Molecule):
             > 0
         ):
             spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).SetBondOrder(
-                spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).GetBondOrder() + 1,
+                spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).GetBondOrder()
+                + min(get_spin(spin_atom_1.OBAtom), get_spin(spin_atom_2.OBAtom)),
             )
 
 
@@ -246,7 +247,6 @@ def xyz_block_to_omol(
     given_charge: int = 0,
     given_spin: int = 0,
     greed_search=True,
-    check_spin=False,
 ):
     if abs(given_charge) > 2:
         raise ValueError("Charge must be between -2 and 2")
@@ -439,7 +439,6 @@ def xyz_block_to_omol(
 
         charge_to_be_allocated = abs(charge)
         clean_neighbor_spins(resonance)
-        clean_neighbor_spins(resonance)
 
         if charge > 0:
             # Step 2.2.1: If metal found, allocate all the positive charge to it.
@@ -510,7 +509,6 @@ def xyz_block_to_omol(
                     charge_to_be_allocated -= 1
 
         fix_under_bonded_dipole(resonance)
-        clean_neighbor_spins(resonance)
         clean_neighbor_spins(resonance)
         if charge < 0:
             # Step 2.3.1: Try to find the heteroatom with negative charge first.
@@ -587,7 +585,6 @@ def xyz_block_to_omol(
                         )
         fix_under_bonded_dipole(resonance)
         clean_neighbor_spins(resonance)
-        clean_neighbor_spins(resonance)
 
         resonance.OBMol.MakeDativeBonds()
         if charge_to_be_allocated == 0:
@@ -597,12 +594,4 @@ def xyz_block_to_omol(
         raise ValueError("No legal molecule resonance found")
     recovered_resonances.sort(key=omol_score)
     final_omol = recovered_resonances[0][0]
-    totol_spin = sum(
-        get_spin(atom.OBAtom) for atom in final_omol.atoms if not atom.OBAtom.IsMetal()
-    )
-    if check_spin:
-        if charge_to_be_allocated > 0 or totol_spin != spin:
-            raise ValueError(
-                f"Charge {charge} and spin {spin} cannot be allocated to the molecule. Charge {abs(charge) - charge_to_be_allocated} and spin {totol_spin} found."
-            )
     return clean_resonances(final_omol)
