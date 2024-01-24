@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-01-22 20:07:11
+ * @LastEditTime: 2024-01-24 22:02:29
  * @Description: 请填写简介
 -->
 # MolOP
@@ -19,6 +19,7 @@ This repository, **Molecule OPerator**, which is the basic molecule information 
   - QM output file
     - G16 LOG `Done`
     - G16 IRC `Done`
+    - G16 FCHK `Done`
     - xTB OUT `Done`
     - ORCA `TODO`
 

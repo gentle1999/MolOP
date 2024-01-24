@@ -9,7 +9,7 @@ from setuptools import setup
 
 setup(
     name="molop",
-    version="0.1.16.3",
+    version="0.1.17",
     description="Molcule OPerator",
     url="http://10.72.201.58:13000/TMJ/MolOP",
     author="TMJ",

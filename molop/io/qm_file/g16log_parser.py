@@ -1,10 +1,10 @@
-'''
+"""
 Author: TMJ
 Date: 2024-01-09 20:19:06
 LastEditors: TMJ
-LastEditTime: 2024-01-16 10:39:02
+LastEditTime: 2024-01-24 22:08:32
 Description: 请填写简介
-'''
+"""
 import os
 import re
 
@@ -79,6 +79,7 @@ class G16LOGParser(BaseQMFileParser):
                     charge=charge,
                     multiplicity=multi,
                     n_atom=n_atom,
+                    file_path=self._file_path,
                     version=version,
                     parameter_comment=self._parameter_comment,
                     only_extract_structure=self._only_extract_structure,

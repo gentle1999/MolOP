@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2023-10-30 15:41:19
 LastEditors: TMJ
-LastEditTime: 2023-12-10 16:54:10
+LastEditTime: 2024-01-24 22:12:40
 Description: 请填写简介
 """
 import os
@@ -17,6 +17,7 @@ class XYZParser(BaseFileParser):
     Supports one or more molecules in one file.
     Make sure molecules in the file have same charge and multiplicity.
     """
+
     _allowed_formats = (".xyz",)
 
     def __init__(self, file_path: str, charge=None, multiplicity=None):
@@ -40,6 +41,7 @@ class XYZParser(BaseFileParser):
                 "".join(lines[anchor : anchor + num_atoms + 2]),
                 charge=self._charge,
                 multiplicity=self._multiplicity,
+                file_path=self._file_path,
             )
             self.append(block)
             anchor += num_atoms + 2

@@ -20,11 +20,13 @@ class G16LOGBlockParser(QMBaseBlockParser):
         charge=0,
         multiplicity=1,
         n_atom=1,
+        file_path='',
         version=None,
         parameter_comment=None,
         only_extract_structure=False,
     ):
         super().__init__(block, only_extract_structure)
+        self._file_path = file_path
         self._charge = charge
         self._multiplicity = multiplicity
         self.__n_atom = n_atom

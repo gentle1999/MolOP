@@ -97,7 +97,6 @@ class BaseFileParser:
     ) -> None:
         if not issubclass(type(frame), BaseBlockParser):
             raise TypeError(f"{type(frame)} is not a subclass of {BaseBlockParser}")
-        frame._file_path = self._file_path
         frame._frameID = len(self.__frames)
         if frame._frameID > 0:
             self.__frames[frame._frameID - 1]._next_block = frame

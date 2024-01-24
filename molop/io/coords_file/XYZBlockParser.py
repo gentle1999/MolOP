@@ -1,10 +1,10 @@
-'''
+"""
 Author: TMJ
 Date: 2024-01-11 09:58:01
 LastEditors: TMJ
-LastEditTime: 2024-01-15 09:49:30
+LastEditTime: 2024-01-24 22:10:48
 Description: 请填写简介
-'''
+"""
 import re
 
 from molop.io.bases.molblock_base import BaseBlockParser
@@ -15,10 +15,18 @@ class XYZBlockParser(BaseBlockParser):
     """
     Parser for XYZ Blocks.
     """
+
     _block_type = "XYZ"
 
-    def __init__(self, block: str, charge=0, multiplicity=1):
+    def __init__(
+        self,
+        block: str,
+        charge=0,
+        multiplicity=1,
+        file_path="",
+    ):
         super().__init__(block)
+        self._file_path = file_path
         self._charge = charge
         self._multiplicity = multiplicity
         self._parse()

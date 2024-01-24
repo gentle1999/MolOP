@@ -68,6 +68,10 @@ class MolBlock(ABC):
         return [Chem.Atom(atom).GetSymbol() for atom in self._atoms]
 
     @property
+    def total_electrons(self) -> int:
+        return sum(Chem.Atom(atom).GetAtomicNum() for atom in self._atoms) + self.charge
+
+    @property
     def elements(self) -> List[str]:
         return list(set(self.atoms))
 

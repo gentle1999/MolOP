@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-09 19:54:01
 LastEditors: TMJ
-LastEditTime: 2024-01-11 10:41:27
+LastEditTime: 2024-01-24 22:12:03
 Description: 请填写简介
 """
 import os
@@ -50,6 +50,7 @@ class GJFParser(BaseFileParser):
                 "".join(lines[block_start : block_end + 1]),
                 charge,
                 multi,
+                file_path=self._file_path,
                 parameter_comment=self._parameter_comment,
             )
         )

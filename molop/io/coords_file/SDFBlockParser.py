@@ -1,10 +1,10 @@
-'''
+"""
 Author: TMJ
 Date: 2024-01-11 09:58:27
 LastEditors: TMJ
-LastEditTime: 2024-01-15 09:49:22
+LastEditTime: 2024-01-24 22:11:19
 Description: 请填写简介
-'''
+"""
 from openbabel import pybel
 from rdkit import Chem
 
@@ -21,9 +21,11 @@ class SDFBlockParser(BaseBlockParser):
     """
     Parser for SDF Blocks.
     """
+
     _block_type = "SDF"
 
-    def __init__(self, block: str):
+    def __init__(self, block: str, file_path=""):
+        self._file_path = file_path
         super().__init__(block)
         self._parse()
 

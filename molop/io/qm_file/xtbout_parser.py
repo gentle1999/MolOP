@@ -88,6 +88,7 @@ class XTBOUTParser(BaseQMFileParser):
                 charge=charge,
                 multiplicity=multi,
                 version=version,
+                file_path=self._file_path,
                 parameter_comment=self._parameter_comment,
                 only_extract_structure=self._only_extract_structure,
             )

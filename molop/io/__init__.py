@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2023-10-30 15:40:03
 LastEditors: TMJ
-LastEditTime: 2024-01-16 10:42:00
+LastEditTime: 2024-01-24 16:29:47
 Description: 请填写简介
 """
 import os
@@ -12,10 +12,10 @@ from molop.io.bases.file_base import BaseFileParser
 from molop.io.coords_file.gjf_parser import GJFParser
 from molop.io.coords_file.sdf_parser import SDFParser
 from molop.io.coords_file.xyz_parser import XYZParser
+from molop.io.qm_file.g16fchk_parser import G16FCHKParser
 from molop.io.qm_file.g16irc_parser import G16IRCParser
 from molop.io.qm_file.g16log_parser import G16LOGParser
 from molop.io.qm_file.xtbout_parser import XTBOUTParser
-
 from molop.logger.logger import logger
 
 parsers = {
@@ -25,6 +25,8 @@ parsers = {
     ".sdf": (SDFParser,),
     ".out": (XTBOUTParser, G16IRCParser),
     ".irc": (G16IRCParser,),
+    ".fchk": (G16FCHKParser,),
+    ".fck": (G16FCHKParser,),
 }
 
 
@@ -41,13 +43,14 @@ def AutoParser(
     G16LOGParser,
     XTBOUTParser,
     G16IRCParser,
+    G16FCHKParser,
 ]:
     _, file_format = os.path.splitext(file_path)
     if file_format not in parsers:
         raise NotImplementedError("Unknown file format: {}".format(file_format))
     for idx, parser in enumerate(parsers[file_format]):
         try:
-            if parser in (G16LOGParser, XTBOUTParser, G16IRCParser):
+            if parser in (G16LOGParser, XTBOUTParser, G16IRCParser, G16FCHKParser):
                 return parser(
                     file_path,
                     charge=charge,
