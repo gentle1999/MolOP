@@ -61,7 +61,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
     def _parse_coords(self):
         lines = self._block.splitlines()
         for i, line in enumerate(lines):
-            if "Input orientation" in line:
+            if "Standard orientation:" in line:
                 xyz_lines = lines[i + 5 : i + 5 + self.__n_atom]
 
                 for xyz_line in xyz_lines:
