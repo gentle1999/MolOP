@@ -14,18 +14,11 @@ jobs:
         run: pip config set global.index-url https://mirrors.zju.edu.cn/pypi/web/simple
       - name: register to gitea
         run: | 
-          cat > ~/.pypirc << EOF
-          [distutils]
-          index-servers = gitea
-
-          [gitea]
-          repository = http://10.72.201.58:13000/api/packages/${{ secrets.OWNER }}/pypi
-          username = ${{ secrets.OWNER }}
-          password = ${{ secrets.PASSWORD }}
-          EOF
+          poetry config repositories.hong http://10.72.201.58:13000/api/packages/${{ secrets.OWNER }}/pypi
+          poetry config http-basic.hong ${{ secrets.OWNER }} ${{ secrets.PASSWORD }}
       - name: Deploy latest
         run: |
-          pip install twine
-          python setup.py bdist_wheel
-          python -m twine upload --repository gitea dist/*
+          pip install poetry
+          poetry build
+          poetry publish --repository hong
       - run: echo "🍏 This job's status is ${{ job.status }}."
