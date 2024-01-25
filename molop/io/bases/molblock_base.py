@@ -457,6 +457,8 @@ class QMBaseBlockParser(BaseBlockParser):
 
     @property
     def dimensionless_energy(self):
+        if self.energy is None:
+            return (None, None)
         return (
             str(self.energy.units),
             self.energy.m,
@@ -476,6 +478,8 @@ class QMBaseBlockParser(BaseBlockParser):
 
     @property
     def dimensionless_gradients(self):
+        if len(self.gradients) == 0:
+            return (None, None)
         return (
             str(self.gradients[0][0].units),
             [[gradient.m for gradient in atom] for atom in self.gradients],
@@ -502,19 +506,11 @@ class QMBaseBlockParser(BaseBlockParser):
         return [
             {
                 "is imaginary": freq["is imaginary"],
-                "freq": (str(freq["freq"].units), freq["freq"].m),
-                "Reduced masses": (
-                    str(freq["Reduced masses"].units),
-                    freq["Reduced masses"].m,
-                ),
-                "IR intensities": (
-                    str(freq["IR intensities"].units),
-                    freq["IR intensities"].m,
-                ),
-                "force constants": (
-                    str(freq["force constants"].units),
-                    freq["force constants"].m,
-                ),
+                **{
+                    key: (str(value.units), value.m)
+                    for key, value in freq.items()
+                    if key not in ("is imaginary", "normal coordinates")
+                },
                 "normal coordinates": (
                     str(freq["normal coordinates"][0][0].units),
                     [
@@ -532,6 +528,8 @@ class QMBaseBlockParser(BaseBlockParser):
 
     @property
     def dimensionless_alpha_FMO_orbits(self):
+        if len(self.alpha_FMO_orbits) == 0:
+            return (None, None)
         return (
             str(self.alpha_FMO_orbits[0].units),
             [orbit.m for orbit in self.alpha_FMO_orbits],
@@ -544,7 +542,9 @@ class QMBaseBlockParser(BaseBlockParser):
     @property
     def dimensionless_alpha_energy(self):
         return {
-            key: (str(value.units), value.m) for key, value in self.alpha_energy.items()
+            key: (str(value.units), value.m)
+            for key, value in self.alpha_energy.items()
+            if value is not None
         }
 
     @property
@@ -553,6 +553,8 @@ class QMBaseBlockParser(BaseBlockParser):
 
     @property
     def dimensionless_beta_FMO_orbits(self):
+        if len(self.beta_FMO_orbits) == 0:
+            return (None, None)
         return (
             str(self.beta_FMO_orbits[0].units),
             [orbit.m for orbit in self.beta_FMO_orbits],
@@ -565,7 +567,9 @@ class QMBaseBlockParser(BaseBlockParser):
     @property
     def dimensionless_beta_energy(self):
         return {
-            key: (str(value.units), value.m) for key, value in self.beta_energy.items()
+            key: (str(value.units), value.m)
+            for key, value in self.beta_energy.items()
+            if value is not None
         }
 
     @property
@@ -575,7 +579,9 @@ class QMBaseBlockParser(BaseBlockParser):
     @property
     def dimensionless_sum_energy(self):
         return {
-            key: (str(value.units), value.m) for key, value in self.sum_energy.items()
+            key: (str(value.units), value.m)
+            for key, value in self.sum_energy.items()
+            if value is not None
         }
 
     @property
