@@ -45,6 +45,18 @@ def clean_neighbor_spins(omol: pybel.Molecule):
                 spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom).GetBondOrder()
                 + min(get_spin(spin_atom_1.OBAtom), get_spin(spin_atom_2.OBAtom)),
             )
+        if (
+            spin_atom_1.OBAtom.GetDistance(spin_atom_2.OBAtom)
+            <= 1.3
+            * (
+                pt.GetRcovalent(spin_atom_1.atomicnum)
+                + pt.GetRcovalent(spin_atom_2.atomicnum)
+            )
+            and spin_atom_1.OBAtom.GetBond(spin_atom_2.OBAtom) is None
+        ):
+            omol.OBMol.AddBond(
+                spin_atom_1.OBAtom.GetIdx(), spin_atom_2.OBAtom.GetIdx(), 1
+            )
 
 
 def fix_under_bonded_dipole(omol: pybel.Molecule):
@@ -161,7 +173,7 @@ def omol_score(omol_tuple: Tuple[pybel.Molecule, int]):
 
 
 def clean_resonances_1(omol: pybel.Molecule):
-    smarts = pybel.Smarts("[#8]=[#6]([!-])[*]=[*][#7-,#6-]")
+    smarts = pybel.Smarts("[#8]=[#6](-[!-])-[*]=[*]-[#7-,#6-]")
     res = smarts.findall(omol)
     while len(res):
         idxs = res[0]
@@ -204,7 +216,7 @@ def clean_resonances_3(omol: pybel.Molecule):
 
 
 def clean_resonances_4(omol: pybel.Molecule):
-    smarts = pybel.Smarts("[#8]=[#6][#6-,#7-]")
+    smarts = pybel.Smarts("[#8]=[#6]-[#6-,#7-]")
     res = smarts.findall(omol)
     while len(res):
         idxs = res[0]
@@ -485,9 +497,14 @@ def xyz_block_to_omol(
                             for spin_atom in spin_atoms
                         }
                         closet_spin_atom: pybel.Atom = min(distances, key=distances.get)
-                        if distances[closet_spin_atom] <= 1.05 * (
-                            pt.GetRcovalent(atom.atomicnum)
-                            + pt.GetRcovalent(closet_spin_atom.atomicnum)
+                        if (
+                            distances[closet_spin_atom]
+                            <= 1.3
+                            * (
+                                pt.GetRcovalent(atom.atomicnum)
+                                + pt.GetRcovalent(closet_spin_atom.atomicnum)
+                            )
+                            and atom.OBAtom.GetBond(closet_spin_atom.OBAtom) is None
                         ):
                             resonance.OBMol.AddBond(atom.idx, closet_spin_atom.idx, 1)
                             atom.OBAtom.SetFormalCharge(1)
@@ -567,13 +584,13 @@ def xyz_block_to_omol(
 
         for atom in resonance.atoms:
             if atom.OBAtom.IsMetal():
-                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                for neighbour_atom in list(ob.OBAtomAtomIter(atom.OBAtom)):
                     if neighbour_atom.GetAtomicNum() in HETEROATOM:
                         if any(
                             get_spin(neighbour_2_atom)
                             for neighbour_2_atom in ob.OBAtomAtomIter(neighbour_atom)
                             if neighbour_2_atom.GetIndex() != atom.OBAtom.GetIndex()
-                        ):
+                        ) and atom.OBAtom.GetBond(neighbour_atom):
                             resonance.OBMol.DeleteBond(
                                 atom.OBAtom.GetBond(neighbour_atom)
                             )
@@ -594,4 +611,4 @@ def xyz_block_to_omol(
         raise ValueError("No legal molecule resonance found")
     recovered_resonances.sort(key=omol_score)
     final_omol = recovered_resonances[0][0]
-    return clean_resonances(final_omol)
+    return final_omol  # clean_resonances(final_omol)

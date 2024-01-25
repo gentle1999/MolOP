@@ -55,7 +55,7 @@ class G16FCHKParser(BaseQMFileParser):
         self._parameter_comment = (
             "#"
             + re.findall(
-                "\#([a-zA-Z%0-9\.\#\=\s\-\+\(\)\,\*\/\\^]+)\nCharge", full_text
+                "\#([a-zA-Z%0-9\.\#\=\s\-\+\(\)\,\"\*\/\\^]+)\nCharge", full_text
             )[0]
         )
         self.append(
