@@ -55,7 +55,7 @@ class G16LOGParser(BaseQMFileParser):
 \s+(Gaussian\s+\d+\:\s+[A-Za-z0-9-.]+\s+\d+-[A-Za-z]{3}-\d{4})
 \s+\d+-[A-Za-z]{3}-\d{4}\s+
 \s+\*+
-([a-zA-Z%0-9.=\s\_\\\/\*\+\-]+)
+([a-zA-Z%0-9.=\s\_\\\/\*\+\-\"]+)
 \s+-+
 ([a-zA-Z%0-9.\=\s\-\+\#\(\),\*\/\\^\n]+)
 \s+-+"""
@@ -70,8 +70,13 @@ class G16LOGParser(BaseQMFileParser):
         block_starts = [
             idx for idx, line in enumerate(lines) if "Input orientation:" in line
         ] + [len(lines)]
+        if len(block_starts) < 2:
+            block_starts = [
+                idx for idx, line in enumerate(lines) if "Standard orientation:" in line
+            ] + [len(lines)]
         if self._only_last_frame:
             block_starts = block_starts[-2:]
+
         for idx, start in enumerate(block_starts[:-1]):
             self.append(
                 G16LOGBlockParser(
