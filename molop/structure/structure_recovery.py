@@ -394,11 +394,6 @@ def xyz_block_to_omol(
                 atom.OBAtom.SetFormalCharge(1)
                 given_charge -= 1
 
-        if greed_search:
-            possible_resonances = get_radical_resonances(omol)
-        else:
-            possible_resonances = [omol]
-
     for atom in omol.atoms:
         if (
             atom.atomicnum == 7
@@ -411,6 +406,8 @@ def xyz_block_to_omol(
         ):
             atom.OBAtom.SetFormalCharge(1)
             given_charge -= 1
+    omol.OBMol.MakeDativeBonds()
+    clean_neighbor_spins(omol)
 
     if greed_search:
         possible_resonances = get_radical_resonances(omol)
