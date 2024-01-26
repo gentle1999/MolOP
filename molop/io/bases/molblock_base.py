@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-07 13:47:18
 LastEditors: TMJ
-LastEditTime: 2024-01-16 21:16:59
+LastEditTime: 2024-01-25 22:49:10
 Description: 请填写简介
 """
 import os
@@ -252,12 +252,20 @@ class MolBlock(ABC):
     def to_InChI(self) -> str:
         return Chem.MolToInchi(self.rdmol)
 
-    def to_XYZ_file(self, file_path: str):
+    def to_XYZ_file(self, file_path: str = None):
+        if file_path is None:
+            file_path = self._file_path
+        if not os.path.isfile(file_path):
+            raise IsADirectoryError(f"{file_path} is not a file.")
         with open(file_path, "w") as f:
             f.write(self.to_XYZ_block())
         f.close()
 
-    def to_SDF_file(self, file_path: str):
+    def to_SDF_file(self, file_path: str = None):
+        if file_path is None:
+            file_path = self._file_path
+        if not os.path.isfile(file_path):
+            raise IsADirectoryError(f"{file_path} is not a file.")
         with open(file_path, "w") as f:
             f.write(self.to_SDF_block())
         f.close()
@@ -311,6 +319,33 @@ class MolBlock(ABC):
 
     def __len__(self) -> int:
         return len(self.atoms)
+
+    def to_GJF_block(self, prefix: str = None, suffix="\n\n") -> str:
+        if prefix is None:
+            prefix = f"# g16 gjf \n\n Title: {self.to_standard_SMILES()}"
+        prefix = prefix if prefix.endswith("\n") else prefix + "\n"
+        prefix = prefix + "\n"
+        return (
+            prefix
+            + f"{self.charge} {self.multiplicity}\n"
+            + "\n".join(
+                [
+                    f"{atom:10s}{x.m:10.5f}{y.m:10.5f}{z.m:10.5f}"
+                    for atom, x, y, z in zip(self.atoms, *zip(*self.coords))
+                ]
+            )
+            + suffix
+        )
+
+    def to_GJF_file(self, file_path: str = None, prefix: str = None, suffix="\n\n"):
+        if file_path is None:
+            file_path = self._file_path
+        if not os.path.isfile(file_path):
+            raise IsADirectoryError(f"{file_path} is not a file.")
+        file_path = os.path.splitext(file_path)[0] + ".gjf"
+        with open(file_path, "w") as f:
+            f.write(self.to_GJF_block(prefix=prefix, suffix=suffix))
+        f.close()
 
 
 class BaseBlockParser(MolBlock):
