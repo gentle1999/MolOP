@@ -29,7 +29,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
         charge=0,
         multiplicity=1,
         n_atom=1,
-        file_path='',
+        file_path="",
         version=None,
         parameter_comment=None,
         only_extract_structure=False,
@@ -41,16 +41,6 @@ class G16FCHKBlockParser(QMBaseBlockParser):
         self.__n_atom = n_atom
         self._version = version
         self._parameter_comment = parameter_comment
-        self._sum_energy = {
-            "zero-point": None,
-            "thermal energy": None,
-            "thermal enthalpy": None,
-            "thermal gibbs free energy": None,
-            "zero-point correction": None,
-            "thermal energy correction": None,
-            "thermal enthalpy correction": None,
-            "thermal gibbs free energy correction": None,
-        }
         self._parse_coords()
         if not self._only_extract_structure:
             self._parse()
@@ -95,28 +85,39 @@ class G16FCHKBlockParser(QMBaseBlockParser):
     def _parse_energy(self):
         try:
             self._energy = (
-                float(
-                    re.findall("Total Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block)[
-                        0
-                    ]
+                round(
+                    float(
+                        re.findall(
+                            "Total Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
+                        )[0]
+                    ),
+                    6,
                 )
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
         except:
             self._energy = (
-                float(
-                    re.findall("SCF Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block)[0]
+                round(
+                    float(
+                        re.findall(
+                            "SCF Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
+                        )[0]
+                    ),
+                    6,
                 )
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
         try:
             self._sum_energy["thermal energy"] = (
-                float(
-                    re.findall(
-                        "Thermal Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
-                    )[0]
+                round(
+                    float(
+                        re.findall(
+                            "Thermal Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
+                        )[0]
+                    ),
+                    6,
                 )
                 * atom_ureg.hartree
                 / atom_ureg.particle
@@ -125,10 +126,13 @@ class G16FCHKBlockParser(QMBaseBlockParser):
             pass
         try:
             self._sum_energy["thermal enthalpy"] = (
-                float(
-                    re.findall(
-                        "Thermal Enthalpy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
-                    )[0]
+                round(
+                    float(
+                        re.findall(
+                            "Thermal Enthalpy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
+                        )[0]
+                    ),
+                    6,
                 )
                 * atom_ureg.hartree
                 / atom_ureg.particle
@@ -137,10 +141,14 @@ class G16FCHKBlockParser(QMBaseBlockParser):
             pass
         try:
             self._sum_energy["thermal gibbs free energy"] = (
-                float(
-                    re.findall(
-                        "Thermal Free Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
-                    )[0]
+                round(
+                    float(
+                        re.findall(
+                            "Thermal Free Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)",
+                            self._block,
+                        )[0]
+                    ),
+                    6,
                 )
                 * atom_ureg.hartree
                 / atom_ureg.particle
@@ -192,7 +200,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
             return
         if orbitals == "Alpha":
             self._alpha_FMO_orbits = [
-                (energy * atom_ureg.hartree / atom_ureg.particle)
+                (round(energy, 6) * atom_ureg.hartree / atom_ureg.particle)
                 for energy in orbitals_energy
             ]
             self._alpha_energy["homo"] = self._alpha_FMO_orbits[occ - 1]
@@ -202,7 +210,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
             )
         else:
             self._beta_FMO_orbits = [
-                (energy * atom_ureg.hartree / atom_ureg.particle)
+                (round(energy, 6) * atom_ureg.hartree / atom_ureg.particle)
                 for energy in orbitals_energy
             ]
             self._beta_energy["homo"] = self._beta_FMO_orbits[occ - 1]
