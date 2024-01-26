@@ -77,7 +77,7 @@ def singlefile_parser(
                         f"Failed to parse file {file_path} with {parser.__name__}"
                     )
                     raise Exception(f"Failed to parse file {file_path}")
-                logger.warning(
+                logger.info(
                     f"Failed to parse file {file_path} with {parser.__name__}, try {parsers[file_format][idx+1].__name__} instead"
                 )
     elif os.path.isdir(file_path):
@@ -130,12 +130,14 @@ class FileParserBatch:
         self.__parsers = [
             parser
             for parser in tqdm(
-                Parallel(return_as="generator", n_jobs=cpu_count(), pre_dispatch="1.5*n_jobs")(
+                Parallel(
+                    return_as="generator", n_jobs=cpu_count(), pre_dispatch="1.5*n_jobs"
+                )(
                     delayed(singlefile_parser)(**arguments)
                     for arguments in arguments_list
                 ),
                 total=len(arguments_list),
-                desc=f"MolOP parsing with {cpu_count()} jobs"
+                desc=f"MolOP parsing with {cpu_count()} jobs",
             )
             if len(parser) > 0
         ]
@@ -228,15 +230,85 @@ class FileParserBatch:
                         parser[-1].to_standard_SMILES() for parser in self.__parsers
                     ],
                     "status": [parser[-1].state for parser in self.__parsers],
-                    "energy": [parser[-1].energy for parser in self.__parsers],
+                    "zero-point": [
+                        parser[-1].sum_energy["zero-point"].to("kcal/mol")
+                        if parser[-1].sum_energy["zero-point"]
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "H": [
+                        parser[-1].sum_energy["thermal energy"].to("kcal/mol")
+                        if parser[-1].sum_energy["thermal energy"]
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "S": [
+                        parser[-1].sum_energy["thermal enthalpy"].to("kcal/mol")
+                        if parser[-1].sum_energy["thermal enthalpy"]
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "G": [
+                        parser[-1]
+                        .sum_energy["thermal gibbs free energy"]
+                        .to("kcal/mol")
+                        if parser[-1].sum_energy["thermal gibbs free energy"]
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "zero-point correction": [
+                        parser[-1].sum_energy["zero-point correction"].to("kcal/mol")
+                        if parser[-1].sum_energy["zero-point correction"]
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "H correction": [
+                        parser[-1]
+                        .sum_energy["thermal energy correction"]
+                        .to("kcal/mol")
+                        if parser[-1].sum_energy["thermal energy correction"]
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "S correction": [
+                        parser[-1]
+                        .sum_energy["thermal enthalpy correction"]
+                        .to("kcal/mol")
+                        if parser[-1].sum_energy["thermal enthalpy correction"]
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "G correction": [
+                        parser[-1]
+                        .sum_energy["thermal gibbs free energy correction"]
+                        .to("kcal/mol")
+                        if parser[-1].sum_energy["thermal gibbs free energy correction"]
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "total energy": [
+                        parser[-1].energy.to("kcal/mol")
+                        if parser[-1].energy.to("kcal/mol")
+                        else None
+                        for parser in self.__parsers
+                    ],
                     "HOMO": [
-                        parser[-1].alpha_energy["homo"] for parser in self.__parsers
+                        parser[-1].alpha_energy["homo"].to("kcal/mol")
+                        if parser[-1].alpha_energy["homo"]
+                        else None
+                        for parser in self.__parsers
                     ],
                     "LUMO": [
-                        parser[-1].alpha_energy["lumo"] for parser in self.__parsers
+                        parser[-1].alpha_energy["lumo"].to("kcal/mol")
+                        if parser[-1].alpha_energy["lumo"]
+                        else None
+                        for parser in self.__parsers
                     ],
                     "GAP": [
-                        parser[-1].alpha_energy["gap"] for parser in self.__parsers
+                        parser[-1].alpha_energy["gap"].to("kcal/mol")
+                        if parser[-1].alpha_energy["gap"]
+                        else None
+                        for parser in self.__parsers
                     ],
                 }
             )

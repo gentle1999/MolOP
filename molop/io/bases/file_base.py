@@ -115,15 +115,15 @@ class BaseFileParser:
     def to_SDF_block(self) -> str:
         return "$$$$\n".join([frame.to_SDF_block() for frame in self.__frames])
 
-    def to_GJF_block(self, prefix: str = None, suffix="\n\n") -> str:
+    def to_GJF_block(self, prefix: str = None, suffix="") -> str:
         """Only extract the last frame."""
         return self.__frames[-1].to_GJF_block(prefix=prefix, suffix=suffix)
 
     def to_XYZ_file(self, file_path: str = None):
         if file_path is None:
             file_path = self._file_path
-        if not os.path.isfile(file_path):
-            raise IsADirectoryError(f"{file_path} is not a file.")
+        if os.path.isdir(file_path):
+            raise IsADirectoryError(f"{file_path} is a directory.")
         file_path = os.path.splitext(file_path)[0] + ".xyz"
         with open(file_path, "w") as f:
             f.write(self.to_XYZ_block())
@@ -132,8 +132,8 @@ class BaseFileParser:
     def to_SDF_file(self, file_path: str = None):
         if file_path is None:
             file_path = self._file_path
-        if not os.path.isfile(file_path):
-            raise IsADirectoryError(f"{file_path} is not a file.")
+        if os.path.isdir(file_path):
+            raise IsADirectoryError(f"{file_path} is a directory.")
         file_path = os.path.splitext(file_path)[0] + ".sdf"
         with open(file_path, "w") as f:
             f.write(self.to_SDF_block())
@@ -143,8 +143,8 @@ class BaseFileParser:
         """Only extract the last frame."""
         if file_path is None:
             file_path = self._file_path
-        if not os.path.isfile(file_path):
-            raise IsADirectoryError(f"{file_path} is not a file.")
+        if os.path.isdir(file_path):
+            raise IsADirectoryError(f"{file_path} is a directory.")
         file_path = os.path.splitext(file_path)[0] + ".gjf"
         with open(file_path, "w") as f:
             f.write(self.to_GJF_block(prefix=prefix, suffix=suffix))
