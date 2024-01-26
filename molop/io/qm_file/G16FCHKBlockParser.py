@@ -206,10 +206,10 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                 for energy in orbitals_energy
             ]
             self._beta_energy["homo"] = self._beta_FMO_orbits[occ - 1]
+            self._beta_energy["lumo"] = self._beta_FMO_orbits[occ]
             self._beta_energy["gap"] = (
                 self._beta_energy["lumo"] - self._beta_energy["homo"]
             )
-            self._beta_energy["lumo"] = self._beta_FMO_orbits[occ]
 
     def _parse_frequencies(self):
         try:
