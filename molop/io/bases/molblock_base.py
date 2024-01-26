@@ -255,8 +255,8 @@ class MolBlock(ABC):
     def to_XYZ_file(self, file_path: str = None):
         if file_path is None:
             file_path = self._file_path
-        if not os.path.isfile(file_path):
-            raise IsADirectoryError(f"{file_path} is not a file.")
+        if os.path.isdir(file_path):
+            raise IsADirectoryError(f"{file_path} is a directory.")
         with open(file_path, "w") as f:
             f.write(self.to_XYZ_block())
         f.close()
@@ -264,8 +264,8 @@ class MolBlock(ABC):
     def to_SDF_file(self, file_path: str = None):
         if file_path is None:
             file_path = self._file_path
-        if not os.path.isfile(file_path):
-            raise IsADirectoryError(f"{file_path} is not a file.")
+        if os.path.isdir(file_path):
+            raise IsADirectoryError(f"{file_path} is a directory.")
         with open(file_path, "w") as f:
             f.write(self.to_SDF_block())
         f.close()
@@ -320,13 +320,14 @@ class MolBlock(ABC):
     def __len__(self) -> int:
         return len(self.atoms)
 
-    def to_GJF_block(self, prefix: str = None, suffix="\n\n") -> str:
+    def to_GJF_block(self, prefix: str = None, suffix="") -> str:
         if prefix is None:
-            prefix = f"# g16 gjf \n\n Title: {self.to_standard_SMILES()}"
+            prefix = f"# g16 gjf \n"
         prefix = prefix if prefix.endswith("\n") else prefix + "\n"
         prefix = prefix + "\n"
         return (
             prefix
+            + f" Title: {self.to_standard_SMILES()}\n\n"
             + f"{self.charge} {self.multiplicity}\n"
             + "\n".join(
                 [
@@ -334,14 +335,15 @@ class MolBlock(ABC):
                     for atom, x, y, z in zip(self.atoms, *zip(*self.coords))
                 ]
             )
+            + "\n\n"
             + suffix
         )
 
-    def to_GJF_file(self, file_path: str = None, prefix: str = None, suffix="\n\n"):
+    def to_GJF_file(self, file_path: str = None, prefix: str = None, suffix=""):
         if file_path is None:
             file_path = self._file_path
-        if not os.path.isfile(file_path):
-            raise IsADirectoryError(f"{file_path} is not a file.")
+        if os.path.isdir(file_path):
+            raise IsADirectoryError(f"{file_path} is a directory.")
         file_path = os.path.splitext(file_path)[0] + ".gjf"
         with open(file_path, "w") as f:
             f.write(self.to_GJF_block(prefix=prefix, suffix=suffix))
