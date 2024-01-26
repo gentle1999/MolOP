@@ -20,7 +20,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
         charge=0,
         multiplicity=1,
         n_atom=1,
-        file_path='',
+        file_path="",
         version=None,
         parameter_comment=None,
         only_extract_structure=False,
@@ -32,16 +32,6 @@ class G16LOGBlockParser(QMBaseBlockParser):
         self.__n_atom = n_atom
         self._version = version
         self._parameter_comment = parameter_comment
-        self._sum_energy = {
-            "zero-point": None,
-            "thermal energy": None,
-            "thermal enthalpy": None,
-            "thermal gibbs free energy": None,
-            "zero-point correction": None,
-            "thermal energy correction": None,
-            "thermal enthalpy correction": None,
-            "thermal gibbs free energy correction": None,
-        }
         self._parse_coords()
         if not self._only_extract_structure:
             self._parse()
@@ -95,23 +85,31 @@ class G16LOGBlockParser(QMBaseBlockParser):
         for line in reversed(lines):
             if "SCF Done" in line or "E(CIS)" in line:
                 self._energy = (
-                    float(line.split()[4]) * atom_ureg.hartree / atom_ureg.particle
+                    round(float(line.split()[4]), 6)
+                    * atom_ureg.hartree
+                    / atom_ureg.particle
                 )
                 self._state["SCF Done"] = True
                 return
             if "E(CORR)" in line or "E(CI)" in line:
                 self._energy = (
-                    float(line.split()[3]) * atom_ureg.hartree / atom_ureg.particle
+                    round(float(line.split()[3]), 6)
+                    * atom_ureg.hartree
+                    / atom_ureg.particle
                 )
                 return
             if "E(CIS(D))" in line:
                 self._energy = (
-                    float(line.split()[5]) * atom_ureg.hartree / atom_ureg.particle
+                    round(float(line.split()[5]), 6)
+                    * atom_ureg.hartree
+                    / atom_ureg.particle
                 )
                 return
             if line.startswith(" Energy=") and "NIter=" in line:
                 self._energy = (
-                    float(line.split()[1]) * atom_ureg.hartree / atom_ureg.particle
+                    round(float(line.split()[1]), 6)
+                    * atom_ureg.hartree
+                    / atom_ureg.particle
                 )
                 return
         self._state["SCF Done"] = False
@@ -177,7 +175,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
             if match_occ:
                 orbitals.extend(
                     (
-                        e * atom_ureg.hartree / atom_ureg.particle
+                        round(e, 6) * atom_ureg.hartree / atom_ureg.particle
                         for e in map(
                             float,
                             [
@@ -191,7 +189,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
             if match_virt:
                 orbitals.extend(
                     (
-                        e * atom_ureg.hartree / atom_ureg.particle
+                        round(e, 6) * atom_ureg.hartree / atom_ureg.particle
                         for e in map(
                             float,
                             [
@@ -267,7 +265,9 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 self._block,
             )
             if match:
-                return float(match[0]) * atom_ureg.hartree / atom_ureg.particle
+                return (
+                    round(float(match[0]), 6) * atom_ureg.hartree / atom_ureg.particle
+                )
 
         self._sum_energy["thermal gibbs free energy"] = get_energy(
             r"Sum of electronic and thermal Free Energies=\s+([\-0-9.]+)"

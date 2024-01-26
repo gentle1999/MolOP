@@ -76,12 +76,16 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         for line in reversed(lines):
             if "total E" in line:
                 self._energy = (
-                    float(line.split()[-1]) * atom_ureg.hartree / atom_ureg.particle
+                    round(float(line.split()[-1]), 6)
+                    * atom_ureg.hartree
+                    / atom_ureg.particle
                 )
                 return
             if "TOTAL ENERGY" in line:
                 self._energy = (
-                    float(line.split()[-3]) * atom_ureg.hartree / atom_ureg.particle
+                    round(float(line.split()[-3]), 6)
+                    * atom_ureg.hartree
+                    / atom_ureg.particle
                 )
                 return
         raise ValueError("Energy not found")
@@ -101,12 +105,12 @@ class XTBOUTBlockParser(QMBaseBlockParser):
 
     def _parse_orbitals(self):
         self.alpha_energy["homo"] = (
-            float(re.findall("([\+\-0-9.]+)\s+\(HOMO\)", self._block)[-1])
+            round(float(re.findall("([\+\-0-9.]+)\s+\(HOMO\)", self._block)[-1]), 6)
             * atom_ureg.eV
             / atom_ureg.particle
         )
         self.alpha_energy["lumo"] = (
-            float(re.findall("([\+\-0-9.]+)\s+\(LUMO\)", self._block)[-1])
+            round(float(re.findall("([\+\-0-9.]+)\s+\(LUMO\)", self._block)[-1]), 6)
             * atom_ureg.eV
             / atom_ureg.particle
         )
@@ -132,9 +136,9 @@ class XTBOUTBlockParser(QMBaseBlockParser):
                     self._atoms.append(atom)
                     self._coords.append(
                         (
-                            (float(x) * atom_ureg.bohr).to("angstrom"),
-                            (float(y) * atom_ureg.bohr).to("angstrom"),
-                            (float(z) * atom_ureg.bohr).to("angstrom"),
+                            (round(float(x), 6) * atom_ureg.bohr).to("angstrom"),
+                            (round(float(y), 6) * atom_ureg.bohr).to("angstrom"),
+                            (round(float(z), 6) * atom_ureg.bohr).to("angstrom"),
                         )
                     )
 
@@ -162,8 +166,8 @@ class XTBOUTBlockParser(QMBaseBlockParser):
                     self._atoms.append(atom)
                     self._coords.append(
                         (
-                            float(x) * atom_ureg.angstrom,
-                            float(y) * atom_ureg.angstrom,
-                            float(z) * atom_ureg.angstrom,
+                            round(float(x), 6) * atom_ureg.angstrom,
+                            round(float(y), 6) * atom_ureg.angstrom,
+                            round(float(z), 6) * atom_ureg.angstrom,
                         )
                     )

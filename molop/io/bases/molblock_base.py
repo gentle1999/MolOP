@@ -337,6 +337,7 @@ class MolBlock(ABC):
             )
             + "\n\n"
             + suffix
+            + "\n\n"
         )
 
     def to_GJF_file(self, file_path: str = None, prefix: str = None, suffix=""):
@@ -483,7 +484,16 @@ class QMBaseBlockParser(BaseBlockParser):
             "homo": None,
             "lumo": None,
         }
-        self._sum_energy = {}
+        self._sum_energy = {
+            "zero-point": None,
+            "thermal energy": None,
+            "thermal enthalpy": None,
+            "thermal gibbs free energy": None,
+            "zero-point correction": None,
+            "thermal energy correction": None,
+            "thermal enthalpy correction": None,
+            "thermal gibbs free energy correction": None,
+        }
         self._frequencies = []
         self._nbo_analysis = []
         self._state = {}

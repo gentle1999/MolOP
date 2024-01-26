@@ -44,6 +44,8 @@ parsers = {
     ".fck": (G16FCHKParser,),
 }
 
+qm_parsers = (G16LOGParser, G16IRCParser, G16FCHKParser, XTBOUTParser)
+
 
 def singlefile_parser(
     file_path,
@@ -204,6 +206,7 @@ class FileParserBatch:
         if self._only_extract_structure:
             return pd.DataFrame(
                 {
+                    "parser": [parser.__class__.__name__ for parser in self.__parsers],
                     "file_name": [parser.file_name for parser in self.__parsers],
                     "file_path": [parser.file_path for parser in self.__parsers],
                     "file_format": [parser._file_format for parser in self.__parsers],
@@ -219,6 +222,7 @@ class FileParserBatch:
         else:
             return pd.DataFrame(
                 {
+                    "parser": [parser.__class__.__name__ for parser in self.__parsers],
                     "file_name": [parser.file_name for parser in self.__parsers],
                     "file_path": [parser.file_path for parser in self.__parsers],
                     "file_format": [parser._file_format for parser in self.__parsers],
@@ -229,84 +233,77 @@ class FileParserBatch:
                     "SMILES": [
                         parser[-1].to_standard_SMILES() for parser in self.__parsers
                     ],
-                    "status": [parser[-1].state for parser in self.__parsers],
+                    "status": [
+                        parser[-1].state if parser.__class__ in qm_parsers else None
+                        for parser in self.__parsers
+                    ],
                     "zero-point": [
-                        parser[-1].sum_energy["zero-point"].to("kcal/mol")
-                        if parser[-1].sum_energy["zero-point"]
+                        parser[-1].sum_energy["zero-point"]
+                        if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
                     "H": [
-                        parser[-1].sum_energy["thermal energy"].to("kcal/mol")
-                        if parser[-1].sum_energy["thermal energy"]
+                        parser[-1].sum_energy["thermal energy"]
+                        if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
                     "S": [
-                        parser[-1].sum_energy["thermal enthalpy"].to("kcal/mol")
-                        if parser[-1].sum_energy["thermal enthalpy"]
+                        parser[-1].sum_energy["thermal enthalpy"]
+                        if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
                     "G": [
-                        parser[-1]
-                        .sum_energy["thermal gibbs free energy"]
-                        .to("kcal/mol")
-                        if parser[-1].sum_energy["thermal gibbs free energy"]
+                        parser[-1].sum_energy["thermal gibbs free energy"]
+                        if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
                     "zero-point correction": [
-                        parser[-1].sum_energy["zero-point correction"].to("kcal/mol")
-                        if parser[-1].sum_energy["zero-point correction"]
+                        parser[-1].sum_energy["zero-point correction"]
+                        if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
                     "H correction": [
-                        parser[-1]
-                        .sum_energy["thermal energy correction"]
-                        .to("kcal/mol")
-                        if parser[-1].sum_energy["thermal energy correction"]
+                        parser[-1].sum_energy["thermal energy correction"]
+                        if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
                     "S correction": [
-                        parser[-1]
-                        .sum_energy["thermal enthalpy correction"]
-                        .to("kcal/mol")
-                        if parser[-1].sum_energy["thermal enthalpy correction"]
+                        parser[-1].sum_energy["thermal enthalpy correction"]
+                        if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
                     "G correction": [
-                        parser[-1]
-                        .sum_energy["thermal gibbs free energy correction"]
-                        .to("kcal/mol")
-                        if parser[-1].sum_energy["thermal gibbs free energy correction"]
+                        parser[-1].sum_energy["thermal gibbs free energy correction"]
+                        if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
                     "total energy": [
-                        parser[-1].energy.to("kcal/mol")
-                        if parser[-1].energy.to("kcal/mol")
-                        else None
+                        parser[-1].energy if parser.__class__ in qm_parsers else None
                         for parser in self.__parsers
                     ],
                     "HOMO": [
-                        parser[-1].alpha_energy["homo"].to("kcal/mol")
-                        if parser[-1].alpha_energy["homo"]
+                        parser[-1].alpha_energy["homo"]
+                        if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
                     "LUMO": [
-                        parser[-1].alpha_energy["lumo"].to("kcal/mol")
-                        if parser[-1].alpha_energy["lumo"]
+                        parser[-1].alpha_energy["lumo"]
+                        if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
                     "GAP": [
-                        parser[-1].alpha_energy["gap"].to("kcal/mol")
-                        if parser[-1].alpha_energy["gap"]
+                        parser[-1].alpha_energy["gap"]
+                        if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
