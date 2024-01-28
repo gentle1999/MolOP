@@ -1,5 +1,5 @@
 64
-Created by MolOP; FilePath==test/test.xyz; G16mem==60GB; G16nprocshared==32; RouteSection== opt=(modredundant,maxcycle=150) freq b3lyp/genecp; charge==0; frameID==0; multi==3
+
 C        0.00000000      0.00000000      0.00000000
 C        2.30793800      0.00000000      0.00000000
 C        0.55128100      1.45566500      0.00000000

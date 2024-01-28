@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-01-25 14:59:30
+ * @LastEditTime: 2024-01-28 20:39:34
  * @Description: 请填写简介
 -->
 # MolOP
@@ -27,8 +27,8 @@ This repository, **Molecule OPerator**, which is the basic molecule information 
   
   Although our algorithm overcome the free radicals and metal problem and tested on the [test_cases](tutorial/test_cases.ipynb) file, it is still not perfect. There is no denying that, rdDetermineBonds works well for normal organic molecules. Thus, we would give molecule structure recovered by rdDetermineBonds first, if error happens, we will use our algorithm to recover the molecule structure instead. We hope that this strategy can take advantage of both approaches.
 
-- Offer the moleculer geometry and structure edit functions. `TODO`
-  - Substructure replacement `TODO`
+- Offer the moleculer geometry and structure edit functions. `Doing`
+  - Substructure replacement `Done`
   - Orientation change `TODO`
   - Other functions `TODO`
 

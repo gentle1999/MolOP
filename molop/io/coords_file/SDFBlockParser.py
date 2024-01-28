@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-11 09:58:27
 LastEditors: TMJ
-LastEditTime: 2024-01-24 22:11:19
+LastEditTime: 2024-01-28 14:02:10
 Description: 请填写简介
 """
 from openbabel import pybel
@@ -25,21 +25,16 @@ class SDFBlockParser(BaseBlockParser):
     _block_type = "SDF"
 
     def __init__(self, block: str, file_path=""):
-        self._file_path = file_path
         super().__init__(block)
+        self._file_path = file_path
         self._parse()
 
     def _parse(self):
-        self._omol = pybel.readstring("sdf", self._block)
         self._rdmol = Chem.MolFromMolBlock(self._block, removeHs=False)
-        self._atoms = [atom.atomicnum for atom in self._omol.atoms]
+        self._atoms = [atom.GetAtomicNum() for atom in self._rdmol.GetAtoms()]
         self._coords = [
-            (
-                atom.coords[0] * atom_ureg.angstrom,
-                atom.coords[1] * atom_ureg.angstrom,
-                atom.coords[2] * atom_ureg.angstrom,
-            )
-            for atom in self._omol.atoms
+            (x * atom_ureg.angstrom, y * atom_ureg.angstrom, z * atom_ureg.angstrom)
+            for x, y, z in self._rdmol.GetConformer().GetPositions()
         ]
         self._bonds = get_bond_pairs(self._rdmol)
         self._formal_charges = get_formal_charges(self._rdmol)

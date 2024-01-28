@@ -16,15 +16,16 @@ from pint.facets.plain import PlainQuantity
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdDetermineBonds
 from rdkit.Chem.MolStandardize import rdMolStandardize
+from molop.unit import atom_ureg
 
 from molop.logger.logger import logger
 from molop.structure.structure import (
-    check_mol_equal,
     get_bond_pairs,
     get_formal_charges,
     get_formal_spins,
     get_resonance_structures,
     structure_score,
+    attempt_replacement,
 )
 from molop.structure.structure_recovery import xyz_block_to_omol
 
@@ -167,7 +168,7 @@ class MolBlock(ABC):
                     self._formal_charges = get_formal_charges(self._rdmol)
                     self._formal_spins = get_formal_spins(self._rdmol)
                 except:
-                    logger.info(
+                    logger.debug(
                         f"{self._file_path}: rdkit determinebonds failed. Use MolOP structure recovery instead."
                     )
                     # If failed, use our implementation
@@ -257,18 +258,22 @@ class MolBlock(ABC):
             file_path = self._file_path
         if os.path.isdir(file_path):
             raise IsADirectoryError(f"{file_path} is a directory.")
+        file_path = os.path.splitext(file_path)[0] + ".xyz"
         with open(file_path, "w") as f:
             f.write(self.to_XYZ_block())
         f.close()
+        return file_path
 
     def to_SDF_file(self, file_path: str = None):
         if file_path is None:
             file_path = self._file_path
         if os.path.isdir(file_path):
             raise IsADirectoryError(f"{file_path} is a directory.")
+        file_path = os.path.splitext(file_path)[0] + ".sdf"
         with open(file_path, "w") as f:
             f.write(self.to_SDF_block())
         f.close()
+        return file_path
 
     def calc_rdkit_descs(self, desc_names: List[str] = None) -> Dict[str, float]:
         from molop.descriptor.descriptor import calc_rdkit_descs
@@ -349,6 +354,7 @@ class MolBlock(ABC):
         with open(file_path, "w") as f:
             f.write(self.to_GJF_block(prefix=prefix, suffix=suffix))
         f.close()
+        return file_path
 
 
 class BaseBlockParser(MolBlock):
@@ -407,6 +413,37 @@ class BaseBlockParser(MolBlock):
             + f"atom number: {len(self)}\n"
             + f"total charge: {self.charge}\n"
         )
+
+    def replace_substituent(
+        self,
+        query_smi: str,
+        replacement_smi: str,
+        bind_idx: int = None,
+        replace_all=False,
+        attempt_num: int = 10,
+    ):
+        new_mol = attempt_replacement(
+            self.rdmol,
+            query_smi=query_smi,
+            replacement_smi=replacement_smi,
+            bind_idx=bind_idx,
+            replace_all=replace_all,
+            attempt_num=attempt_num,
+        )
+        new_parser = BaseBlockParser(block=Chem.MolToXYZBlock(new_mol))
+        new_parser._atoms = [atom.GetSymbol() for atom in new_mol.GetAtoms()]
+        new_parser._coords = [
+            (x * atom_ureg.angstrom, y * atom_ureg.angstrom, z * atom_ureg.angstrom)
+            for x, y, z in new_mol.GetConformer().GetPositions()
+        ]
+        new_parser._file_path = os.path.splitext(self._file_path)[0] + "_mod.xyz"
+        new_parser._rdmol = new_mol
+        new_parser._charge = self.charge
+        new_parser._multiplicity = self.multiplicity
+        new_parser._bonds = get_bond_pairs(new_mol)
+        new_parser._formal_charges = get_formal_charges(new_mol)
+        new_parser._formal_spins = get_formal_spins(new_mol)
+        return new_parser
 
 
 class QMBaseBlockParser(BaseBlockParser):

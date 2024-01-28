@@ -128,6 +128,7 @@ class BaseFileParser:
         with open(file_path, "w") as f:
             f.write(self.to_XYZ_block())
         f.close()
+        return file_path
 
     def to_SDF_file(self, file_path: str = None):
         if file_path is None:
@@ -138,6 +139,7 @@ class BaseFileParser:
         with open(file_path, "w") as f:
             f.write(self.to_SDF_block())
         f.close()
+        return file_path
 
     def to_GJF_file(self, file_path: str = None, prefix: str = None, suffix="\n\n"):
         """Only extract the last frame."""
@@ -149,6 +151,7 @@ class BaseFileParser:
         with open(file_path, "w") as f:
             f.write(self.to_GJF_block(prefix=prefix, suffix=suffix))
         f.close()
+        return file_path
 
     def summary(self):
         print(
