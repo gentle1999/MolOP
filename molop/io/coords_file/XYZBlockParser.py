@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-11 09:58:01
 LastEditors: TMJ
-LastEditTime: 2024-01-24 22:10:48
+LastEditTime: 2024-01-27 15:08:01
 Description: 请填写简介
 """
 import re
@@ -37,6 +37,10 @@ class XYZBlockParser(BaseBlockParser):
         """
         lines = self._block.split("\n")
         num_atoms = int(lines[0])
+        cm = re.findall("charge\s+([\-0-9]+)\s+multiplicity\s+([\-0-9]+)\s+", lines[1])
+        if len(cm) == 1:
+            self._charge = int(cm[0][0])
+            self._multiplicity = int(cm[0][1])
         for line in lines[2 : 2 + num_atoms]:
             if re.match(r"^\s*[A-Z][a-z]?(\s+\-?\d+(\.\d+)?){3}$", line):
                 atom, x, y, z = line.split()

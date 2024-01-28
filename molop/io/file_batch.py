@@ -13,9 +13,9 @@ from joblib import Parallel, delayed, cpu_count
 import pandas as pd
 from tqdm import tqdm
 
-from molop.io.bases.file_base import BaseFileParser
+from molop.io.bases.file_base import BaseFileParser, BlockType
 from molop.io.coords_file.gjf_parser import GJFParser
-from molop.io.coords_file.sdf_parser import SDFParser
+from molop.io.coords_file.sdf_parser import SDFParser, SDFBlockParser
 from molop.io.coords_file.xyz_parser import XYZParser
 from molop.io.qm_file.g16fchk_parser import G16FCHKParser
 from molop.io.qm_file.g16irc_parser import G16IRCParser
@@ -79,7 +79,7 @@ def singlefile_parser(
                         f"Failed to parse file {file_path} with {parser.__name__}"
                     )
                     raise Exception(f"Failed to parse file {file_path}")
-                logger.info(
+                logger.debug(
                     f"Failed to parse file {file_path} with {parser.__name__}, try {parsers[file_format][idx+1].__name__} instead"
                 )
     elif os.path.isdir(file_path):
@@ -179,6 +179,39 @@ class FileParserBatch:
         ), f"file_path should be a directory, got {file_path}"
         for parser in self.__parsers:
             parser.to_SDF_file(os.path.join(file_path, parser.file_name))
+
+    def replace_substituent(
+        self,
+        query_smi: str,
+        replacement_smi: str,
+        bind_idx: int = None,
+        replace_all: bool = False,
+        attempt_num: int = 10,
+    )-> List[BlockType]:
+        new_parsers = []
+        for parser in tqdm(self.__parsers):
+            try:
+                temp_parser = parser[-1].replace_substituent(
+                    query_smi=query_smi,
+                    replacement_smi=replacement_smi,
+                    bind_idx=bind_idx,
+                    replace_all=replace_all,
+                    attempt_num=attempt_num,
+                )
+                new_parsers.append(
+                    SDFBlockParser(
+                        temp_parser.to_SDF_block(),
+                        os.path.splitext(temp_parser._file_path)[0] + ".sdf",
+                    )
+                )
+            except:
+                logger.warning(
+                    f"Failed to replace substituent from {query_smi} to {replacement_smi} in {parser.file_path}, {parser.file_name}"
+                )
+        logger.info(
+            f"{len(new_parsers)} files successfully replaced, {len(self.__parsers) - len(new_parsers)} files failed to replace"
+        )
+        return new_parsers
 
     def __getitem__(self, parserID: int) -> PARSERTPES:
         return self.__parsers[parserID]

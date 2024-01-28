@@ -108,12 +108,12 @@ class XTBOUTBlockParser(QMBaseBlockParser):
             round(float(re.findall("([\+\-0-9.]+)\s+\(HOMO\)", self._block)[-1]), 6)
             * atom_ureg.eV
             / atom_ureg.particle
-        )
+        ).to("hartree/particle")
         self.alpha_energy["lumo"] = (
             round(float(re.findall("([\+\-0-9.]+)\s+\(LUMO\)", self._block)[-1]), 6)
             * atom_ureg.eV
             / atom_ureg.particle
-        )
+        ).to("hartree/particle")
         self.alpha_energy["gap"] = self.alpha_energy["lumo"] - self.alpha_energy["homo"]
 
     def _parse_coords_old(self):
