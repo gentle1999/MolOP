@@ -115,9 +115,9 @@ class BaseFileParser:
     def to_SDF_block(self) -> str:
         return "$$$$\n".join([frame.to_SDF_block() for frame in self.__frames])
 
-    def to_GJF_block(self, prefix: str = None, suffix="") -> str:
-        """Only extract the last frame."""
-        return self.__frames[-1].to_GJF_block(prefix=prefix, suffix=suffix)
+    def to_GJF_block(self, prefix: str = None, suffix="", frameID=-1) -> str:
+        """Only extract one frame."""
+        return self.__frames[frameID].to_GJF_block(prefix=prefix, suffix=suffix)
 
     def to_XYZ_file(self, file_path: str = None):
         if file_path is None:
@@ -141,17 +141,20 @@ class BaseFileParser:
         f.close()
         return file_path
 
-    def to_GJF_file(self, file_path: str = None, prefix: str = None, suffix="\n\n"):
-        """Only extract the last frame."""
+    def to_GJF_file(self, file_path: str = None, prefix: str = None, suffix="\n\n", frameID=-1):
+        """Only extract one frame."""
         if file_path is None:
             file_path = self._file_path
         if os.path.isdir(file_path):
             raise IsADirectoryError(f"{file_path} is a directory.")
         file_path = os.path.splitext(file_path)[0] + ".gjf"
         with open(file_path, "w") as f:
-            f.write(self.to_GJF_block(prefix=prefix, suffix=suffix))
+            f.write(self.to_GJF_block(prefix=prefix, suffix=suffix, frameID=frameID))
         f.close()
         return file_path
+
+    def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=False):
+        return self.__frames[frameID].to_chemdraw(file_path, keep3D=keep3D)
 
     def summary(self):
         print(

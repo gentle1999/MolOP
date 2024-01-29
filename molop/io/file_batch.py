@@ -180,6 +180,19 @@ class FileParserBatch:
         for parser in self.__parsers:
             parser.to_SDF_file(os.path.join(file_path, parser.file_name))
 
+    def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=False) -> None:
+        if not file_path:
+            file_path = self.__path
+        assert os.path.isdir(
+            file_path
+        ), f"file_path should be a directory, got {file_path}"
+        for parser in self.__parsers:
+            parser.to_chemdraw(
+                os.path.join(file_path, parser.file_name),
+                frameID=frameID,
+                keep3D=keep3D,
+            )
+
     def replace_substituent(
         self,
         query_smi: str,
@@ -187,7 +200,8 @@ class FileParserBatch:
         bind_idx: int = None,
         replace_all: bool = False,
         attempt_num: int = 10,
-    )-> List[BlockType]:
+    ) -> List[BlockType]:
+        """only consider the last frame of each file"""
         new_parsers = []
         for parser in tqdm(self.__parsers):
             try:
@@ -205,11 +219,32 @@ class FileParserBatch:
                     )
                 )
             except:
-                logger.warning(
+                logger.error(
                     f"Failed to replace substituent from {query_smi} to {replacement_smi} in {parser.file_path}, {parser.file_name}"
                 )
         logger.info(
             f"{len(new_parsers)} files successfully replaced, {len(self.__parsers) - len(new_parsers)} files failed to replace"
+        )
+        return new_parsers
+
+    def reset_atom_index(self, mapping_smarts: str) -> List[BlockType]:
+        """only consider the last frame of each file"""
+        new_parsers = []
+        for parser in tqdm(self.__parsers):
+            try:
+                temp_parser = parser[-1].reset_atom_index(mapping_smarts=mapping_smarts)
+                new_parsers.append(
+                    SDFBlockParser(
+                        temp_parser.to_SDF_block(),
+                        os.path.splitext(temp_parser._file_path)[0] + ".sdf",
+                    )
+                )
+            except Exception as e:
+                logger.error(
+                    f"{e}: Failed to reset atom index by {mapping_smarts} in {parser.file_path}, {parser.file_name}"
+                )
+        logger.info(
+            f"{len(new_parsers)} files successfully replaced, {len(self.__parsers) - len(new_parsers)} files failed to reset_index"
         )
         return new_parsers
 

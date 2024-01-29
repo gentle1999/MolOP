@@ -356,6 +356,22 @@ class MolBlock(ABC):
         f.close()
         return file_path
 
+    def to_chemdraw(self, file_path: str = None, keep3D=False):
+        if file_path is None:
+            file_path = self._file_path
+        if os.path.isdir(file_path):
+            raise IsADirectoryError(f"{file_path} is a directory.")
+        file_path = os.path.splitext(file_path)[0] + ".cdxml"
+        if not keep3D:
+            temp_rdmol = Chem.RWMol(self.rdmol)
+            temp_rdmol.RemoveAllConformers()
+            pybel.readstring("sdf", Chem.MolToMolBlock(temp_rdmol)).write(
+                "cdxml", file_path, overwrite=True
+            )
+        else:
+            self.omol.write("cdxml", file_path, overwrite=True)
+        return file_path
+
 
 class BaseBlockParser(MolBlock):
     """
@@ -414,6 +430,24 @@ class BaseBlockParser(MolBlock):
             + f"total charge: {self.charge}\n"
         )
 
+    def rebuild_parser(self, new_mol, rebuild_type=Literal["mod", "reindex"]):
+        new_parser = BaseBlockParser(block=Chem.MolToXYZBlock(new_mol))
+        new_parser._atoms = [atom.GetSymbol() for atom in new_mol.GetAtoms()]
+        new_parser._coords = [
+            (x * atom_ureg.angstrom, y * atom_ureg.angstrom, z * atom_ureg.angstrom)
+            for x, y, z in new_mol.GetConformer().GetPositions()
+        ]
+        new_parser._file_path = (
+            os.path.splitext(self._file_path)[0] + f"_{rebuild_type}.xyz"
+        )
+        new_parser._rdmol = new_mol
+        new_parser._charge = self.charge
+        new_parser._multiplicity = self.multiplicity
+        new_parser._bonds = get_bond_pairs(new_mol)
+        new_parser._formal_charges = get_formal_charges(new_mol)
+        new_parser._formal_spins = get_formal_spins(new_mol)
+        return new_parser
+
     def replace_substituent(
         self,
         query_smi: str,
@@ -430,20 +464,42 @@ class BaseBlockParser(MolBlock):
             replace_all=replace_all,
             attempt_num=attempt_num,
         )
-        new_parser = BaseBlockParser(block=Chem.MolToXYZBlock(new_mol))
-        new_parser._atoms = [atom.GetSymbol() for atom in new_mol.GetAtoms()]
-        new_parser._coords = [
-            (x * atom_ureg.angstrom, y * atom_ureg.angstrom, z * atom_ureg.angstrom)
-            for x, y, z in new_mol.GetConformer().GetPositions()
+        return self.rebuild_parser(new_mol, rebuild_type="mod")
+
+    def reset_atom_index(self, mapping_smarts: str):
+        smarts = Chem.MolFromSmarts(mapping_smarts)
+        if not self.rdmol.HasSubstructMatch(smarts):
+            logger.error(f"Failed to match {self._file_path} with {mapping_smarts}")
+            raise ValueError("Failed to match")
+        mapping = self.rdmol.GetSubstructMatches(smarts)
+        if len(mapping) > 1:
+            logger.warning(
+                f"Multiple matches found in {self._file_path} with {mapping_smarts}"
+            )
+        mapping = mapping[0]
+        coords = [self.dimensionless_coords[1][idx] for idx in mapping] + [
+            (x, y, z)
+            for idx, (x, y, z) in enumerate(self.dimensionless_coords[1])
+            if idx not in mapping
         ]
-        new_parser._file_path = os.path.splitext(self._file_path)[0] + "_mod.xyz"
-        new_parser._rdmol = new_mol
-        new_parser._charge = self.charge
-        new_parser._multiplicity = self.multiplicity
-        new_parser._bonds = get_bond_pairs(new_mol)
-        new_parser._formal_charges = get_formal_charges(new_mol)
-        new_parser._formal_spins = get_formal_spins(new_mol)
-        return new_parser
+        atoms = [self.atoms[idx] for idx in mapping] + [
+            atom for idx, atom in enumerate(self.atoms) if idx not in mapping
+        ]
+        omol = xyz_block_to_omol(
+            f"{len(atoms)}\n"
+            + f"charge {self.charge} multiplicity {self.multiplicity}\n"
+            + "\n".join(
+                [
+                    f"{atom:10s}{x:10.5f}{y:10.5f}{z:10.5f}"
+                    for atom, x, y, z in zip(atoms, *zip(*coords))
+                ]
+            ),
+            given_charge=self.charge,
+            given_spin=self.multiplicity,
+        )
+        return self.rebuild_parser(
+            Chem.MolFromMolBlock(omol.write("sdf"), removeHs=False), rebuild_type="reindex"
+        )
 
 
 class QMBaseBlockParser(BaseBlockParser):
