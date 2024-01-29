@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-01-28 20:39:34
+ * @LastEditTime: 2024-01-29 14:41:55
  * @Description: 请填写简介
 -->
 # MolOP
@@ -29,6 +29,7 @@ This repository, **Molecule OPerator**, which is the basic molecule information 
 
 - Offer the moleculer geometry and structure edit functions. `Doing`
   - Substructure replacement `Done`
+  - Atom index reset `Done`
   - Orientation change `TODO`
   - Other functions `TODO`
 
