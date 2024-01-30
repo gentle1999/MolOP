@@ -498,7 +498,8 @@ class BaseBlockParser(MolBlock):
             given_spin=self.multiplicity,
         )
         return self.rebuild_parser(
-            Chem.MolFromMolBlock(omol.write("sdf"), removeHs=False), rebuild_type="reindex"
+            Chem.MolFromMolBlock(omol.write("sdf"), removeHs=False),
+            rebuild_type="reindex",
         )
 
 
@@ -514,13 +515,15 @@ class QMBaseBlockParser(BaseBlockParser):
     _partial_charges: List[float]
     _spin_densities: List[float]
     _gradients: List[Tuple[PlainQuantity]]
-    _hessian: List[List[float]]
+    _spin_multiplicity: float
+    _spin_eigenvalue: float
+    # _hessian: List[List[float]]
     _frequencies: List[
         Dict[
             Literal[
                 "is imaginary",
                 "freq",
-                "Reduced masses",
+                "reduced masses",
                 "IR intensities",
                 "force constants",
                 "normal coordinates",
@@ -538,18 +541,18 @@ class QMBaseBlockParser(BaseBlockParser):
     _beta_energy: Dict[Literal["gap", "homo", "lumo"], PlainQuantity]
     _sum_energy: Dict[
         Literal[
-            "zero-point",
-            "thermal energy",
-            "thermal enthalpy",
-            "thermal gibbs free energy",
+            "zero-point gas",
+            "E gas",
+            "H gas",
+            "G gas",
             "zero-point correction",
-            "thermal energy correction",
-            "thermal enthalpy correction",
-            "thermal gibbs free energy correction",
+            "TCE",
+            "TCH",
+            "TCG",
         ],
         PlainQuantity,
     ]
-    _nbo_analysis: List[Dict[str, Dict[str, PlainQuantity]]]
+    # _nbo_analysis: List[Dict[str, Dict[str, PlainQuantity]]]
 
     _state: Dict[str, bool]
     _only_extract_structure: bool
@@ -563,8 +566,10 @@ class QMBaseBlockParser(BaseBlockParser):
         self._energy: PlainQuantity = None
         self._partial_charges: List[float] = []
         self._spin_densities: List[float] = []
+        self._spin_multiplicity: float = None
+        self._spin_eigenvalue: float = None
         self._gradients: List[Tuple[PlainQuantity]] = []
-        self._hessian: List[List[float]] = []
+        # self._hessian: List[List[float]] = []
         self._alpha_FMO_orbits: List[PlainQuantity] = []
         self._beta_FMO_orbits: List[PlainQuantity] = []
         self._alpha_energy = {
@@ -578,17 +583,17 @@ class QMBaseBlockParser(BaseBlockParser):
             "lumo": None,
         }
         self._sum_energy = {
-            "zero-point": None,
-            "thermal energy": None,
-            "thermal enthalpy": None,
-            "thermal gibbs free energy": None,
+            "zero-point gas": None,
+            "E gas": None,
+            "H gas": None,
+            "G gas": None,
             "zero-point correction": None,
-            "thermal energy correction": None,
-            "thermal enthalpy correction": None,
-            "thermal gibbs free energy correction": None,
+            "TCE": None,
+            "TCH": None,
+            "TCG": None,
         }
         self._frequencies = []
-        self._nbo_analysis = []
+        # self._nbo_analysis = []
         self._state = {}
 
     @property
@@ -597,12 +602,12 @@ class QMBaseBlockParser(BaseBlockParser):
 
     @property
     def dimensionless_energy(self):
+        """
+        Unit will be transformed to hartree/particle
+        """
         if self.energy is None:
-            return (None, None)
-        return (
-            str(self.energy.units),
-            self.energy.m,
-        )
+            return None
+        return self.energy.to("hartree/particle").m
 
     @property
     def partial_charges(self) -> List[float]:
@@ -611,6 +616,14 @@ class QMBaseBlockParser(BaseBlockParser):
     @property
     def spin_densities(self) -> List[float]:
         return self._spin_densities
+    
+    @property
+    def spin_multiplicity(self) -> float:
+        return self._spin_multiplicity
+    
+    @property
+    def spin_eigenvalue(self) -> float:
+        return self._spin_eigenvalue
 
     @property
     def gradients(self):
@@ -618,49 +631,55 @@ class QMBaseBlockParser(BaseBlockParser):
 
     @property
     def dimensionless_gradients(self):
-        if len(self.gradients) == 0:
-            return (None, None)
+        """
+        Unit will be transformed to hartree/bohr
+        """
         return (
-            str(self.gradients[0][0].units),
-            [[gradient.m for gradient in atom] for atom in self.gradients],
+            [gradient.to("hartree/bohr").m for gradient in atom]
+            for atom in self.gradients
         )
 
-    @property
-    def hessian(self) -> List[float]:
-        return self._hessian
+    # @property
+    # def hessian(self) -> List[float]:
+        # return self._hessian
 
     @property
     def imaginary_frequencies(self):
-        return [freq for freq in self._frequencies if freq["is imaginary"]]
+        return (freq for freq in self._frequencies if freq["is imaginary"])
 
     @property
     def dimensionless_imaginary_frequencies(self):
-        return [freq for freq in self.dimensionless_frequencies if freq["is imaginary"]]
+        return (freq for freq in self.dimensionless_frequencies if freq["is imaginary"])
 
     @property
     def frequencies(self):
         return self._frequencies
 
     @property
-    def dimensionless_frequencies(self):
-        return [
+    def dimensionless_frequencies(
+        self,
+    ):
+        """
+        freq: frequency in cm^-1
+        Reduced masses: amu
+        IR intensities: kmol/mol
+        force constants: mdyne/angstrom
+        normal coordinates: angstrom
+        """
+        return (
             {
+                "freq": freq["freq"].to("cm^-1").m,
                 "is imaginary": freq["is imaginary"],
-                **{
-                    key: (str(value.units), value.m)
-                    for key, value in freq.items()
-                    if key not in ("is imaginary", "normal coordinates")
-                },
-                "normal coordinates": (
-                    str(freq["normal coordinates"][0][0].units),
-                    [
-                        [coord.m for coord in atom]
-                        for atom in freq["normal coordinates"]
-                    ],
-                ),
+                "reduced masses": freq["reduced masses"].to("amu").m,
+                "IR intensities": freq["IR intensities"].to("kmol/mol").m,
+                "force constants": freq["force constants"].to("mdyne/angstrom").m,
+                "normal coordinates": [
+                    [coord.to("angstrom").m for coord in atom]
+                    for atom in freq["normal coordinates"]
+                ],
             }
             for freq in self._frequencies
-        ]
+        )
 
     @property
     def alpha_FMO_orbits(self):
@@ -668,12 +687,10 @@ class QMBaseBlockParser(BaseBlockParser):
 
     @property
     def dimensionless_alpha_FMO_orbits(self):
-        if len(self.alpha_FMO_orbits) == 0:
-            return (None, None)
-        return (
-            str(self.alpha_FMO_orbits[0].units),
-            [orbit.m for orbit in self.alpha_FMO_orbits],
-        )
+        """
+        Unit will be transformed to hartree/particle
+        """
+        return (orbit.to("hartree/particle").m for orbit in self.alpha_FMO_orbits)
 
     @property
     def alpha_energy(self):
@@ -681,10 +698,12 @@ class QMBaseBlockParser(BaseBlockParser):
 
     @property
     def dimensionless_alpha_energy(self):
+        """
+        Unit will be transformed to hartree/particle
+        """
         return {
-            key: (str(value.units), value.m)
+            key: value.to("hartree/particle").m if value is not None else None
             for key, value in self.alpha_energy.items()
-            if value is not None
         }
 
     @property
@@ -693,12 +712,10 @@ class QMBaseBlockParser(BaseBlockParser):
 
     @property
     def dimensionless_beta_FMO_orbits(self):
-        if len(self.beta_FMO_orbits) == 0:
-            return (None, None)
-        return (
-            str(self.beta_FMO_orbits[0].units),
-            [orbit.m for orbit in self.beta_FMO_orbits],
-        )
+        """
+        Unit will be transformed to hartree/particle
+        """
+        return (orbit.to("hartree/particle").m for orbit in self.beta_FMO_orbits)
 
     @property
     def beta_energy(self):
@@ -706,10 +723,12 @@ class QMBaseBlockParser(BaseBlockParser):
 
     @property
     def dimensionless_beta_energy(self):
+        """
+        Unit will be transformed to hartree/particle
+        """
         return {
-            key: (str(value.units), value.m)
+            key: value.to("hartree/particle").m if value is not None else None
             for key, value in self.beta_energy.items()
-            if value is not None
         }
 
     @property
@@ -718,10 +737,12 @@ class QMBaseBlockParser(BaseBlockParser):
 
     @property
     def dimensionless_sum_energy(self):
+        """
+        Unit will be transformed to hartree/particle
+        """
         return {
-            key: (str(value.units), value.m)
+            key: value.to("hartree/particle").m if value is not None else None
             for key, value in self.sum_energy.items()
-            if value is not None
         }
 
     @property
@@ -736,9 +757,9 @@ class QMBaseBlockParser(BaseBlockParser):
     def version(self) -> str:
         return self._version
 
-    @property
-    def nbo_analysis(self):
-        return self._nbo_analysis
+    # @property
+    # def nbo_analysis(self):
+        # return self._nbo_analysis
 
     def to_dict(self):
         return {
@@ -749,17 +770,17 @@ class QMBaseBlockParser(BaseBlockParser):
                 "state": self.state,
                 "energy": self.dimensionless_energy,
                 "sum_energy": self.dimensionless_sum_energy,
-                "gradients": self.dimensionless_gradients,
-                "frequencies": self.dimensionless_frequencies,
-                "imaginary_frequencies": self.dimensionless_imaginary_frequencies,
+                "gradients": list(self.dimensionless_gradients),
+                "frequencies": list(self.dimensionless_frequencies),
+                "imaginary_frequencies": list(self.dimensionless_imaginary_frequencies),
                 "partial_charges": self.partial_charges,
                 "spin_densities": self.spin_densities,
-                "alpha_FMO_orbits": self.dimensionless_alpha_FMO_orbits,
+                "alpha_FMO_orbits": list(self.dimensionless_alpha_FMO_orbits),
                 "alpha_energy": self.dimensionless_alpha_energy,
-                "beta_FMO_orbits": self.dimensionless_beta_FMO_orbits,
+                "beta_FMO_orbits": list(self.dimensionless_beta_FMO_orbits),
                 "beta_energy": self.dimensionless_beta_energy,
-                "nbo_analysis": self.nbo_analysis,
-                "hessian": self.hessian,
+                # "nbo_analysis": self.nbo_analysis,
+                # "hessian": self.hessian,
             },
         }
 

@@ -44,9 +44,9 @@ class G16LOGBlockParser(QMBaseBlockParser):
         self._parse_orbitals("Beta")
         self._parse_frequencies()
         self._parse_sum_energy()
-        self._parse_hessian()
+        # self._parse_hessian()
         self._parse_state()
-        self._parse_nbo()
+        # self._parse_nbo()
 
     def _parse_coords(self):
         lines = self._block.splitlines()
@@ -130,6 +130,13 @@ class G16LOGBlockParser(QMBaseBlockParser):
                     spins.append(float(line.split()[3]))
             if "sum of mulliken charges" in line.lower():
                 charges_section = True
+        s = re.findall(
+            r"<S\*\*2>=\s+([0-9\.\-]+)\s+S=\s+([0-9\.\-]+)",
+            self._block,
+        )
+        if s:
+            self._spin_multiplicity = float(s[-1][1])
+            self._spin_eigenvalue = float(s[-1][0])
 
     def _parse_gradient(self):
         lines = self._block.splitlines()
@@ -228,7 +235,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
                             float(lines[idx + 3].split()[2 + i]) * atom_ureg.cm_1
                         )
                         freq["is imaginary"] = freq["freq"] < 0
-                        freq["Reduced masses"] = (
+                        freq["reduced masses"] = (
                             float(lines[idx + 4].split()[3 + i]) * atom_ureg.amu
                         )
                         freq["force constants"] = (
@@ -269,25 +276,25 @@ class G16LOGBlockParser(QMBaseBlockParser):
                     round(float(match[0]), 6) * atom_ureg.hartree / atom_ureg.particle
                 )
 
-        self._sum_energy["thermal gibbs free energy"] = get_energy(
+        self._sum_energy["G gas"] = get_energy(
             r"Sum of electronic and thermal Free Energies=\s+([\-0-9.]+)"
         )
-        self._sum_energy["thermal enthalpy"] = get_energy(
+        self._sum_energy["H gas"] = get_energy(
             r"Sum of electronic and thermal Enthalpies=\s+([\-0-9.]+)"
         )
-        self._sum_energy["thermal energy"] = get_energy(
+        self._sum_energy["E gas"] = get_energy(
             r"Sum of electronic and thermal Energies=\s+([\-0-9.]+)"
         )
-        self._sum_energy["zero-point"] = get_energy(
+        self._sum_energy["zero-point gas"] = get_energy(
             r"Sum of electronic and zero-point Energies=\s+([\-0-9.]+)"
         )
-        self._sum_energy["thermal gibbs free energy correction"] = get_energy(
+        self._sum_energy["TCG"] = get_energy(
             r"Thermal correction to Gibbs Free Energy=\s+([\-0-9.]+)"
         )
-        self._sum_energy["thermal enthalpy correction"] = get_energy(
+        self._sum_energy["TCH"] = get_energy(
             r"Thermal correction to Enthalpy=\s+([\-0-9.]+)"
         )
-        self._sum_energy["thermal energy correction"] = get_energy(
+        self._sum_energy["TCE"] = get_energy(
             r"Thermal correction to Energy=\s+([\-0-9.]+)"
         )
         self._sum_energy["zero-point correction"] = get_energy(

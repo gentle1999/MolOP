@@ -1,10 +1,10 @@
-"""
+'''
 Author: TMJ
 Date: 2024-01-12 09:24:49
 LastEditors: TMJ
-LastEditTime: 2024-01-16 10:40:46
+LastEditTime: 2024-01-30 17:42:50
 Description: 请填写简介
-"""
+'''
 
 import os
 import re
@@ -70,7 +70,7 @@ class XTBOUTParser(BaseQMFileParser):
         try:
             self._parameter_comment = " ".join(
                 re.findall(
-                    "program call\s+\:\s+([0-9a-zA-Z\\/_\-\s\.]+)\n",
+                    r"program call\s+\:\s+([0-9a-zA-Z\\/_\-\s\.]+)\n",
                     full_text,
                 )[0].split()[2:]
             )

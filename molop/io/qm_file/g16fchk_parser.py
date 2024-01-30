@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-24 12:33:24
 LastEditors: TMJ
-LastEditTime: 2024-01-24 14:25:33
+LastEditTime: 2024-01-30 17:42:17
 Description: 请填写简介
 """
 import os
@@ -41,21 +41,21 @@ class G16FCHKParser(BaseQMFileParser):
         charge = (
             self.__force_charge
             if self.__force_charge
-            else int(re.findall("Charge\s+[A-Z]+\s+([\-0-9]+)", full_text)[0])
+            else int(re.findall(r"Charge\s+[A-Z]+\s+([\-0-9]+)", full_text)[0])
         )
         multi = (
             self.__force_multiplicity
             if self.__force_multiplicity
-            else int(re.findall("Multiplicity\s+[A-Z]+\s+([\-0-9]+)", full_text)[0])
+            else int(re.findall(r"Multiplicity\s+[A-Z]+\s+([\-0-9]+)", full_text)[0])
         )
-        n_atoms = int(re.findall("Number of atoms\s+[A-Z]+\s+([0-9]+)", full_text)[0])
+        n_atoms = int(re.findall(r"Number of atoms\s+[A-Z]+\s+([0-9]+)", full_text)[0])
         self._version = re.findall(
-            "Gaussian Version\s+[A-Z\s+\=]+\s+[\-0-9]+\s+([a-zA-Z0-9\-\.]+)", full_text
+            r"Gaussian Version\s+[A-Z\s+\=]+\s+[\-0-9]+\s+([a-zA-Z0-9\-\.]+)", full_text
         )[0]
         self._parameter_comment = (
             "#"
             + re.findall(
-                "\#([a-zA-Z%0-9\.\#\=\s\-\+\(\)\,\"\*\/\\^]+)\nCharge", full_text
+                r"\#([a-zA-Z%0-9\.\#\=\s\-\+\(\)\,\"\*\/\\^]+)\nCharge", full_text
             )[0]
         )
         self.append(

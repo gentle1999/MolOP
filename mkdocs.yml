@@ -1,0 +1,12 @@
+site_name: MolOP Documentation
+
+theme:
+  name: "readthedocs"
+
+plugins:
+  - mkdocstrings
+
+nav:
+  - 'index.md'
+  - 'about.md'
+  - 'api.md'

@@ -37,7 +37,7 @@ class XYZBlockParser(BaseBlockParser):
         """
         lines = self._block.split("\n")
         num_atoms = int(lines[0])
-        cm = re.findall("charge\s+([\-0-9]+)\s+multiplicity\s+([\-0-9]+)\s+", lines[1])
+        cm = re.findall(r"charge\s+([\-0-9]+)\s+multiplicity\s+([\-0-9]+)\s+", lines[1])
         if len(cm) == 1:
             self._charge = int(cm[0][0])
             self._multiplicity = int(cm[0][1])
