@@ -78,6 +78,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
         self._parse_orbitals("Alpha")
         self._parse_orbitals("Beta")
         self._parse_frequencies()
+        self._parse_spin()
         # self._parse_hessian()
         self._parse_state()
         # self._parse_nbo()
@@ -272,6 +273,17 @@ class G16FCHKBlockParser(QMBaseBlockParser):
         except:
             # logger.info(f"Frequencies not found in {self._file_path}")
             pass
+
+    def _parse_spin(self):
+        try:
+            self._spin_eigenvalue = round(
+                float(re.findall(r"S\*\*2\s+R\s+([\+\-\.0-9E]+)", self._block)[0]), 2
+            )
+            self._spin_multiplicity = round(
+                math.sqrt(self._spin_eigenvalue + 0.25) - 0.5, 2
+            )
+        except:
+            self._spin_eigenvalue = None
 
     def _parse_state(self):
         try:

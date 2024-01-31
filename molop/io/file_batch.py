@@ -5,17 +5,17 @@ LastEditors: TMJ
 LastEditTime: 2024-01-25 23:10:59
 Description: 请填写简介
 """
+import multiprocessing
 import os
 from typing import List, Union
-import multiprocessing
-from joblib import Parallel, delayed, cpu_count
 
 import pandas as pd
+from joblib import Parallel, cpu_count, delayed
 from tqdm import tqdm
 
 from molop.io.bases.file_base import BaseFileParser, BlockType
 from molop.io.coords_file.gjf_parser import GJFParser
-from molop.io.coords_file.sdf_parser import SDFParser, SDFBlockParser
+from molop.io.coords_file.sdf_parser import SDFBlockParser, SDFParser
 from molop.io.coords_file.xyz_parser import XYZParser
 from molop.io.qm_file.g16fchk_parser import G16FCHKParser
 from molop.io.qm_file.g16irc_parser import G16IRCParser
@@ -445,3 +445,30 @@ class FileParserBatch:
         if not file_path:
             file_path = os.path.join(self.__path, "summary.xlsx")
         self.to_summary_df().to_excel(file_path)
+
+    def geometry_analysis(
+        self, key_atoms: List[List[int]], file_path: str = None, one_start=False
+    ):
+        """
+        Get the geometry infos among the atoms with all frames in each file, and save them to seperated csv files.
+
+        Parameters:
+            key_atoms List[List[int]]:
+                A list of list of index of the atoms, starts from 0
+                    If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
+
+                    If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
+
+                    If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
+            file_path str:
+                The path of the csv file to be saved. If None, the file will be saved in the same directory of the file_path.
+            one_start bool:
+                If true, consider atom index starts from 1, so let index value subtracts 1 for all the atoms
+        Returns:
+            file_paths
+        """
+
+        return [
+            parser.geometry_analysis(key_atoms, file_path, one_start)
+            for parser in self.__parsers
+        ]

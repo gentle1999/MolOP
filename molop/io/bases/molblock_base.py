@@ -28,6 +28,7 @@ from molop.structure.structure import (
     attempt_replacement,
 )
 from molop.structure.structure_recovery import xyz_block_to_omol
+from molop.structure.geometry import get_geometry_info
 
 
 class MolBlock(ABC):
@@ -372,6 +373,28 @@ class MolBlock(ABC):
             self.omol.write("cdxml", file_path, overwrite=True)
         return file_path
 
+    def geometry_analysis(self, atom_idxs: Tuple[int], one_start=False):
+        """
+        Get the geometry infos among the atoms
+
+        Parameters:
+            atom_idxs Tuple[int]:
+                A list of index of the atoms, starts from 0
+            one_start bool:
+                If true, consider atom index starts from 1, so let index value subtracts 1 for all the atoms
+
+        Returns:
+            A float value:
+                If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
+
+                If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
+
+                If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
+        """
+        if one_start:
+            atom_idxs = [atom_idx - 1 for atom_idx in atom_idxs]
+        return get_geometry_info(self.rdmol, atom_idxs)
+
 
 class BaseBlockParser(MolBlock):
     """
@@ -616,11 +639,11 @@ class QMBaseBlockParser(BaseBlockParser):
     @property
     def spin_densities(self) -> List[float]:
         return self._spin_densities
-    
+
     @property
     def spin_multiplicity(self) -> float:
         return self._spin_multiplicity
-    
+
     @property
     def spin_eigenvalue(self) -> float:
         return self._spin_eigenvalue
@@ -641,7 +664,7 @@ class QMBaseBlockParser(BaseBlockParser):
 
     # @property
     # def hessian(self) -> List[float]:
-        # return self._hessian
+    # return self._hessian
 
     @property
     def imaginary_frequencies(self):
@@ -759,7 +782,7 @@ class QMBaseBlockParser(BaseBlockParser):
 
     # @property
     # def nbo_analysis(self):
-        # return self._nbo_analysis
+    # return self._nbo_analysis
 
     def to_dict(self):
         return {

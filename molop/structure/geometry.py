@@ -6,18 +6,18 @@ LastEditTime: 2023-06-02 11:00:54
 Description: Including functions related to the three-dimensional structure of molecules
 """
 
-import itertools
 from copy import deepcopy
-from typing import Iterable, List, Sequence, Optional
+from typing import Iterable, List, Sequence, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from rdkit.Chem import rdMolTransforms
 from rdkit.Geometry import Point3D
 from scipy.spatial.transform import Rotation as R
 
-from .types import RdMol, RdConformer
+from ..utils.types import RdMol, RdConformer
 from rdkit import RDLogger
 
 RDLogger.DisableLog("rdApp.*")
@@ -275,3 +275,30 @@ def unique_conformer(mol: RdMol, idx: int):
             temp_mol.RemoveConformer(conformer_id)
     temp_mol.GetConformer(idx).SetId(0)
     return temp_mol
+
+def get_geometry_info(mol: RdMol, atom_idxs: Tuple[int])->float:
+    """
+    Get the geometry infos among the atoms
+
+    Parameters:
+        mol RdMol:
+            Molecule to be oriented
+        atom_idxs Tuple[int]:
+            A list of index of the atoms, starts from 0
+
+    Returns:
+        A float value:
+            If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
+
+            If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
+
+            If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
+    """
+    if len(atom_idxs) == 2:
+        return rdMolTransforms.GetBondLength(mol.GetConformer(), *atom_idxs)
+    elif len(atom_idxs) == 3:
+        return rdMolTransforms.GetAngleRad(mol.GetConformer(), *atom_idxs) / np.pi * 180
+    elif len(atom_idxs) == 4:
+        return rdMolTransforms.GetDihedralRad(mol.GetConformer(), *atom_idxs) / np.pi * 180
+    else:
+        raise ValueError("The length of atom_idxs must be 2, 3, or 4")
