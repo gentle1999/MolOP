@@ -6,8 +6,7 @@ LastEditTime: 2023-06-27 21:03:36
 Description: 请填写简介
 """
 
-import os
-import shutil
+import itertools
 from copy import deepcopy
 from typing import List, Tuple
 
@@ -16,7 +15,7 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import rdMolTransforms
 from tqdm import tqdm
 
-from ..utils import geometry
+from . import geometry
 from ..utils.types import RdConformer, RdMol
 
 RDLogger.DisableLog("rdApp.*")
@@ -171,7 +170,9 @@ def replace_mol(mol, query_smi: str, replacement_smi: str, bind_idx: int = None)
     rmol.RemoveBond(lines_idx[0][0], lines_idx[1][0])
     rmol.RemoveAtom(lines_idx[1][0])
     Chem.MolToMolFile(rmol, "temp.sdf")
-    idx_list = [idx_list for idx_list in rmol.GetSubstructMatches(replacement) if 0 in idx_list]
+    idx_list = [
+        idx_list for idx_list in rmol.GetSubstructMatches(replacement) if 0 in idx_list
+    ]
     for start_atom in rmol.GetAtomWithIdx(0).GetNeighbors():
         if start_atom.GetIdx() not in idx_list[0]:
             start = start_atom.GetIdx()
@@ -191,12 +192,10 @@ def replace_mol(mol, query_smi: str, replacement_smi: str, bind_idx: int = None)
 
 def check_crowding(mol):
     distances = Chem.Get3DDistanceMatrix(mol)
-    for bond in mol.GetBonds():
-        if distances[bond.GetBeginAtom().GetIdx()][
-            bond.GetEndAtom().GetIdx()
-        ] < 0.75 * (
-            pt.GetRcovalent(bond.GetBeginAtom().GetAtomicNum())
-            + pt.GetRcovalent(bond.GetEndAtom().GetAtomicNum())
+    for start_atom, end_atom in itertools.combinations(mol.GetAtoms(), 2):
+        if distances[start_atom.GetIdx()][end_atom.GetIdx()] < 0.75 * (
+            pt.GetRcovalent(start_atom.GetAtomicNum())
+            + pt.GetRcovalent(end_atom.GetAtomicNum())
         ):
             return False
     return True

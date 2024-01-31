@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-01-29 14:41:55
+ * @LastEditTime: 2024-01-30 17:36:38
  * @Description: 请填写简介
 -->
 # MolOP
@@ -62,5 +62,6 @@ conda create -n
 conda activate molop
 # install the dependencies
 conda install openbabel -c conda-forge # openbabel is a necessary dependence
+pip install mkdocs pytest mkdocstrings[python]
 pip install .
 ```

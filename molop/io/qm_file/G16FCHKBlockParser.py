@@ -78,6 +78,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
         self._parse_orbitals("Alpha")
         self._parse_orbitals("Beta")
         self._parse_frequencies()
+        self._parse_spin()
         # self._parse_hessian()
         self._parse_state()
         # self._parse_nbo()
@@ -88,7 +89,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                 round(
                     float(
                         re.findall(
-                            "Total Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
+                            r"Total Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
                         )[0]
                     ),
                     6,
@@ -101,7 +102,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                 round(
                     float(
                         re.findall(
-                            "SCF Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
+                            r"SCF Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
                         )[0]
                     ),
                     6,
@@ -110,26 +111,11 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                 / atom_ureg.particle
             )
         try:
-            self._sum_energy["thermal energy"] = (
+            self._sum_energy["E gas"] = (
                 round(
                     float(
                         re.findall(
-                            "Thermal Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
-                        )[0]
-                    ),
-                    6,
-                )
-                * atom_ureg.hartree
-                / atom_ureg.particle
-            )
-        except:
-            pass
-        try:
-            self._sum_energy["thermal enthalpy"] = (
-                round(
-                    float(
-                        re.findall(
-                            "Thermal Enthalpy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
+                            r"Thermal Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
                         )[0]
                     ),
                     6,
@@ -140,11 +126,26 @@ class G16FCHKBlockParser(QMBaseBlockParser):
         except:
             pass
         try:
-            self._sum_energy["thermal gibbs free energy"] = (
+            self._sum_energy["H gas"] = (
                 round(
                     float(
                         re.findall(
-                            "Thermal Free Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)",
+                            r"Thermal Enthalpy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
+                        )[0]
+                    ),
+                    6,
+                )
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
+        except:
+            pass
+        try:
+            self._sum_energy["G gas"] = (
+                round(
+                    float(
+                        re.findall(
+                            r"Thermal Free Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)",
                             self._block,
                         )[0]
                     ),
@@ -223,7 +224,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
         try:
             num_freqs = int(
                 re.findall(
-                    "Number of Normal Modes\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
+                    r"Number of Normal Modes\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
                 )[0]
             )
             freqs = []
@@ -245,7 +246,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                     {
                         "is imaginary": freqs[idx] < 0,
                         "freq": freqs[idx] * atom_ureg.cm_1,
-                        "Reduced masses": freqs[idx + num_freqs] * atom_ureg.amu,
+                        "reduced masses": freqs[idx + num_freqs] * atom_ureg.amu,
                         "force constants": freqs[idx + num_freqs * 2]
                         * atom_ureg.mdyne
                         / atom_ureg.angstrom,
@@ -270,12 +271,24 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                     }
                 )
         except:
-            logger.info(f"Frequencies not found in {self._file_path}")
+            # logger.info(f"Frequencies not found in {self._file_path}")
+            pass
+
+    def _parse_spin(self):
+        try:
+            self._spin_eigenvalue = round(
+                float(re.findall(r"S\*\*2\s+R\s+([\+\-\.0-9E]+)", self._block)[0]), 2
+            )
+            self._spin_multiplicity = round(
+                math.sqrt(self._spin_eigenvalue + 0.25) - 0.5, 2
+            )
+        except:
+            self._spin_eigenvalue = None
 
     def _parse_state(self):
         try:
             self._state["Job Status"] = re.findall(
-                "Job Status\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
+                r"Job Status\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
             )[0]
         except:
             self._state["Job Status"] = False

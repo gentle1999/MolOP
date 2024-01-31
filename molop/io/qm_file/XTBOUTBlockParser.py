@@ -34,14 +34,14 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         try:
             self.__n_atom = int(
                 re.findall(
-                    "number of atoms\s+\:\s+(\d+)",
+                    r"number of atoms\s+\:\s+(\d+)",
                     self._block,
                 )[0]
             )
         except:
             self.__n_atom = int(
                 re.findall(
-                    "final structure:\s+\=+\s+(\d+)",
+                    r"final structure:\s+\=+\s+(\d+)",
                     self._block,
                 )[0]
             )
@@ -105,12 +105,12 @@ class XTBOUTBlockParser(QMBaseBlockParser):
 
     def _parse_orbitals(self):
         self.alpha_energy["homo"] = (
-            round(float(re.findall("([\+\-0-9.]+)\s+\(HOMO\)", self._block)[-1]), 6)
+            round(float(re.findall(r"([\+\-0-9.]+)\s+\(HOMO\)", self._block)[-1]), 6)
             * atom_ureg.eV
             / atom_ureg.particle
         ).to("hartree/particle")
         self.alpha_energy["lumo"] = (
-            round(float(re.findall("([\+\-0-9.]+)\s+\(LUMO\)", self._block)[-1]), 6)
+            round(float(re.findall(r"([\+\-0-9.]+)\s+\(LUMO\)", self._block)[-1]), 6)
             * atom_ureg.eV
             / atom_ureg.particle
         ).to("hartree/particle")

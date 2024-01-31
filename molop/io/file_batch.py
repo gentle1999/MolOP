@@ -5,17 +5,17 @@ LastEditors: TMJ
 LastEditTime: 2024-01-25 23:10:59
 Description: 请填写简介
 """
+import multiprocessing
 import os
 from typing import List, Union
-import multiprocessing
-from joblib import Parallel, delayed, cpu_count
 
 import pandas as pd
+from joblib import Parallel, cpu_count, delayed
 from tqdm import tqdm
 
 from molop.io.bases.file_base import BaseFileParser, BlockType
 from molop.io.coords_file.gjf_parser import GJFParser
-from molop.io.coords_file.sdf_parser import SDFParser, SDFBlockParser
+from molop.io.coords_file.sdf_parser import SDFBlockParser, SDFParser
 from molop.io.coords_file.xyz_parser import XYZParser
 from molop.io.qm_file.g16fchk_parser import G16FCHKParser
 from molop.io.qm_file.g16irc_parser import G16IRCParser
@@ -23,7 +23,7 @@ from molop.io.qm_file.g16log_parser import G16LOGParser
 from molop.io.qm_file.xtbout_parser import XTBOUTParser
 from molop.logger.logger import logger
 
-PARSERTPES = Union[
+PARSERTYPES = Union[
     GJFParser,
     SDFParser,
     XYZParser,
@@ -53,7 +53,7 @@ def singlefile_parser(
     multiplicity=None,
     only_extract_structure=False,
     only_last_frame=False,
-) -> Union[PARSERTPES, None]:
+) -> Union[PARSERTYPES, None]:
     if os.path.isfile(file_path):
         _, file_format = os.path.splitext(file_path)
         if file_format not in parsers:
@@ -88,45 +88,45 @@ def singlefile_parser(
 
 class FileParserBatch:
     __path: str
-    __file_names: List[str]
-    __parsers = List[PARSERTPES]
+    __file_paths: List[str]
+    __parsers = List[PARSERTYPES]
 
     def __init__(
         self,
-        dir_path: str,
+        files: List[str],
         charge=None,
         multiplicity=None,
         only_extract_structure=False,
         only_last_frame=False,
     ) -> None:
-        if os.path.isdir(dir_path):
-            self.__path = dir_path
-            self.__file_names = [
-                file_name
-                for file_name in os.listdir(dir_path)
-                if os.path.splitext(file_name)[-1] in parsers
-            ]
-        else:
-            raise ValueError(f"{dir_path} is not a directory")
-        self.__parsers: List[PARSERTPES] = []
+        self.__path = os.path.dirname(os.path.abspath(files[0]))
+        self.__file_paths = []
+        for file_path in files:
+            if not os.path.isfile(file_path):
+                raise FileNotFoundError(f"{file_path} is not a file.")
+            if os.path.splitext(file_path)[1] not in parsers:
+                logger.warning(f"Unsupported input file format: {file_path}")
+                continue
+            if os.path.dirname(os.path.abspath(file_path)) != self.__path:
+                raise ValueError(
+                    f"File {file_path} is not in the same directory as other files."
+                )
+            self.__file_paths.append(file_path)
+        self.__parsers: List[PARSERTYPES] = []
         self._charge = charge
         self._multiplicity = multiplicity
         self._only_extract_structure = only_extract_structure
         self._only_last_frame = only_last_frame
 
-        if len(self.__file_names) > 100000:
-            logger.warning(
-                f"{len(self.__file_names)} files found in {self.__path}, maybe too many files"
-            )
         arguments_list = [
             {
-                "file_path": os.path.join(self.__path, file_path),
+                "file_path": file_path,
                 "charge": self._charge,
                 "multiplicity": self._multiplicity,
                 "only_extract_structure": self._only_extract_structure,
                 "only_last_frame": self._only_last_frame,
             }
-            for file_path in self.__file_names
+            for file_path in self.__file_paths
         ]
 
         self.__parsers = [
@@ -145,7 +145,7 @@ class FileParserBatch:
         ]
 
         logger.info(
-            f"{self.__path}: {len(self.__file_names) - len(self.__parsers)} files failed to parse, {len(self.__parsers)} successfully parsed"
+            f"{self.__path}: {len(self.__file_paths) - len(self.__parsers)} files failed to parse, {len(self.__parsers)} successfully parsed"
         )
 
     def to_GJF_file(
@@ -248,7 +248,7 @@ class FileParserBatch:
         )
         return new_parsers
 
-    def __getitem__(self, parserID: int) -> PARSERTPES:
+    def __getitem__(self, parserID: int) -> PARSERTYPES:
         return self.__parsers[parserID]
 
     def __len__(self) -> int:
@@ -260,7 +260,7 @@ class FileParserBatch:
 
     def __next__(
         self,
-    ) -> PARSERTPES:
+    ) -> PARSERTYPES:
         if self.__index >= len(self):
             raise StopIteration
         else:
@@ -271,6 +271,18 @@ class FileParserBatch:
         return f"{self.__class__.__name__}({self.__path})"
 
     def to_summary_df(self):
+        def get_generator_value(g, idx):
+            i = 0
+            temp_g = g
+            try:
+                while i <= idx:
+                    temp_g = next(g)
+                    i += 1
+                else:
+                    return temp_g
+            except StopIteration:
+                return {"is imaginary": None, "freq": None}
+
         if self._only_extract_structure:
             return pd.DataFrame(
                 {
@@ -305,72 +317,118 @@ class FileParserBatch:
                         parser[-1].state if parser.__class__ in qm_parsers else None
                         for parser in self.__parsers
                     ],
-                    "zero-point": [
-                        parser[-1].sum_energy["zero-point"]
+                    "ZPE": [
+                        parser[-1].dimensionless_sum_energy["zero-point correction"]
                         if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
-                    "H": [
-                        parser[-1].sum_energy["thermal energy"]
+                    "TCE": [
+                        parser[-1].dimensionless_sum_energy["TCE"]
                         if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
-                    "S": [
-                        parser[-1].sum_energy["thermal enthalpy"]
+                    "TCH": [
+                        parser[-1].dimensionless_sum_energy["TCH"]
                         if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
-                    "G": [
-                        parser[-1].sum_energy["thermal gibbs free energy"]
+                    "TCG": [
+                        parser[-1].dimensionless_sum_energy["TCG"]
                         if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
-                    "zero-point correction": [
-                        parser[-1].sum_energy["zero-point correction"]
+                    "ZPE-Gas": [
+                        parser[-1].dimensionless_sum_energy["zero-point gas"]
                         if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
-                    "H correction": [
-                        parser[-1].sum_energy["thermal energy correction"]
+                    "E-Gas": [
+                        parser[-1].dimensionless_sum_energy["E gas"]
                         if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
-                    "S correction": [
-                        parser[-1].sum_energy["thermal enthalpy correction"]
+                    "H-Gas": [
+                        parser[-1].dimensionless_sum_energy["H gas"]
                         if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
-                    "G correction": [
-                        parser[-1].sum_energy["thermal gibbs free energy correction"]
+                    "G-Gas": [
+                        parser[-1].dimensionless_sum_energy["G gas"]
                         if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
-                    "total energy": [
-                        parser[-1].energy if parser.__class__ in qm_parsers else None
+                    "sp": [
+                        parser[-1].dimensionless_energy
+                        if parser.__class__ in qm_parsers
+                        else None
                         for parser in self.__parsers
                     ],
                     "HOMO": [
-                        parser[-1].alpha_energy["homo"]
+                        parser[-1].dimensionless_alpha_energy["homo"]
                         if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
                     "LUMO": [
-                        parser[-1].alpha_energy["lumo"]
+                        parser[-1].dimensionless_alpha_energy["lumo"]
                         if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
                     ],
                     "GAP": [
-                        parser[-1].alpha_energy["gap"]
+                        parser[-1].dimensionless_alpha_energy["gap"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "first freq": [
+                        get_generator_value(parser[-1].dimensionless_frequencies, 0)[
+                            "freq"
+                        ]
+                        if parser.__class__ in qm_parsers
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "first freq tag": [
+                        get_generator_value(parser[-1].dimensionless_frequencies, 0)[
+                            "is imaginary"
+                        ]
+                        if parser.__class__ in qm_parsers
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "second freq": [
+                        get_generator_value(parser[-1].dimensionless_frequencies, 1)[
+                            "freq"
+                        ]
+                        if parser.__class__ in qm_parsers
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "second freq tag": [
+                        get_generator_value(parser[-1].dimensionless_frequencies, 1)[
+                            "is imaginary"
+                        ]
+                        if parser.__class__ in qm_parsers
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "S**2": [
+                        parser[-1].spin_eigenvalue
+                        if parser.__class__ in qm_parsers
+                        else None
+                        for parser in self.__parsers
+                    ],
+                    "S": [
+                        parser[-1].spin_multiplicity
                         if parser.__class__ in qm_parsers
                         else None
                         for parser in self.__parsers
@@ -387,3 +445,30 @@ class FileParserBatch:
         if not file_path:
             file_path = os.path.join(self.__path, "summary.xlsx")
         self.to_summary_df().to_excel(file_path)
+
+    def geometry_analysis(
+        self, key_atoms: List[List[int]], file_path: str = None, one_start=False
+    ):
+        """
+        Get the geometry infos among the atoms with all frames in each file, and save them to seperated csv files.
+
+        Parameters:
+            key_atoms List[List[int]]:
+                A list of list of index of the atoms, starts from 0
+                    If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
+
+                    If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
+
+                    If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
+            file_path str:
+                The path of the csv file to be saved. If None, the file will be saved in the same directory of the file_path.
+            one_start bool:
+                If true, consider atom index starts from 1, so let index value subtracts 1 for all the atoms
+        Returns:
+            file_paths
+        """
+
+        return [
+            parser.geometry_analysis(key_atoms, file_path, one_start)
+            for parser in self.__parsers
+        ]

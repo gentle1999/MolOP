@@ -7,6 +7,7 @@ Description: 请填写简介
 """
 import os
 from typing import List, Tuple, TypeVar, Union
+import pandas as pd
 
 from molop.io.bases.molblock_base import BaseBlockParser, QMBaseBlockParser
 from molop.io.coords_file.GJFBlockParser import GJFBlockParser
@@ -141,7 +142,9 @@ class BaseFileParser:
         f.close()
         return file_path
 
-    def to_GJF_file(self, file_path: str = None, prefix: str = None, suffix="\n\n", frameID=-1):
+    def to_GJF_file(
+        self, file_path: str = None, prefix: str = None, suffix="\n\n", frameID=-1
+    ):
         """Only extract one frame."""
         if file_path is None:
             file_path = self._file_path
@@ -163,6 +166,65 @@ class BaseFileParser:
             + f"first SMILES: {self[0].to_SMILES()}\n"
             + f"last SMILES: {self[-1].to_SMILES()}\n"
         )
+
+    def geometry_analysis_df(self, key_atoms: List[List[int]], one_start=False):
+        """
+        Get the geometry infos among the atoms with all frames in the file
+
+        Parameters:
+            key_atoms List[List[int]]:
+                A list of list of index of the atoms, starts from 0
+                    If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
+
+                    If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
+
+                    If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
+            one_start bool:
+                If true, consider atom index starts from 1, so let index value subtracts 1 for all the atoms
+
+        Returns:
+            A pandas DataFrame:
+                The columns of the DataFrame is the atom_idxs, and the index are the frames.
+        """
+        values = {
+            "-".join([str(idx) for idx in atom_idxs]): [
+                round(molblock.geometry_analysis(atom_idxs, one_start), 1)
+                for molblock in self.__frames
+            ]
+            for atom_idxs in key_atoms
+        }
+        return pd.DataFrame(values)
+
+    def geometry_analysis(
+        self, key_atoms: List[List[int]], file_path: str = None, one_start=False
+    ):
+        """
+        Get the geometry infos among the atoms with all frames in the file
+
+        Parameters:
+            key_atoms List[List[int]]:
+                A list of list of index of the atoms, starts from 0
+                    If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
+
+                    If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
+
+                    If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
+            file_path str:
+                The path of the csv file to be saved. If None, the file will be saved in the same directory of the file_path.
+            one_start bool:
+                If true, consider atom index starts from 1, so let index value subtracts 1 for all the atoms
+
+        Returns:
+            file_path
+        """
+        df = self.geometry_analysis_df(key_atoms, one_start=one_start)
+        if file_path is None:
+            file_path = self._file_path
+        if os.path.isdir(file_path):
+            raise IsADirectoryError(f"{file_path} is a directory.")
+        file_path = os.path.splitext(file_path)[0] + "_geometry_analysis.csv"
+        df.to_csv(file_path)
+        return file_path
 
 
 class BaseQMFileParser(BaseFileParser):
