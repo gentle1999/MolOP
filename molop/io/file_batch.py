@@ -87,7 +87,7 @@ def singlefile_parser(
 
 
 class FileParserBatch:
-    __path: str
+    __n_jobs: int
     __file_paths: List[str]
     __parsers = List[PARSERTYPES]
 
@@ -96,10 +96,11 @@ class FileParserBatch:
         files: List[str],
         charge=None,
         multiplicity=None,
+        n_jobs: int = -1,
         only_extract_structure=False,
         only_last_frame=False,
     ) -> None:
-        self.__path = os.path.dirname(os.path.abspath(files[0]))
+        self.__n_jobs = n_jobs if n_jobs > 0 else cpu_count()
         self.__file_paths = []
         for file_path in files:
             if not os.path.isfile(file_path):
@@ -107,11 +108,7 @@ class FileParserBatch:
             if os.path.splitext(file_path)[1] not in parsers:
                 logger.warning(f"Unsupported input file format: {file_path}")
                 continue
-            if os.path.dirname(os.path.abspath(file_path)) != self.__path:
-                raise ValueError(
-                    f"File {file_path} is not in the same directory as other files."
-                )
-            self.__file_paths.append(file_path)
+            self.__file_paths.append(os.path.abspath(file_path))
         self.__parsers: List[PARSERTYPES] = []
         self._charge = charge
         self._multiplicity = multiplicity
@@ -128,64 +125,61 @@ class FileParserBatch:
             }
             for file_path in self.__file_paths
         ]
-
-        self.__parsers = [
-            parser
-            for parser in tqdm(
-                Parallel(
-                    return_as="generator", n_jobs=cpu_count(), pre_dispatch="1.5*n_jobs"
-                )(
-                    delayed(singlefile_parser)(**arguments)
-                    for arguments in arguments_list
-                ),
-                total=len(arguments_list),
-                desc=f"MolOP parsing with {cpu_count()} jobs",
-            )
-            if len(parser) > 0
-        ]
+        if self.__n_jobs > 1 and len(self.__file_paths) > 30:
+            self.__parsers = [
+                parser
+                for parser in tqdm(
+                    Parallel(
+                        return_as="generator",
+                        n_jobs=self.__n_jobs,
+                        pre_dispatch="1.5*n_jobs",
+                    )(
+                        delayed(singlefile_parser)(**arguments)
+                        for arguments in arguments_list
+                    ),
+                    total=len(arguments_list),
+                    desc=f"MolOP parsing with {cpu_count()} jobs",
+                )
+                if len(parser) > 0
+            ]
+        else:
+            self.__parsers = [
+                parser
+                for parser in tqdm(
+                    (singlefile_parser(**arguments) for arguments in arguments_list),
+                    total=len(arguments_list),
+                    desc=f"MolOP parsing with single thread",
+                )
+            ]
 
         logger.info(
-            f"{self.__path}: {len(self.__file_paths) - len(self.__parsers)} files failed to parse, {len(self.__parsers)} successfully parsed"
+            f"{len(self.__file_paths) - len(self.__parsers)} files failed to parse, {len(self.__parsers)} successfully parsed"
         )
 
     def to_GJF_file(
         self, file_path: str = None, prefix: str = None, suffix="\n\n"
     ) -> None:
         """file_path should be a directory, prefix and suffix are optional"""
-        if not file_path:
-            file_path = self.__path
-        assert os.path.isdir(
-            file_path
-        ), f"file_path should be a directory, got {file_path}"
         for parser in self.__parsers:
             parser.to_GJF_file(
                 os.path.join(file_path, parser.file_name), prefix=prefix, suffix=suffix
             )
 
     def to_XYZ_file(self, file_path: str = None) -> None:
-        if not file_path:
-            file_path = self.__path
-        assert os.path.isdir(
-            file_path
-        ), f"file_path should be a directory, got {file_path}"
+        if file_path is None:
+            file_path = os.path.curdir
         for parser in self.__parsers:
             parser.to_XYZ_file(os.path.join(file_path, parser.file_name))
 
     def to_SDF_file(self, file_path: str = None) -> None:
-        if not file_path:
-            file_path = self.__path
-        assert os.path.isdir(
-            file_path
-        ), f"file_path should be a directory, got {file_path}"
+        if file_path is None:
+            file_path = os.path.curdir
         for parser in self.__parsers:
             parser.to_SDF_file(os.path.join(file_path, parser.file_name))
 
     def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=False) -> None:
-        if not file_path:
-            file_path = self.__path
-        assert os.path.isdir(
-            file_path
-        ), f"file_path should be a directory, got {file_path}"
+        if file_path is None:
+            file_path = os.path.curdir
         for parser in self.__parsers:
             parser.to_chemdraw(
                 os.path.join(file_path, parser.file_name),
@@ -268,7 +262,7 @@ class FileParserBatch:
             return self.__parsers[self.__index - 1]
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self.__path})"
+        return f"{self.__class__.__name__}({len(self)})"
 
     def to_summary_df(self):
         def get_generator_value(g, idx):
@@ -438,16 +432,20 @@ class FileParserBatch:
 
     def to_summary_csv(self, file_path: str = None):
         if not file_path:
-            file_path = os.path.join(self.__path, "summary.csv")
+            file_path = os.path.join(os.path.curdir, "summary.csv")
         self.to_summary_df().to_csv(file_path)
 
     def to_summary_excel(self, file_path: str = None):
         if not file_path:
-            file_path = os.path.join(self.__path, "summary.xlsx")
+            file_path = os.path.join(os.path.curdir, "summary.xlsx")
         self.to_summary_df().to_excel(file_path)
 
     def geometry_analysis(
-        self, key_atoms: List[List[int]], file_path: str = None, one_start=False
+        self,
+        key_atoms: List[List[int]],
+        file_path: str = None,
+        precision: int = 1,
+        one_start=False,
     ):
         """
         Get the geometry infos among the atoms with all frames in each file, and save them to seperated csv files.
@@ -462,13 +460,21 @@ class FileParserBatch:
                     If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
             file_path str:
                 The path of the csv file to be saved. If None, the file will be saved in the same directory of the file_path.
+            precision int:
+                The precision of the geometry analysis. Default is 1. e.g. 1 means 1.0001 ==> 1.0
             one_start bool:
                 If true, consider atom index starts from 1, so let index value subtracts 1 for all the atoms
         Returns:
             file_paths
         """
-
+        if file_path is None:
+            file_path = os.path.curdir
         return [
-            parser.geometry_analysis(key_atoms, file_path, one_start)
+            parser.geometry_analysis(
+                key_atoms,
+                os.path.join(file_path, parser.file_name),
+                precision,
+                one_start,
+            )
             for parser in self.__parsers
         ]

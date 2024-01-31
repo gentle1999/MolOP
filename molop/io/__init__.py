@@ -2,8 +2,8 @@
 Author: TMJ
 Date: 2023-10-30 15:40:03
 LastEditors: TMJ
-LastEditTime: 2024-01-30 16:18:40
-Description: The IO unit of MolOP
+LastEditTime: 2024-01-31 15:46:18
+Description: 请填写简介
 """
 from glob import glob
 from typing import Union
@@ -15,6 +15,7 @@ def AutoParser(
     file_path: str,
     charge: int = None,
     multiplicity: int = None,
+    n_jobs: int = -1,
     only_extract_structure=False,
     only_last_frame=False,
 ) -> Union[FileParserBatch, None]:
@@ -51,6 +52,7 @@ def AutoParser(
             files,
             charge=charge,
             multiplicity=multiplicity,
+            n_jobs=n_jobs,
             only_extract_structure=only_extract_structure,
             only_last_frame=only_last_frame,
         )

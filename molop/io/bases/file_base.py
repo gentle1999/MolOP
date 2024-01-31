@@ -167,7 +167,9 @@ class BaseFileParser:
             + f"last SMILES: {self[-1].to_SMILES()}\n"
         )
 
-    def geometry_analysis_df(self, key_atoms: List[List[int]], one_start=False):
+    def geometry_analysis_df(
+        self, key_atoms: List[List[int]], precision: int = 1, one_start=False
+    ):
         """
         Get the geometry infos among the atoms with all frames in the file
 
@@ -179,6 +181,8 @@ class BaseFileParser:
                     If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
 
                     If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
+            precision int:
+                The precision of the geometry analysis. Default is 1. e.g. 1 means 1.0001 ==> 1.0
             one_start bool:
                 If true, consider atom index starts from 1, so let index value subtracts 1 for all the atoms
 
@@ -188,7 +192,7 @@ class BaseFileParser:
         """
         values = {
             "-".join([str(idx) for idx in atom_idxs]): [
-                round(molblock.geometry_analysis(atom_idxs, one_start), 1)
+                round(molblock.geometry_analysis(atom_idxs, one_start), precision)
                 for molblock in self.__frames
             ]
             for atom_idxs in key_atoms
@@ -196,7 +200,11 @@ class BaseFileParser:
         return pd.DataFrame(values)
 
     def geometry_analysis(
-        self, key_atoms: List[List[int]], file_path: str = None, one_start=False
+        self,
+        key_atoms: List[List[int]],
+        file_path: str = None,
+        precision: int = 1,
+        one_start=False,
     ):
         """
         Get the geometry infos among the atoms with all frames in the file
@@ -211,13 +219,17 @@ class BaseFileParser:
                     If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
             file_path str:
                 The path of the csv file to be saved. If None, the file will be saved in the same directory of the file_path.
+            precision int:
+                The precision of the geometry analysis. Default is 1. e.g. 1 means 1.0001 ==> 1.0
             one_start bool:
                 If true, consider atom index starts from 1, so let index value subtracts 1 for all the atoms
 
         Returns:
             file_path
         """
-        df = self.geometry_analysis_df(key_atoms, one_start=one_start)
+        df = self.geometry_analysis_df(
+            key_atoms, precision=precision, one_start=one_start
+        )
         if file_path is None:
             file_path = self._file_path
         if os.path.isdir(file_path):
