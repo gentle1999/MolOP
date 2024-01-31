@@ -13,7 +13,6 @@ from typing import List, Tuple
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem
 from rdkit.Chem import rdMolTransforms
-from tqdm import tqdm
 
 from . import geometry
 from ..utils.types import RdConformer, RdMol

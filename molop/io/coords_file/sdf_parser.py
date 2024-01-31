@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2023-10-30 18:21:31
 LastEditors: TMJ
-LastEditTime: 2024-01-24 22:12:28
+LastEditTime: 2024-01-31 22:17:41
 Description: 请填写简介
 """
 
@@ -21,13 +21,22 @@ class SDFParser(BaseFileParser):
 
     _allowed_formats = (".sdf",)
 
-    def __init__(self, file_path: str):
+    def __init__(self, file_path: str, only_last_frame=False):
         self._check_formats(file_path)
         super().__init__(file_path)
+        self._only_last_frame = only_last_frame
         self._parse()
 
     def _parse(self):
         for mol in pybel.readfile("sdf", self._file_path):
+            if not self._only_last_frame:
+                self.append(
+                    SDFBlockParser(
+                        mol.write("sdf"),
+                        file_path=self._file_path,
+                    )
+                )
+        if self._only_last_frame:
             self.append(
                 SDFBlockParser(
                     mol.write("sdf"),

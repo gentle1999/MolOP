@@ -5,14 +5,15 @@ LastEditors: TMJ
 LastEditTime: 2024-01-25 23:10:59
 Description: 请填写简介
 """
-import multiprocessing
 import os
 from typing import List, Union
+from molop.config import molopconfig
 
 import pandas as pd
 from joblib import Parallel, cpu_count, delayed
 from tqdm import tqdm
 
+from molop.config import molopconfig
 from molop.io.bases.file_base import BaseFileParser, BlockType
 from molop.io.coords_file.gjf_parser import GJFParser
 from molop.io.coords_file.sdf_parser import SDFBlockParser, SDFParser
@@ -69,8 +70,17 @@ def singlefile_parser(
                         only_last_frame=only_last_frame,
                     )
                     return p
-                elif parser in (XYZParser, GJFParser):
+                elif parser in (GJFParser,):
                     return parser(file_path, charge=charge, multiplicity=multiplicity)
+                elif parser in (XYZParser,):
+                    return parser(
+                        file_path,
+                        charge=charge,
+                        multiplicity=multiplicity,
+                        only_last_frame=only_last_frame,
+                    )
+                elif parser in (SDFParser,):
+                    return parser(file_path, only_last_frame=only_last_frame)
                 else:
                     return parser(file_path)
             except:
@@ -126,43 +136,77 @@ class FileParserBatch:
             for file_path in self.__file_paths
         ]
         if self.__n_jobs > 1 and len(self.__file_paths) > 30:
-            self.__parsers = [
-                parser
-                for parser in tqdm(
-                    Parallel(
+            if molopconfig.show_progress_bar:
+                self.__parsers = [
+                    parser
+                    for parser in tqdm(
+                        Parallel(
+                            return_as="generator",
+                            n_jobs=self.__n_jobs,
+                            pre_dispatch="1.5*n_jobs",
+                        )(
+                            delayed(singlefile_parser)(**arguments)
+                            for arguments in arguments_list
+                        ),
+                        total=len(arguments_list),
+                        desc=f"MolOP parsing with {cpu_count()} jobs",
+                    )
+                    if len(parser) > 0
+                ]
+            else:
+                self.__parsers = [
+                    parser
+                    for parser in Parallel(
                         return_as="generator",
                         n_jobs=self.__n_jobs,
                         pre_dispatch="1.5*n_jobs",
                     )(
                         delayed(singlefile_parser)(**arguments)
                         for arguments in arguments_list
-                    ),
-                    total=len(arguments_list),
-                    desc=f"MolOP parsing with {cpu_count()} jobs",
-                )
-                if len(parser) > 0
-            ]
+                    )
+                    if len(parser) > 0
+                ]
         else:
-            self.__parsers = [
-                parser
-                for parser in tqdm(
-                    (singlefile_parser(**arguments) for arguments in arguments_list),
-                    total=len(arguments_list),
-                    desc=f"MolOP parsing with single thread",
-                )
-            ]
+            if molopconfig.show_progress_bar:
+                self.__parsers = [
+                    parser
+                    for parser in tqdm(
+                        (
+                            singlefile_parser(**arguments)
+                            for arguments in arguments_list
+                        ),
+                        total=len(arguments_list),
+                        desc=f"MolOP parsing with single thread",
+                    )
+                ]
+            else:
+                self.__parsers = [
+                    parser
+                    for parser in (
+                        singlefile_parser(**arguments) for arguments in arguments_list
+                    )
+                ]
 
         logger.info(
             f"{len(self.__file_paths) - len(self.__parsers)} files failed to parse, {len(self.__parsers)} successfully parsed"
         )
 
     def to_GJF_file(
-        self, file_path: str = None, prefix: str = None, suffix="\n\n"
+        self,
+        file_path: str = None,
+        charge: int = None,
+        multiplicity: int = None,
+        prefix: str = f"# g16 gjf \n",
+        suffix="\n\n",
     ) -> None:
         """file_path should be a directory, prefix and suffix are optional"""
         for parser in self.__parsers:
             parser.to_GJF_file(
-                os.path.join(file_path, parser.file_name), prefix=prefix, suffix=suffix
+                os.path.join(file_path, parser.file_name),
+                charge=charge,
+                multiplicity=multiplicity,
+                prefix=prefix,
+                suffix=suffix,
             )
 
     def to_XYZ_file(self, file_path: str = None) -> None:
@@ -197,25 +241,47 @@ class FileParserBatch:
     ) -> List[BlockType]:
         """only consider the last frame of each file"""
         new_parsers = []
-        for parser in tqdm(self.__parsers):
-            try:
-                temp_parser = parser[-1].replace_substituent(
-                    query_smi=query_smi,
-                    replacement_smi=replacement_smi,
-                    bind_idx=bind_idx,
-                    replace_all=replace_all,
-                    attempt_num=attempt_num,
-                )
-                new_parsers.append(
-                    SDFBlockParser(
-                        temp_parser.to_SDF_block(),
-                        os.path.splitext(temp_parser._file_path)[0] + ".sdf",
+        if molopconfig.show_progress_bar:
+            for parser in tqdm(self.__parsers):
+                try:
+                    temp_parser = parser[-1].replace_substituent(
+                        query_smi=query_smi,
+                        replacement_smi=replacement_smi,
+                        bind_idx=bind_idx,
+                        replace_all=replace_all,
+                        attempt_num=attempt_num,
                     )
-                )
-            except:
-                logger.error(
-                    f"Failed to replace substituent from {query_smi} to {replacement_smi} in {parser.file_path}, {parser.file_name}"
-                )
+                    new_parsers.append(
+                        SDFBlockParser(
+                            temp_parser.to_SDF_block(),
+                            os.path.splitext(temp_parser._file_path)[0] + ".sdf",
+                        )
+                    )
+                except:
+                    logger.error(
+                        f"Failed to replace substituent from {query_smi} to {replacement_smi} in {parser.file_path}, {parser.file_name}"
+                    )
+        else:
+            for parser in self.__parsers:
+                try:
+                    temp_parser = parser[-1].replace_substituent(
+                        query_smi=query_smi,
+                        replacement_smi=replacement_smi,
+                        bind_idx=bind_idx,
+                        replace_all=replace_all,
+                        attempt_num=attempt_num,
+                    )
+                    new_parsers.append(
+                        SDFBlockParser(
+                            temp_parser.to_SDF_block(),
+                            os.path.splitext(temp_parser._file_path)[0] + ".sdf",
+                        )
+                    )
+                except:
+                    logger.error(
+                        f"Failed to replace substituent from {query_smi} to {replacement_smi} in {parser.file_path}, {parser.file_name}"
+                    )
+
         logger.info(
             f"{len(new_parsers)} files successfully replaced, {len(self.__parsers) - len(new_parsers)} files failed to replace"
         )
@@ -224,19 +290,38 @@ class FileParserBatch:
     def reset_atom_index(self, mapping_smarts: str) -> List[BlockType]:
         """only consider the last frame of each file"""
         new_parsers = []
-        for parser in tqdm(self.__parsers):
-            try:
-                temp_parser = parser[-1].reset_atom_index(mapping_smarts=mapping_smarts)
-                new_parsers.append(
-                    SDFBlockParser(
-                        temp_parser.to_SDF_block(),
-                        os.path.splitext(temp_parser._file_path)[0] + ".sdf",
+        if molopconfig.show_progress_bar:
+            for parser in tqdm(self.__parsers):
+                try:
+                    temp_parser = parser[-1].reset_atom_index(
+                        mapping_smarts=mapping_smarts
                     )
-                )
-            except Exception as e:
-                logger.error(
-                    f"{e}: Failed to reset atom index by {mapping_smarts} in {parser.file_path}, {parser.file_name}"
-                )
+                    new_parsers.append(
+                        SDFBlockParser(
+                            temp_parser.to_SDF_block(),
+                            os.path.splitext(temp_parser._file_path)[0] + ".sdf",
+                        )
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"{e}: Failed to reset atom index by {mapping_smarts} in {parser.file_path}, {parser.file_name}"
+                    )
+        else:
+            for parser in self.__parsers:
+                try:
+                    temp_parser = parser[-1].reset_atom_index(
+                        mapping_smarts=mapping_smarts
+                    )
+                    new_parsers.append(
+                        SDFBlockParser(
+                            temp_parser.to_SDF_block(),
+                            os.path.splitext(temp_parser._file_path)[0] + ".sdf",
+                        )
+                    )
+                except Exception as e:
+                    logger.error(
+                        f"{e}: Failed to reset atom index by {mapping_smarts} in {parser.file_path}, {parser.file_name}"
+                    )
         logger.info(
             f"{len(new_parsers)} files successfully replaced, {len(self.__parsers) - len(new_parsers)} files failed to reset_index"
         )
