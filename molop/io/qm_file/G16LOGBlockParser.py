@@ -112,7 +112,23 @@ class G16LOGBlockParser(QMBaseBlockParser):
                     / atom_ureg.particle
                 )
                 return
-        self._state["SCF Done"] = False
+        try:
+            self._energy = (
+                round(
+                    float(
+                        "".join(
+                            re.findall(r"HF=([\-0-9\s+\.]+)\\", self._block)[0].split(
+                                "\n "
+                            )
+                        )
+                    ),
+                    6,
+                )
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
+        except:
+            self._state["SCF Done"] = False
 
     def _parse_partial_charges_and_spins(self):
         lines = self._block.splitlines()

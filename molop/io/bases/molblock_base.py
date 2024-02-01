@@ -850,6 +850,6 @@ class QMBaseBlockParser(BaseBlockParser):
                 + f"alpha energy: {self.alpha_energy}\n"
                 + f"beta FMO orbits number: {len(self.beta_FMO_orbits)}\n"
                 + f"beta energy: {self.beta_energy}\n"
-                + f"nbo analysis number: {len(self.nbo_analysis)}\n"
-                + f"hessian number: {len(self.hessian)}\n"
+                # + f"nbo analysis number: {len(self.nbo_analysis)}\n"
+                # + f"hessian number: {len(self.hessian)}\n"
             )
