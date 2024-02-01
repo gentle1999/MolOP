@@ -198,6 +198,7 @@ class FileParserBatch:
         multiplicity: int = None,
         prefix: str = f"# g16 gjf \n",
         suffix="\n\n",
+        frameID=-1,
     ) -> None:
         """file_path should be a directory, prefix and suffix are optional"""
         for parser in self.__parsers:
@@ -207,6 +208,7 @@ class FileParserBatch:
                 multiplicity=multiplicity,
                 prefix=prefix,
                 suffix=suffix,
+                frameID=frameID,
             )
 
     def to_XYZ_file(self, file_path: str = None) -> None:
