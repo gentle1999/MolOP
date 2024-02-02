@@ -1,8 +1,8 @@
 """
 Author: TMJ
-Date: 2024-01-09 20:19:06
+Date: 2024-01-25 09:53:09
 LastEditors: TMJ
-LastEditTime: 2024-01-24 22:08:32
+LastEditTime: 2024-02-02 19:14:51
 Description: 请填写简介
 """
 import os
@@ -14,7 +14,7 @@ from molop.logger.logger import logger
 
 
 class G16LOGParser(BaseQMFileParser):
-    _allowed_formats = (".log",)
+    _allowed_formats = (".log", ".g16", ".gal")
 
     def __init__(
         self,

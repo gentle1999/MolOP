@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2023-10-30 18:21:31
 LastEditors: TMJ
-LastEditTime: 2024-01-31 22:17:41
+LastEditTime: 2024-02-02 19:04:52
 Description: 请填写简介
 """
 
@@ -19,7 +19,7 @@ class SDFParser(BaseFileParser):
     Parser for SDF files.
     """
 
-    _allowed_formats = (".sdf",)
+    _allowed_formats = (".sdf", ".mol")
 
     def __init__(self, file_path: str, only_last_frame=False):
         self._check_formats(file_path)

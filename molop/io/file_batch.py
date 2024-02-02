@@ -36,13 +36,20 @@ PARSERTYPES = Union[
 
 parsers = {
     ".gjf": (GJFParser,),
+    ".gau": (GJFParser,),
+    ".com": (GJFParser,),
+    ".gjc": (GJFParser,),
     ".log": (G16LOGParser,),
+    ".g16": (G16LOGParser,),
+    ".gal": (G16LOGParser,),
     ".xyz": (XYZParser,),
     ".sdf": (SDFParser,),
+    ".mol": (SDFParser,),
     ".out": (XTBOUTParser, G16IRCParser),
     ".irc": (G16IRCParser,),
     ".fchk": (G16FCHKParser,),
     ".fck": (G16FCHKParser,),
+    ".fch": (G16FCHKParser,),
 }
 
 qm_parsers = (G16LOGParser, G16IRCParser, G16FCHKParser, XTBOUTParser)

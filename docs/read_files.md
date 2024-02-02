@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2024-02-01 20:58:56
  * @LastEditors: TMJ
- * @LastEditTime: 2024-02-01 21:10:15
+ * @LastEditTime: 2024-02-02 19:37:48
  * @Description: 请填写简介
 -->
 # Read files
@@ -15,6 +15,13 @@ files = AutoParser("path/to/file")
 ```
 
 The `path/to/file` is a wildcard of the file path. For example, you can use `path/to/*.log` to read all g16log files in the directory `path/to/`.
+
+```python
+from molop import AutoParser
+files = AutoParser("path/to/*.log")
+```
+
+The file reading process can be automatically parallelized if you pass files more than your CPU cores. 
 
 ## FileParserBatch
 

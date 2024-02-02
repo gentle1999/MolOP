@@ -11,7 +11,10 @@ nav:
   - "about.md"
   - "Get Start":
       - "Read Files" : "read_files.md"
-      - "Supporting File formats": "supporting_file_formats.md"
+      - "Supporting Input File formats": "supporting_input_file_formats.md"
+      - "Supporting Output File formats": "supporting_output_file_formats.md"
+  - "Examples":
+      - "Read a file and extract info": "read_file_and_extract_info.md"
   - "API": 
     - "Entry Point level": "entrypoint.md"
     - "File Batch level": "file_batch.md"
