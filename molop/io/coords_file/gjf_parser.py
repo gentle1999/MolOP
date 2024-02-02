@@ -1,10 +1,10 @@
-"""
+'''
 Author: TMJ
 Date: 2024-01-09 19:54:01
 LastEditors: TMJ
-LastEditTime: 2024-01-24 22:12:03
+LastEditTime: 2024-02-02 19:13:21
 Description: 请填写简介
-"""
+'''
 import os
 import re
 
@@ -17,7 +17,7 @@ class GJFParser(BaseFileParser):
     Parser for GJF files.
     """
 
-    _allowed_formats = (".gjf",)
+    _allowed_formats = (".gjf", ".com", ".gau", ".gjc")
 
     def __init__(self, file_path: str, charge=0, multiplicity=1):
         self._check_formats(file_path)

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-24 12:33:24
 LastEditors: TMJ
-LastEditTime: 2024-01-30 17:42:17
+LastEditTime: 2024-02-02 19:14:14
 Description: 请填写简介
 """
 import os
@@ -14,7 +14,7 @@ from molop.logger.logger import logger
 
 
 class G16FCHKParser(BaseQMFileParser):
-    _allowed_formats = (".fchk", ".fck")
+    _allowed_formats = (".fchk", ".fck", ".fch")
 
     def __init__(
         self,
