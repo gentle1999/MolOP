@@ -5,6 +5,8 @@ before_script:
   - pip install mkdocstrings[python]
 
 pages:
+  tags:
+    - pages-builder
   stage: deploy
   script:
     - mkdocs build --strict --verbose
