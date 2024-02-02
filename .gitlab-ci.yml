@@ -1,3 +1,7 @@
+before_script:
+  - pip install mkdocs
+  - pip install mkdocstrings[python]
+
 pages:
   tags:
     - pages-builder
@@ -5,6 +9,7 @@ pages:
   script:
     - pip install mkdocs
     - pip install mkdocstrings[python]
+    - dummy
   variables:
     BUILDER: 'mkdocs'
     WORKING_DIR: ''
