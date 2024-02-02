@@ -9,7 +9,7 @@ before_script:
 pages:
   script:
     - mkdocs build --verbose --strict
-    - mv site ../../public
+    - mv site public
   artifacts:
     paths:
       # The folder that contains the files to be exposed at the Page URL
