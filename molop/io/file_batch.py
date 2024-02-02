@@ -120,22 +120,20 @@ class FileParserBatch:
                 continue
             self.__file_paths.append(os.path.abspath(file_path))
         self.__parsers: List[PARSERTYPES] = []
-        self._charge = charge
-        self._multiplicity = multiplicity
         self._only_extract_structure = only_extract_structure
         self._only_last_frame = only_last_frame
 
         arguments_list = [
             {
                 "file_path": file_path,
-                "charge": self._charge,
-                "multiplicity": self._multiplicity,
+                "charge": charge,
+                "multiplicity": multiplicity,
                 "only_extract_structure": self._only_extract_structure,
                 "only_last_frame": self._only_last_frame,
             }
             for file_path in self.__file_paths
         ]
-        if self.__n_jobs > 1 and len(self.__file_paths) > 30:
+        if self.__n_jobs > 1 and len(self.__file_paths) > cpu_count():
             if molopconfig.show_progress_bar:
                 self.__parsers = [
                     parser

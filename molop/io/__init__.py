@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2023-10-30 15:40:03
 LastEditors: TMJ
-LastEditTime: 2024-01-31 15:46:18
+LastEditTime: 2024-02-02 10:45:46
 Description: 请填写简介
 """
 from glob import glob
@@ -29,6 +29,8 @@ def AutoParser(
             forced charge of the molecule, if not given, will use the charge written in the file or 0.
         multiplicity int:
             forced multiplicity of the molecule, if not given, will use the charge written in the file or 1.
+        n_jobs int:
+            number of jobs to use, if -1, use all cpu.
         only_extract_structure bool:
             if True, only extract the structure, else extract the whole file.
         only_last_frame bool:

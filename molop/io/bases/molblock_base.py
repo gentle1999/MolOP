@@ -843,7 +843,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 + f"sum energy: {self.sum_energy}\n"
                 + f"gradients number: {len(self.gradients)}\n"
                 + f"frequencies number: {len(self.frequencies)}\n"
-                + f"imaginary frequencies number: {len(self.imaginary_frequencies)}\n"
+                + f"imaginary frequencies number: {len(list(self.imaginary_frequencies))}\n"
                 + f"partial charges number: {len(self.partial_charges)}\n"
                 + f"spin densities number: {len(self.spin_densities)}\n"
                 + f"alpha FMO orbits number: {len(self.alpha_FMO_orbits)}\n"
