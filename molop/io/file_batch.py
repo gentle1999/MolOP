@@ -125,6 +125,8 @@ class FileParserBatch:
             if os.path.splitext(file_path)[1] not in parsers:
                 logger.warning(f"Unsupported input file format: {file_path}")
                 continue
+            if file_path.endswith("molop.log"):
+                continue
             self.__file_paths.append(os.path.abspath(file_path))
         self.__parsers: List[PARSERTYPES] = []
         self._only_extract_structure = only_extract_structure
@@ -201,11 +203,14 @@ class FileParserBatch:
         file_path: str = None,
         charge: int = None,
         multiplicity: int = None,
-        prefix: str = f"# g16 gjf \n",
+        prefix: str = "# g16 gjf \n",
         suffix="\n\n",
+        template: str = None,
         frameID=-1,
     ) -> None:
         """file_path should be a directory, prefix and suffix are optional"""
+        if file_path is None:
+            file_path = os.path.curdir
         for parser in self.__parsers:
             parser.to_GJF_file(
                 os.path.join(file_path, parser.file_name),
@@ -213,20 +218,24 @@ class FileParserBatch:
                 multiplicity=multiplicity,
                 prefix=prefix,
                 suffix=suffix,
+                template=template,
                 frameID=frameID,
             )
+        logger.info(f"gjf files saved to {os.path.abspath(file_path)}")
 
     def to_XYZ_file(self, file_path: str = None) -> None:
         if file_path is None:
             file_path = os.path.curdir
         for parser in self.__parsers:
             parser.to_XYZ_file(os.path.join(file_path, parser.file_name))
+        logger.info(f"xyz files saved to {os.path.abspath(file_path)}")
 
     def to_SDF_file(self, file_path: str = None) -> None:
         if file_path is None:
             file_path = os.path.curdir
         for parser in self.__parsers:
             parser.to_SDF_file(os.path.join(file_path, parser.file_name))
+        logger.info(f"sdf files saved to {os.path.abspath(file_path)}")
 
     def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=False) -> None:
         if file_path is None:
@@ -237,6 +246,7 @@ class FileParserBatch:
                 frameID=frameID,
                 keep3D=keep3D,
             )
+        logger.info(f"chemdraw files saved to {os.path.abspath(file_path)}")
 
     def replace_substituent(
         self,
@@ -526,11 +536,13 @@ class FileParserBatch:
         if not file_path:
             file_path = os.path.join(os.path.curdir, "summary.csv")
         self.to_summary_df().to_csv(file_path)
+        logger.info(f"summary csv saved to {os.path.abspath(file_path)}")
 
     def to_summary_excel(self, file_path: str = None):
         if not file_path:
             file_path = os.path.join(os.path.curdir, "summary.xlsx")
         self.to_summary_df().to_excel(file_path)
+        logger.info(f"summary xlsx saved to {os.path.abspath(file_path)}")
 
     def geometry_analysis(
         self,
