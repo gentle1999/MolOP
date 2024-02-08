@@ -8,8 +8,7 @@ before_script:
   - pip install mkdocs-material mkdocs-heti-plugin mkdocstrings[python] mkdocs-jupyter notebook==6.4.12 jupyter_contrib_nbextensions
 pages:
   script:
-    - mkdocs build --verbose --strict
-    - mv site public
+    - mkdocs build --verbose
   artifacts:
     paths:
       # The folder that contains the files to be exposed at the Page URL
