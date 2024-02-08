@@ -104,17 +104,21 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         self._partial_charges = charges
 
     def _parse_orbitals(self):
-        self.alpha_energy["homo"] = (
+        self._alpha_energy["homo"] = (
             round(float(re.findall(r"([\+\-0-9.]+)\s+\(HOMO\)", self._block)[-1]), 6)
             * atom_ureg.eV
             / atom_ureg.particle
         ).to("hartree/particle")
-        self.alpha_energy["lumo"] = (
+        self._alpha_energy["lumo"] = (
             round(float(re.findall(r"([\+\-0-9.]+)\s+\(LUMO\)", self._block)[-1]), 6)
             * atom_ureg.eV
             / atom_ureg.particle
         ).to("hartree/particle")
-        self.alpha_energy["gap"] = self.alpha_energy["lumo"] - self.alpha_energy["homo"]
+        self._alpha_energy["gap"] = (
+            round((self.alpha_energy["lumo"] - self.alpha_energy["homo"]).m, 6)
+            * atom_ureg.eV
+            / atom_ureg.particle
+        )
 
     def _parse_coords_old(self):
         """

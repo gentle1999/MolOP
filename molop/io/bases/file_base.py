@@ -122,11 +122,16 @@ class BaseFileParser:
         multiplicity: int = None,
         prefix: str = f"# g16 gjf \n",
         suffix="",
+        template: str = None,
         frameID=-1,
     ) -> str:
         """Only extract one frame."""
         return self.__frames[frameID].to_GJF_block(
-            charge=charge, multiplicity=multiplicity, prefix=prefix, suffix=suffix
+            charge=charge,
+            multiplicity=multiplicity,
+            prefix=prefix,
+            suffix=suffix,
+            template=template,
         )
 
     def to_XYZ_file(self, file_path: str = None):
@@ -158,6 +163,7 @@ class BaseFileParser:
         multiplicity: int = None,
         prefix: str = f"# g16 gjf \n",
         suffix="\n\n",
+        template: str = None,
         frameID=-1,
     ):
         """Only extract one frame."""
@@ -173,6 +179,7 @@ class BaseFileParser:
                     multiplicity=multiplicity,
                     prefix=prefix,
                     suffix=suffix,
+                    template=template,
                     frameID=frameID,
                 )
             )

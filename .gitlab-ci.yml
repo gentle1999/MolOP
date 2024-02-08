@@ -5,7 +5,7 @@ cache:                      # Pip's cache doesn't store the python packages
     - .cache/pip
 # Functions that should be executed before the build script is run
 before_script:
-  - pip install mkdocs-material mkdocs-heti-plugin mkdocstrings[python]
+  - pip install mkdocs-material mkdocs-heti-plugin mkdocstrings[python] notebook==6.4.12 jupyter_contrib_nbextensions
 pages:
   script:
     - mkdocs build --verbose --strict

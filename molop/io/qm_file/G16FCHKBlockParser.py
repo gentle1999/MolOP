@@ -207,7 +207,9 @@ class G16FCHKBlockParser(QMBaseBlockParser):
             self._alpha_energy["homo"] = self._alpha_FMO_orbits[occ - 1]
             self._alpha_energy["lumo"] = self._alpha_FMO_orbits[occ]
             self._alpha_energy["gap"] = (
-                self._alpha_energy["lumo"] - self._alpha_energy["homo"]
+                round((self._alpha_energy["lumo"] - self._alpha_energy["homo"]).m, 6)
+                * atom_ureg.hartree
+                / atom_ureg.particle
             )
         else:
             self._beta_FMO_orbits = [
@@ -217,7 +219,9 @@ class G16FCHKBlockParser(QMBaseBlockParser):
             self._beta_energy["homo"] = self._beta_FMO_orbits[occ - 1]
             self._beta_energy["lumo"] = self._beta_FMO_orbits[occ]
             self._beta_energy["gap"] = (
-                self._beta_energy["lumo"] - self._beta_energy["homo"]
+                round((self._beta_energy["lumo"] - self._beta_energy["homo"]).m, 6)
+                * atom_ureg.hartree
+                / atom_ureg.particle
             )
 
     def _parse_frequencies(self):

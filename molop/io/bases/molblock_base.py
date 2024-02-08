@@ -1,14 +1,14 @@
-"""
+'''
 Author: TMJ
-Date: 2024-01-07 13:47:18
+Date: 2024-01-11 21:02:36
 LastEditors: TMJ
-LastEditTime: 2024-01-25 22:49:10
+LastEditTime: 2024-02-08 20:27:55
 Description: 请填写简介
-"""
+'''
 import os
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-from copy import deepcopy
+import re
 from typing import Any, Dict, List, Literal, Tuple, Union
 
 from openbabel import pybel
@@ -48,9 +48,6 @@ class MolBlock(ABC):
     _iter_resonance: bool
 
     def __init__(self):
-        """
-        Constructor.
-        """
         self._atoms: Union[List[str], List[int]] = []
         self._coords: List[Tuple[float]] = []
         self._charge: int = 0  # Only allow -2 ~ +2
@@ -142,11 +139,14 @@ class MolBlock(ABC):
     def omol(self):
         if self._omol is None:
             if self._bonds is None:
-                self._omol = xyz_block_to_omol(
-                    self.to_XYZ_block(),
-                    self._charge,
-                    (self._multiplicity - 1) // 2,
-                )
+                try:
+                    self._omol = xyz_block_to_omol(
+                        self.to_XYZ_block(),
+                        self._charge,
+                        (self._multiplicity - 1) // 2,
+                    )
+                except Exception as e:
+                    raise RuntimeError(f"{self._file_path}: {e}")
             else:
                 omol = pybel.readstring("sdf", self.to_SDF_block())
                 self._omol = omol
@@ -176,10 +176,6 @@ class MolBlock(ABC):
                     self._rdmol = Chem.MolFromMolBlock(
                         self.omol.write("sdf"), removeHs=False
                     )
-                    if self._rdmol is None:
-                        raise ValueError(
-                            f"{self._file_path}: rdkit determinebonds failed. MolOP structure recovery failed."
-                        )
                     self._bonds = get_bond_pairs(self._rdmol)
                     self._formal_charges = get_formal_charges(self._rdmol)
                     self._formal_spins = get_formal_spins(self._rdmol)
@@ -330,11 +326,24 @@ class MolBlock(ABC):
         self,
         charge: int = None,
         multiplicity: int = None,
+        template: str = None,
         prefix: str = f"# g16 gjf \n",
         suffix="",
     ) -> str:
-        prefix = prefix if prefix.endswith("\n") else prefix + "\n"
-        prefix = prefix + "\n"
+        if template is not None:
+            if not os.path.isfile(template):
+                raise FileNotFoundError(f"{template} is not found.")
+            with open(template, "r") as f:
+                lines = f.readlines()
+            f.close()
+            for i, line in enumerate(lines):
+                if re.match(r"^\s*[\+\-\d]+\s+\d+$", line):
+                    prefix = "".join(lines[:i-2])
+                if re.match(r"^\s*[A-Z][a-z]?(\s+\-?\d+(\.\d+)?){3}$", line):
+                    suffix = "".join(lines[i+1:])
+        else:
+            prefix = prefix if prefix.endswith("\n") else prefix + "\n"
+            prefix = prefix + "\n"
         return (
             prefix
             + f" Title\n\n"
@@ -355,6 +364,7 @@ class MolBlock(ABC):
         file_path: str = None,
         charge: int = None,
         multiplicity: int = None,
+        template: str = None,
         prefix: str = f"# g16 gjf \n",
         suffix="",
     ):
@@ -368,6 +378,7 @@ class MolBlock(ABC):
                 self.to_GJF_block(
                     charge=charge,
                     multiplicity=multiplicity,
+                    template=template,
                     prefix=prefix,
                     suffix=suffix,
                 )
@@ -683,6 +694,10 @@ class QMBaseBlockParser(BaseBlockParser):
     # @property
     # def hessian(self) -> List[float]:
     # return self._hessian
+
+    @property
+    def is_TS(self) -> bool:
+        return len(list(self.imaginary_frequencies)) == 1
 
     @property
     def imaginary_frequencies(self):
