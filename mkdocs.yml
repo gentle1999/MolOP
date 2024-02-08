@@ -1,4 +1,5 @@
 site_name: MolOP Documentation
+site_dir: public
 
 theme:
   name: "readthedocs"
