@@ -2,11 +2,14 @@
 Author: TMJ
 Date: 2024-01-31 21:57:38
 LastEditors: TMJ
-LastEditTime: 2024-01-31 22:12:10
+LastEditTime: 2024-02-08 10:27:12
 Description: 请填写简介
 '''
 from molop.logger.logger import logger
 import logging
+from openbabel import pybel
+from rdkit import RDLogger
+
 
 class MolOPConfig:
     def __init__(self) -> None:
@@ -14,6 +17,10 @@ class MolOPConfig:
         self.show_log = True
         self._sh = logging.StreamHandler()
         logger.addHandler(self._sh)
+        RDLogger.DisableLog("rdApp.*")
+        # ob_log_handler = pybel.ob.OBMessageHandler()
+        # ob_log_handler.SetOutputLevel(0)
+        pybel.ob.obErrorLog.StopLogging()
 
     def quiet(self):
         self.show_progress_bar = False

@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2024-02-02 10:43:56
  * @LastEditors: TMJ
- * @LastEditTime: 2024-02-02 19:51:17
+ * @LastEditTime: 2024-02-08 20:01:51
  * @Description: 请填写简介
 -->
 # Supporting Input File Formats
@@ -41,85 +41,55 @@ files[i][j].to_XYZ_file(file_path="path/to/out.xyz") # save the XYZ block with s
 
 
 ## SDF (.sdf, .mol)
-The SDF file format (or MOL file) is a standard file format used to store chemical structures. It is a text file format that contains information about the chemical structure, such as the coordinates of atoms, the bond information, and some other chemical properties like charge and spin multiplicity. In general, we can completely recover the chemical structure from a SDF file.
 
-There is an example of the SDF file format:
-```text
-charge 0 multiplicity 2
-     RDKit          3D
+### Transform in batch
 
-  7  6  0  0  0  0  0  0  0  0999 V2000
-   -0.6934    0.0000   -0.0019 C   0  0  0  0  0  0  0  0  0  0  0  0
-    0.7936    0.0000   -0.0185 C   0  0  0  0  0  3  0  0  0  0  0  0
-   -1.1062    0.8866   -0.4927 H   0  0  0  0  0  0  0  0  0  0  0  0
-   -1.1062   -0.8866   -0.4927 H   0  0  0  0  0  0  0  0  0  0  0  0
-   -1.0915   -0.0000    1.0262 H   0  0  0  0  0  0  0  0  0  0  0  0
-    1.3512    0.9264    0.0407 H   0  0  0  0  0  0  0  0  0  0  0  0
-    1.3512   -0.9264    0.0407 H   0  0  0  0  0  0  0  0  0  0  0  0
-  1  5  1  0
-  2  1  1  0
-  2  6  1  0
-  2  7  1  0
-  3  1  1  0
-  4  1  1  0
-M  RAD  1   2   2
-M  END
+```python
+files.to_SDF_files(file_path="path/to/out")
 ```
+You can determine the file path by setting the `file_path` parameter. If the `file_path` parameter is not set, the default file path will be the working directory. Then the output files will be saved as `file_path/<filename>.sdf`
+
+### Transform in single file
+
+```python
+files[i].to_SDF_block() # return a SDf block with multi frames
+files[i].to_SDF_file(file_path="path/to/out.sdf") # save the SDF block with multi frames to file
+```
+`file_path` there should be a file, instead of a directory.
+
+### Transform in single frame
+
+```python
+files[i][j].to_SDF_block() # return a SDF block with single frame
+files[i][j].to_SDF_file(file_path="path/to/out.sdf") # save the SDF block with single frame to file
+```
+`file_path` there should be a file, instead of a directory.
 
 ## Gaussian 16 Input File (.com, .gjf, .gau, .gjc)
-The Gaussian 16 input file format is a text file format used to store the input information for Gaussian 16. It contains the information about the chemical structure, such as the coordinates of atoms, the basis set, the charge and spin multiplicity, and some other chemical properties like the level of theory, the solvent, and the solvation model.
 
-There is an example of the Gaussian 16 input file format:
-```text
-!Put Keywords Here, check Charge and Multiplicity.
-#
+Continuing to a higher level of optimization based on the optimized structure is a very common step in quantum chemistry computational workflows. MolOP provides some simple interfaces to simplify the manpower required for this step. The specific operations are explained in detail in the section [transform_in_gjf](transform_in_gjf.ipynb).
 
- Title
+## Chemdraw (.cdxml)
 
-0  1
-C           4.40549        -0.58591        -0.00000
-O           3.12691        -1.20031         0.00000
-C           2.09747        -0.36319         0.00000
-N           2.20839         0.94663        -0.00000
-O           0.95902         1.45815        -0.00000
-C           0.06922         0.45397         0.00000
-C          -1.37500         0.77331         0.00000
-O          -2.09755        -0.34776         0.00000
-C          -3.51986        -0.17267        -0.00000
-C          -4.17088        -1.54205        -0.00000
-O          -1.83552         1.88339         0.00000
-C           0.72761        -0.74674         0.00000
-H           5.12845        -1.39862        -0.00000
-H           4.53028         0.03818         0.88706
-H           4.53027         0.03819        -0.88706
-H          -3.80165         0.40589        -0.88655
-H          -3.80165         0.40589         0.88655
-H          -5.25106        -1.43016        -0.00000
-H          -3.87110        -2.09999         0.88278
-H          -3.87110        -2.09999        -0.88278
-H           0.32154        -1.73407         0.00000
+### Transform in batch
 
-1 2 1.0 13 1.0 14 1.0 15 1.0 
-2 3 1.0 
-3 4 2.0 12 1.0 
-4 5 1.0 
-5 6 1.0 
-6 7 1.0 12 2.0 
-7 8 1.0 11 2.0 
-8 9 1.0 
-9 10 1.0 16 1.0 17 1.0 
-10 18 1.0 19 1.0 20 1.0 
-11 
-12 21 1.0 
-13 
-14 
-15 
-16 
-17 
-18 
-19 
-20 
-21 
-
+```python
+files.to_chemdraw(file_path="path/to/out", frameID=-1, keep3D=True)
 ```
+You can determine the file path by setting the `file_path` parameter. If the `file_path` parameter is not set, the default file path will be the working directory. Then the output files will be saved as `file_path/<filename>.cdxml`
 
+You can determine the frameID by setting the `frameID` parameter. If the `frameID` parameter is not set, the default frameID will be the last frame. The `keep3D` parameter is used to determine whether to keep the 3D information of the structure. If the `keep3D` parameter is not set, the default value is `True`. If the `keep3D` parameter is set to `False`, the 3D information of the structure will be removed.
+
+### Transform in single file
+
+```python
+files[i].to_chemdraw(file_path="path/to/out.cdxml", frameID=-1, keep3D=True) # save the specific frame to cdxml file
+```
+`file_path` there should be a file, instead of a directory.
+
+### Transform in single frame
+
+```python
+files[i][j].to_chemdraw(file_path="path/to/out.cdxml", keep3D=True) # save the specific frame to cdxml file
+```
+`file_path` there should be a file, instead of a directory.

@@ -1,10 +1,10 @@
-"""
+'''
 Author: TMJ
-Date: 2024-01-07 13:47:18
+Date: 2024-01-11 21:02:36
 LastEditors: TMJ
-LastEditTime: 2024-01-25 22:49:10
+LastEditTime: 2024-02-08 20:27:55
 Description: 请填写简介
-"""
+'''
 import os
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
@@ -48,9 +48,6 @@ class MolBlock(ABC):
     _iter_resonance: bool
 
     def __init__(self):
-        """
-        Constructor.
-        """
         self._atoms: Union[List[str], List[int]] = []
         self._coords: List[Tuple[float]] = []
         self._charge: int = 0  # Only allow -2 ~ +2
@@ -179,10 +176,6 @@ class MolBlock(ABC):
                     self._rdmol = Chem.MolFromMolBlock(
                         self.omol.write("sdf"), removeHs=False
                     )
-                    if self._rdmol is None:
-                        raise ValueError(
-                            f"{self._file_path}: rdkit determinebonds failed. MolOP structure recovery failed."
-                        )
                     self._bonds = get_bond_pairs(self._rdmol)
                     self._formal_charges = get_formal_charges(self._rdmol)
                     self._formal_spins = get_formal_spins(self._rdmol)

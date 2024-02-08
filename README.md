@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-02-03 17:35:23
+ * @LastEditTime: 2024-02-07 21:02:38
  * @Description: 请填写简介
 -->
 # MolOP
@@ -58,8 +58,9 @@ pip install --extra-index-url http://10.72.201.58:13000/api/packages/tmj/pypi/si
 # clone the repository
 git clone http://10.72.201.58:13000/tmj/MolOP.git
 cd MolOP
-conda create -n  
+conda create -n molop python=3.8
 conda activate molop
+python -m ipykernel install --user --name molop
 # install the dependencies
 conda install openbabel -c conda-forge # openbabel is a necessary dependence
 pip install poetry

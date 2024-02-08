@@ -4,19 +4,23 @@ theme:
   name: "readthedocs"
 
 plugins:
+  - search
   - mkdocstrings
-
+  - mkdocs-jupyter:
+      include_requirejs: true
 nav:
-  - "index.md"
-  - "about.md"
-  - "Get Start":
-      - "Read Files" : "read_files.md"
-      - "Supporting Input File formats": "supporting_input_file_formats.md"
-      - "Supporting Output File formats": "supporting_output_file_formats.md"
-  - "Examples":
-      - "Read a file and extract info": "read_file_and_extract_info.md"
-  - "API": 
-    - "Entry Point level": "entrypoint.md"
-    - "File Batch level": "file_batch.md"
-    - "File level": "file.md"
-    - "Block level": "block.md"
+  - index.md
+  - about.md
+  - Get Start:
+      - Read Files: read_files.ipynb
+      - Structure Recovery Cases: structure_recovery_cases.ipynb
+      - Supporting Input File formats: supporting_input_file_formats.md
+      - Supporting Output File formats: supporting_output_file_formats.md
+  - Examples:
+      - Read a file and extract info: read_file_and_extract_info.ipynb
+      - Transform in gjf: transform_in_gjf.ipynb
+  - API: 
+    - io:
+      - bases:
+        - file_base: file_base.md
+        - molblock_base: molblock_base.md
