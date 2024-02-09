@@ -2,13 +2,21 @@ site_name: MolOP Documentation
 site_dir: public
 
 theme:
-  name: "readthedocs"
+  name: "material"
 
 plugins:
   - search
   - mkdocstrings
   - mkdocs-jupyter:
       include_requirejs: true
+
+markdown_extensions:  #Markdown扩展列表
+  - smarty  #启用 SmartyPants 排版扩展
+  - admonition  #通过不同颜色现实告警、备注信息
+  - toc:  
+      permalink: True #在 toc 扩展中启用永久链接
+      separator: "_"  #分割线符号
+
 nav:
   - index.md
   - about.md

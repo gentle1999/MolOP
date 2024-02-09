@@ -1,5 +1,12 @@
 """
 Author: TMJ
+Date: 2023-12-16 21:29:31
+LastEditors: TMJ
+LastEditTime: 2024-02-09 14:23:46
+Description: 请填写简介
+"""
+"""
+Author: TMJ
 Date: 2023-10-30 15:40:03
 LastEditors: TMJ
 LastEditTime: 2024-02-02 10:45:46
@@ -50,13 +57,16 @@ def AutoParser(
     files = glob(file_path)
     files.sort()
     if len(files) > 0:
-        return FileParserBatch(
+        batch = FileParserBatch(
+            n_jobs=n_jobs,
+        )
+        batch.add_files(
             files,
             charge=charge,
             multiplicity=multiplicity,
-            n_jobs=n_jobs,
             only_extract_structure=only_extract_structure,
             only_last_frame=only_last_frame,
         )
+        return batch
     else:
         raise FileNotFoundError("No file found in the path")
