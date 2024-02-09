@@ -1,34 +1,36 @@
-'''
+"""
 Author: TMJ
 Date: 2024-01-11 21:02:36
 LastEditors: TMJ
-LastEditTime: 2024-02-08 20:27:55
+LastEditTime: 2024-02-09 20:48:19
 Description: 请填写简介
-'''
+"""
 import os
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
-import re
 from typing import Any, Dict, List, Literal, Tuple, Union
 
+import numpy as np
 from openbabel import pybel
 from pint.facets.plain import PlainQuantity
 from rdkit import Chem
 from rdkit.Chem import AllChem, rdDetermineBonds
 from rdkit.Chem.MolStandardize import rdMolStandardize
-from molop.unit import atom_ureg
 
 from molop.logger.logger import logger
+from molop.structure.geometry import get_geometry_info
 from molop.structure.structure import (
+    attempt_replacement,
+    check_crowding,
     get_bond_pairs,
     get_formal_charges,
     get_formal_spins,
     get_resonance_structures,
     structure_score,
-    attempt_replacement,
 )
 from molop.structure.structure_recovery import xyz_block_to_omol
-from molop.structure.geometry import get_geometry_info
+from molop.unit import atom_ureg
 
 
 class MolBlock(ABC):
@@ -338,9 +340,9 @@ class MolBlock(ABC):
             f.close()
             for i, line in enumerate(lines):
                 if re.match(r"^\s*[\+\-\d]+\s+\d+$", line):
-                    prefix = "".join(lines[:i-2])
+                    prefix = "".join(lines[: i - 2])
                 if re.match(r"^\s*[A-Z][a-z]?(\s+\-?\d+(\.\d+)?){3}$", line):
-                    suffix = "".join(lines[i+1:])
+                    suffix = "".join(lines[i + 1 :])
         else:
             prefix = prefix if prefix.endswith("\n") else prefix + "\n"
             prefix = prefix + "\n"
@@ -868,3 +870,58 @@ class QMBaseBlockParser(BaseBlockParser):
                 # + f"nbo analysis number: {len(self.nbo_analysis)}\n"
                 # + f"hessian number: {len(self.hessian)}\n"
             )
+
+    def ts_vibration(self) -> List[BaseBlockParser]:
+        if not self.is_TS:
+            raise RuntimeError("This is not a TS")
+        block_parsers = []
+        for rate in (-2.5, -2.25, -2, -1.5, -1, 1, 1.5, 2, 2.25, 2.5):
+            extreme_coords = (
+                self.rdmol.GetConformer().GetPositions()
+                - np.array(
+                    self.dimensionless_imaginary_frequencies.__next__()[
+                        "normal coordinates"
+                    ]
+                )
+                * rate
+            )
+            omol = xyz_block_to_omol(
+                f"{len(self.atoms)}\n"
+                + f"charge {self.charge} multiplicity {self.multiplicity}\n"
+                + "\n".join(
+                    [
+                        f"{atom:10s}{x:10.5f}{y:10.5f}{z:10.5f}"
+                        for atom, x, y, z in zip(self.atoms, *zip(*extreme_coords))
+                    ]
+                ),
+                given_charge=self.charge,
+                given_spin=self.multiplicity,
+            )
+            try:
+                block_parser = self.rebuild_parser(
+                    Chem.MolFromMolBlock(omol.write("sdf"), removeHs=False),
+                    rebuild_type="reindex",
+                )
+            except:
+                continue
+            if check_crowding(block_parser.rdmol):
+                block_parsers.append(block_parser)
+        return block_parsers
+    
+    def ts_vibration_to_SDF_file(self, file_path: str = None):
+        if file_path is None:
+            file_path = self._file_path
+        if os.path.isdir(file_path):
+            raise IsADirectoryError(f"{file_path} is a directory.")
+        file_path = os.path.splitext(file_path)[0] + ".sdf"
+        block_parsers = self.ts_vibration()
+        with open(file_path, "w") as f:
+            f.write("$$$$\n".join([frame.to_SDF_block() for frame in block_parsers]))
+        f.close()
+        return file_path
+
+    def possible_pre_post_ts(self):
+        block_parsers = self.ts_vibration()
+        block_parsers[0].rdmol.RemoveAllConformers()
+        block_parsers[-1].rdmol.RemoveAllConformers()
+        return block_parsers[0].rdmol, block_parsers[-1].rdmol

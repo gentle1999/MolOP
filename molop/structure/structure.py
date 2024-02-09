@@ -189,10 +189,10 @@ def replace_mol(mol, query_smi: str, replacement_smi: str, bind_idx: int = None)
     return rmol
 
 
-def check_crowding(mol):
+def check_crowding(mol, threshold=0.75):
     distances = Chem.Get3DDistanceMatrix(mol)
     for start_atom, end_atom in itertools.combinations(mol.GetAtoms(), 2):
-        if distances[start_atom.GetIdx()][end_atom.GetIdx()] < 0.75 * (
+        if distances[start_atom.GetIdx()][end_atom.GetIdx()] < threshold * (
             pt.GetRcovalent(start_atom.GetAtomicNum())
             + pt.GetRcovalent(end_atom.GetAtomicNum())
         ):

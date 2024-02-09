@@ -6,8 +6,9 @@ LastEditTime: 2024-01-25 23:10:59
 Description: 请填写简介
 """
 import os
-from typing import List, Union
-from molop.config import molopconfig
+from collections.abc import MutableMapping
+from collections import OrderedDict
+from typing import Dict, List, Union
 
 import pandas as pd
 from joblib import Parallel, cpu_count, delayed
@@ -103,22 +104,54 @@ def singlefile_parser(
         raise IsADirectoryError(f"{file_path} is not a file.")
 
 
-class FileParserBatch:
+class FileParserBatch(MutableMapping):
     __n_jobs: int
-    __file_paths: List[str]
-    __parsers = List[PARSERTYPES]
+    __parsers: Dict[str, PARSERTYPES]
 
     def __init__(
+        self,
+        n_jobs: int = -1,
+    ) -> None:
+        self.__n_jobs = n_jobs if n_jobs > 0 else cpu_count()
+        self.__parsers: Dict[str, PARSERTYPES] = OrderedDict()
+
+    def __getitem__(self, key: Union[int, str]) -> PARSERTYPES:
+        if isinstance(key, int):
+            return list(self.__parsers.values())[key]
+        else:
+            return self.__parsers[key]
+
+    def __setitem__(self, key: str, value: PARSERTYPES):
+        self.__parsers[key] = value
+
+    def __delitem__(self, key: str):
+        del self.__parsers[key]
+
+    def __len__(self) -> int:
+        return len(self.__parsers)
+
+    def __iter__(self):
+        self.__index = 0
+        return self
+
+    def __next__(
+        self,
+    ) -> PARSERTYPES:
+        if self.__index >= len(self):
+            raise StopIteration
+        else:
+            self.__index += 1
+            return self[self.__index - 1]
+
+    def add_files(
         self,
         files: List[str],
         charge=None,
         multiplicity=None,
-        n_jobs: int = -1,
         only_extract_structure=False,
         only_last_frame=False,
-    ) -> None:
-        self.__n_jobs = n_jobs if n_jobs > 0 else cpu_count()
-        self.__file_paths = []
+    ):
+        file_paths = []
         for file_path in files:
             if not os.path.isfile(file_path):
                 raise FileNotFoundError(f"{file_path} is not a file.")
@@ -127,76 +160,93 @@ class FileParserBatch:
                 continue
             if file_path.endswith("molop.log"):
                 continue
-            self.__file_paths.append(os.path.abspath(file_path))
-        self.__parsers: List[PARSERTYPES] = []
-        self._only_extract_structure = only_extract_structure
-        self._only_last_frame = only_last_frame
+            file_paths.append(os.path.abspath(file_path))
 
         arguments_list = [
             {
                 "file_path": file_path,
                 "charge": charge,
                 "multiplicity": multiplicity,
-                "only_extract_structure": self._only_extract_structure,
-                "only_last_frame": self._only_last_frame,
+                "only_extract_structure": only_extract_structure,
+                "only_last_frame": only_last_frame,
             }
-            for file_path in self.__file_paths
+            for file_path in file_paths
         ]
-        if self.__n_jobs > 1 and len(self.__file_paths) > cpu_count():
+        if self.__n_jobs > 1 and len(file_paths) > cpu_count():
             if molopconfig.show_progress_bar:
-                self.__parsers = [
-                    parser
-                    for parser in tqdm(
-                        Parallel(
+                self.__parsers.update(
+                    {
+                        parser._file_path: parser
+                        for parser in tqdm(
+                            Parallel(
+                                return_as="generator",
+                                n_jobs=self.__n_jobs,
+                                pre_dispatch="1.5*n_jobs",
+                            )(
+                                delayed(singlefile_parser)(**arguments)
+                                for arguments in arguments_list
+                            ),
+                            total=len(arguments_list),
+                            desc=f"MolOP parsing with {cpu_count()} jobs",
+                        )
+                        if len(parser) > 0
+                    }
+                )
+            else:
+                self.__parsers.update(
+                    {
+                        parser._file_path: parser
+                        for parser in Parallel(
                             return_as="generator",
                             n_jobs=self.__n_jobs,
                             pre_dispatch="1.5*n_jobs",
                         )(
                             delayed(singlefile_parser)(**arguments)
                             for arguments in arguments_list
-                        ),
-                        total=len(arguments_list),
-                        desc=f"MolOP parsing with {cpu_count()} jobs",
-                    )
-                    if len(parser) > 0
-                ]
-            else:
-                self.__parsers = [
-                    parser
-                    for parser in Parallel(
-                        return_as="generator",
-                        n_jobs=self.__n_jobs,
-                        pre_dispatch="1.5*n_jobs",
-                    )(
-                        delayed(singlefile_parser)(**arguments)
-                        for arguments in arguments_list
-                    )
-                    if len(parser) > 0
-                ]
+                        )
+                        if len(parser) > 0
+                    }
+                )
         else:
             if molopconfig.show_progress_bar:
-                self.__parsers = [
-                    parser
-                    for parser in tqdm(
-                        (
+                self.__parsers.update(
+                    {
+                        parser._file_path: parser
+                        for parser in tqdm(
+                            (
+                                singlefile_parser(**arguments)
+                                for arguments in arguments_list
+                            ),
+                            total=len(arguments_list),
+                            desc=f"MolOP parsing with single thread",
+                        )
+                        if len(parser) > 0
+                    }
+                )
+            else:
+                self.__parsers.update(
+                    {
+                        parser._file_path: parser
+                        for parser in (
                             singlefile_parser(**arguments)
                             for arguments in arguments_list
-                        ),
-                        total=len(arguments_list),
-                        desc=f"MolOP parsing with single thread",
-                    )
-                ]
-            else:
-                self.__parsers = [
-                    parser
-                    for parser in (
-                        singlefile_parser(**arguments) for arguments in arguments_list
-                    )
-                ]
+                        )
+                        if len(parser) > 0
+                    }
+                )
 
         logger.info(
-            f"{len(self.__file_paths) - len(self.__parsers)} files failed to parse, {len(self.__parsers)} successfully parsed"
+            f"{len(file_paths) - len(self.__parsers)} files failed to parse, {len(self.__parsers)} successfully parsed"
         )
+
+    def add_file_parsers(self, file_parsers: List[PARSERTYPES]) -> None:
+        for parser in file_parsers:
+            if parser.file_path not in self.__parsers:
+                self[parser.file_path] = parser
+            else:
+                logger.warning(
+                    f"File {parser.file_path} already exists in the batch, skipped"
+                )
 
     def to_GJF_file(
         self,
@@ -211,7 +261,7 @@ class FileParserBatch:
         """file_path should be a directory, prefix and suffix are optional"""
         if file_path is None:
             file_path = os.path.curdir
-        for parser in self.__parsers:
+        for parser in self:
             parser.to_GJF_file(
                 os.path.join(file_path, parser.file_name),
                 charge=charge,
@@ -226,21 +276,21 @@ class FileParserBatch:
     def to_XYZ_file(self, file_path: str = None) -> None:
         if file_path is None:
             file_path = os.path.curdir
-        for parser in self.__parsers:
+        for parser in self:
             parser.to_XYZ_file(os.path.join(file_path, parser.file_name))
         logger.info(f"xyz files saved to {os.path.abspath(file_path)}")
 
     def to_SDF_file(self, file_path: str = None) -> None:
         if file_path is None:
             file_path = os.path.curdir
-        for parser in self.__parsers:
+        for parser in self:
             parser.to_SDF_file(os.path.join(file_path, parser.file_name))
         logger.info(f"sdf files saved to {os.path.abspath(file_path)}")
 
     def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=False) -> None:
         if file_path is None:
             file_path = os.path.curdir
-        for parser in self.__parsers:
+        for parser in self:
             parser.to_chemdraw(
                 os.path.join(file_path, parser.file_name),
                 frameID=frameID,
@@ -259,7 +309,7 @@ class FileParserBatch:
         """only consider the last frame of each file"""
         new_parsers = []
         if molopconfig.show_progress_bar:
-            for parser in tqdm(self.__parsers):
+            for parser in tqdm(self):
                 try:
                     temp_parser = parser[-1].replace_substituent(
                         query_smi=query_smi,
@@ -279,7 +329,7 @@ class FileParserBatch:
                         f"Failed to replace substituent from {query_smi} to {replacement_smi} in {parser.file_path}, {parser.file_name}"
                     )
         else:
-            for parser in self.__parsers:
+            for parser in self:
                 try:
                     temp_parser = parser[-1].replace_substituent(
                         query_smi=query_smi,
@@ -304,64 +354,55 @@ class FileParserBatch:
         )
         return new_parsers
 
-    def reset_atom_index(self, mapping_smarts: str) -> List[BlockType]:
+    def reset_atom_index(self, mapping_smarts: str) -> "FileParserBatch":
         """only consider the last frame of each file"""
         new_parsers = []
         if molopconfig.show_progress_bar:
-            for parser in tqdm(self.__parsers):
+            for parser in tqdm(self):
                 try:
                     temp_parser = parser[-1].reset_atom_index(
                         mapping_smarts=mapping_smarts
                     )
+                    temp_file_path = temp_parser.to_SDF_file()
                     new_parsers.append(
-                        SDFBlockParser(
-                            temp_parser.to_SDF_block(),
-                            os.path.splitext(temp_parser._file_path)[0] + ".sdf",
-                        )
+                        SDFParser(temp_file_path, only_last_frame=True)
                     )
+                    os.remove(temp_file_path)
                 except Exception as e:
                     logger.error(
                         f"{e}: Failed to reset atom index by {mapping_smarts} in {parser.file_path}, {parser.file_name}"
                     )
         else:
-            for parser in self.__parsers:
+            for parser in self:
                 try:
                     temp_parser = parser[-1].reset_atom_index(
                         mapping_smarts=mapping_smarts
                     )
+                    temp_file_path = temp_parser.to_SDF_file()
                     new_parsers.append(
-                        SDFBlockParser(
-                            temp_parser.to_SDF_block(),
-                            os.path.splitext(temp_parser._file_path)[0] + ".sdf",
-                        )
+                        SDFParser(temp_file_path, only_last_frame=True)
                     )
+                    os.remove(temp_file_path)
                 except Exception as e:
                     logger.error(
                         f"{e}: Failed to reset atom index by {mapping_smarts} in {parser.file_path}, {parser.file_name}"
                     )
+        new_batch = FileParserBatch()
+        new_batch.add_file_parsers(new_parsers)
         logger.info(
             f"{len(new_parsers)} files successfully replaced, {len(self.__parsers) - len(new_parsers)} files failed to reset_index"
         )
-        return new_parsers
+        return new_batch
 
-    def __getitem__(self, parserID: int) -> PARSERTYPES:
-        return self.__parsers[parserID]
-
-    def __len__(self) -> int:
-        return len(self.__parsers)
-
-    def __iter__(self):
-        self.__index = 0
-        return self
-
-    def __next__(
-        self,
-    ) -> PARSERTYPES:
-        if self.__index >= len(self):
-            raise StopIteration
-        else:
-            self.__index += 1
-            return self.__parsers[self.__index - 1]
+    def filter_TS(self) -> "FileParserBatch":
+        TS_parsers = [
+            parser
+            for parser in self
+            if parser.__class__ in qm_parsers and parser[-1].is_TS
+        ]
+        new_batch = FileParserBatch()
+        new_batch.add_file_parsers(TS_parsers)
+        return new_batch
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({len(self)})"
@@ -379,158 +420,133 @@ class FileParserBatch:
             except StopIteration:
                 return {"is imaginary": None, "freq": None}
 
-        if self._only_extract_structure:
-            return pd.DataFrame(
-                {
-                    "parser": [parser.__class__.__name__ for parser in self.__parsers],
-                    "file_name": [parser.file_name for parser in self.__parsers],
-                    "file_path": [parser.file_path for parser in self.__parsers],
-                    "file_format": [parser._file_format for parser in self.__parsers],
-                    "charge": [parser[-1].charge for parser in self.__parsers],
-                    "multiplicity": [
-                        parser[-1].multiplicity for parser in self.__parsers
-                    ],
-                    "SMILES": [
-                        parser[-1].to_standard_SMILES() for parser in self.__parsers
-                    ],
-                }
-            )
-        else:
-            return pd.DataFrame(
-                {
-                    "parser": [parser.__class__.__name__ for parser in self.__parsers],
-                    "file_name": [parser.file_name for parser in self.__parsers],
-                    "file_path": [parser.file_path for parser in self.__parsers],
-                    "file_format": [parser._file_format for parser in self.__parsers],
-                    "charge": [parser[-1].charge for parser in self.__parsers],
-                    "multiplicity": [
-                        parser[-1].multiplicity for parser in self.__parsers
-                    ],
-                    "SMILES": [
-                        parser[-1].to_standard_SMILES() for parser in self.__parsers
-                    ],
-                    "status": [
-                        parser[-1].state if parser.__class__ in qm_parsers else None
-                        for parser in self.__parsers
-                    ],
-                    "ZPE": [
-                        parser[-1].dimensionless_sum_energy["zero-point correction"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "TCE": [
-                        parser[-1].dimensionless_sum_energy["TCE"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "TCH": [
-                        parser[-1].dimensionless_sum_energy["TCH"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "TCG": [
-                        parser[-1].dimensionless_sum_energy["TCG"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "ZPE-Gas": [
-                        parser[-1].dimensionless_sum_energy["zero-point gas"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "E-Gas": [
-                        parser[-1].dimensionless_sum_energy["E gas"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "H-Gas": [
-                        parser[-1].dimensionless_sum_energy["H gas"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "G-Gas": [
-                        parser[-1].dimensionless_sum_energy["G gas"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "sp": [
-                        parser[-1].dimensionless_energy
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "HOMO": [
-                        parser[-1].dimensionless_alpha_energy["homo"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "LUMO": [
-                        parser[-1].dimensionless_alpha_energy["lumo"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "GAP": [
-                        parser[-1].dimensionless_alpha_energy["gap"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "first freq": [
-                        get_generator_value(parser[-1].dimensionless_frequencies, 0)[
-                            "freq"
-                        ]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "first freq tag": [
-                        get_generator_value(parser[-1].dimensionless_frequencies, 0)[
-                            "is imaginary"
-                        ]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "second freq": [
-                        get_generator_value(parser[-1].dimensionless_frequencies, 1)[
-                            "freq"
-                        ]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "second freq tag": [
-                        get_generator_value(parser[-1].dimensionless_frequencies, 1)[
-                            "is imaginary"
-                        ]
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "S**2": [
-                        parser[-1].spin_eigenvalue
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                    "S": [
-                        parser[-1].spin_multiplicity
-                        if parser.__class__ in qm_parsers
-                        else None
-                        for parser in self.__parsers
-                    ],
-                }
-            )
+        return pd.DataFrame(
+            {
+                "parser": [parser.__class__.__name__ for parser in self],
+                "file_name": [parser.file_name for parser in self],
+                "file_path": [parser.file_path for parser in self],
+                "file_format": [parser._file_format for parser in self],
+                "charge": [parser[-1].charge for parser in self],
+                "multiplicity": [parser[-1].multiplicity for parser in self],
+                "SMILES": [parser[-1].to_standard_SMILES() for parser in self],
+                "status": [
+                    parser[-1].state if parser.__class__ in qm_parsers else None
+                    for parser in self
+                ],
+                "ZPE": [
+                    parser[-1].dimensionless_sum_energy["zero-point correction"]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "TCE": [
+                    parser[-1].dimensionless_sum_energy["TCE"]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "TCH": [
+                    parser[-1].dimensionless_sum_energy["TCH"]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "TCG": [
+                    parser[-1].dimensionless_sum_energy["TCG"]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "ZPE-Gas": [
+                    parser[-1].dimensionless_sum_energy["zero-point gas"]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "E-Gas": [
+                    parser[-1].dimensionless_sum_energy["E gas"]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "H-Gas": [
+                    parser[-1].dimensionless_sum_energy["H gas"]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "G-Gas": [
+                    parser[-1].dimensionless_sum_energy["G gas"]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "sp": [
+                    parser[-1].dimensionless_energy
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "HOMO": [
+                    parser[-1].dimensionless_alpha_energy["homo"]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "LUMO": [
+                    parser[-1].dimensionless_alpha_energy["lumo"]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "GAP": [
+                    parser[-1].dimensionless_alpha_energy["gap"]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "first freq": [
+                    get_generator_value(parser[-1].dimensionless_frequencies, 0)["freq"]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "first freq tag": [
+                    get_generator_value(parser[-1].dimensionless_frequencies, 0)[
+                        "is imaginary"
+                    ]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "second freq": [
+                    get_generator_value(parser[-1].dimensionless_frequencies, 1)["freq"]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "second freq tag": [
+                    get_generator_value(parser[-1].dimensionless_frequencies, 1)[
+                        "is imaginary"
+                    ]
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "S**2": [
+                    parser[-1].spin_eigenvalue
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+                "S": [
+                    parser[-1].spin_multiplicity
+                    if parser.__class__ in qm_parsers
+                    else None
+                    for parser in self
+                ],
+            }
+        )
 
     def to_summary_csv(self, file_path: str = None):
         if not file_path:
@@ -580,5 +596,5 @@ class FileParserBatch:
                 precision,
                 one_start,
             )
-            for parser in self.__parsers
+            for parser in self
         ]
