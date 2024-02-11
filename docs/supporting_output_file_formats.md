@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2024-02-02 10:43:56
  * @LastEditors: TMJ
- * @LastEditTime: 2024-02-08 20:01:51
+ * @LastEditTime: 2024-02-11 21:08:06
  * @Description: 请填写简介
 -->
 # Supporting Input File Formats
@@ -67,7 +67,7 @@ files[i][j].to_SDF_file(file_path="path/to/out.sdf") # save the SDF block with s
 
 ## Gaussian 16 Input File (.com, .gjf, .gau, .gjc)
 
-Continuing to a higher level of optimization based on the optimized structure is a very common step in quantum chemistry computational workflows. MolOP provides some simple interfaces to simplify the manpower required for this step. The specific operations are explained in detail in the section [transform_in_gjf](transform_in_gjf.ipynb).
+Continuing to a higher level of optimization based on the optimized structure is a very common step in quantum chemistry computational workflows. MolOP provides some simple interfaces to simplify the manpower required for this step. The specific operations are explained in detail in the section [Transform in GJF](transform_in_gjf.ipynb).
 
 ## Chemdraw (.cdxml)
 

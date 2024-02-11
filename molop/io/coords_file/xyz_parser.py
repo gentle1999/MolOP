@@ -1,10 +1,10 @@
-"""
+'''
 Author: TMJ
-Date: 2023-10-30 15:41:19
+Date: 2024-01-11 21:02:36
 LastEditors: TMJ
-LastEditTime: 2024-01-31 22:24:15
+LastEditTime: 2024-02-11 18:37:45
 Description: 请填写简介
-"""
+'''
 import os
 
 from molop.io.bases.file_base import BaseFileParser
@@ -61,3 +61,6 @@ class XYZParser(BaseFileParser):
                     file_path=self._file_path,
                 )
                 self.append(block)
+        if len(blocks) > 0:
+            self._charge = block.charge
+            self._multiplicity = block.multiplicity

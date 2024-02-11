@@ -404,6 +404,38 @@ class FileParserBatch(MutableMapping):
         new_batch.add_file_parsers(TS_parsers)
         return new_batch
 
+    def filter_by_charge(self, charge: int) -> "FileParserBatch":
+        TS_parsers = [
+            parser
+            for parser in self
+            if parser[-1].charge == charge
+        ]
+        new_batch = FileParserBatch()
+        new_batch.add_file_parsers(TS_parsers)
+        return new_batch
+
+    def filter_by_multi(self, multi: int) -> "FileParserBatch":
+        TS_parsers = [
+            parser
+            for parser in self
+            if parser[-1].multiplicity == multi
+        ]
+        new_batch = FileParserBatch()
+        new_batch.add_file_parsers(TS_parsers)
+        return new_batch
+    
+    def filter_by_format(self, format: str) -> "FileParserBatch":
+        if not format.startswith("."):
+            format = "." + format
+        TS_parsers = [
+            parser
+            for parser in self
+            if parser._file_format == format
+        ]
+        new_batch = FileParserBatch()
+        new_batch.add_file_parsers(TS_parsers)
+        return new_batch
+
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({len(self)})"
 
