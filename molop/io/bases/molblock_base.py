@@ -261,7 +261,7 @@ class MolBlock(ABC):
         with open(file_path, "w") as f:
             f.write(self.to_XYZ_block())
         f.close()
-        return file_path
+        return os.path.abspath(file_path)
 
     def to_SDF_file(self, file_path: str = None):
         if file_path is None:
@@ -272,7 +272,7 @@ class MolBlock(ABC):
         with open(file_path, "w") as f:
             f.write(self.to_SDF_block())
         f.close()
-        return file_path
+        return os.path.abspath(file_path)
 
     def calc_rdkit_descs(self, desc_names: List[str] = None) -> Dict[str, float]:
         from molop.descriptor.descriptor import calc_rdkit_descs
@@ -386,7 +386,7 @@ class MolBlock(ABC):
                 )
             )
         f.close()
-        return file_path
+        return os.path.abspath(file_path)
 
     def to_chemdraw(self, file_path: str = None, keep3D=True):
         if file_path is None:
@@ -402,7 +402,7 @@ class MolBlock(ABC):
             )
         else:
             self.omol.write("cdxml", file_path, overwrite=True)
-        return file_path
+        return os.path.abspath(file_path)
 
     def geometry_analysis(self, atom_idxs: Tuple[int], one_start=False):
         """

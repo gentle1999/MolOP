@@ -143,7 +143,7 @@ class BaseFileParser:
         with open(file_path, "w") as f:
             f.write(self.to_XYZ_block())
         f.close()
-        return file_path
+        return os.path.abspath(file_path)
 
     def to_SDF_file(self, file_path: str = None):
         if file_path is None:
@@ -154,7 +154,7 @@ class BaseFileParser:
         with open(file_path, "w") as f:
             f.write(self.to_SDF_block())
         f.close()
-        return file_path
+        return os.path.abspath(file_path)
 
     def to_GJF_file(
         self,
@@ -184,7 +184,7 @@ class BaseFileParser:
                 )
             )
         f.close()
-        return file_path
+        return os.path.abspath(file_path)
 
     def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=False):
         return self.__frames[frameID].to_chemdraw(file_path, keep3D=keep3D)

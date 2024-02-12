@@ -1,5 +1,6 @@
 import itertools
 from typing import List, Tuple
+from molop.logger.logger import logger
 
 from openbabel import openbabel as ob
 from openbabel import pybel
@@ -264,6 +265,8 @@ def xyz_block_to_omol(
         raise ValueError("Charge must be between -2 and 2")
     if given_spin > 2 or given_spin < 0:
         raise ValueError("Spin must be between 0 and 2")
+    
+    logger.debug(f"charge: {given_charge}, spin: {given_spin}")
 
     # Step 1: Use openbabel to initialize molecule without charge and spin.
     # OpenBabel can use XYZ file to recover a molecule with proper bonds.
@@ -271,6 +274,7 @@ def xyz_block_to_omol(
     # Howerver, the lack is that OpenBabel does not consider the charge and spin information.
     # Therfore, the steps following will try to fix the charge and spin information.
     omol = pybel.readstring("xyz", xyz_block)
+    logger.debug(f"omol smiles: {omol.write('smi')}")
 
     # N-BCP
     smarts = pybel.Smarts("[#6]1([#6]2)([#6]3)[#7]23[#6]1")

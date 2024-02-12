@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2024-01-30 16:53:29
  * @LastEditors: TMJ
- * @LastEditTime: 2024-02-02 12:12:31
+ * @LastEditTime: 2024-02-12 21:40:53
  * @Description: 请填写简介
 -->
 # MolOP
@@ -32,3 +32,7 @@
     - Atom index reset `Done`
     - Orientation change `TODO`
     - Other functions `TODO`
+
+
+## Citation
+arXiv paper is to be submitted soon.

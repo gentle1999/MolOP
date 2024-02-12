@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-02-07 21:02:38
+ * @LastEditTime: 2024-02-12 11:16:20
  * @Description: 请填写简介
 -->
 # MolOP
@@ -65,4 +65,8 @@ python -m ipykernel install --user --name molop
 conda install openbabel -c conda-forge # openbabel is a necessary dependence
 pip install poetry
 pip install .[dev]
+```
+## Start documentation server
+```bash
+mkdocs serve
 ```
