@@ -3,6 +3,17 @@ site_dir: public
 
 theme:
   name: "material"
+  features:
+    - navigation.footer
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/gentle1999/MolOP.git
+    - icon: fontawesome/solid/paper-plane
+      link: mailto:mj_t@zju.edu.cn
+
+copyright: Copyright &copy; 2023 - 2024 Miao-jiong Tang
 
 plugins:
   - search
@@ -19,7 +30,7 @@ markdown_extensions:  #Markdown扩展列表
 
 nav:
   - index.md
-  - about.md
+  - Installaton: install.md
   - Get Start:
       - Read Files: read_files.ipynb
       - Structure Recovery Cases: structure_recovery_cases.ipynb
@@ -28,6 +39,7 @@ nav:
   - Examples:
       - Read a file and extract info: read_file_and_extract_info.ipynb
       - Transform in gjf: transform_in_gjf.ipynb
+      - Command line interface: command_line_interface.ipynb
   - API: 
     - io:
       - bases:

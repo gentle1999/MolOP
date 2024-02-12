@@ -583,12 +583,16 @@ class FileParserBatch(MutableMapping):
     def to_summary_csv(self, file_path: str = None):
         if not file_path:
             file_path = os.path.join(os.path.curdir, "summary.csv")
+        if os.path.isdir(file_path):
+            file_path = os.path.join(file_path, "summary.csv")
         self.to_summary_df().to_csv(file_path)
         logger.info(f"summary csv saved to {os.path.abspath(file_path)}")
 
     def to_summary_excel(self, file_path: str = None):
         if not file_path:
             file_path = os.path.join(os.path.curdir, "summary.xlsx")
+        if os.path.isdir(file_path):
+            file_path = os.path.join(file_path, "summary.xlsx")
         self.to_summary_df().to_excel(file_path)
         logger.info(f"summary xlsx saved to {os.path.abspath(file_path)}")
 

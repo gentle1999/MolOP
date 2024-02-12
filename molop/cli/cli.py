@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-04 11:04:35
 LastEditors: TMJ
-LastEditTime: 2024-02-06 16:08:10
+LastEditTime: 2024-02-12 16:49:38
 Description: 请填写简介
 """
 import os
@@ -10,6 +10,7 @@ import os
 import fire
 
 from molop import AutoParser
+from molop.config import molopconfig
 from molop.io import FileParserBatch
 
 
@@ -32,8 +33,8 @@ class MolOPCLI:
     def read(
         self,
         file_path: str,
-        charge=0,
-        multiplicity=1,
+        charge=None,
+        multiplicity=None,
         only_extract_structure=False,
         only_last_frame=False,
     ):
@@ -80,6 +81,13 @@ class MolOPCLI:
         Save the SDF file of all frames of each file.
         """
         self._file_batch.to_SDF_file(file_dir)
+        return self
+
+    def chemdraw(self, file_dir: str = None, frameID=-1, keep3D=True):
+        """
+        Save the cdxml file of specified frames of each file.
+        """
+        self._file_batch.to_chemdraw(file_dir, frameID, keep3D)
         return self
 
     def gjf(
