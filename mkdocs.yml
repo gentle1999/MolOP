@@ -1,10 +1,19 @@
 site_name: MolOP Documentation
 site_dir: public
+repo_url: https://github.com/gentle1999/MolOP.git
+repo_name: gentle1999/MolOP.git
 
 theme:
   name: "material"
   features:
     - navigation.footer
+    - header.autohide
+    - announce.dismiss
+    - search.suggest
+    - search.highlight
+    - search.share
+  icon:
+    repo: fontawesome/brands/github
 
 extra:
   social:
@@ -43,5 +52,8 @@ nav:
   - API: 
     - io:
       - bases:
+        - molblock_base: 
+          - MolBlock.md
+          - BaseBlockParser.md
+          - QMBaseBlockParser.md
         - file_base: file_base.md
-        - molblock_base: molblock_base.md

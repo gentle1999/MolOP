@@ -8,14 +8,13 @@ Description: 请填写简介
 import os
 import re
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
 from typing import Any, Dict, List, Literal, Tuple, Union
 
 import numpy as np
 from openbabel import pybel
 from pint.facets.plain import PlainQuantity
 from rdkit import Chem
-from rdkit.Chem import AllChem, rdDetermineBonds
+from rdkit.Chem import rdDetermineBonds
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
 from molop.logger.logger import logger
@@ -26,8 +25,6 @@ from molop.structure.structure import (
     get_bond_pairs,
     get_formal_charges,
     get_formal_spins,
-    get_resonance_structures,
-    structure_score,
 )
 from molop.structure.structure_recovery import xyz_block_to_omol
 from molop.unit import atom_ureg
@@ -35,65 +32,109 @@ from molop.unit import atom_ureg
 
 class MolBlock(ABC):
     """
-    Abstract class for a molecule block.
+    Abstract class for a molecule block. The information is enough to recover the original molecule structure.
+
+    Attributes:
+        _atoms Union[List[str], List[int]]:
+            **Need to be given**: Save the atoms. Consistent with the atomic order in the original file. Supports both element numbers and element symbols.
+        _coords List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]]:
+            **Need to be given**: Save the coordinates described by [pint](https://pint.readthedocs.io/en/stable/). Consistent with the atomic order in the original file. Defualt unit is angstrom.
+        _charge int:
+            **Need to be given**: Save the total charge. Allowed charge range is -3 to 3.
+        _multiplicity int:
+            **Need to be given**: Save the multiplicity. Allowed multiplicity range is 1 to 5.
+        _bonds List[Tuple[int, int, int]]:
+            **Predicted**: Save the bonds. The elements are: atom1 index, atom2 index, bond order(follow rdkit bond order `Chem.rdchem.BondType`).
+        _formal_charges List[int]:
+            **Predicted**: Save the formal charges. Consistent with the atomic order.
+        _formal_spins List[int]:
+            **Predicted**: Save the formal spins. Consistent with the atomic order.
+        _omol pybel.Molecule:
+            **Predicted**: Save the openbabel molecule object.
+        _rdmol Union[Chem.rdchem.RWMol, Chem.rdchem.Mol]:
+            **Predicted**: Save the rdkit molecule object.
     """
 
     _atoms: Union[List[str], List[int]]
-    _coords: List[Tuple[float]]
-    _charge: int  # Only allow -2 ~ +2
-    _multiplicity: int  # Only allow 1 ~ 5
+    _coords: List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]]
+    _charge: int
+    _multiplicity: int
     _bonds: List[Tuple[int, int, int]]
     _formal_charges: List[int]
     _formal_spins: List[int]
     _omol: pybel.Molecule
     _rdmol: Union[Chem.rdchem.RWMol, Chem.rdchem.Mol]
-    _iter_resonance: bool
 
     def __init__(self):
         self._atoms: Union[List[str], List[int]] = []
         self._coords: List[Tuple[float]] = []
-        self._charge: int = 0  # Only allow -2 ~ +2
-        self._multiplicity: int = 1  # Only allow 1 ~ 5
+        self._charge: int = 0
+        self._multiplicity: int = 1
         self._bonds: List[Tuple[int, int, int]] = None
         self._formal_charges: List[int] = None
         self._formal_spins: List[int] = None
         self._omol: pybel.Molecule = None
         self._rdmol: Union[Chem.rdchem.RWMol, Chem.rdchem.Mol] = None
-        self._iter_resonance = False
 
     @property
     def atoms(self) -> List[str]:
         """
         Get the atoms.
+
+        Returns:
+            A list of element symbols of the atoms.
         """
         return [Chem.Atom(atom).GetSymbol() for atom in self._atoms]
 
     @property
     def total_electrons(self) -> int:
+        """
+        Get the total electrons.
+
+        Returns:
+            The total electrons.
+        """
         return sum(Chem.Atom(atom).GetAtomicNum() for atom in self._atoms) + self.charge
 
     @property
     def elements(self) -> List[str]:
+        """
+        Get the elements set.
+
+        Returns:
+            A list of element symbols dropped duplicates.
+        """
         return list(set(self.atoms))
 
     @property
-    def coords(self) -> List[Tuple[PlainQuantity]]:
+    def coords(self) -> List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]]:
         """
         Get the coordinates.
+
+        Returns:
+            A list of coordinates. Each coordinate is a tuple of three plain quantities. Default unit is angstrom.
         """
         return self._coords
 
     @property
-    def dimensionless_coords(self):
-        return (
-            str(self.coords[0][0].units),
-            [[coord.m for coord in atom] for atom in (self.coords)],
-        )
+    def dimensionless_coords(self) -> List[Tuple[float, float, float]]:
+        """
+        Get the dimensionless coordinates.
+
+        Returns:
+            A list of dimensionless coordinates. Each coordinate is a tuple of three floats. Units have been tranformed into angstrom.
+        """
+        return [
+            tuple([coord.to("angstrom").m for coord in atom]) for atom in self.coords
+        ]
 
     @property
     def charge(self) -> int:
         """
         Get the charge.
+
+        Returns:
+            The total charge. Allowed charge range is -3 to 3.
         """
         return self._charge
 
@@ -101,6 +142,9 @@ class MolBlock(ABC):
     def multiplicity(self) -> int:
         """
         Get the multiplicity.
+
+        Returns:
+            The multiplicity. Allowed multiplicity range is 1 to 5.
         """
         return self._multiplicity
 
@@ -108,6 +152,9 @@ class MolBlock(ABC):
     def bonds(self) -> List[Tuple[int, int, int]]:
         """
         Get the bonds.
+
+        Returns:
+            A list of bonds. Each bond is a tuple of three integers. The first two integers are the atom indices of the bond. The third integer is the bond order(follow rdkit bond order `Chem.rdchem.BondType`).
         """
         if self._bonds is None:
             self._bonds = get_bond_pairs(self.rdmol)
@@ -119,6 +166,9 @@ class MolBlock(ABC):
     def formal_charges(self) -> List[int]:
         """
         Get the formal charges.
+
+        Returns:
+            A list of formal charges. Consistent with the atomic order.
         """
         if self._formal_charges is None:
             self._bonds = get_bond_pairs(self.rdmol)
@@ -130,6 +180,9 @@ class MolBlock(ABC):
     def formal_spins(self) -> List[int]:
         """
         Get the formal spins.
+
+        Returns:
+            A list of formal spins. Consistent with the atomic order.
         """
         if self._formal_spins is None:
             self._bonds = get_bond_pairs(self.rdmol)
@@ -138,7 +191,13 @@ class MolBlock(ABC):
         return self._formal_spins
 
     @property
-    def omol(self):
+    def omol(self) -> pybel.Molecule:
+        """
+        Get the openbabel molecule object.
+
+        Returns:
+            The openbabel molecule object.
+        """
         if self._omol is None:
             if self._bonds is None:
                 try:
@@ -150,12 +209,21 @@ class MolBlock(ABC):
                 except Exception as e:
                     raise RuntimeError(f"{self._file_path}: {e}")
             else:
+                assert (
+                    self._formal_charges and self._formal_spins
+                ), "If bonds given, formal charges and spins must be provided."
                 omol = pybel.readstring("sdf", self.to_SDF_block())
                 self._omol = omol
         return self._omol
 
     @property
-    def rdmol(self) -> Chem.rdchem.Mol:
+    def rdmol(self) -> Union[Chem.rdchem.Mol, Chem.rdchem.RWMol]:
+        """
+        Get the rdkit molecule object.
+
+        Returns:
+            The rdkit molecule object.
+        """
         if self._rdmol is None:
             if self._bonds is None:
                 try:
@@ -174,7 +242,7 @@ class MolBlock(ABC):
                     logger.debug(
                         f"{self._file_path}: rdkit determinebonds failed. Use MolOP structure recovery instead."
                     )
-                    # If failed, use our implementation
+                    # If failed, use MolOP implementation
                     self._rdmol = Chem.MolFromMolBlock(
                         self.omol.write("sdf"), removeHs=False
                     )
@@ -194,23 +262,11 @@ class MolBlock(ABC):
                     atom.SetFormalCharge(charge)
                     atom.SetNumRadicalElectrons(spin)
                 self._rdmol = rwmol
-            if self._iter_resonance:
-                self._resonance()
 
         return self._rdmol
 
-    def _resonance(self):
-        resmols = get_resonance_structures(
-            self._rdmol, flags=Chem.ResonanceFlags.ALLOW_INCOMPLETE_OCTETS
-        )
-        resmols.sort(key=structure_score)
-        self._rdmol = resmols[0]
-
     def basic_check(self) -> bool:
-        """
-        Check the basic information.
-        """
-        assert self._charge in [-2, -1, 0, 1, 2], "The charge must be -2 ~ +2."
+        assert self._charge in [-3, -2, -1, 0, 1, 2, 3], "The charge must be -3 ~ +3."
         assert self._multiplicity in [1, 2, 3, 4, 5], "The multiplicity must be 1 ~ 5."
         assert len(self.atoms) == len(
             self.coords
@@ -228,6 +284,12 @@ class MolBlock(ABC):
                 ), "The atom must be a string or an integer."
 
     def to_XYZ_block(self) -> str:
+        """
+        Get the XYZ block.
+
+        Returns:
+            The XYZ block.
+        """
         return (
             f"{len(self.atoms)}\n"
             + f"charge {self.charge} multiplicity {self.multiplicity}\n"
@@ -240,19 +302,53 @@ class MolBlock(ABC):
         )
 
     def to_SDF_block(self) -> str:
+        """
+        Get the SDF block.
+
+        Returns:
+            The SDF block.
+        """
         return Chem.MolToMolBlock(self.rdmol)
 
     def to_SMILES(self) -> str:
+        """
+        Get the SMILES with explicit hydrogens.
+
+        Returns:
+            The SMILES.
+        """
+
         smiles = Chem.MolToSmiles(self.rdmol)
         return smiles
 
     def to_standard_SMILES(self) -> str:
+        """
+        Get the SMILES with standardization.
+
+        Returns:
+            The SMILES.
+        """
         return rdMolStandardize.StandardizeSmiles(self.to_SMILES())
 
     def to_InChI(self) -> str:
+        """
+        Get the InChI.
+
+        Returns:
+            The InChI.
+        """
         return Chem.MolToInchi(self.rdmol)
 
-    def to_XYZ_file(self, file_path: str = None):
+    def to_XYZ_file(self, file_path: str = None) -> str:
+        """
+        Write the XYZ file.
+
+        Parameters:
+            file_path str:
+                The file path. If not specified, will be generated in situ.
+        Returns:
+            The absolute path of the XYZ file.
+        """
         if file_path is None:
             file_path = self._file_path
         if os.path.isdir(file_path):
@@ -263,7 +359,17 @@ class MolBlock(ABC):
         f.close()
         return os.path.abspath(file_path)
 
-    def to_SDF_file(self, file_path: str = None):
+    def to_SDF_file(self, file_path: str = None) -> str:
+        """
+        Write the SDF file.
+
+        Parameters:
+            file_path str:
+                The file path. If not specified, will be generated in situ.
+        Returns:
+            The absolute path of the SDF file.
+        """
+
         if file_path is None:
             file_path = self._file_path
         if os.path.isdir(file_path):
@@ -275,6 +381,16 @@ class MolBlock(ABC):
         return os.path.abspath(file_path)
 
     def calc_rdkit_descs(self, desc_names: List[str] = None) -> Dict[str, float]:
+        """
+        Calculate the RDKit descriptors.
+
+        Parameters:
+            desc_names List[str]:
+                The names of the descriptors. Must be a subset of the RDKit descriptors.
+
+        Returns:
+            The dictionary of the descriptors.
+        """
         from molop.descriptor.descriptor import calc_rdkit_descs
 
         return calc_rdkit_descs(self.rdmol, desc_names=desc_names)
@@ -289,11 +405,25 @@ class MolBlock(ABC):
                 "LMBTR",
             ]
         ] = None,
-    ):
+    ) -> Dict[str, np.ndarray]:
         """
+        Calculate the dscribe descriptors.
+
         Require additional dependencies:
             - [dscribe](https://singroup.github.io/dscribe/latest/)
             - [ase](https://wiki.fysik.dtu.dk/ase/index.html)
+
+        Use the following command to install extra dependencies:
+        ```bash
+        pip install --extra-index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop[full] --upgrade
+        ```
+
+        Parameters:
+            desc_names List[str]:
+                The names of the descriptors. Must be a subset of "SOAP", "ACSF", "MBTR", "LMBTR"
+
+        Returns:
+            The dictionary of the descriptors.
         """
         from molop.descriptor.descriptor import calc_dscribe_descs
 
@@ -306,7 +436,22 @@ class MolBlock(ABC):
         os.remove(".temp.sdf")
         return ans
 
-    def calc_mordred_descs(self, **kwargs):
+    def calc_mordred_descs(self, **kwargs) -> Dict[str, float]:
+        """
+        Calculate the Mordred descriptors.
+
+        Require additional dependencies:
+            - [Mordred](https://github.com/mordred-descriptor/mordred)
+
+        Use the following command to install extra dependencies:
+        ```bash
+        pip install --extra-index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop[full] --upgrade
+        ```
+
+        Returns:
+            The dictionary of the descriptors.
+        """
+
         from molop.descriptor.descriptor import calc_mordred_descs
 
         return calc_mordred_descs(self.rdmol, **kwargs)
@@ -332,6 +477,23 @@ class MolBlock(ABC):
         prefix: str = "# g16 gjf",
         suffix="",
     ) -> str:
+        """
+        Get the GJF block.
+
+        Parameters:
+            charge int:
+                The forced charge. If specified, will be used to overwrite the charge in the gjf file.
+            multiplicity int:
+                The forced multiplicity. If specified, will be used to overwrite the multiplicity in the gjf file.
+            template str:
+                path to read a gjf file as a template.
+            prefix str:
+                prefix to add to the beginning of the gjf file, priority is lower than template.
+            suffix str:
+                suffix to add to the end of the gjf file, priority is lower than template.
+        Returns:
+            A modified GJF block.
+        """
         if template is not None:
             if not os.path.isfile(template):
                 raise FileNotFoundError(f"{template} is not found.")
@@ -369,7 +531,26 @@ class MolBlock(ABC):
         template: str = None,
         prefix: str = "# g16 gjf \n",
         suffix="",
-    ):
+    ) -> str:
+        """
+        Write the GJF file.
+
+        Parameters:
+            file_path str:
+                The path to write the GJF file. If not specified, will be generated in situ.
+            charge int:
+                The forced charge. If specified, will be used to overwrite the charge in the gjf file.
+            multiplicity int:
+                The forced multiplicity. If specified, will be used to overwrite the multiplicity in the gjf file.
+            template str:
+                path to read a gjf file as a template.
+            prefix str:
+                prefix to add to the beginning of the gjf file, priority is lower than template.
+            suffix str:
+                suffix to add to the end of the gjf file, priority is lower than template.
+        Returns:
+            The path to the GJF file.
+        """
         if file_path is None:
             file_path = self._file_path
         if os.path.isdir(file_path):
@@ -389,6 +570,17 @@ class MolBlock(ABC):
         return os.path.abspath(file_path)
 
     def to_chemdraw(self, file_path: str = None, keep3D=True):
+        """
+        Write the ChemDraw file.
+
+        Parameters:
+            file_path str:
+                The path to write the ChemDraw file. If not specified, will be generated in situ.
+            keep3D bool:
+                Whether to keep the 3D information.
+        Returns:
+            The path to the ChemDraw file.
+        """
         if file_path is None:
             file_path = self._file_path
         if os.path.isdir(file_path):
@@ -404,7 +596,7 @@ class MolBlock(ABC):
             self.omol.write("cdxml", file_path, overwrite=True)
         return os.path.abspath(file_path)
 
-    def geometry_analysis(self, atom_idxs: Tuple[int], one_start=False):
+    def geometry_analysis(self, atom_idxs: Tuple[int], one_start=False) -> float:
         """
         Get the geometry infos among the atoms
 
@@ -415,12 +607,9 @@ class MolBlock(ABC):
                 If true, consider atom index starts from 1, so let index value subtracts 1 for all the atoms
 
         Returns:
-            A float value:
-                If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
-
-                If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
-
-                If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
+            - If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
+            - If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
+            - If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
         """
         if one_start:
             atom_idxs = [atom_idx - 1 for atom_idx in atom_idxs]
@@ -431,6 +620,18 @@ class BaseBlockParser(MolBlock):
     """
     Base class for block parsers.
     Only need basic information.
+
+    Attributes:
+        _block_type str:
+            The type of the block. eg. ".xyz", ".log", et. al.
+        _file_path str:
+            The absolute path to the file.
+        _frameID int:
+            The frameID of the block.
+        _block str:
+            The block content.
+        _next_block BaseBlockParser:
+            The next block. For calling as link list.
     """
 
     _block_type: str
@@ -448,6 +649,12 @@ class BaseBlockParser(MolBlock):
 
     @property
     def block(self) -> str:
+        """
+        Get the block content.
+
+        Returns:
+            The block content.
+        """
         return self._block
 
     def __str__(self) -> str:
@@ -456,13 +663,39 @@ class BaseBlockParser(MolBlock):
             + self.to_XYZ_block()
         )
 
-    def next(self):
+    def next(self) -> "BaseBlockParser":
+        """
+        Get the next block.
+
+        Returns:
+            The next block.
+        """
         return self._next_block
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
+        """
+        Get the information of the block as a dict.
+
+        Contents:
+            - type: str
+            - file_path: str
+            - block: str
+            - SMILES: str
+            - frameID: int
+            - atoms: List[str]
+            - coords: List[float]
+            - bonds: List[Tuple[int, int, int]]
+            - total charge: int
+            - total multiplicity: int
+            - formal charges: List[int]
+
+        Returns:
+            The information of the block as a dict.
+        """
         return {
             "type": self._block_type,
             "file_path": self._file_path,
+            "block": self.block,
             "SMILES": self.to_SMILES(),
             "frameID": self._frameID,
             "atoms": self.atoms,
@@ -475,6 +708,9 @@ class BaseBlockParser(MolBlock):
         }
 
     def summary(self):
+        """
+        Print the information of the block.
+        """
         print(
             f"type: {self._block_type}\n"
             + f"file path: {self._file_path}\n"
@@ -484,7 +720,22 @@ class BaseBlockParser(MolBlock):
             + f"total charge: {self.charge}\n"
         )
 
-    def rebuild_parser(self, new_mol, rebuild_type=Literal["mod", "reindex"]):
+    def rebuild_parser(
+        self,
+        new_mol: Union[Chem.rdchem.Mol, Chem.rdchem.RWMol],
+        rebuild_type=Literal["mod", "reindex"],
+    ) -> "BaseBlockParser":
+        """
+        Create a new parser with the given molecule.
+
+        Parameters:
+            new_mol Union[Chem.rdchem.Mol, Chem.rdchem.RWMol]:
+                The new molecule.
+            rebuild_type Literal["mod", "reindex"]:
+                The tag of the new parser.
+        Returns:
+            The new parser.
+        """
         new_parser = BaseBlockParser(block=Chem.MolToXYZBlock(new_mol))
         new_parser._atoms = [atom.GetSymbol() for atom in new_mol.GetAtoms()]
         new_parser._coords = [
@@ -509,7 +760,26 @@ class BaseBlockParser(MolBlock):
         bind_idx: int = None,
         replace_all=False,
         attempt_num: int = 10,
-    ):
+    ) -> "BaseBlockParser":
+        """
+        Replace the substituent with the given SMARTS. The substituent is defined by the query_smi, and the new substituent is defined by the replacement_smi.
+
+        Parameters:
+            query_smi str:
+                The SMARTS to query the substituent in the original molecule.
+            replacement_smi str:
+                The SMARTS of new substituent. The bind atom is the first atom of the replacement_smi.
+            bind_idx int:
+                The index of the atom to bind the new substituent. The default is None, which means to replace the first legal atom in original molecule.
+                If specified, try to replace the atom. User should meke sure the atom is legal.
+                Detail example in (Repalce Substituent)[Repalce Substituent]
+            replace_all bool:
+                If True, replace all the substituent queried in the original molecule.
+            attempt_num int:
+                Max attempt times to replace the substituent. Each time a new substituent conformation will be used for substitution.
+        Returns:
+            The new parser.
+        """
         new_mol = attempt_replacement(
             self.rdmol,
             query_smi=query_smi,
@@ -520,7 +790,18 @@ class BaseBlockParser(MolBlock):
         )
         return self.rebuild_parser(new_mol, rebuild_type="mod")
 
-    def reset_atom_index(self, mapping_smarts: str):
+    def reset_atom_index(self, mapping_smarts: str)->"BaseBlockParser":
+        """
+        Reset the atom index of the molecule according to the mapping SMARTS.
+
+        Parameters:
+            mapping_smarts str:
+                The SMARTS to query the molecule substructure.
+                The queried atoms will be renumbered and placed at the beginning of all atoms according to the order of the atoms in SMARTS. The relative order of the remaining atoms remains unchanged.
+
+        Returns:
+            The new parser.
+        """
         smarts = Chem.MolFromSmarts(mapping_smarts)
         if not self.rdmol.HasSubstructMatch(smarts):
             logger.error(f"Failed to match {self._file_path} with {mapping_smarts}")
@@ -531,9 +812,9 @@ class BaseBlockParser(MolBlock):
                 f"Multiple matches found in {self._file_path} with {mapping_smarts}"
             )
         mapping = mapping[0]
-        coords = [self.dimensionless_coords[1][idx] for idx in mapping] + [
+        coords = [self.dimensionless_coords[idx] for idx in mapping] + [
             (x, y, z)
-            for idx, (x, y, z) in enumerate(self.dimensionless_coords[1])
+            for idx, (x, y, z) in enumerate(self.dimensionless_coords)
             if idx not in mapping
         ]
         atoms = [self.atoms[idx] for idx in mapping] + [
@@ -560,7 +841,7 @@ class BaseBlockParser(MolBlock):
 class QMBaseBlockParser(BaseBlockParser):
     """
     Base class for QM block parsers.
-    Should contain all the QM information pre-defined.
+    Should fill some the QM information pre-defined.
     """
 
     _version: str
@@ -908,7 +1189,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 block_parsers.append(block_parser)
         return block_parsers
 
-    def ts_vibration_to_SDF_file(self, file_path: str = None)->str:
+    def ts_vibration_to_SDF_file(self, file_path: str = None) -> str:
         if file_path is None:
             file_path = self._file_path
         if os.path.isdir(file_path):

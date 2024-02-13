@@ -261,8 +261,8 @@ def xyz_block_to_omol(
     given_spin: int = 0,
     greed_search=True,
 ):
-    if abs(given_charge) > 2:
-        raise ValueError("Charge must be between -2 and 2")
+    if abs(given_charge) > 3:
+        raise ValueError("Charge must be between -3 and 3")
     if given_spin > 2 or given_spin < 0:
         raise ValueError("Spin must be between 0 and 2")
     
