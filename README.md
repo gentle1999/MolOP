@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-02-12 11:16:20
+ * @LastEditTime: 2024-02-13 14:17:48
  * @Description: 请填写简介
 -->
 # MolOP
@@ -66,6 +66,9 @@ conda install openbabel -c conda-forge # openbabel is a necessary dependence
 pip install poetry
 pip install .[dev]
 ```
+## Online Documentation
+Visit [MolOP Documentation](https://molop-gentle-7355819aa2dbcc7edc9420595fa823e6ffaebc1a874271edbf.pages.zjusct.io/).
+
 ## Start documentation server
 ```bash
 mkdocs serve
