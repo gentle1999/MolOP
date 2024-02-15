@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-12 09:24:49
 LastEditors: TMJ
-LastEditTime: 2024-01-30 17:42:50
+LastEditTime: 2024-02-15 18:14:09
 Description: 请填写简介
 '''
 
@@ -22,13 +22,12 @@ class XTBOUTParser(BaseQMFileParser):
         file_path: str,
         charge=None,
         multiplicity=None,
-        show_progress=False,
         only_extract_structure=False,
         only_last_frame=False,
     ):
         self._check_formats(file_path)
         super().__init__(
-            file_path, show_progress, only_extract_structure, only_last_frame
+            file_path, only_extract_structure, only_last_frame
         )
         self.__force_charge = charge
         self.__force_multiplicity = multiplicity

@@ -56,4 +56,6 @@ nav:
           - MolBlock.md
           - BaseBlockParser.md
           - QMBaseBlockParser.md
-        - file_base: file_base.md
+        - file_base:
+          - BaseFileParser.md
+          - BaseQMFileParser.md

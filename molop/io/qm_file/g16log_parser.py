@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-25 09:53:09
 LastEditors: TMJ
-LastEditTime: 2024-02-02 19:14:51
+LastEditTime: 2024-02-15 18:13:49
 Description: 请填写简介
 """
 import os
@@ -21,13 +21,12 @@ class G16LOGParser(BaseQMFileParser):
         file_path: str,
         charge=None,
         multiplicity=None,
-        show_progress=False,
         only_extract_structure=False,
         only_last_frame=False,
     ):
         self._check_formats(file_path)
         super().__init__(
-            file_path, show_progress, only_extract_structure, only_last_frame
+            file_path, only_extract_structure, only_last_frame
         )
         self.__force_charge = charge
         self.__force_multiplicity = multiplicity

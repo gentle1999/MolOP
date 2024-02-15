@@ -1,15 +1,15 @@
 """
 Author: TMJ
-Date: 2024-01-07 13:50:55
+Date: 2024-02-14 14:40:02
 LastEditors: TMJ
-LastEditTime: 2024-01-25 22:56:04
+LastEditTime: 2024-02-15 18:13:15
 Description: 请填写简介
 """
 import os
-from typing import List, Tuple, TypeVar, Union
+from typing import List, Tuple, Union
 import pandas as pd
 
-from molop.io.bases.molblock_base import BaseBlockParser, QMBaseBlockParser
+from molop.io.bases.molblock_base import BaseBlockParser
 from molop.io.coords_file.GJFBlockParser import GJFBlockParser
 from molop.io.coords_file.SDFBlockParser import SDFBlockParser
 from molop.io.coords_file.XYZBlockParser import XYZBlockParser
@@ -32,6 +32,16 @@ BlockType = Union[
 class BaseFileParser:
     """
     Base class for multi-frame parsers.
+
+    Attributes:
+        _file_path str:
+            File path of the file to be parsed.
+        __frames List[BlockType]:
+            List of parsed frames.
+        __index int:
+            Current frame index.
+        _allowed_formats Tuple[str]:
+            Allowed file formats.
     """
 
     _file_path: str
@@ -45,6 +55,17 @@ class BaseFileParser:
         self.__index: int = 0
 
     def _check_formats(self, file_path: str) -> None:
+        """
+        Check if the file exists and is a file, and if its format is allowed.
+
+        Parameters:
+            file_path (str): The path of the file to be checked.
+
+        Raises:
+            FileNotFoundError: If the file does not exist.
+            IsADirectoryError: If the file is a directory.
+            ValueError: If the file format is not allowed.
+        """
         if not os.path.exists(file_path):
             raise FileNotFoundError(f"{file_path} not found.")
         elif not os.path.isfile(file_path):
@@ -87,22 +108,49 @@ class BaseFileParser:
 
     @property
     def file_path(self) -> str:
+        """
+        Get the file path of the object.
+
+        Returns:
+            str: The file path of the object.
+        """
         return self._file_path
 
     @property
     def file_name(self) -> str:
+        """
+        Get the file name from the file path.
+
+        Returns:
+            str: The file name.
+        """
         return os.path.basename(self._file_path)
 
     @property
     def frames(
         self,
     ) -> List[BlockType]:
+        """
+        Get the list of parsed frames.
+
+        Returns:
+            List[BlockType]: The list of parsed frames.
+        """
         return self.__frames
 
     def append(
         self,
         frame: BlockType,
     ) -> None:
+        """
+        Append a frame to the list of frames.
+
+        Parameters:
+            frame (BlockType): The frame to be appended.
+
+        Raises:
+            TypeError: If the type of the frame is not a subclass of BaseBlockParser.
+        """
         if not issubclass(type(frame), BaseBlockParser):
             raise TypeError(f"{type(frame)} is not a subclass of {BaseBlockParser}")
         frame._frameID = len(self.__frames)
@@ -111,9 +159,21 @@ class BaseFileParser:
         self.__frames.append(frame)
 
     def to_XYZ_block(self) -> str:
+        """
+        Convert all frames to a string representation in XYZ format.
+
+        Returns:
+            str: The string representation of the object in XYZ format.
+        """
         return "\n".join([frame.to_XYZ_block() for frame in self.__frames])
 
     def to_SDF_block(self) -> str:
+        """
+        Convert all frames to a string representation in SDF format.
+
+        Returns:
+           str: The string representation in SDF format.
+        """
         return "$$$$\n".join([frame.to_SDF_block() for frame in self.__frames])
 
     def to_GJF_block(
@@ -125,7 +185,24 @@ class BaseFileParser:
         template: str = None,
         frameID=-1,
     ) -> str:
-        """Only extract one frame."""
+        """
+        Convert the frame at the specified index to a Gaussian input block in the Gaussian 16 format (GJF).
+
+        Parameters:
+            charge int:
+                The forced charge. If specified, will be used to overwrite the charge in the gjf file.
+            multiplicity int:
+                The forced multiplicity. If specified, will be used to overwrite the multiplicity in the gjf file.
+            template str:
+                path to read a gjf file as a template.
+            prefix str:
+                prefix to add to the beginning of the gjf file, priority is lower than template.
+            suffix str:
+                suffix to add to the end of the gjf file, priority is lower than template.
+
+        Returns:
+            A modified GJF block.
+        """
         return self.__frames[frameID].to_GJF_block(
             charge=charge,
             multiplicity=multiplicity,
@@ -135,6 +212,15 @@ class BaseFileParser:
         )
 
     def to_XYZ_file(self, file_path: str = None):
+        """
+        Write the XYZ file.
+
+        Parameters:
+            file_path str:
+                The file path. If not specified, will be generated in situ.
+        Returns:
+            The absolute path of the XYZ file.
+        """
         if file_path is None:
             file_path = self._file_path
         if os.path.isdir(file_path):
@@ -146,6 +232,15 @@ class BaseFileParser:
         return os.path.abspath(file_path)
 
     def to_SDF_file(self, file_path: str = None):
+        """
+        Write the SDF file.
+
+        Parameters:
+            file_path str:
+                The file path. If not specified, will be generated in situ.
+        Returns:
+            The absolute path of the SDF file.
+        """
         if file_path is None:
             file_path = self._file_path
         if os.path.isdir(file_path):
@@ -161,12 +256,32 @@ class BaseFileParser:
         file_path: str = None,
         charge: int = None,
         multiplicity: int = None,
+        template: str = None,
         prefix: str = f"# g16 gjf \n",
         suffix="\n\n",
-        template: str = None,
         frameID=-1,
     ):
-        """Only extract one frame."""
+        """
+        Write the GJF file.
+
+        Parameters:
+            file_path str:
+                The path to write the GJF file. If not specified, will be generated in situ.
+            charge int:
+                The forced charge. If specified, will be used to overwrite the charge in the gjf file.
+            multiplicity int:
+                The forced multiplicity. If specified, will be used to overwrite the multiplicity in the gjf file.
+            template str:
+                path to read a gjf file as a template.
+            prefix str:
+                prefix to add to the beginning of the gjf file, priority is lower than template.
+            suffix str:
+                suffix to add to the end of the gjf file, priority is lower than template.
+            frameID int:
+                The frame ID to write.
+        Returns:
+            The path to the GJF file.
+        """
         if file_path is None:
             file_path = self._file_path
         if os.path.isdir(file_path):
@@ -187,9 +302,25 @@ class BaseFileParser:
         return os.path.abspath(file_path)
 
     def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=False):
+        """
+        Write the ChemDraw file.
+
+        Parameters:
+            file_path str:
+                The path to write the ChemDraw file. If not specified, will be generated in situ.
+            frameID int:
+                The frame ID to write.
+            keep3D bool:
+                Whether to keep the 3D information.
+        Returns:
+            The path to the ChemDraw file.
+        """
         return self.__frames[frameID].to_chemdraw(file_path, keep3D=keep3D)
 
     def summary(self):
+        """
+        Print a summary of the object.
+        """
         print(
             f"file path: {self._file_path}\n"
             + f"frame num: {len(self)}\n"
@@ -199,18 +330,17 @@ class BaseFileParser:
 
     def geometry_analysis_df(
         self, key_atoms: List[List[int]], precision: int = 1, one_start=False
-    ):
+    ) -> pd.DataFrame:
         """
         Get the geometry infos among the atoms with all frames in the file
 
         Parameters:
             key_atoms List[List[int]]:
-                A list of list of index of the atoms, starts from 0
-                    If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
+                A list of list of index of the atoms, starts from 0:
 
-                    If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
-
-                    If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
+                    - If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
+                    - If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
+                    - If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
             precision int:
                 The precision of the geometry analysis. Default is 1. e.g. 1 means 1.0001 ==> 1.0
             one_start bool:
@@ -242,11 +372,10 @@ class BaseFileParser:
         Parameters:
             key_atoms List[List[int]]:
                 A list of list of index of the atoms, starts from 0
-                    If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
 
-                    If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
-
-                    If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
+                    - If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
+                    - If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
+                    - If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
             file_path str:
                 The path of the csv file to be saved. If None, the file will be saved in the same directory of the file_path.
             precision int:
@@ -272,10 +401,19 @@ class BaseFileParser:
 class BaseQMFileParser(BaseFileParser):
     """
     Base class for QM multi-frame parsers.
+
+    Attributes:
+        _parameter_comment str:
+            The parameter comment in the file.
+        _only_extract_structure bool:
+            Whether to only extract the structure.
+        _only_last_frame bool:
+            Whether to only extract the last frame.
+        _version str:
+            The version of the QM software.
     """
 
     _parameter_comment: str
-    _show_progress: bool
     _only_extract_structure: bool
     _only_last_frame: bool
     _version: str
@@ -283,21 +421,31 @@ class BaseQMFileParser(BaseFileParser):
     def __init__(
         self,
         file_path: str,
-        show_progress=False,
         only_extract_structure=False,
         only_last_frame=False,
     ) -> None:
         super().__init__(file_path)
         self._parameter_comment: str = None
-        self._show_progress: bool = show_progress
         self._only_extract_structure: bool = only_extract_structure
         self._only_last_frame = only_last_frame
         self._version = None
 
     @property
     def parameter_comment(self) -> str:
+        """
+        Get the parameter comment for the object.
+
+        Returns:
+            str: The parameter comment for the object.
+        """
         return self._parameter_comment
 
     @property
     def version(self) -> str:
+        """
+        Get the version of the object.
+
+        Returns:
+            str: The version of the object.
+        """
         return self._version
