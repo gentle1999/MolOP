@@ -59,3 +59,8 @@ nav:
         - file_base:
           - BaseFileParser.md
           - BaseQMFileParser.md
+      - file_batch.md
+    - structure:
+      - structure_recovery.md
+      - structure.md
+      - geometry.md

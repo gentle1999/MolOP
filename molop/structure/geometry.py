@@ -1,9 +1,5 @@
 """
-Author: TMJ
-Date: 2023-05-22 10:45:29
-LastEditors: TMJ
-LastEditTime: 2023-06-02 11:00:54
-Description: Including functions related to the three-dimensional structure of molecules
+Including functions related to the three-dimensional structure of molecules
 """
 
 from copy import deepcopy
@@ -41,8 +37,7 @@ def merge_mols(
             random number generator seed
 
     Returns:
-        RdMol:
-            merged RDkit molecules
+        merged RDkit molecules
     """
     rng = np.random.RandomState(random_state)
     mols_copy = deepcopy(mols)
@@ -65,7 +60,7 @@ def merge_mols(
 
 def is_overlap(mol: RdMol, threshold=1.0) -> bool:
     """
-    Determine whether the molecular complexes overlap.\n
+    Determine whether the molecular complexes overlap.
     Based on whether there is an atomic spacing between molecules that is less than the threshold value.
 
     Parameters:
@@ -75,8 +70,7 @@ def is_overlap(mol: RdMol, threshold=1.0) -> bool:
             maximum atomic spacing allowed between molecules
 
     Returns:
-        Bool:
-            True if overlap, False otherwise
+        True if overlap, False otherwise
     """
     frags = Chem.GetMolFrags(mol)
     for ix1, frag1 in enumerate(frags):
@@ -96,11 +90,21 @@ def is_overlap(mol: RdMol, threshold=1.0) -> bool:
 
 
 def xyz_to_point(xyz: Sequence) -> Point3D:
+    """
+    Convert a sequence of three numbers representing an XYZ coordinate to a Point3D object.
+
+    Parameters:
+        xyz (Sequence): A sequence of three numbers representing an XYZ coordinate.
+
+    Returns:
+        A Point3D object representing the given XYZ coordinate.
+    """
     return Point3D(float(xyz[0]), float(xyz[1]), float(xyz[2]))
 
 
 def set_conformer_position(mol: RdMol, positions: np.ndarray, conformer_id=0):
-    """Set conformer position of a molecule.
+    """
+    Set conformer position of a molecule.
 
     Parameters:
         mol RdMol:
@@ -118,14 +122,24 @@ def set_conformer_position(mol: RdMol, positions: np.ndarray, conformer_id=0):
         )
 
 
-def get_random_vector(scale=5.0, random_state=3407):
+def get_random_vector(scale=5.0, random_state=3407) -> Point3D:
+    """
+    Generate a random vector with a given scale and random state.
+
+    Parameters:
+        scale (float): The scale factor for the vector. Default is 5.0.
+        random_state (int): The random seed for reproducibility. Default is 3407.
+
+    Returns:
+        A Point3D object representing the scaled random vector.
+    """
     rng = np.random.RandomState(random_state)
     vec = rng.rand(3) - 0.5
     unit_vec = vec / np.linalg.norm(vec)
     return Point3D(unit_vec[0], unit_vec[1], unit_vec[2]) * scale
 
 
-def fibonacci_sphere(samples=1, random_state=3407):
+def fibonacci_sphere(samples=1, random_state=3407) -> List[List[float]]:
     """
     Generate points on a Fibonacci sphere surface.
 
@@ -135,9 +149,8 @@ def fibonacci_sphere(samples=1, random_state=3407):
         random_state int:
             random number generator seed
 
-    Reutrns:
-        List[List[float]]:
-            list of points in format [x, y, z]
+    Returns:
+        list of points in format [x, y, z]
     """
     rng = np.random.RandomState(random_state)
     rnd = rng.random() * samples
@@ -156,6 +169,17 @@ def fibonacci_sphere(samples=1, random_state=3407):
 
 
 def translate_mol(mol: RdMol, vector: Point3D, conformer_id=0):
+    """
+    Translates the coordinates of a molecule by a given vector.
+
+    Parameters:
+        mol (RdMol): 
+            The molecule to translate.
+        vector (Point3D): 
+            The vector by which to translate the molecule.
+        conformer_id (int, optional): 
+            The conformer ID to translate. Defaults to 0.
+    """
     for at in mol.GetAtoms():
         mol.GetConformer(conformer_id).SetAtomPosition(
             at.GetIdx(),
@@ -163,7 +187,23 @@ def translate_mol(mol: RdMol, vector: Point3D, conformer_id=0):
         )
 
 
-def translate_sub_mol(mol: RdMol, vector: Point3D, idx: Iterable[int], conformer_id=0):
+def translate_sub_mol(mol: RdMol, vector: Point3D, idx: Iterable[int], conformer_id=0)->RdMol:
+    """
+    Translates a subset of atoms in a molecule by a given vector.
+
+    Parameters:
+        mol (RdMol): 
+            The molecule to translate.
+        vector (Point3D): 
+            The vector by which to translate the atoms.
+        idx (Iterable[int]): 
+            The indices of the atoms to translate.
+        conformer_id (int, optional): 
+            The conformer ID to use for translation. Defaults to 0.
+
+    Returns:
+        A copy of the molecule with the specified atoms translated.
+    """
     mol_copy = deepcopy(mol)
     for at_idx in idx:
         mol_copy.GetConformer(conformer_id).SetAtomPosition(
@@ -268,6 +308,16 @@ def standard_orient_all_conformer(mol: RdMol, idx_list: Sequence[int]):
 
 
 def unique_conformer(mol: RdMol, idx: int):
+    """
+    Remove all conformers except for the specified conformer index.
+    
+    Parameters:
+        mol (RdMol): The molecule object.
+        idx (int): The index of the conformer to keep.
+        
+    Returns:
+        The molecule object with only the specified conformer.
+    """
     temp_mol = deepcopy(mol)
     conformer_idx = [conf.GetId() for conf in temp_mol.GetConformers()]
     for conformer_id in conformer_idx:
@@ -276,7 +326,8 @@ def unique_conformer(mol: RdMol, idx: int):
     temp_mol.GetConformer(idx).SetId(0)
     return temp_mol
 
-def get_geometry_info(mol: RdMol, atom_idxs: Tuple[int])->float:
+
+def get_geometry_info(mol: RdMol, atom_idxs: Tuple[int]) -> float:
     """
     Get the geometry infos among the atoms
 
@@ -287,18 +338,17 @@ def get_geometry_info(mol: RdMol, atom_idxs: Tuple[int])->float:
             A list of index of the atoms, starts from 0
 
     Returns:
-        A float value:
-            If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
-
-            If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
-
-            If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
+        - If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
+        - If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
+        - If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
     """
     if len(atom_idxs) == 2:
         return rdMolTransforms.GetBondLength(mol.GetConformer(), *atom_idxs)
     elif len(atom_idxs) == 3:
         return rdMolTransforms.GetAngleRad(mol.GetConformer(), *atom_idxs) / np.pi * 180
     elif len(atom_idxs) == 4:
-        return rdMolTransforms.GetDihedralRad(mol.GetConformer(), *atom_idxs) / np.pi * 180
+        return (
+            rdMolTransforms.GetDihedralRad(mol.GetConformer(), *atom_idxs) / np.pi * 180
+        )
     else:
         raise ValueError("The length of atom_idxs must be 2, 3, or 4")

@@ -301,7 +301,7 @@ class BaseFileParser:
         f.close()
         return os.path.abspath(file_path)
 
-    def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=False):
+    def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=True):
         """
         Write the ChemDraw file.
 

@@ -1,9 +1,5 @@
 """
-Author: TMJ
-Date: 2023-06-26 14:24:42
-LastEditors: TMJ
-LastEditTime: 2023-06-27 21:03:36
-Description: 请填写简介
+Including functions related to the structure of molecules
 """
 
 import itertools
