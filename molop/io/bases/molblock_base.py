@@ -207,7 +207,6 @@ class MolBlock(ABC):
                     self._omol = xyz_block_to_omol(
                         self.to_XYZ_block(),
                         self._charge,
-                        (self._multiplicity - 1) // 2,
                     )
                 except Exception as e:
                     raise RuntimeError(f"{self._file_path}: {e}")
@@ -267,6 +266,18 @@ class MolBlock(ABC):
                 self._rdmol = rwmol
 
         return self._rdmol
+    
+    @property
+    def rdmol_no_conformer(self):
+        """
+        Get the rdkit molecule object without conformer.
+
+        Returns:
+            The rdkit molecule object without conformer.
+        """
+        rdmol = Chem.RWMol(self.rdmol)
+        rdmol.RemoveAllConformers()
+        return rdmol
 
     def basic_check(self) -> bool:
         assert self._charge in [-3, -2, -1, 0, 1, 2, 3], "The charge must be -3 ~ +3."
@@ -832,7 +843,6 @@ class BaseBlockParser(MolBlock):
                 ]
             ),
             given_charge=self.charge,
-            given_spin=self.multiplicity,
         )
         return self.rebuild_parser(
             Chem.MolFromMolBlock(omol.write("sdf"), removeHs=False),
@@ -1557,7 +1567,6 @@ class QMBaseBlockParser(BaseBlockParser):
                     ]
                 ),
                 given_charge=self.charge,
-                given_spin=self.multiplicity,
             )
             
             try:

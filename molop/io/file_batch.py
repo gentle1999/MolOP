@@ -287,7 +287,7 @@ class FileParserBatch(MutableMapping):
             parser.to_SDF_file(os.path.join(file_path, parser.file_name))
         logger.info(f"sdf files saved to {os.path.abspath(file_path)}")
 
-    def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=False) -> None:
+    def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=True) -> None:
         if file_path is None:
             file_path = os.path.curdir
         for parser in self:
