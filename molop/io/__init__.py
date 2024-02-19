@@ -1,21 +1,14 @@
 """
 Author: TMJ
-Date: 2023-12-16 21:29:31
+Date: 2024-02-14 14:40:02
 LastEditors: TMJ
-LastEditTime: 2024-02-09 14:23:46
-Description: 请填写简介
-"""
-"""
-Author: TMJ
-Date: 2023-10-30 15:40:03
-LastEditors: TMJ
-LastEditTime: 2024-02-02 10:45:46
+LastEditTime: 2024-02-18 18:44:14
 Description: 请填写简介
 """
 from glob import glob
 from typing import Union
 
-from molop.io.file_batch import PARSERTYPES, FileParserBatch, singlefile_parser
+from molop.io.file_batch import FileParserBatch
 
 
 def AutoParser(

@@ -311,7 +311,7 @@ def omol_score(omol_tuple: Tuple[pybel.Molecule, int]) -> int:
     """
     score = 0
     score += 2 * sum(
-        get_under_bonded_number(atom.OBAtom) for atom in omol_tuple[0].atoms
+        abs(get_under_bonded_number(atom.OBAtom)) for atom in omol_tuple[0].atoms
     )
     score += sum(abs(atom.OBAtom.GetFormalCharge()) for atom in omol_tuple[0].atoms)
     return score
@@ -423,10 +423,79 @@ def clean_resonances_5(omol: pybel.Molecule) -> pybel.Molecule:
     res = smarts.findall(omol)
     while len(res):
         idxs = res[0]
+        print(idxs)
         omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(3)
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
         omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(-1)
         omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(0)
+        res = smarts.findall(omol)
+    return omol
+
+
+def clean_resonances_6(omol: pybel.Molecule) -> pybel.Molecule:
+    """
+    `[*-]=[*+]=[*]>>[#6]#[*+]-[*-]`
+
+    Parameters:
+        omol (pybel.Molecule): The input molecule object
+
+    Returns:
+        The cleaned molecule.
+    """
+    smarts = pybel.Smarts("[*-]=[*+]=[*]")
+    res = smarts.findall(omol)
+    while len(res):
+        idxs = res[0]
+        omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(1)
+        omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(3)
+        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(0)
+        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(-1)
+        res = smarts.findall(omol)
+    return omol
+
+
+def clean_resonances_7(omol: pybel.Molecule) -> pybel.Molecule:
+    """
+    `[*-]1-[*](=[*])-[*]=[*]-[*]=[*]1>>[*]1=[*](-[*-])-[*]=[*]-[*]=[*]1`
+
+    Parameters:
+        omol (pybel.Molecule): The input molecule object
+
+    Returns:
+        The cleaned molecule.
+    """
+    smarts = pybel.Smarts("[*-]1-[*](=[*])-[*]=[*]-[*]=[*]1")
+    res = smarts.findall(omol)
+    while len(res):
+        idxs = res[0]
+        omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(1)
+        omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(2)
+        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(0)
+        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(-1)
+        res = smarts.findall(omol)
+    return omol
+
+
+def clean_resonances_8(omol: pybel.Molecule) -> pybel.Molecule:
+    """
+    `[*-]1-[*]=[*]-[*](=[*])-[*]=[*]1>>[*]1=[*]-[*]=[*](-[*-])-[*]=[*]1`
+
+    Parameters:
+        omol (pybel.Molecule): The input molecule object
+
+    Returns:
+        The cleaned molecule.
+    """
+    smarts = pybel.Smarts("[*-]1-[*]=[*]-[*](=[*])-[*]=[*]1")
+    res = smarts.findall(omol)
+    while len(res):
+        idxs = res[0]
+        omol.OBMol.GetBond(idxs[3], idxs[4]).SetBondOrder(1)
+        omol.OBMol.GetBond(idxs[2], idxs[3]).SetBondOrder(2)
+        omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(1)
+        omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(2)
+        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(0)
+        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(-1)
         res = smarts.findall(omol)
     return omol
 
@@ -442,11 +511,14 @@ def clean_resonances(omol: pybel.Molecule) -> pybel.Molecule:
         The cleaned molecule.
     """
     processes = [
+        clean_resonances_6,
         clean_resonances_1,
         clean_resonances_2,
         clean_resonances_3,
         clean_resonances_4,
         clean_resonances_5,
+        clean_resonances_7,
+        clean_resonances_8,
     ]
     for process in processes:
         omol = process(omol)
@@ -732,7 +804,9 @@ def fix_over_bonded_heteroatom(
                     charge_to_be_allocated -= over_valence
 
 
-def fix_unbonded_heteroatom(resonance: pybel.Molecule, charge: int, charge_to_be_allocated: int):
+def fix_unbonded_heteroatom(
+    resonance: pybel.Molecule, charge: int, charge_to_be_allocated: int
+):
     """
     If no metal found, try to find the heteroatom with positive charge.
 
@@ -781,6 +855,7 @@ def xyz_block_to_omol(
     xyz_block: str,
     given_charge: int = 0,
     greed_search=True,
+    all_resonances=False,
 ) -> pybel.Molecule:
     """
     Convert XYZ block to pybel molecule object.
@@ -929,14 +1004,38 @@ def xyz_block_to_omol(
                         )
         fix_under_bonded_dipole(resonance)
         clean_neighbor_radicals(resonance)
-
+        for atom in resonance.atoms:
+            if atom.atomicnum == 6:
+                if all(
+                    atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 2
+                    for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
+                ):
+                    for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                        for neighbour_2_atom in ob.OBAtomAtomIter(neighbour_atom):
+                            if get_under_bonded_number(neighbour_2_atom) == 1 and all(
+                                atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 2
+                                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
+                            ):
+                                atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                                    atom.OBAtom.GetBond(neighbour_atom).GetBondOrder()
+                                    - 1
+                                )
+                                neighbour_atom.GetBond(neighbour_2_atom).SetBondOrder(
+                                    neighbour_2_atom.GetBond(
+                                        neighbour_atom
+                                    ).GetBondOrder()
+                                    + 1
+                                )
         resonance.OBMol.MakeDativeBonds()
         if charge_to_be_allocated == 0:
-            recovered_resonances.append((resonance, charge_to_be_allocated))
+            recovered_resonances.append(
+                (clean_resonances(resonance), charge_to_be_allocated)
+            )
 
-    recovered_resonances = [item for item in recovered_resonances if item[1] == 0]
     if len(recovered_resonances) == 0:
         raise ValueError("No legal molecule resonance found")
+    if all_resonances:
+        return [item[0] for item in recovered_resonances]
 
     recovered_resonances.sort(key=omol_score)
     final_omol = recovered_resonances[0][0]
