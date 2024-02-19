@@ -5,7 +5,7 @@ cache:                      # Pip's cache doesn't store the python packages
     - .cache/pip
 # Functions that should be executed before the build script is run
 before_script:
-  - pip install mkdocs-material mkdocs-heti-plugin mkdocstrings[python] nbconvert jupyter_contrib_nbextensions mkdocs-static-i18n
+  - pip install mkdocs-material mkdocs-heti-plugin mkdocstrings[python] nbconvert notebook jupyter_contrib_nbextensions mkdocs-static-i18n
 pages:
   script:
     - jupyter nbconvert --to markdown docs/*/*.ipynb
