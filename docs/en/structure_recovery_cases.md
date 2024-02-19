@@ -9,12 +9,12 @@ IPythonConsole.drawOptions.addAtomIndices = True
 IPythonConsole.molSize = 400, 400
 ```
 
-## [molecule_0.log](../tests/test_files/g16log/molecule_0.log)
+## molecule_0.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/molecule_0.log",
+    "../../tests/test_files/g16log/molecule_0.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -22,7 +22,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 403.73it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 369.57it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -35,12 +35,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_131941-4+.log](../tests/test_files/g16log/dsgdb9nsd_131941-4+.log)
+## dsgdb9nsd_131941-4+.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_131941-4+.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_131941-4+.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -48,7 +48,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 83.65it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 83.26it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -75,12 +75,12 @@ test_file[0][-1].rdmol_no_conformer
 
 
 
-## [RE_BOX-Anion-Real_Cu-III-Phenol_Major-Amide-Anion_From-IP_C-O-190_TS_Opt.log](../tests/test_files/g16log/RE_BOX-Anion-Real_Cu-III-Phenol_Major-Amide-Anion_From-IP_C-O-190_TS_Opt.log)
+## RE_BOX-Anion-Real_Cu-III-Phenol_Major-Amide-Anion_From-IP_C-O-190_TS_Opt.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/RE_BOX-Anion-Real_Cu-III-Phenol_Major-Amide-Anion_From-IP_C-O-190_TS_Opt.log",
+    "../../tests/test_files/g16log/RE_BOX-Anion-Real_Cu-III-Phenol_Major-Amide-Anion_From-IP_C-O-190_TS_Opt.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -88,7 +88,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 31.73it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 30.17it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -101,12 +101,12 @@ test_file[0][-1].rdmol
 
 
 
-## [add_1.fchk](../tests/test_files/g16fchk/add_1.fchk)
+## add_1.fchk
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16fchk/add_1.fchk",
+    "../../tests/test_files/g16fchk/add_1.fchk",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -114,7 +114,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  4.99it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  4.82it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -127,12 +127,12 @@ test_file[0][-1].rdmol
 
 
 
-## [add_0.fchk](../tests/test_files/g16fchk/add_0.fchk)
+## add_0.fchk
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16fchk/add_0.fchk",
+    "../../tests/test_files/g16fchk/add_0.fchk",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -140,7 +140,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 64.74it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 66.71it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -153,12 +153,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_000007-6.fchk](../tests/test_files/g16fchk/dsgdb9nsd_000007-6.fchk)
+## dsgdb9nsd_000007-6.fchk
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16fchk/dsgdb9nsd_000007-6.fchk",
+    "../../tests/test_files/g16fchk/dsgdb9nsd_000007-6.fchk",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -166,7 +166,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 227.46it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 241.68it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -179,12 +179,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_000001-3.fchk](../tests/test_files/g16fchk/dsgdb9nsd_000001-3.fchk)
+## dsgdb9nsd_000001-3.fchk
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16fchk/dsgdb9nsd_000001-3.fchk",
+    "../../tests/test_files/g16fchk/dsgdb9nsd_000001-3.fchk",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -192,7 +192,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 547.42it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 480.28it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -205,12 +205,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_000484-1+.log](../tests/test_files/dsgdb9nsd_000484-1+.log)
+## dsgdb9nsd_000484-1+.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_000484-1+.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_000484-1+.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -218,7 +218,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 111.11it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 112.11it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -231,12 +231,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_000672-3+.log](../tests/test_files/dsgdb9nsd_000672-3+.log)
+## dsgdb9nsd_000672-3+.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_000672-3+.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_000672-3+.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -244,7 +244,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 128.28it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 124.11it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -257,12 +257,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_000923-3+.log](../tests/test_files/dsgdb9nsd_000923-3+.log)
+## dsgdb9nsd_000923-3+.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_000923-3+.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_000923-3+.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -270,7 +270,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 123.90it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 122.67it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -283,12 +283,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_003051-3.log](../tests/test_files/dsgdb9nsd_003051-3.log)
+## dsgdb9nsd_003051-3.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_003051-3.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_003051-3.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -296,7 +296,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 66.87it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 68.11it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -309,12 +309,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_000696-4.log](../tests/test_files/dsgdb9nsd_000696-4.log)
+## dsgdb9nsd_000696-4.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_000696-4.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_000696-4.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -322,7 +322,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 73.38it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 67.46it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -335,12 +335,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_004669-4.log](../tests/test_files/dsgdb9nsd_004669-4.log)
+## dsgdb9nsd_004669-4.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_004669-4.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_004669-4.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -348,7 +348,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 61.56it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 62.64it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -361,12 +361,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_131200-4-.log](../tests/test_files/dsgdb9nsd_131200-4-.log)
+## dsgdb9nsd_131200-4-.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_131200-4-.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_131200-4-.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -374,7 +374,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 92.49it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 93.44it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -387,12 +387,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_000955-3.log](../tests/test_files/dsgdb9nsd_000955-3.log)
+## dsgdb9nsd_000955-3.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_000955-3.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_000955-3.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -400,7 +400,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 67.91it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 68.24it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -427,12 +427,12 @@ test_file[0][-1].rdmol_no_conformer
 
 
 
-## [r1_C2H3N3O_sp_g16.log](../tests/test_files/r1_C2H3N3O_sp_g16.log)
+## r1_C2H3N3O_sp_g16.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/r1_C2H3N3O_sp_g16.log",
+    "../../tests/test_files/g16log/r1_C2H3N3O_sp_g16.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -440,7 +440,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 1043.62it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 1002.22it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -453,12 +453,12 @@ test_file[0][-1].rdmol
 
 
 
-## [r1_C8H9N3O2_sp_g16.log](../tests/test_files/r1_C8H9N3O2_sp_g16.log)
+## r1_C8H9N3O2_sp_g16.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/r1_C8H9N3O2_sp_g16.log",
+    "../../tests/test_files/g16log/r1_C8H9N3O2_sp_g16.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -466,7 +466,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 677.59it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 693.62it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -479,12 +479,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_004738-2.log](../tests/test_files/dsgdb9nsd_004738-2.log)
+## dsgdb9nsd_004738-2.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_004738-2.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_004738-2.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -492,7 +492,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 61.12it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 63.98it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -505,12 +505,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_004015-3-.log](../tests/test_files/dsgdb9nsd_004015-3-.log)
+## dsgdb9nsd_004015-3-.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_004015-3-.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_004015-3-.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -518,7 +518,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 99.41it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 101.62it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -531,12 +531,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_000107-3-.log](../tests/test_files/dsgdb9nsd_000107-3-.log)
+## dsgdb9nsd_000107-3-.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_000107-3-.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_000107-3-.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -544,7 +544,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 148.65it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 158.38it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -557,12 +557,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_004517-4-.log](../tests/test_files/dsgdb9nsd_004517-4-.log)
+## dsgdb9nsd_004517-4-.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_004478-6-.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_004478-6-.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -570,7 +570,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 107.15it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 101.39it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -597,12 +597,12 @@ test_file[0][-1].rdmol_no_conformer
 
 
 
-## [dsgdb9nsd_004517-4-.log](../tests/test_files/dsgdb9nsd_004517-4-.log)
+## dsgdb9nsd_004517-4-.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_004517-4-.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_004517-4-.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -610,7 +610,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 104.67it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 88.60it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -623,12 +623,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_000958-3-.log](../tests/test_files/dsgdb9nsd_000958-3-.log)
+## dsgdb9nsd_000958-3-.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_000958-3-.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_000958-3-.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -636,7 +636,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 124.39it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 108.38it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -663,12 +663,12 @@ test_file[0][-1].rdmol_no_conformer
 
 
 
-## [dsgdb9nsd_002924-8-.log](../tests/test_files/dsgdb9nsd_002924-8-.log)
+## dsgdb9nsd_002924-8-.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_002924-8-.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_002924-8-.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -676,7 +676,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 115.49it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 114.00it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -689,12 +689,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_000763-2-.log](../tests/test_files/dsgdb9nsd_000763-2-.log)
+## dsgdb9nsd_000763-2-.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_000763-2-.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_000763-2-.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -702,7 +702,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 147.75it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 146.80it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -715,12 +715,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_001232-4-.log](../tests/test_files/dsgdb9nsd_001232-4-.log)
+## dsgdb9nsd_001232-4-.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_001232-4-.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_001232-4-.log",
     n_jobs=1,
     only_extract_structure=True,
     only_last_frame=True,
@@ -728,7 +728,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 122.63it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 117.76it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -741,18 +741,18 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_000180-9-.log](../tests/test_files/dsgdb9nsd_000180-9-.log)
+## dsgdb9nsd_000180-9-.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_000180-9-.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_000180-9-.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 12.60it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 12.57it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -765,18 +765,18 @@ test_file[0][-1].rdmol
 
 
 
-## [TS_4cGKps_ll_ad_4-18_6-13_sp_g16.log](../tests/test_files/TS_4cGKps_ll_ad_4-18_6-13_sp_g16.log)
+## TS_4cGKps_ll_ad_4-18_6-13_sp_g16.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/TS_4cGKps_ll_ad_4-18_6-13_sp_g16.log",
+    "../../tests/test_files/g16log/TS_4cGKps_ll_ad_4-18_6-13_sp_g16.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 46.08it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 47.11it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -789,19 +789,19 @@ test_file[0][-1].rdmol
 
 
 
-## [TS_ts_guess_FaFxyx_template_4-18_6-13_optts_conf_g16.log](../tests/test_files/TS_ts_guess_FaFxyx_template_4-18_6-13_optts_conf_g16.log)
+## TS_ts_guess_FaFxyx_template_4-18_6-13_optts_conf_g16.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/TS_ts_guess_FaFxyx_template_4-18_6-13_optts_conf_g16.log",
+    "../../tests/test_files/g16log/TS_ts_guess_FaFxyx_template_4-18_6-13_optts_conf_g16.log",
     n_jobs=1,
     only_last_frame=True,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 19.88it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 19.61it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -814,19 +814,19 @@ test_file[0][-1].rdmol
 
 
 
-## [TS_4cGKps_ll_ad_4-18_6-13_optts_g16.log](../tests/test_files/TS_4cGKps_ll_ad_4-18_6-13_optts_g16.log)
+## TS_4cGKps_ll_ad_4-18_6-13_optts_g16.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/TS_4cGKps_ll_ad_4-18_6-13_optts_g16.log",
+    "../../tests/test_files/g16log/TS_4cGKps_ll_ad_4-18_6-13_optts_g16.log",
     n_jobs=1,
     only_last_frame=True,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 13.53it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 17.48it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -839,18 +839,18 @@ test_file[0][-1].rdmol
 
 
 
-## [TS_Zy0fwX_ll_ad_14-19_15-16_optts_g16.log](../tests/test_files/TS_Zy0fwX_ll_ad_14-19_15-16_optts_g16.log)
+## TS_Zy0fwX_ll_ad_14-19_15-16_optts_g16.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/TS_Zy0fwX_ll_ad_14-19_15-16_optts_g16.log",
+    "../../tests/test_files/g16log/TS_Zy0fwX_ll_ad_14-19_15-16_optts_g16.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  1.79it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  1.70it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -863,18 +863,18 @@ test_file[0][-1].rdmol
 
 
 
-## [irc.out](../tests/test_files/irc.out)
+## irc.out
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16irc/irc.out",
+    "../../tests/test_files/g16irc/irc.out",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  4.73it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  4.69it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -887,18 +887,18 @@ test_file[0][-1].rdmol
 
 
 
-## [3_Sp.log](../tests/test_files/3_Sp.log)
+## 3_Sp.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/3_Sp.log",
+    "../../tests/test_files/g16log/3_Sp.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 71.77it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 69.34it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -911,18 +911,18 @@ test_file[0][-1].rdmol
 
 
 
-## [11_Opt.log](../tests/test_files/11_Opt.log)
+## 11_Opt.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/11_Opt.log",
+    "../../tests/test_files/g16log/11_Opt.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  9.85it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 10.33it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -935,12 +935,12 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_003895.log](../tests/test_files/dsgdb9nsd_003895.log)
+## dsgdb9nsd_003895.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_003895.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_003895.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
@@ -959,18 +959,18 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_006075rearrange.log](../tests/test_files/dsgdb9nsd_006075rearrange.log)
+## dsgdb9nsd_006075rearrange.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_006075rearrange.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_006075rearrange.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  7.33it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  7.03it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -983,18 +983,18 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_130366.log](../tests/test_files/dsgdb9nsd_130366.log)
+## dsgdb9nsd_130366.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_130366.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_130366.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 16.39it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 14.96it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1007,18 +1007,18 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_131200.log](../tests/test_files/dsgdb9nsd_131200.log)
+## dsgdb9nsd_131200.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_131200.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_131200.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 15.42it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 15.20it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1031,18 +1031,18 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_132072.log](../tests/test_files/dsgdb9nsd_132072.log)
+## dsgdb9nsd_132072.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_132072.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_132072.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 14.42it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 14.43it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1055,18 +1055,18 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_133826.log](../tests/test_files/dsgdb9nsd_133826.log)
+## dsgdb9nsd_133826.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_133826.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_133826.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 14.41it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 14.32it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1079,18 +1079,18 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_133858.log](../tests/test_files/dsgdb9nsd_133858.log)
+## dsgdb9nsd_133858.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_133858.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_133858.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 12.31it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 12.61it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1103,18 +1103,18 @@ test_file[0][-1].rdmol
 
 
 
-## [S_Ph_Ni_TS.gjf](../tests/test_files/S_Ph_Ni_TS.gjf)
+## S_Ph_Ni_TS.gjf
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16gjf/S_Ph_Ni_TS.gjf",
+    "../../tests/test_files/g16gjf/S_Ph_Ni_TS.gjf",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 884.87it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 667.67it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1127,18 +1127,18 @@ test_file[0][-1].rdmol
 
 
 
-## [S_Ph_Ni_TS.log](../tests/test_files/S_Ph_Ni_TS.log)
+## S_Ph_Ni_TS.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/S_Ph_Ni_TS.log",
+    "../../tests/test_files/g16log/S_Ph_Ni_TS.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  4.62it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  4.33it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1151,12 +1151,12 @@ test_file[0][-1].rdmol
 
 
 
-## [test.gjf](../tests/test_files/test.gjf)
+## test.gjf
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16gjf/test.gjf",
+    "../../tests/test_files/g16gjf/test.gjf",
     n_jobs=1,
     charge=0,
     multiplicity=3,
@@ -1164,7 +1164,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 407.61it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 394.39it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1177,12 +1177,12 @@ test_file[0][-1].rdmol
 
 
 
-## [test.xyz](../tests/test_files/test.xyz)
+## test.xyz
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/xyz/test.xyz",
+    "../../tests/test_files/xyz/test.xyz",
     n_jobs=1,
     charge=0,
     multiplicity=3,
@@ -1190,7 +1190,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 410.24it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 380.99it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1203,18 +1203,18 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_009986.log](../tests/test_files/dsgdb9nsd_009986.log)
+## dsgdb9nsd_009986.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_009986.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_009986.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 16.35it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 15.93it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1227,18 +1227,18 @@ test_file[0][-1].rdmol
 
 
 
-## [dsgdb9nsd_000001-3-.log](../tests/test_files/dsgdb9nsd_000001-3-.log)
+## dsgdb9nsd_000001-3-.log
 
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/g16log/dsgdb9nsd_000001-3-.log",
+    "../../tests/test_files/g16log/dsgdb9nsd_000001-3-.log",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 58.95it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 59.60it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1251,7 +1251,7 @@ test_file[0][-1].rdmol
 
 
 
-## [xtb_6_3_2_opt.out](../tests/test_files/xtb_6_3_2_opt.out)
+## xtb_6_3_2_opt.out
 Out file is the printout on screen of the xtb calculation. 
 you can get it by:
 
@@ -1262,13 +1262,13 @@ xtb ***.xyz > ***.out
 
 ```python
 test_file = AutoParser(
-    "../tests/test_files/xtbout/xtb_6_3_2_opt.out",
+    "../../tests/test_files/xtbout/xtb_6_3_2_opt.out",
     n_jobs=1,
 )
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 198.31it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 183.61it/s]
     0 files failed to parse, 1 successfully parsed
 
 
