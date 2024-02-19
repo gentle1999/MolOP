@@ -3,6 +3,7 @@
 MolOP also provides a simple command line interface for basic information extraction and format conversion. It is worth noting that, thanks to the chaining function calls provided by the [fire library](https://github.com/google/python-fire), the various commands of the MolOP CLI can be used in concert.
 
 A complex example of using molop to read files and extract information. This script completed 5 tasks:
+
 1. Read specific files and extract information with each last frame.
 2. Transform the structures to GJF format.
 3. Save the summary datasheet of the files.
@@ -11,7 +12,7 @@ A complex example of using molop to read files and extract information. This scr
 
 
 ```python
-! molop read "../tests/test_files/g16log/*.log" --only_last_frame - gjf "../tests/test_files/temp" --template="../tests/test_files/g16gjf/test.gjf" - summary "../tests/test_files/temp" - chemdraw "../tests/test_files/temp" - smiles - end
+! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - gjf "../../tests/test_files/temp" --template="../../tests/test_files/g16gjf/test.gjf" - summary "../../tests/test_files/temp" - chemdraw "../../tests/test_files/temp" - smiles - end
 ```
 
     MolOP parsing with 28 jobs: 100%|███████████████| 39/39 [00:02<00:00, 14.90it/s]
@@ -111,7 +112,7 @@ Note that the `read` command is a mandatory command, and you can then chain func
 
 
 ```python
-! molop read "../tests/test_files/g16log/*.log" --only_last_frame - smiles - end
+! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - smiles - end
 ```
 
     MolOP parsing with 28 jobs: 100%|███████████████| 39/39 [00:02<00:00, 14.23it/s]

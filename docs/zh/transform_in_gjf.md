@@ -92,6 +92,14 @@ lanl2dz
 lanl2dz
 ```
 
+
+      Cell In[1], line 6
+        Title Card Required
+              ^
+    SyntaxError: invalid syntax
+
+
+
 The structure of GJF is:
 
 - prefix (calculation parameters)
@@ -111,10 +119,10 @@ from rdkit.Chem.Draw import IPythonConsole  # for better drawing
 IPythonConsole.drawOptions.addAtomIndices = True
 IPythonConsole.molSize = 400, 400
 
-files = AutoParser("../tests/test_files/g16log/*.log")
+files = AutoParser("../../tests/test_files/g16log/*.log")
 ```
 
-    MolOP parsing with 28 jobs: 100%|██████████| 39/39 [00:03<00:00, 10.48it/s]
+    MolOP parsing with 28 jobs: 100%|██████████| 39/39 [00:03<00:00, 10.35it/s]
     0 files failed to parse, 39 successfully parsed
 
 
@@ -205,7 +213,7 @@ print(
         # If specified, will be used to overwrite the multiplicity in the gjf file
         multiplicity=3,
         # path to read a gjf file as a template
-        template="../tests/test_files/g16gjf/test.gjf",
+        template="../../tests/test_files/g16gjf/test.gjf",
         # prefix to add to the beginning of the gjf file, priority is lower than template
         prefix="# g16 gjf",
         # suffix to add to the end of the gjf file, priority is lower than template
@@ -281,7 +289,7 @@ print(
         # If specified, will be used to overwrite the multiplicity in the gjf file
         multiplicity=3,
         # path to read a gjf file as a template
-        template="../tests/test_files/g16gjf/test.gjf",
+        template="../../tests/test_files/g16gjf/test.gjf",
         # prefix to add to the beginning of the gjf file, priority is lower than template
         prefix="# g16 gjf",
         # suffix to add to the end of the gjf file, priority is lower than template
@@ -354,13 +362,13 @@ Functions above both have to-file vesion.
 ```python
 files[0][0].to_GJF_file(
     # If not specified, will be generated in situ
-    file_path="../tests/test_files/temp/test.gjf",
+    file_path="../../tests/test_files/temp/test.gjf",
     # If specified, will be used to overwrite the charge in the gjf file
     charge=1,
     # If specified, will be used to overwrite the multiplicity in the gjf file
     multiplicity=3,
     # path to read a gjf file as a template
-    template="../tests/test_files/g16gjf/test.gjf",
+    template="../../tests/test_files/g16gjf/test.gjf",
     # prefix to add to the beginning of the gjf file, priority is lower than template
     prefix="# g16 gjf",
     # suffix to add to the end of the gjf file, priority is lower than template
@@ -380,13 +388,13 @@ files[0][0].to_GJF_file(
 ```python
 files[0].to_GJF_file(
     # If not specified, will be generated in situ
-    file_path="../tests/test_files/temp/test.gjf",
+    file_path="../../tests/test_files/temp/test.gjf",
     # If specified, will be used to overwrite the charge in the gjf file
     charge=1,
     # If specified, will be used to overwrite the multiplicity in the gjf file
     multiplicity=3,
     # path to read a gjf file as a template
-    template="../tests/test_files/g16gjf/test.gjf",
+    template="../../tests/test_files/g16gjf/test.gjf",
     # prefix to add to the beginning of the gjf file, priority is lower than template
     prefix="# g16 gjf",
     # suffix to add to the end of the gjf file, priority is lower than template
@@ -410,13 +418,13 @@ FileBatch level offers a function to transform in batch
 ```python
 files.to_GJF_file(
     # If not specified, will be generated the work directory
-    file_path="../tests/test_files/temp",
+    file_path="../../tests/test_files/temp",
     # If specified, will be used to overwrite the charge in the gjf file
     charge=1,
     # If specified, will be used to overwrite the multiplicity in the gjf file
     multiplicity=3,
     # path to read a gjf file as a template
-    template="../tests/test_files/g16gjf/test.gjf",
+    template="../../tests/test_files/g16gjf/test.gjf",
     # prefix to add to the beginning of the gjf file, priority is lower than template
     prefix="# g16 gjf",
     # suffix to add to the end of the gjf file, priority is lower than template

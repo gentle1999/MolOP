@@ -20,7 +20,7 @@ The `path/to/file` is a wildcard of the file path. For example, you can use `pat
 ```python
 from molop import AutoParser
 
-files = AutoParser("../tests/test_files/mix_format/*.log")  # path/to/file
+files = AutoParser("../../tests/test_files/mix_format/*.log")  # path/to/file
 ```
 
     MolOP parsing with single thread: 100%|██████████| 3/3 [00:02<00:00,  1.40it/s]
