@@ -27,8 +27,43 @@ copyright: Copyright &copy; 2023 - 2024 Miao-jiong Tang
 plugins:
   - search
   - mkdocstrings
-  - mkdocs-jupyter:
-      include_requirejs: true
+  - i18n:
+      docs_structure: folder
+      languages:
+        - locale: en
+          default: true
+          name: English
+          build: true
+        - locale: zh
+          name: 简体中文
+          build: true
+          nav:
+            - 主页: index.md
+            - 安装: install.md
+            - 快速开始:
+                - 读取文件: read_files.md
+                - 结构复原案例: structure_recovery_cases.md
+                - 支持的输入格式: supporting_input_file_formats.md
+                - 支持的输出格式: supporting_output_file_formats.md
+            - 从例子学习:
+                - 读取文件并提取信息: read_file_and_extract_info.md
+                - 转换为GJF格式: transform_in_gjf.md
+                - 命令行接口: command_line_interface.md
+            - API: 
+              - io:
+                - bases:
+                  - molblock_base: 
+                    - MolBlock.md
+                    - BaseBlockParser.md
+                    - QMBaseBlockParser.md
+                  - file_base:
+                    - BaseFileParser.md
+                    - BaseQMFileParser.md
+                - file_batch.md
+              - structure:
+                - structure_recovery.md
+                - structure.md
+                - geometry.md
 
 markdown_extensions:  #Markdown扩展列表
   - smarty  #启用 SmartyPants 排版扩展
@@ -38,17 +73,17 @@ markdown_extensions:  #Markdown扩展列表
       separator: "_"  #分割线符号
 
 nav:
-  - index.md
+  - Home: index.md
   - Installaton: install.md
   - Get Start:
-      - Read Files: read_files.ipynb
-      - Structure Recovery Cases: structure_recovery_cases.ipynb
+      - Read Files: read_files.md
+      - Structure Recovery Cases: structure_recovery_cases.md
       - Supporting Input File formats: supporting_input_file_formats.md
       - Supporting Output File formats: supporting_output_file_formats.md
   - Examples:
-      - Read a file and extract info: read_file_and_extract_info.ipynb
-      - Transform in gjf: transform_in_gjf.ipynb
-      - Command line interface: command_line_interface.ipynb
+      - Read a file and extract info: read_file_and_extract_info.md
+      - Transform in gjf: transform_in_gjf.md
+      - Command line interface: command_line_interface.md
   - API: 
     - io:
       - bases:

@@ -261,3 +261,5 @@ $RECYCLE.BIN/
 test.ipynb
 molop.log
 temp*
+docs/en/*/*.png
+docs/zh/*/*.png
