@@ -8,14 +8,14 @@ Description: 请填写简介
 import os
 from collections.abc import MutableMapping
 from collections import OrderedDict
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Generator
 from molop.config import molopconfig
 import pandas as pd
 from joblib import Parallel, cpu_count, delayed
 from tqdm import tqdm
 
 from molop.config import molopconfig
-from molop.io.bases.file_base import BaseFileParser, BlockType
+from molop.io.bases.file_base import BaseFileParser, BlockType, BaseBlockParser
 from molop.io.coords_file.gjf_parser import GJFParser
 from molop.io.coords_file.sdf_parser import SDFBlockParser, SDFParser
 from molop.io.coords_file.xyz_parser import XYZParser
@@ -622,3 +622,82 @@ class FileParserBatch(MutableMapping):
             )
             for parser in self
         ]
+
+    def replace_substituent(
+        self,
+        query_smi: str,
+        replacement_smi: str,
+        bind_idx: int = None,
+        replace_all=False,
+        attempt_num: int = 10,
+    ) -> Generator[BaseBlockParser, None, None]:
+        """
+        Replace the substituent with the given SMARTS. The substituent is defined by the query_smi, and the new substituent is defined by the replacement_smi.
+
+        Parameters:
+            query_smi str:
+                The SMARTS to query the substituent in the original molecule.
+            replacement_smi str:
+                The SMARTS of new substituent. The bind atom is the first atom of the replacement_smi.
+            bind_idx int:
+                The index of the atom to bind the new substituent. The default is None, which means to replace the first legal atom in original molecule.
+                If specified, try to replace the atom. User should meke sure the atom is legal.
+                Detail example in (Repalce Substituent)[Repalce Substituent]
+            replace_all bool:
+                If True, replace all the substituent queried in the original molecule.
+            attempt_num int:
+                Max attempt times to replace the substituent. Each time a new substituent conformation will be used for substitution.
+
+        Returns:
+            The new parser.
+        """
+        return (
+            f.replace_substituent(
+                query_smi, replacement_smi, bind_idx, replace_all, attempt_num
+            )
+            for f in self
+        )
+
+    def reset_atom_index(
+        self,
+        mapping_smarts: str,
+    ) -> Generator[BaseBlockParser, None, None]:
+        """
+        Reset the atom index of the molecule according to the mapping SMARTS.
+
+        Parameters:
+            mapping_smarts str:
+                The SMARTS to query the molecule substructure.
+                The queried atoms will be renumbered and placed at the beginning of all atoms according to the order of the atoms in SMARTS. The relative order of the remaining atoms remains unchanged.
+
+        Returns:
+            The new parser.
+        """
+        return (f.reset_atom_index(mapping_smarts) for f in self)
+
+    def standard_orient(
+        self,
+        anchor_list: List[int],
+    ) -> Generator[BaseBlockParser, None, None]:
+        """
+        Depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_X`, and `rotate_anchor_to_XY` are executed in order to obtain the normalized oriented molecule.
+
+        Sub-functions:
+            - `translate_anchor`: Translate the entire molecule so that the specified atom reaches the origin.
+            - `rotate_anchor_to_X`: Rotate the specified second atom along the axis passing through the origin so that it reaches the positive half-axis of the X-axis.
+            - `rotate_anchor_to_XY`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
+
+        Parameters:
+            anchor_list List[int]:
+                A list of indices of the atoms to be translated to origin, rotated to X axis, and rotated again to XY face:
+
+                - If length is 1, execute `translate_anchor`
+                - If length is 2, execute `translate_anchor` and `rotate_anchor_to_X`
+                - If length is 3, execute `translate_anchor`, `rotate_anchor_to_X` and `rotate_anchor_to_XY`
+                - If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
+
+
+        Returns:
+            The new parser.
+        """
+        return (f.standard_orient(anchor_list) for f in self)

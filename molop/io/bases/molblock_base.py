@@ -18,7 +18,7 @@ from rdkit.Chem import rdDetermineBonds
 from rdkit.Chem.MolStandardize import rdMolStandardize
 
 from molop.logger.logger import logger
-from molop.structure.geometry import get_geometry_info
+from molop.structure.geometry import get_geometry_info, standard_orient
 from molop.structure.structure import (
     attempt_replacement,
     check_crowding,
@@ -737,7 +737,7 @@ class BaseBlockParser(MolBlock):
     def rebuild_parser(
         self,
         new_mol: Union[Chem.rdchem.Mol, Chem.rdchem.RWMol],
-        rebuild_type=Literal["mod", "reindex"],
+        rebuild_type=Literal["mod", "reindex", "transform"],
     ) -> "BaseBlockParser":
         """
         Create a new parser with the given molecule.
@@ -745,7 +745,7 @@ class BaseBlockParser(MolBlock):
         Parameters:
             new_mol Union[Chem.rdchem.Mol, Chem.rdchem.RWMol]:
                 The new molecule.
-            rebuild_type Literal["mod", "reindex"]:
+            rebuild_type Literal["mod", "reindex", "transform"]:
                 The tag of the new parser.
         Returns:
             The new parser.
@@ -830,6 +830,34 @@ class BaseBlockParser(MolBlock):
         return self.rebuild_parser(
             rdmol,
             rebuild_type="reindex",
+        )
+
+    def standard_orient(
+        self,
+        anchor_list: List[int],
+    ):
+        """
+        Depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_X`, and `rotate_anchor_to_XY` are executed in order to obtain the normalized oriented molecule.
+
+        Sub-functions:
+            - `translate_anchor`: Translate the entire molecule so that the specified atom reaches the origin.
+            - `rotate_anchor_to_X`: Rotate the specified second atom along the axis passing through the origin so that it reaches the positive half-axis of the X-axis.
+            - `rotate_anchor_to_XY`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
+
+        Parameters:
+            anchor_list List[int]:
+                A list of indices of the atoms to be translated to origin, rotated to X axis, and rotated again to XY face:
+                
+                - If length is 1, execute `translate_anchor`
+                - If length is 2, execute `translate_anchor` and `rotate_anchor_to_X`
+                - If length is 3, execute `translate_anchor`, `rotate_anchor_to_X` and `rotate_anchor_to_XY`
+                - If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
+        """
+        mol = Chem.RWMol(self.rdmol)
+        standard_orient(mol, anchor_list)
+        return self.rebuild_parser(
+            mol,
+            rebuild_type="transform",
         )
 
 

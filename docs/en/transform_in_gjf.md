@@ -114,7 +114,7 @@ IPythonConsole.molSize = 400, 400
 files = AutoParser("../../tests/test_files/g16log/*.log")
 ```
 
-    MolOP parsing with 28 jobs: 100%|██████████| 39/39 [00:03<00:00, 10.52it/s]
+    MolOP parsing with 16 jobs: 100%|██████████| 39/39 [00:03<00:00, 12.05it/s]
     0 files failed to parse, 39 successfully parsed
 
 
@@ -428,3 +428,8 @@ files.to_GJF_file(
 
     gjf files saved to /home/tmj/proj/MolOP/tests/test_files/temp
 
+
+
+```python
+
+```

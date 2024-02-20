@@ -254,7 +254,7 @@ def rotate_anchor_to_XY(mol: RdMol, idx: int, conformer_id=0):
     """
     Suppose the specified atom is A and rotates along the X-axis, rotating point A to quadrant 1 or 2 of the XY plane.
 
-    Paraemters:
+    Parameters:
         mol RdMol:
             Molecule to be rotated
         idx int:
