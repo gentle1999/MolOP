@@ -25,6 +25,7 @@ from molop.structure.structure import (
     get_bond_pairs,
     get_formal_charges,
     get_formal_spins,
+    reset_atom_index,
 )
 from molop.structure.structure_recovery import xyz_block_to_omol
 from molop.unit import atom_ureg
@@ -266,7 +267,7 @@ class MolBlock(ABC):
                 self._rdmol = rwmol
 
         return self._rdmol
-    
+
     @property
     def rdmol_no_conformer(self):
         """
@@ -825,27 +826,9 @@ class BaseBlockParser(MolBlock):
                 f"Multiple matches found in {self._file_path} with {mapping_smarts}"
             )
         mapping = mapping[0]
-        coords = [self.dimensionless_coords[idx] for idx in mapping] + [
-            (x, y, z)
-            for idx, (x, y, z) in enumerate(self.dimensionless_coords)
-            if idx not in mapping
-        ]
-        atoms = [self.atoms[idx] for idx in mapping] + [
-            atom for idx, atom in enumerate(self.atoms) if idx not in mapping
-        ]
-        omol = xyz_block_to_omol(
-            f"{len(atoms)}\n"
-            + f"charge {self.charge} multiplicity {self.multiplicity}\n"
-            + "\n".join(
-                [
-                    f"{atom:10s}{x:10.5f}{y:10.5f}{z:10.5f}"
-                    for atom, x, y, z in zip(atoms, *zip(*coords))
-                ]
-            ),
-            given_charge=self.charge,
-        )
+        rdmol = reset_atom_index(self.rdmol, mapping)
         return self.rebuild_parser(
-            Chem.MolFromMolBlock(omol.write("sdf"), removeHs=False),
+            rdmol,
             rebuild_type="reindex",
         )
 
@@ -1534,15 +1517,15 @@ class QMBaseBlockParser(BaseBlockParser):
     def ts_vibration(self) -> List[BaseBlockParser]:
         """
         Generate a list of base block parsers for transition state vibration calculations.
-        
+
         Returns:
             A list of base block parsers for transition state vibration calculations.
         """
         if not self.is_TS:
             raise RuntimeError("This is not a TS")
-        
+
         block_parsers = []  # Initialize a list of base block parsers
-        
+
         # Iterate over a list of ratios
         for ratio in (-2.5, -2.25, -2, -1.5, -1, 1, 1.5, 2, 2.25, 2.5):
             # Calculate extreme coordinates based on current ratio
@@ -1555,7 +1538,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 )
                 * ratio
             )
-            
+
             # Convert extreme coordinates to openbabel molecule object
             omol = xyz_block_to_omol(
                 f"{len(self.atoms)}\n"
@@ -1568,7 +1551,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 ),
                 given_charge=self.charge,
             )
-            
+
             try:
                 # Rebuild parser using the openbabel molecule object
                 block_parser = self.rebuild_parser(
@@ -1577,11 +1560,11 @@ class QMBaseBlockParser(BaseBlockParser):
                 )
             except:
                 continue
-            
+
             # Check if the molecule satisfies crowding conditions and append it to the list
             if check_crowding(block_parser.rdmol):
                 block_parsers.append(block_parser)
-        
+
         return block_parsers
 
     def ts_vibration_to_SDF_file(self, file_path: str = None) -> str:
@@ -1608,7 +1591,7 @@ class QMBaseBlockParser(BaseBlockParser):
     def possible_pre_post_ts(self) -> Tuple[Chem.rdchem.Mol, Chem.rdchem.Mol]:
         """
         This method returns the possible pre- and post-transition state molecules.
-        
+
         Returns:
             A tuple containing the possible pre- and post-transition state molecules.
         """

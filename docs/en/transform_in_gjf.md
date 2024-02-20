@@ -92,14 +92,6 @@ lanl2dz
 lanl2dz
 ```
 
-
-      Cell In[1], line 6
-        Title Card Required
-              ^
-    SyntaxError: invalid syntax
-
-
-
 The structure of GJF is:
 
 - prefix (calculation parameters)
@@ -122,7 +114,7 @@ IPythonConsole.molSize = 400, 400
 files = AutoParser("../../tests/test_files/g16log/*.log")
 ```
 
-    MolOP parsing with 28 jobs: 100%|██████████| 39/39 [00:03<00:00, 10.35it/s]
+    MolOP parsing with 28 jobs: 100%|██████████| 39/39 [00:03<00:00, 10.52it/s]
     0 files failed to parse, 39 successfully parsed
 
 
@@ -436,8 +428,3 @@ files.to_GJF_file(
 
     gjf files saved to /home/tmj/proj/MolOP/tests/test_files/temp
 
-
-
-```python
-
-```
