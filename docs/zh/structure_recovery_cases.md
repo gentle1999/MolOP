@@ -1,4 +1,4 @@
-# Structure recovery cases
+# 结构复原案例
 
 
 ```python
@@ -1252,8 +1252,8 @@ test_file[0][-1].rdmol
 
 
 ## xtb_6_3_2_opt.out
-Out file is the printout on screen of the xtb calculation. 
-you can get it by:
+输出文件是 XTB 计算结果在屏幕上的打印输出。
+您可以通过以下方式获取：
 
 ```bash
 xtb ***.xyz > ***.out

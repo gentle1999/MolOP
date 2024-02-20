@@ -1,18 +1,18 @@
 <!--
  * @Author: TMJ
  * @Date: 2024-02-02 10:43:56
- * @LastEditors: TMJ
- * @LastEditTime: 2024-02-02 19:29:24
+ * @LastEditors: cathayana populuscathayana@gmail.com
+ * @LastEditTime: 2024-02-20 13:39:03
  * @Description: 请填写简介
 -->
-# Supporting Input File Formats
+# 支持的输入格式
 
-## Coords File Formats
+## 坐标文件格式
 
 ### XYZ (.xyz)
-The XYZ file format is a simple text file format used to store the coordinates of atoms in a molecule. Under normal circumstances, charge and spin multiplicity information is not provided in the xyz file.
+XYZ 文件格式是一种简单的文本文件格式，用于存储分子中原子的坐标。在正常情况下，xyz 文件中不提供电荷和自旋多重性信息。
 
-There is an example of the XYZ file format:
+这是一个 XYZ 文件格式的示例：
 ```text
 7
 charge 0 multiplicity 2
@@ -26,9 +26,9 @@ H            1.35121  -0.92642   0.04074
 ```
 
 ### SDF (.sdf, .mol)
-The SDF file format (or MOL file) is a standard file format used to store chemical structures. It is a text file format that contains information about the chemical structure, such as the coordinates of atoms, the bond information, and some other chemical properties like charge and spin multiplicity. In general, we can completely recover the chemical structure from a SDF file.
+SDF 文件格式（或 MOL 文件）是一种用于存储化学结构的标准文件格式。它是一种文本文件格式，包含化学结构信息，如原子坐标、化学键信息以及其他一些化学属性，如电荷和自旋多重性。一般来说，我们可以从 SDF 文件中完全恢复化学结构。
 
-There is an example of the SDF file format:
+这是一个 SDF 文件格式的示例：
 ```text
 charge 0 multiplicity 2
      RDKit          3D
@@ -52,12 +52,12 @@ M  END
 ```
 
 ## Gaussian 16
-The Gaussian 16 is one of the most popular quantum chemistry software packages. It offers some usaual file format.
+Gaussian 16 是最流行的量子化学软件包之一。它提供一些常用的文件格式。
 
 ### Gaussian 16 Input File (.com, .gjf, .gau, .gjc)
-The Gaussian 16 input file format is a text file format used to store the input information for Gaussian 16. It contains the information about the chemical structure, such as the coordinates of atoms, the basis set, the charge and spin multiplicity, and some other chemical properties like the level of theory, the solvent, and the solvation model.
+Gaussian 16 input file 是一种文本文件格式，用于存储高斯 16 的输入信息。它包含化学结构信息，如原子坐标、基组、电荷和自旋多重度，以及其他一些化学属性，如理论水平、溶剂和溶解模型。
 
-There is an example of the Gaussian 16 input file format:
+这是一个 Gaussian 16 Input File 文件格式的示例:
 ```text
 !Put Keywords Here, check Charge and Multiplicity.
 #
@@ -112,18 +112,18 @@ H           0.32154        -1.73407         0.00000
 ```
 
 ### Gaussian 16 Output File (.log, .g16, .gal, .out, .irc)
-The Gaussian 16 output file format is a text file format used to store the output information for Gaussian 16. It contains the information about the calculation results, such as the energy, the gradient, the Hessian matrix, and some other information like the level of theory, the solvent, and the solvation model.
+Gaussian 16 Output File 是一种文本文件格式，用于存储 Gaussian 16 的输出信息。它包含计算结果的相关信息，如能量、梯度、Hessian 矩阵，以及其他一些信息，如理论、溶剂和溶剂化模型。
 
 ### Gaussian 16 Formatted Checkpoint File (.fchk, .fch, .fck)
-The Gaussian 16 formatted checkpoint file format is a text file format used to store the formatted checkpoint information for Gaussian 16. It contains the information about the calculation results, such as the energy, the gradient, the Hessian matrix, and some other information like the level of theory, the solvent, and the solvation model. The formatted checkpoint file format is a human-readable file format that is easy to read and interpret.
+Gaussian 16 formatted checkpoint file 是一种文本文件格式，用于存储 Gaussian 16 的格式化检查点信息。它包含计算结果的相关信息，如能量、梯度、Hessian 矩阵，以及其他一些信息，如理论、溶剂和溶剂化模型。格式化的检查点文件格式是一种人类可读的文件格式，易于阅读和解释。
 
 ## xTB
-xTB is a fast and accurate quantum chemistry software package that can be used to perform quantum chemistry calculations on a wide range of chemical systems. It offers some usaual file format.
+xTB 是一款快速准确的量子化学软件包，可用于对各种化学体系进行量子化学计算。它提供一些常用的文件格式。
 
 ### xTB Output File (.out)
-The xTB output file format is a text file format used to store the output information for xTB. It contains the information about the calculation results, such as the energy, the gradient, and some other information like the level of theory, the solvent, and the solvation model. 
+xTB 输出文件格式是一种文本文件格式，用于存储 xTB 的输出信息。它包含计算结果的相关信息，如能量、梯度以及其他一些信息，如理论、溶剂和溶剂化模型。
 
-xTB out is not the default output in using xTB. We can use the command below to get the xTB out file:
+xTB out 并非使用 xTB 时的默认输出。我们可以使用下面的命令获取 xTB 输出文件：
 ```bash
 xtb test.xyz --opt --chrg 0 --hess > test.out
 ```

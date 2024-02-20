@@ -201,4 +201,4 @@ MolOP 还提供了一个简单的命令行接口，用于基本信息提取和�
         You can also use flags syntax for POSITIONAL ARGUMENTS
 
 
-More useful features will be added in the future.
+未来还将增加更多有用的功能。
