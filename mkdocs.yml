@@ -65,13 +65,6 @@ plugins:
                 - structure.md
                 - geometry.md
 
-markdown_extensions:  #Markdown扩展列表
-  - smarty  #启用 SmartyPants 排版扩展
-  - admonition  #通过不同颜色现实告警、备注信息
-  - toc:  
-      permalink: True #在 toc 扩展中启用永久链接
-      separator: "_"  #分割线符号
-
 nav:
   - Home: index.md
   - Installaton: install.md
@@ -99,3 +92,59 @@ nav:
       - structure_recovery.md
       - structure.md
       - geometry.md
+
+extra_javascript:
+  - javascripts/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+
+markdown_extensions:  #Markdown扩展列表
+  - abbr
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:  
+      permalink: True #在 toc 扩展中启用永久链接
+      separator: "_"  #分割线符号
+  - smarty  #启用 SmartyPants 排版扩展
+  - admonition  #通过不同颜色现实告警、备注信息
+  - pymdownx.betterem
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.caret
+  - pymdownx.mark
+  - pymdownx.tilde
+  - pymdownx.critic
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+      use_pygments: true
+      pygments_lang_class: true  
+      auto_title: true
+      linenums: true
+      linenums_style: pymdownx-inline
+      line_spans: __span
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.magiclink
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+      combine_header_slug: true
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - pymdownx.tasklist:
+      custom_checkbox: true
+      clickable_checkbox: true
+

@@ -15,7 +15,7 @@ A complex example of using molop to read files and extract information. This scr
 ! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - gjf "../../tests/test_files/temp" --template="../../tests/test_files/g16gjf/test.gjf" - summary "../../tests/test_files/temp" - chemdraw "../../tests/test_files/temp" - smiles - end
 ```
 
-    MolOP parsing with 28 jobs: 100%|███████████████| 39/39 [00:02<00:00, 14.90it/s]
+    MolOP parsing with 28 jobs: 100%|███████████████| 39/39 [00:01<00:00, 25.02it/s]
     0 files failed to parse, 39 successfully parsed
     gjf files saved to /home/tmj/proj/MolOP/tests/test_files/temp
     summary csv saved to /home/tmj/proj/MolOP/tests/test_files/temp/summary.csv
@@ -45,7 +45,7 @@ A complex example of using molop to read files and extract information. This scr
     C[NH2+]C/C(C[O-])=N/[O-]
     Cc1[nH]c([O-])nc1O
     Nc1[nH]c([O-])nc1O
-    O=CC1=CN=C(O)[N]1
+    O=CC1=C[N]C(O)=N1
     C#Cc1nc(O)[c]o1
     NC1(N)OCC(=O)O1
     N#C[C-](C#N)/[NH+]=C/N
@@ -115,7 +115,7 @@ Note that the `read` command is a mandatory command, and you can then chain func
 ! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - smiles - end
 ```
 
-    MolOP parsing with 28 jobs: 100%|███████████████| 39/39 [00:02<00:00, 14.23it/s]
+    MolOP parsing with 28 jobs: 100%|███████████████| 39/39 [00:01<00:00, 22.97it/s]
     0 files failed to parse, 39 successfully parsed
     C=C[C@H]1[C@@H]2[C@H](C[C@@]1(C)O)OC[C@@H]2C
     CCC[C@H]1CO[C@H]2C[C@@](C)(O)C[C@@H]12
@@ -142,7 +142,7 @@ Note that the `read` command is a mandatory command, and you can then chain func
     C[NH2+]C/C(C[O-])=N/[O-]
     Cc1[nH]c([O-])nc1O
     Nc1[nH]c([O-])nc1O
-    O=CC1=CN=C(O)[N]1
+    O=CC1=C[N]C(O)=N1
     C#Cc1nc(O)[c]o1
     NC1(N)OCC(=O)O1
     N#C[C-](C#N)/[NH+]=C/N
