@@ -1,8 +1,8 @@
-# Read files and extract information
+# 读取文件并提取信息
 
-There is an example of how to read files and extract information from them.
+这里有一个如何读取文件并从中提取信息的例子。
 
-suppose you have some g16log files in a folder like this:
+假设在这样一个文件夹中有一些 g16log 文件：
 
 
 ```python
@@ -10,48 +10,48 @@ suppose you have some g16log files in a folder like this:
 ```
 
     total 33748
-    -rw-r--r-- 1 tmj tmj  727184 Nov  4 20:14 11_Opt.log
-    -rw-r--r-- 1 tmj tmj   53139 Jan  9 20:53 3_Sp.log
-    -rw-r--r-- 1 tmj tmj 8008984 Feb 18 20:12 RE_BOX-Anion-Real_Cu-III-Phenol_Major-Amide-Anion_From-IP_C-O-190_TS_Opt.log
-    -rw-r--r-- 1 tmj tmj 1424205 Nov  4 20:14 S_Ph_Ni_TS.log
-    -rw-r--r-- 1 tmj tmj 1910081 Jan 16 10:24 TS_4cGKps_ll_ad_4-18_6-13_optts_g16.log
-    -rw-r--r-- 1 tmj tmj   65746 Jan 16 10:28 TS_4cGKps_ll_ad_4-18_6-13_sp_g16.log
-    -rw-r--r-- 1 tmj tmj 3896697 Jan 15 22:37 TS_Zy0fwX_ll_ad_14-19_15-16_optts_g16.log
-    -rw-r--r-- 1 tmj tmj 1307536 Jan 16 10:28 TS_ts_guess_FaFxyx_template_4-18_6-13_optts_conf_g16.log
-    -rw-r--r-- 1 tmj tmj  165117 Feb 17 22:09 dsgdb9nsd_000001-3-.log
-    -rw-r--r-- 1 tmj tmj  823921 Jan 16 16:32 dsgdb9nsd_000107-3-.log
-    -rw-r--r-- 1 tmj tmj  703600 Jan 16 14:55 dsgdb9nsd_000180-9-.log
-    -rw-r--r-- 1 tmj tmj  385852 Jan 23 21:10 dsgdb9nsd_000484-1+.log
-    -rw-r--r-- 1 tmj tmj  509600 Jan 22 21:03 dsgdb9nsd_000672-3+.log
-    -rw-r--r-- 1 tmj tmj  583565 Jan 17 22:25 dsgdb9nsd_000696-4.log
-    -rw-r--r-- 1 tmj tmj  380253 Jan 16 15:29 dsgdb9nsd_000763-2-.log
-    -rw-r--r-- 1 tmj tmj  446864 Jan 22 18:22 dsgdb9nsd_000923-3+.log
-    -rw-r--r-- 1 tmj tmj  523877 Feb 18 19:06 dsgdb9nsd_000955-3.log
-    -rw-r--r-- 1 tmj tmj  383481 Jan 16 15:50 dsgdb9nsd_000958-3-.log
-    -rw-r--r-- 1 tmj tmj  639463 Jan 16 15:07 dsgdb9nsd_001232-4-.log
-    -rw-r--r-- 1 tmj tmj  535511 Jan 16 15:46 dsgdb9nsd_002924-8-.log
-    -rw-r--r-- 1 tmj tmj  899961 Jan 18 10:54 dsgdb9nsd_003051-3.log
-    -rw-r--r-- 1 tmj tmj  256920 Jan 10 20:09 dsgdb9nsd_003895.log
-    -rw-r--r-- 1 tmj tmj  868095 Jan 16 18:07 dsgdb9nsd_004015-3-.log
-    -rw-r--r-- 1 tmj tmj  442477 Jan 16 16:13 dsgdb9nsd_004478-6-.log
-    -rw-r--r-- 1 tmj tmj  958696 Jan 16 16:06 dsgdb9nsd_004517-4-.log
-    -rw-r--r-- 1 tmj tmj  672242 Jan 17 20:29 dsgdb9nsd_004669-4.log
-    -rw-r--r-- 1 tmj tmj  453094 Jan 16 19:58 dsgdb9nsd_004738-2.log
-    -rw-r--r-- 1 tmj tmj 1334751 Jan 10 20:23 dsgdb9nsd_006075rearrange.log
-    -rw-r--r-- 1 tmj tmj  505226 Jan 10 22:06 dsgdb9nsd_009986.log
-    -rw-r--r-- 1 tmj tmj  452946 Jan 10 21:53 dsgdb9nsd_130366.log
-    -rw-r--r-- 1 tmj tmj  641086 Jan 17 20:29 dsgdb9nsd_131200-4-.log
-    -rw-r--r-- 1 tmj tmj  499704 Jan 10 21:36 dsgdb9nsd_131200.log
-    -rw-r--r-- 1 tmj tmj  911981 Jan 28 14:06 dsgdb9nsd_131941-4+.log
-    -rw-r--r-- 1 tmj tmj  540614 Jan 10 21:45 dsgdb9nsd_132072.log
-    -rw-r--r-- 1 tmj tmj  553016 Jan 10 21:43 dsgdb9nsd_133826.log
-    -rw-r--r-- 1 tmj tmj  650970 Jan 10 20:54 dsgdb9nsd_133858.log
-    -rw-r--r-- 1 tmj tmj  301634 Feb  1 18:21 molecule_0.log
-    -rw-r--r-- 1 tmj tmj   22094 Jan 17 19:10 r1_C2H3N3O_sp_g16.log
-    -rw-r--r-- 1 tmj tmj   38369 Jan 17 16:48 r1_C8H9N3O2_sp_g16.log
+    -rw-r--r-- 1 cathayana cathayana  727184 Feb 20 11:47 11_Opt.log
+    -rw-r--r-- 1 cathayana cathayana   53139 Feb 20 11:47 3_Sp.log
+    -rw-r--r-- 1 cathayana cathayana 8008984 Feb 20 11:47 RE_BOX-Anion-Real_Cu-III-Phenol_Major-Amide-Anion_From-IP_C-O-190_TS_Opt.log
+    -rw-r--r-- 1 cathayana cathayana 1424205 Feb 20 11:47 S_Ph_Ni_TS.log
+    -rw-r--r-- 1 cathayana cathayana 1910081 Feb 20 11:47 TS_4cGKps_ll_ad_4-18_6-13_optts_g16.log
+    -rw-r--r-- 1 cathayana cathayana   65746 Feb 20 11:47 TS_4cGKps_ll_ad_4-18_6-13_sp_g16.log
+    -rw-r--r-- 1 cathayana cathayana 3896697 Feb 20 11:47 TS_Zy0fwX_ll_ad_14-19_15-16_optts_g16.log
+    -rw-r--r-- 1 cathayana cathayana 1307536 Feb 20 11:47 TS_ts_guess_FaFxyx_template_4-18_6-13_optts_conf_g16.log
+    -rw-r--r-- 1 cathayana cathayana  165117 Feb 20 11:47 dsgdb9nsd_000001-3-.log
+    -rw-r--r-- 1 cathayana cathayana  823921 Feb 20 11:47 dsgdb9nsd_000107-3-.log
+    -rw-r--r-- 1 cathayana cathayana  703600 Feb 20 11:47 dsgdb9nsd_000180-9-.log
+    -rw-r--r-- 1 cathayana cathayana  385852 Feb 20 11:47 dsgdb9nsd_000484-1+.log
+    -rw-r--r-- 1 cathayana cathayana  509600 Feb 20 11:47 dsgdb9nsd_000672-3+.log
+    -rw-r--r-- 1 cathayana cathayana  583565 Feb 20 11:47 dsgdb9nsd_000696-4.log
+    -rw-r--r-- 1 cathayana cathayana  380253 Feb 20 11:47 dsgdb9nsd_000763-2-.log
+    -rw-r--r-- 1 cathayana cathayana  446864 Feb 20 11:47 dsgdb9nsd_000923-3+.log
+    -rw-r--r-- 1 cathayana cathayana  523877 Feb 20 11:47 dsgdb9nsd_000955-3.log
+    -rw-r--r-- 1 cathayana cathayana  383481 Feb 20 11:47 dsgdb9nsd_000958-3-.log
+    -rw-r--r-- 1 cathayana cathayana  639463 Feb 20 11:47 dsgdb9nsd_001232-4-.log
+    -rw-r--r-- 1 cathayana cathayana  535511 Feb 20 11:47 dsgdb9nsd_002924-8-.log
+    -rw-r--r-- 1 cathayana cathayana  899961 Feb 20 11:47 dsgdb9nsd_003051-3.log
+    -rw-r--r-- 1 cathayana cathayana  256920 Feb 20 11:47 dsgdb9nsd_003895.log
+    -rw-r--r-- 1 cathayana cathayana  868095 Feb 20 11:47 dsgdb9nsd_004015-3-.log
+    -rw-r--r-- 1 cathayana cathayana  442477 Feb 20 11:47 dsgdb9nsd_004478-6-.log
+    -rw-r--r-- 1 cathayana cathayana  958696 Feb 20 11:47 dsgdb9nsd_004517-4-.log
+    -rw-r--r-- 1 cathayana cathayana  672242 Feb 20 11:47 dsgdb9nsd_004669-4.log
+    -rw-r--r-- 1 cathayana cathayana  453094 Feb 20 11:47 dsgdb9nsd_004738-2.log
+    -rw-r--r-- 1 cathayana cathayana 1334751 Feb 20 11:47 dsgdb9nsd_006075rearrange.log
+    -rw-r--r-- 1 cathayana cathayana  505226 Feb 20 11:47 dsgdb9nsd_009986.log
+    -rw-r--r-- 1 cathayana cathayana  452946 Feb 20 11:47 dsgdb9nsd_130366.log
+    -rw-r--r-- 1 cathayana cathayana  641086 Feb 20 11:47 dsgdb9nsd_131200-4-.log
+    -rw-r--r-- 1 cathayana cathayana  499704 Feb 20 11:47 dsgdb9nsd_131200.log
+    -rw-r--r-- 1 cathayana cathayana  911981 Feb 20 11:47 dsgdb9nsd_131941-4+.log
+    -rw-r--r-- 1 cathayana cathayana  540614 Feb 20 11:47 dsgdb9nsd_132072.log
+    -rw-r--r-- 1 cathayana cathayana  553016 Feb 20 11:47 dsgdb9nsd_133826.log
+    -rw-r--r-- 1 cathayana cathayana  650970 Feb 20 11:47 dsgdb9nsd_133858.log
+    -rw-r--r-- 1 cathayana cathayana  301634 Feb 20 11:47 molecule_0.log
+    -rw-r--r-- 1 cathayana cathayana   22094 Feb 20 11:47 r1_C2H3N3O_sp_g16.log
+    -rw-r--r-- 1 cathayana cathayana   38369 Feb 20 11:47 r1_C8H9N3O2_sp_g16.log
 
 
-Looks like chaos? Yes, they are mixture from some different projects. MolOP can help you to read files and extract information from them through universal methods.
+看起来很混乱？是的，它们是来自不同项目的混合物。MolOP 可以帮助你读取文件，并通过通用方法从中提取信息。
 
 
 ```python
@@ -69,7 +69,7 @@ files = AutoParser("../../tests/test_files/g16log/*.log")
     0 files failed to parse, 39 successfully parsed
 
 
-We can first get the summary of the files. The summary contains the structure information(SMILES) and some key QM information of the files.
+我们首先可以获得文件的摘要。摘要包含文件的结构信息（SMILES）和一些关键的 QM 信息。
 
 
 ```python
@@ -119,7 +119,7 @@ print(files.to_summary_df().to_markdown())
     | 38 | G16LOGParser | r1_C8H9N3O2_sp_g16.log                                                       | /home/tmj/proj/MolOP/tests/test_files/g16log/r1_C8H9N3O2_sp_g16.log                                                       | .log          |        0 |              1 | CN/C([O-])=N/[O+]=N\c1ccccc1                                                                           | {'termination': 'Normal', 'SCF Done': True}                                                                                                                                                              | nan        | nan        | nan        | nan        |    nan    |   nan     |   nan     |   nan     |  -625.123  | -0.23807 | -0.12874 | 0.10933 |      nan     |                  |      nan      |                   | nan      | nan      |
 
 
-We concern about the TS in those log files.
+我们关注这些日志文件中的 TS。
 
 
 ```python
@@ -136,7 +136,7 @@ print(TS_files.to_summary_df().to_markdown())
     |  4 | G16LOGParser | TS_ts_guess_FaFxyx_template_4-18_6-13_optts_conf_g16.log                     | /home/tmj/proj/MolOP/tests/test_files/g16log/TS_ts_guess_FaFxyx_template_4-18_6-13_optts_conf_g16.log                     | .log          |        0 |              1 | CNC(=O)C#[N+]/C(C(C)=O)=C(\C)[O-].COC(=O)C#CC(F)(F)F                                                   | {'Maximum Force': True, 'RMS     Force': True, 'Maximum Displacement': True, 'RMS     Displacement': True, 'termination': 'Normal', 'SCF Done': True}                                                    | 0.252491 | 0.277515 | 0.27846  | 0.195753 |  -1287.12 | -1287.09 | -1287.09 | -1287.17 | -1287.37 | -0.25447 | -0.11005 | 0.14442 |     -252.41  | True             |       25.8663 | False             |    nan | nan |
 
 
-A case with not too many atoms
+原子数不多的情况
 
 
 ```python
@@ -153,6 +153,7 @@ TS_files[2][-1].rdmol
 
 
 The numeric features (like totoal energy)
+数值特征（如总能量）
 
 
 ```python
@@ -180,7 +181,7 @@ TS_files[2][-1].alpha_energy
 
 
 
-The unit can be transformed to other units powered by [pint](https://pint.readthedocs.io/en/stable/).
+输出单位可以转化为由[pint](https://pint.readthedocs.io/en/stable/)提供的其他单位。
 
 
 ```python
@@ -194,7 +195,7 @@ TS_files[2][-1].energy.to("kcal/mol")
 
 
 
-The sequential features (like orbitals, freqs)
+序列特征（如轨道、频率）
 
 
 ```python
@@ -217,7 +218,7 @@ TS_files[2][-1].alpha_FMO_orbits[:10]
 
 
 
-Also offer dimensionless features
+也提供无量纲特征
 
 
 ```python
@@ -231,7 +232,7 @@ TS_files[2][-1].dimensionless_alpha_energy
 
 
 
-The sequential dimensionless features are provided as generator
+顺序无量纲特征作为生成器提供
 
 
 ```python
@@ -285,7 +286,7 @@ TS_files[2][-1].dimensionless_frequencies.__next__()
 
 
 
-MolOP can infer the pre- and post- TS structures from the TS structure with its unique imaginary frequency orientation.
+MolOP 可以从具有独特虚频方向的 TS 结构中推断出 TS 前和 TS 后结构。
 
 
 ```python

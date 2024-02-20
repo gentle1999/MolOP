@@ -1,8 +1,8 @@
-# Transform in GJF
+# 转换为GJF格式
 
-Continuing to a higher level of optimization based on the optimized structure is a very common step in quantum chemistry computational workflows. MolOP provides some simple interfaces to simplify the manpower required for this step.
+在优化结构的基础上继续进行更高层次的优化是量子化学计算工作流程中非常常见的一步。MolOP 提供了一些简单的接口来简化这一步骤所需的人力。
 
-An GJF file example
+一个GJF文件示例
 
 
 ```python
@@ -92,23 +92,15 @@ lanl2dz
 lanl2dz
 ```
 
+GJF 的结构如下：
 
-      Cell In[1], line 6
-        Title Card Required
-              ^
-    SyntaxError: invalid syntax
+- 前缀（计算参数）
+- 标题
+- 电荷和多重度
+- 原子和坐标
+- 后缀（基组等）
 
-
-
-The structure of GJF is:
-
-- prefix (calculation parameters)
-- title
-- charge and multiplicity
-- atoms and coords
-- suffix (basis sets or more)
-
-Load some files
+加载一些文件
 
 
 ```python
@@ -140,7 +132,7 @@ files[0][-1].rdmol
 
 
 
-MolOP offers some functions to transform the molecule into customized gjf file.
+MolOP 提供了一些将分子转化为定制 gjf 文件的功能。
 
 
 ```python
@@ -202,7 +194,7 @@ print(
     
 
 
-Use template
+使用模板
 
 
 ```python
@@ -278,7 +270,7 @@ print(
     
 
 
-For file level, MolOP offers the similar functions
+对于文件级，MolOP 提供类似的功能
 
 
 ```python
@@ -356,7 +348,7 @@ print(
     
 
 
-Functions above both have to-file vesion.
+上述函数都有 to-file 版本。
 
 
 ```python
@@ -412,7 +404,7 @@ files[0].to_GJF_file(
 
 
 
-FileBatch level offers a function to transform in batch
+FileBatch 级别提供批量转换功能
 
 
 ```python
@@ -436,8 +428,3 @@ files.to_GJF_file(
 
     gjf files saved to /home/tmj/proj/MolOP/tests/test_files/temp
 
-
-
-```python
-
-```
