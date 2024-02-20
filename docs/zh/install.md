@@ -1,29 +1,29 @@
 <!--
  * @Author: TMJ
  * @Date: 2024-02-03 16:23:14
- * @LastEditors: TMJ
- * @LastEditTime: 2024-02-12 21:35:30
+ * @LastEditors: cathayana populuscathayana@gmail.com
+ * @LastEditTime: 2024-02-20 12:45:33
  * @Description: 请填写简介
 -->
-# Installation
+# 安装
 
-This package is actively developing, and this time is too early to be published to pypi. So you can install by the following.
+该软件包正在积极开发中，现在发布到 pypi 上还为时过早。因此，您可以通过以下方式安装。
 
-## In ZJU intranet
-You can use our self-host repository.
+## 浙大内网
+您可以使用我们的自托管存储库。
 ```bash
 conda install openbabel -c conda-forge # openbabel is a necessary dependence
 pip install --extra-index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop --upgrade
 ```
 
-For additional descriptor calculation, you need to install the requirements below:
+要进行额外的描述符计算，您需要安装以下环境：
 ```bash
 conda install openbabel -c conda-forge # openbabel is a necessary dependence
 pip install --extra-index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop[full] --upgrade
 ```
 
-## In Internet
-You can use the github repository.
+## 互联网
+您可以使用 github 仓库。
 ```bash
 conda install openbabel -c conda-forge # openbabel is a necessary dependence
 pip install poetry

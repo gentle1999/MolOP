@@ -1,25 +1,25 @@
-# Command line interface
+# 命令行接口
 
-MolOP also provides a simple command line interface for basic information extraction and format conversion. It is worth noting that, thanks to the chaining function calls provided by the [fire library](https://github.com/google/python-fire), the various commands of the MolOP CLI can be used in concert.
+MolOP 还提供了一个简单的命令行接口，用于基本信息提取和格式转换。值得注意的是，得益于[fire library](https://github.com/google/python-fire)提供的链式函数调用，MolOP CLI 的各种命令可以协同使用。
 
-A complex example of using molop to read files and extract information. This script completed 5 tasks:
+使用 molop 读取文件并提取信息的复杂示例。该脚本完成了 5 项任务：
 
-1. Read specific files and extract information with each last frame.
-2. Transform the structures to GJF format.
-3. Save the summary datasheet of the files.
-4. Transform the structures to cdxml format.
-5. Print out the smiles of the structures.
+1. 读取特定文件并提取最后一帧的信息。
+2. 将结构转换为 GJF 格式。
+3. 保存文件的摘要数据表。
+4. 将结构转换为 cdxml 格式。
+5. 打印出结构的smiles字符串。
 
 
 ```python
 ! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - gjf "../../tests/test_files/temp" --template="../../tests/test_files/g16gjf/test.gjf" - summary "../../tests/test_files/temp" - chemdraw "../../tests/test_files/temp" - smiles - end
 ```
 
-    MolOP parsing with 28 jobs: 100%|███████████████| 39/39 [00:02<00:00, 14.90it/s]
+    MolOP parsing with 32 jobs: 100%|███████████████| 39/39 [00:01<00:00, 20.70it/s]
     0 files failed to parse, 39 successfully parsed
-    gjf files saved to /home/tmj/proj/MolOP/tests/test_files/temp
-    summary csv saved to /home/tmj/proj/MolOP/tests/test_files/temp/summary.csv
-    chemdraw files saved to /home/tmj/proj/MolOP/tests/test_files/temp
+    gjf files saved to /home/cathayana/py_project/HONG/MolOP/tests/test_files/temp
+    summary csv saved to /home/cathayana/py_project/HONG/MolOP/tests/test_files/temp/summary.csv
+    chemdraw files saved to /home/cathayana/py_project/HONG/MolOP/tests/test_files/temp
     C=C[C@H]1[C@@H]2[C@H](C[C@@]1(C)O)OC[C@@H]2C
     CCC[C@H]1CO[C@H]2C[C@@](C)(O)C[C@@H]12
     CC(C)(C)[C@@H]1COC(=[C-]C2[N-][C@H](C(C)(C)C)CO2)[N-]1.C[CH-]C(=O)[N-]c1ccccc1.[Cu@TB7+5].[O-]c1ccccc1
@@ -45,7 +45,7 @@ A complex example of using molop to read files and extract information. This scr
     C[NH2+]C/C(C[O-])=N/[O-]
     Cc1[nH]c([O-])nc1O
     Nc1[nH]c([O-])nc1O
-    O=CC1=CN=C(O)[N]1
+    O=CC1=C[N]C(O)=N1
     C#Cc1nc(O)[c]o1
     NC1(N)OCC(=O)O1
     N#C[C-](C#N)/[NH+]=C/N
@@ -61,7 +61,7 @@ A complex example of using molop to read files and extract information. This scr
     CN/C([O-])=N/[O+]=N\c1ccccc1
 
 
-You can use MolOP CLI to do seprate tasks of course. There are the available commands:
+当然，您也可以使用 MolOP CLI 分别执行不同的任务。您可以使用以下命令：
 
 
 ```python
@@ -108,14 +108,14 @@ You can use MolOP CLI to do seprate tasks of course. There are the available com
            Save the XYZ file of all frames of each file.
 
 
-Note that the `read` command is a mandatory command, and you can then chain function calls after it to continue with other commands. Any two commands need to be separated by the `-` symbol and terminated with the `end` command. For example:
+请注意，`read` 命令是一条必须执行的命令，您可以在它之后通过函数调用链继续执行其他命令。任何两条命令都需要用 `-` 符号分隔，并以 `end` 命令结束。例如：
 
 
 ```python
 ! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - smiles - end
 ```
 
-    MolOP parsing with 28 jobs: 100%|███████████████| 39/39 [00:02<00:00, 14.23it/s]
+    MolOP parsing with 32 jobs: 100%|███████████████| 39/39 [00:01<00:00, 23.60it/s]
     0 files failed to parse, 39 successfully parsed
     C=C[C@H]1[C@@H]2[C@H](C[C@@]1(C)O)OC[C@@H]2C
     CCC[C@H]1CO[C@H]2C[C@@](C)(O)C[C@@H]12
@@ -142,7 +142,7 @@ Note that the `read` command is a mandatory command, and you can then chain func
     C[NH2+]C/C(C[O-])=N/[O-]
     Cc1[nH]c([O-])nc1O
     Nc1[nH]c([O-])nc1O
-    O=CC1=CN=C(O)[N]1
+    O=CC1=C[N]C(O)=N1
     C#Cc1nc(O)[c]o1
     NC1(N)OCC(=O)O1
     N#C[C-](C#N)/[NH+]=C/N
@@ -158,7 +158,7 @@ Note that the `read` command is a mandatory command, and you can then chain func
     CN/C([O-])=N/[O+]=N\c1ccccc1
 
 
-All commands are controlled with additional parameters, you can use the `molop command --help` command to see the help.
+所有命令都由附加参数控制，您可以使用 `molop command --help` 命令查看帮助。
 
 
 ```python
@@ -201,4 +201,4 @@ All commands are controlled with additional parameters, you can use the `molop c
         You can also use flags syntax for POSITIONAL ARGUMENTS
 
 
-More useful features will be added in the future.
+未来还将增加更多有用的功能。
