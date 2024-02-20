@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "molop"
-version = "0.1.25"
+version = "0.1.25.1"
 description = "Molcule OPerator"
 authors = ["tmj <mj_t@zju.edu.cn>"]
 license = "MIT"
@@ -29,11 +29,14 @@ mordred = { version = ">=1.2.0", optional = true }
 dscribe = { version = ">=2.1.0", optional = true }
 ase = { version = ">=3.22.1", optional = true }
 mkdocs = { version = ">=1.5.3", optional = true }
+mkdocs-material = { version = ">=9.5.7", optional = true }
+mkdocs-material-extensions = { version = ">=1.3.1", optional = true }
+mkdocs-static-i18n = { version = ">=1.2.0", optional = true }
 mkdocstrings-python = { version = ">=1.8.0", optional = true }
-mkdocs-jupyter = { version = "~0.24.3", optional = true }
 pytest = { version = ">=8.0.0", optional = true }
 jupyter_contrib_nbextensions = { version = ">=0.7.0", optional = true }
 notebook = { version = "~6.4.12", optional = true }
+nbconvert = { version = ">=7.14.2", optional = true }
 
 [tool.poetry.extras]
 full = ["mordred", "dscribe", "ase"]
@@ -42,9 +45,12 @@ dev = [
     "dscribe",
     "ase",
     "mkdocs",
+    "mkdocs-material",
+    "mkdocs-material-extensions",
+    "mkdocs-static-i18n",
+    "nbconvert",
     "pytest",
     "mkdocstrings-python",
-    "mkdocs-jupyter",
     "jupyter_contrib_nbextensions",
     "notebook",
 ]

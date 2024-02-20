@@ -9,7 +9,7 @@ import os
 from collections.abc import MutableMapping
 from collections import OrderedDict
 from typing import Dict, List, Union
-
+from molop.config import molopconfig
 import pandas as pd
 from joblib import Parallel, cpu_count, delayed
 from tqdm import tqdm
@@ -112,7 +112,11 @@ class FileParserBatch(MutableMapping):
         self,
         n_jobs: int = -1,
     ) -> None:
-        self.__n_jobs = n_jobs if n_jobs > 0 else cpu_count()
+        self.__n_jobs = (
+            min(n_jobs, cpu_count(), molopconfig.max_jobs)
+            if n_jobs > 0
+            else min(cpu_count(), molopconfig.max_jobs)
+        )
         self.__parsers: Dict[str, PARSERTYPES] = OrderedDict()
 
     def __getitem__(self, key: Union[int, str]) -> PARSERTYPES:
@@ -172,7 +176,7 @@ class FileParserBatch(MutableMapping):
             }
             for file_path in file_paths
         ]
-        if self.__n_jobs > 1 and len(file_paths) > cpu_count():
+        if self.__n_jobs > 1 and len(file_paths) > self.__n_jobs:
             if molopconfig.show_progress_bar:
                 self.__parsers.update(
                     {
@@ -187,7 +191,7 @@ class FileParserBatch(MutableMapping):
                                 for arguments in arguments_list
                             ),
                             total=len(arguments_list),
-                            desc=f"MolOP parsing with {cpu_count()} jobs",
+                            desc=f"MolOP parsing with {self.__n_jobs} jobs",
                         )
                         if len(parser) > 0
                     }
@@ -364,9 +368,7 @@ class FileParserBatch(MutableMapping):
                         mapping_smarts=mapping_smarts
                     )
                     temp_file_path = temp_parser.to_SDF_file()
-                    new_parsers.append(
-                        SDFParser(temp_file_path, only_last_frame=True)
-                    )
+                    new_parsers.append(SDFParser(temp_file_path, only_last_frame=True))
                     os.remove(temp_file_path)
                 except Exception as e:
                     logger.error(
@@ -379,9 +381,7 @@ class FileParserBatch(MutableMapping):
                         mapping_smarts=mapping_smarts
                     )
                     temp_file_path = temp_parser.to_SDF_file()
-                    new_parsers.append(
-                        SDFParser(temp_file_path, only_last_frame=True)
-                    )
+                    new_parsers.append(SDFParser(temp_file_path, only_last_frame=True))
                     os.remove(temp_file_path)
                 except Exception as e:
                     logger.error(
@@ -405,33 +405,21 @@ class FileParserBatch(MutableMapping):
         return new_batch
 
     def filter_by_charge(self, charge: int) -> "FileParserBatch":
-        TS_parsers = [
-            parser
-            for parser in self
-            if parser[-1].charge == charge
-        ]
+        TS_parsers = [parser for parser in self if parser[-1].charge == charge]
         new_batch = FileParserBatch()
         new_batch.add_file_parsers(TS_parsers)
         return new_batch
 
     def filter_by_multi(self, multi: int) -> "FileParserBatch":
-        TS_parsers = [
-            parser
-            for parser in self
-            if parser[-1].multiplicity == multi
-        ]
+        TS_parsers = [parser for parser in self if parser[-1].multiplicity == multi]
         new_batch = FileParserBatch()
         new_batch.add_file_parsers(TS_parsers)
         return new_batch
-    
+
     def filter_by_format(self, format: str) -> "FileParserBatch":
         if not format.startswith("."):
             format = "." + format
-        TS_parsers = [
-            parser
-            for parser in self
-            if parser._file_format == format
-        ]
+        TS_parsers = [parser for parser in self if parser._file_format == format]
         new_batch = FileParserBatch()
         new_batch.add_file_parsers(TS_parsers)
         return new_batch

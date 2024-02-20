@@ -7,10 +7,10 @@ from copy import deepcopy
 from typing import List, Tuple
 
 from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, rdFMCS
 from rdkit.Chem import rdMolTransforms
 
-from . import geometry
+from . import geometry, structure_recovery
 from ..utils.types import RdConformer, RdMol
 
 RDLogger.DisableLog("rdApp.*")
@@ -110,51 +110,74 @@ def get_sub_mol(origin_mol: RdMol, scale: List[int]):
     return sub_mol
 
 
-def replace_mol(mol, query_smi: str, replacement_smi: str, bind_idx: int = None):
+def get_under_bonded_number(atom: Chem.Atom) -> int:
+    """
+    Get the number of under-bonded electrons of atom.
+    """
+    return (
+        pt.GetDefaultValence(atom.GetAtomicNum())
+        + atom.GetFormalCharge()
+        - atom.GetTotalValence()
+    )
+
+
+def replace_mol(
+    mol: Chem.rdchem.Mol, query_smi: str, replacement_smi: str, bind_idx: int = None
+):
     query = Chem.MolFromSmarts(query_smi)
+    replacement = Chem.MolFromSmiles(replacement_smi)
+    if get_under_bonded_number(replacement.GetAtomWithIdx(0)) != 1:
+        raise ValueError("Replacement atom should be one bond left")
     queried_idx_list = mol.GetSubstructMatches(query)
+    if len(queried_idx_list) == 0:
+        raise ValueError("No substruct match found.")
     start = None
-    if bind_idx is None:
-        for atom in mol.GetAtomWithIdx(queried_idx_list[0][0]).GetNeighbors():
-            if (
-                atom.GetIdx()
-                not in mol.GetSubstructMatch(Chem.MolFromSmarts(query_smi))
-                and mol.GetBondBetweenAtoms(
-                    atom.GetIdx(), queried_idx_list[0][0]
-                ).GetBondType()
-                == Chem.BondType.SINGLE
-            ):
-                start = atom.GetIdx()
-                end = queried_idx_list[0][0]
-                break
-    else:
+    if bind_idx:
         for queried_idx in queried_idx_list:
-            if (
-                mol.GetBondBetweenAtoms(queried_idx[0], bind_idx)
-                and mol.GetBondBetweenAtoms(queried_idx[0], bind_idx).GetBondType()
-                == Chem.BondType.SINGLE
-            ):
-                start = bind_idx
-                end = queried_idx[0]
-                break
+            if queried_idx[0] == bind_idx:
+                unique_queried_idx = queried_idx
+    else:
+        unique_queried_idx = queried_idx_list[0]
+    for atom in mol.GetAtomWithIdx(unique_queried_idx[0]).GetNeighbors():
+        if (
+            atom.GetIdx() not in mol.GetSubstructMatch(Chem.MolFromSmarts(query_smi))
+            and mol.GetBondBetweenAtoms(
+                atom.GetIdx(), unique_queried_idx[0]
+            ).GetBondType()
+            == Chem.BondType.SINGLE
+        ):
+            start = atom.GetIdx()
+            end = unique_queried_idx[0]
+            break
     if start is None:
         raise ValueError("Can not replace")
 
     origin_mol = Chem.RWMol(mol)
     geometry.standard_orient(origin_mol, [start, end])
-    replacement = Chem.MolFromSmiles(replacement_smi)
+    rdMolTransforms.SetBondLength(
+        origin_mol.GetConformer(),
+        start,
+        end,
+        pt.GetRcovalent(origin_mol.GetAtomWithIdx(start).GetAtomicNum())
+        + pt.GetRcovalent(replacement.GetAtomWithIdx(0).GetAtomicNum()),
+    )
+    origin_mol.RemoveBond(start, end)
+    frags = [
+        frag
+        for frag, frag_idx in zip(
+            Chem.GetMolFrags(origin_mol, asMols=True), Chem.GetMolFrags(origin_mol)
+        )
+        if end not in frag_idx
+    ]
+    skeleton = frags[0]
+    for frag in frags[1:]:
+        skeleton = Chem.CombineMols(skeleton, frag)
+
     replacement = Chem.AddHs(replacement)
     AllChem.EmbedMolecule(replacement)
     replacement.GetAtomWithIdx(0).SetNumRadicalElectrons(0)
-    rr = fix_geometry(
-        replacement,
-    )
-    new_mol = Chem.ReplaceSubstructs(
-        rr,
-        Chem.MolFromSmarts("[At]"),
-        origin_mol,
-        replacementConnectionPoint=start,
-    )[0]
+    rr = fix_geometry(replacement, bind_type=mol.GetAtomWithIdx(start).GetAtomicNum())
+    new_mol = Chem.CombineMols(rr, skeleton)
     lines_idx = [
         (idx, x)
         for idx, (x, y, z) in enumerate(new_mol.GetConformer().GetPositions())
@@ -162,9 +185,7 @@ def replace_mol(mol, query_smi: str, replacement_smi: str, bind_idx: int = None)
     ]
     lines_idx.sort(key=lambda x: x[1])
     rmol = Chem.RWMol(new_mol)
-    rmol.RemoveBond(lines_idx[0][0], lines_idx[1][0])
-    rmol.RemoveAtom(lines_idx[1][0])
-    Chem.MolToMolFile(rmol, "temp.sdf")
+    rmol.AddBond(lines_idx[0][0], 0)
     idx_list = [
         idx_list for idx_list in rmol.GetSubstructMatches(replacement) if 0 in idx_list
     ]
@@ -174,15 +195,22 @@ def replace_mol(mol, query_smi: str, replacement_smi: str, bind_idx: int = None)
             end = 0
             break
     Chem.SanitizeMol(rmol)
-    rdMolTransforms.SetBondLength(
-        rmol.GetConformer(),
-        end,
-        start,
-        pt.GetRcovalent(new_mol.GetAtomWithIdx(start).GetAtomicNum())
-        + pt.GetRcovalent(new_mol.GetAtomWithIdx(end).GetAtomicNum()),
-    )
     geometry.standard_orient(rmol, [0, 1, 2])
-    return rmol
+    if len([atom for atom in rmol.GetAtoms()]) > 30:
+        return rmol
+    public_part = Chem.MolFromSmarts(rdFMCS.FindMCS((origin_mol, rmol)).smartsString)
+    for indice in mol.GetSubstructMatches(public_part):
+        if unique_queried_idx[0] not in indice:
+            origin_indice = list(indice) + [unique_queried_idx[0]]
+            break
+    for indice in rmol.GetSubstructMatches(public_part):
+        if 0 not in indice:
+            transed_indice = list(indice) + [0]
+            break
+    zip_indice = list(zip(origin_indice, transed_indice))
+    zip_indice.sort(key=lambda x: x[0])
+    mapping = [item[1] for item in zip_indice]
+    return reset_atom_index(rmol, mapping)
 
 
 def check_crowding(mol, threshold=0.75):
@@ -224,13 +252,43 @@ def attempt_replacement(
     raise RuntimeError(f"replacement {replacement_smi} is too big")
 
 
-def fix_geometry(replacement):
+def fix_geometry(replacement, bind_type: int):
     r = Chem.RWMol(replacement)
     idx = r.AddAtom(Chem.Atom("At"))
     r.AddBond(0, idx, Chem.BondType.SINGLE)
     r.UpdatePropertyCache()
     AllChem.EmbedMolecule(r)
     geometry.standard_orient(r, [idx, 0])
-    # geometry.translate_anchor(r, 0)
-    # geometry.translate_mol(r, vec)
+    rdMolTransforms.SetBondLength(
+        r.GetConformer(),
+        idx,
+        0,
+        pt.GetRcovalent(r.GetAtomWithIdx(0).GetAtomicNum())
+        + pt.GetRcovalent(bind_type),
+    )
+    r.RemoveAtom(idx)
     return r
+
+
+def reset_atom_index(mol: Chem.rdchem.Mol, mapping: List[int]) -> Chem.rdchem.Mol:
+    coords = [mol.GetConformer().GetPositions()[idx] for idx in mapping] + [
+        (x, y, z)
+        for idx, (x, y, z) in enumerate(mol.GetConformer().GetPositions())
+        if idx not in mapping
+    ]
+    all_atoms = [atom.GetSymbol() for atom in mol.GetAtoms()]
+    atoms = [all_atoms[idx] for idx in mapping] + [
+        atom for idx, atom in enumerate(all_atoms) if idx not in mapping
+    ]
+    omol = structure_recovery.xyz_block_to_omol(
+        f"{len(atoms)}\n"
+        + "\n"
+        + "\n".join(
+            [
+                f"{atom:10s}{x:10.5f}{y:10.5f}{z:10.5f}"
+                for atom, x, y, z in zip(atoms, *zip(*coords))
+            ]
+        ),
+        given_charge=sum(atom.GetFormalCharge() for atom in mol.GetAtoms()),
+    )
+    return Chem.MolFromMolBlock(omol.write("sdf"), removeHs=False)

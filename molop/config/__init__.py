@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-01-31 21:57:38
 LastEditors: TMJ
-LastEditTime: 2024-02-08 10:27:12
+LastEditTime: 2024-02-19 21:17:36
 Description: 请填写简介
 '''
 from molop.logger.logger import logger
@@ -21,6 +21,7 @@ class MolOPConfig:
         # ob_log_handler = pybel.ob.OBMessageHandler()
         # ob_log_handler.SetOutputLevel(0)
         pybel.ob.obErrorLog.StopLogging()
+        self.max_jobs = 16
 
     def quiet(self):
         self.show_progress_bar = False
