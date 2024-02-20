@@ -19,13 +19,14 @@ from molop.io.qm_file.G16LOGBlockParser import G16LOGBlockParser
 from molop.io.qm_file.XTBOUTBlockParser import XTBOUTBlockParser
 
 BlockType = Union[
-    GJFBlockParser,
-    SDFBlockParser,
-    XYZBlockParser,
+    BaseBlockParser,
     G16LOGBlockParser,
     G16IRCBlockParser,
     G16FCHKBlockParser,
     XTBOUTBlockParser,
+    GJFBlockParser,
+    SDFBlockParser,
+    XYZBlockParser,
 ]
 
 
@@ -141,7 +142,7 @@ class BaseFileParser:
     def append(
         self,
         frame: BlockType,
-    ) -> None:
+    ):
         """
         Append a frame to the list of frames.
 
@@ -396,6 +397,88 @@ class BaseFileParser:
         file_path = os.path.splitext(file_path)[0] + "_geometry_analysis.csv"
         df.to_csv(file_path)
         return file_path
+
+    def replace_substituent(
+        self,
+        query_smi: str,
+        replacement_smi: str,
+        bind_idx: int = None,
+        replace_all=False,
+        attempt_num: int = 10,
+        frameID=-1,
+    ) -> BaseBlockParser:
+        """
+        Replace the substituent with the given SMARTS. The substituent is defined by the query_smi, and the new substituent is defined by the replacement_smi.
+
+        Parameters:
+            query_smi str:
+                The SMARTS to query the substituent in the original molecule.
+            replacement_smi str:
+                The SMARTS of new substituent. The bind atom is the first atom of the replacement_smi.
+            bind_idx int:
+                The index of the atom to bind the new substituent. The default is None, which means to replace the first legal atom in original molecule.
+                If specified, try to replace the atom. User should meke sure the atom is legal.
+                Detail example in (Repalce Substituent)[Repalce Substituent]
+            replace_all bool:
+                If True, replace all the substituent queried in the original molecule.
+            attempt_num int:
+                Max attempt times to replace the substituent. Each time a new substituent conformation will be used for substitution.
+            frameID int:
+                The frame ID to replace.
+        Returns:
+            The new parser.
+        """
+        return self.__frames[frameID].replace_substituent(
+            query_smi, replacement_smi, bind_idx, replace_all, attempt_num
+        )
+
+    def reset_atom_index(
+        self,
+        mapping_smarts: str,
+        frameID: int = -1,
+    ) -> BaseBlockParser:
+        """
+        Reset the atom index of the molecule according to the mapping SMARTS.
+
+        Parameters:
+            mapping_smarts str:
+                The SMARTS to query the molecule substructure.
+                The queried atoms will be renumbered and placed at the beginning of all atoms according to the order of the atoms in SMARTS. The relative order of the remaining atoms remains unchanged.
+            frameID int:
+                The frame ID to reset.
+        Returns:
+            The new parser.
+        """
+        return self.__frames[frameID].reset_atom_index(mapping_smarts)
+
+    def standard_orient(
+        self,
+        anchor_list: List[int],
+        frameID: int = -1,
+    ) -> BaseBlockParser:
+        """
+        Depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_X`, and `rotate_anchor_to_XY` are executed in order to obtain the normalized oriented molecule.
+
+        Sub-functions:
+            - `translate_anchor`: Translate the entire molecule so that the specified atom reaches the origin.
+            - `rotate_anchor_to_X`: Rotate the specified second atom along the axis passing through the origin so that it reaches the positive half-axis of the X-axis.
+            - `rotate_anchor_to_XY`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
+
+        Parameters:
+            anchor_list List[int]:
+                A list of indices of the atoms to be translated to origin, rotated to X axis, and rotated again to XY face:
+
+                - If length is 1, execute `translate_anchor`
+                - If length is 2, execute `translate_anchor` and `rotate_anchor_to_X`
+                - If length is 3, execute `translate_anchor`, `rotate_anchor_to_X` and `rotate_anchor_to_XY`
+                - If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
+            frameID int:
+                The frame ID to standardize orientation.
+
+        Returns:
+            The new parser.
+        """
+        return self.__frames[frameID].standard_orient(anchor_list)
 
 
 class BaseQMFileParser(BaseFileParser):

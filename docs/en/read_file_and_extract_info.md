@@ -65,7 +65,7 @@ IPythonConsole.molSize = 400, 400
 files = AutoParser("../../tests/test_files/g16log/*.log")
 ```
 
-    MolOP parsing with 28 jobs: 100%|██████████| 39/39 [00:03<00:00, 10.59it/s]
+    MolOP parsing with 16 jobs: 100%|██████████| 39/39 [00:03<00:00, 11.81it/s]
     0 files failed to parse, 39 successfully parsed
 
 
@@ -148,6 +148,37 @@ TS_files[2][-1].rdmol
 
     
 ![png](read_file_and_extract_info_files/read_file_and_extract_info_9_0.png)
+    
+
+
+
+We can get a structure copy with orientation standardized
+
+This method depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_X`, and `rotate_anchor_to_XY` are executed in order to obtain the normalized oriented molecule.
+
+Sub-functions:
+
+- `translate_anchor`: Translate the entire molecule so that the specified atom reaches the origin.
+- `rotate_anchor_to_X`: Rotate the specified second atom along the axis passing through the origin so that it reaches the positive half-axis of the X-axis.
+- `rotate_anchor_to_XY`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
+
+Input parameters:
+                
+- If the length of the input `idx_list` is 1, execute `translate_anchor`
+- If the length of the input `idx_list` is 2, execute `translate_anchor` and `rotate_anchor_to_X`
+- If the length of the input `idx_list` is 3, execute `translate_anchor`, `rotate_anchor_to_X` and `rotate_anchor_to_XY`
+- If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
+
+
+```python
+TS_files[2][-1].standard_orient([4, 5, 6]).rdmol
+```
+
+
+
+
+    
+![png](read_file_and_extract_info_files/read_file_and_extract_info_11_0.png)
     
 
 
@@ -296,7 +327,7 @@ Draw.MolsToGridImage(TS_files[2][-1].possible_pre_post_ts())
 
 
     
-![png](read_file_and_extract_info_files/read_file_and_extract_info_22_0.png)
+![png](read_file_and_extract_info_files/read_file_and_extract_info_24_0.png)
     
 
 
@@ -310,7 +341,7 @@ TS_files[2][-1].possible_pre_post_ts()[1]
 
 
     
-![png](read_file_and_extract_info_files/read_file_and_extract_info_23_0.png)
+![png](read_file_and_extract_info_files/read_file_and_extract_info_25_0.png)
     
 
 

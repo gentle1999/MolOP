@@ -23,7 +23,7 @@ from molop import AutoParser
 files = AutoParser("../../tests/test_files/mix_format/*.log")  # path/to/file
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 3/3 [00:02<00:00,  1.38it/s]
+    MolOP parsing with single thread: 100%|██████████| 3/3 [00:02<00:00,  1.43it/s]
     0 files failed to parse, 3 successfully parsed
 
 
