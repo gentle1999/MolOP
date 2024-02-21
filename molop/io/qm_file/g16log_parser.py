@@ -11,9 +11,9 @@ import time
 from molop.io.bases.file_base import BaseQMFileParser
 from molop.io.qm_file.G16LOGBlockParser import (
     G16LOGBlockParser,
-    parameter_comment_parser,
 )
 from molop.logger.logger import logger
+from molop.utils import parameter_comment_parser
 
 
 class G16LOGParser(BaseQMFileParser):
