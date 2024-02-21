@@ -1,12 +1,14 @@
 """
 Author: TMJ
-Date: 2024-01-11 09:58:35
+Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-01-24 22:11:39
+LastEditTime: 2024-02-21 21:19:52
 Description: 请填写简介
 """
 import re
+from typing import Literal
 
+from molop.utils import parameter_comment_parser
 from molop.io.bases.molblock_base import BaseBlockParser
 from molop.unit import atom_ureg
 
@@ -26,7 +28,38 @@ class GJFBlockParser(BaseBlockParser):
         self._charge = charge
         self._multiplicity = multiplicity
         self._parameter_comment = parameter_comment
+        (
+            self._link0,
+            self._route_params,
+            self._dieze_tag,
+            self._functional,
+            self._basis_set,
+        ) = parameter_comment_parser(self._parameter_comment)
         self._parse()
+
+    @property
+    def link0(self) -> dict:
+        return self._link0
+
+    @property
+    def route_params(self) -> dict:
+        return self._route_params
+
+    @property
+    def dieze_tag(self) -> Literal["#N", "#P", "#T"]:
+        return self._dieze_tag
+
+    @property
+    def functional(self) -> str:
+        return self._functional
+
+    @property
+    def basis_set(self) -> str:
+        return self._basis_set
+
+    @property
+    def _lower_route_params(self) -> dict:
+        return {k.lower(): v for k, v in self._route_params.items()}
 
     def _parse(self):
         """
@@ -34,7 +67,10 @@ class GJFBlockParser(BaseBlockParser):
         """
         lines = self._block.split("\n")
         for line in lines[1:]:
-            if re.match(r"^\s*[A-Z][a-z]?(\s+\-?\d+(\.\d+)?){3}$", line):
+            if re.search(
+                r"[a-zA-z0-9]+\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)",
+                line,
+            ):
                 atom, x, y, z = line.split()
                 self._atoms.append(atom)
                 self._coords.append(

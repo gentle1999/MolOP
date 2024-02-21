@@ -127,6 +127,16 @@ class BaseFileParser:
         """
         return os.path.basename(self._file_path)
 
+    def _check_path(self, file_path: str = None, format: str = ".xyz"):
+        if file_path is None:
+            return os.path.splitext(self._file_path)[0] + format
+        if os.path.isdir(file_path):
+            return os.path.join(
+                file_path,
+                os.path.splitext(self.file_name)[0] + format,
+            )
+        return file_path
+
     @property
     def frames(
         self,
@@ -184,6 +194,8 @@ class BaseFileParser:
         prefix: str = f"# g16 gjf \n",
         suffix="",
         template: str = None,
+        chk: bool = True,
+        oldchk: bool = False,
         frameID=-1,
     ) -> str:
         """
@@ -200,6 +212,10 @@ class BaseFileParser:
                 prefix to add to the beginning of the gjf file, priority is lower than template.
             suffix str:
                 suffix to add to the end of the gjf file, priority is lower than template.
+            chk bool:
+                If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
+            oldchk bool:
+                If true, add the oldchk keyword to the link0 section. Will use the file name as the chk file name.
 
         Returns:
             A modified GJF block.
@@ -210,6 +226,8 @@ class BaseFileParser:
             prefix=prefix,
             suffix=suffix,
             template=template,
+            chk=chk,
+            oldchk=oldchk,
         )
 
     def to_XYZ_file(self, file_path: str = None):
@@ -222,15 +240,11 @@ class BaseFileParser:
         Returns:
             The absolute path of the XYZ file.
         """
-        if file_path is None:
-            file_path = self._file_path
-        if os.path.isdir(file_path):
-            raise IsADirectoryError(f"{file_path} is a directory.")
-        file_path = os.path.splitext(file_path)[0] + ".xyz"
-        with open(file_path, "w") as f:
+        _file_path = self._check_path(file_path, ".xyz")
+        with open(_file_path, "w") as f:
             f.write(self.to_XYZ_block())
         f.close()
-        return os.path.abspath(file_path)
+        return os.path.abspath(_file_path)
 
     def to_SDF_file(self, file_path: str = None):
         """
@@ -242,15 +256,11 @@ class BaseFileParser:
         Returns:
             The absolute path of the SDF file.
         """
-        if file_path is None:
-            file_path = self._file_path
-        if os.path.isdir(file_path):
-            raise IsADirectoryError(f"{file_path} is a directory.")
-        file_path = os.path.splitext(file_path)[0] + ".sdf"
-        with open(file_path, "w") as f:
+        _file_path = self._check_path(file_path, ".sdf")
+        with open(_file_path, "w") as f:
             f.write(self.to_SDF_block())
         f.close()
-        return os.path.abspath(file_path)
+        return os.path.abspath(_file_path)
 
     def to_GJF_file(
         self,
@@ -260,6 +270,8 @@ class BaseFileParser:
         template: str = None,
         prefix: str = f"# g16 gjf \n",
         suffix="\n\n",
+        chk: bool = True,
+        oldchk: bool = False,
         frameID=-1,
     ):
         """
@@ -280,15 +292,15 @@ class BaseFileParser:
                 suffix to add to the end of the gjf file, priority is lower than template.
             frameID int:
                 The frame ID to write.
+            chk bool:
+                If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
+            oldchk bool:
+                If true, add the oldchk keyword to the link0 section. Will use the file name as the chk file name.
         Returns:
             The path to the GJF file.
         """
-        if file_path is None:
-            file_path = self._file_path
-        if os.path.isdir(file_path):
-            raise IsADirectoryError(f"{file_path} is a directory.")
-        file_path = os.path.splitext(file_path)[0] + ".gjf"
-        with open(file_path, "w") as f:
+        _file_path = self._check_path(file_path, ".gjf")
+        with open(_file_path, "w") as f:
             f.write(
                 self.to_GJF_block(
                     charge=charge,
@@ -296,11 +308,13 @@ class BaseFileParser:
                     prefix=prefix,
                     suffix=suffix,
                     template=template,
+                    chk=chk,
+                    oldchk=oldchk,
                     frameID=frameID,
                 )
             )
         f.close()
-        return os.path.abspath(file_path)
+        return os.path.abspath(_file_path)
 
     def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=True):
         """

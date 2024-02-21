@@ -260,11 +260,15 @@ class FileParserBatch(MutableMapping):
         prefix: str = "# g16 gjf \n",
         suffix="\n\n",
         template: str = None,
+        chk: bool = True,
+        oldchk: bool = False,
         frameID=-1,
     ) -> None:
         """file_path should be a directory, prefix and suffix are optional"""
         if file_path is None:
             file_path = os.path.curdir
+        if not os.path.isdir(file_path):
+            raise NotADirectoryError(f"{file_path} is not a directory")
         for parser in self:
             parser.to_GJF_file(
                 os.path.join(file_path, parser.file_name),
@@ -273,6 +277,8 @@ class FileParserBatch(MutableMapping):
                 prefix=prefix,
                 suffix=suffix,
                 template=template,
+                chk=chk,
+                oldchk=oldchk,
                 frameID=frameID,
             )
         logger.info(f"gjf files saved to {os.path.abspath(file_path)}")
@@ -280,6 +286,8 @@ class FileParserBatch(MutableMapping):
     def to_XYZ_file(self, file_path: str = None) -> None:
         if file_path is None:
             file_path = os.path.curdir
+        if not os.path.isdir(file_path):
+            raise NotADirectoryError(f"{file_path} is not a directory")
         for parser in self:
             parser.to_XYZ_file(os.path.join(file_path, parser.file_name))
         logger.info(f"xyz files saved to {os.path.abspath(file_path)}")
@@ -287,6 +295,8 @@ class FileParserBatch(MutableMapping):
     def to_SDF_file(self, file_path: str = None) -> None:
         if file_path is None:
             file_path = os.path.curdir
+        if not os.path.isdir(file_path):
+            raise NotADirectoryError(f"{file_path} is not a directory")
         for parser in self:
             parser.to_SDF_file(os.path.join(file_path, parser.file_name))
         logger.info(f"sdf files saved to {os.path.abspath(file_path)}")
@@ -294,6 +304,8 @@ class FileParserBatch(MutableMapping):
     def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=True) -> None:
         if file_path is None:
             file_path = os.path.curdir
+        if not os.path.isdir(file_path):
+            raise NotADirectoryError(f"{file_path} is not a directory")
         for parser in self:
             parser.to_chemdraw(
                 os.path.join(file_path, parser.file_name),

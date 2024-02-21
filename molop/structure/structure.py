@@ -5,6 +5,7 @@ Including functions related to the structure of molecules
 import itertools
 from copy import deepcopy
 from typing import List, Tuple
+import numpy as np
 
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, rdFMCS
@@ -122,7 +123,11 @@ def get_under_bonded_number(atom: Chem.Atom) -> int:
 
 
 def replace_mol(
-    mol: Chem.rdchem.Mol, query_smi: str, replacement_smi: str, bind_idx: int = None
+    mol: Chem.rdchem.Mol,
+    query_smi: str,
+    replacement_smi: str,
+    bind_idx: int = None,
+    randomSeed=114514,
 ) -> Chem.rdchem.Mol:
     query = Chem.MolFromSmarts(query_smi)
     replacement = Chem.MolFromSmiles(replacement_smi)
@@ -174,8 +179,12 @@ def replace_mol(
         skeleton = Chem.CombineMols(skeleton, frag)
 
     replacement = Chem.AddHs(replacement)
-    AllChem.EmbedMolecule(replacement)
-    rr = fix_geometry(replacement, bind_type=mol.GetAtomWithIdx(start).GetAtomicNum())
+    replacement.GetAtomWithIdx(0).SetNumRadicalElectrons(0)
+    rr = fix_geometry(
+        replacement,
+        bind_type=mol.GetAtomWithIdx(start).GetAtomicNum(),
+        randomSeed=randomSeed,
+    )
     new_mol = Chem.CombineMols(rr, skeleton)
     lines_idx = [
         (idx, x)
@@ -185,8 +194,13 @@ def replace_mol(
     lines_idx.sort(key=lambda x: x[1])
     rmol = Chem.RWMol(new_mol)
     rmol.AddBond(lines_idx[0][0], 0, Chem.rdchem.BondType.SINGLE)
-    rmol.GetAtomWithIdx(0).SetNumRadicalElectrons(
-        rmol.GetAtomWithIdx(0).GetNumRadicalElectrons() - 1
+    skeleton.GetAtomWithIdx(
+        lines_idx[0][0] - len([atom for atom in rr.GetAtoms()])
+    ).SetNumRadicalElectrons(
+        skeleton.GetAtomWithIdx(
+            lines_idx[0][0] - len([atom for atom in rr.GetAtoms()])
+        ).GetNumRadicalElectrons()
+        - 1
     )
     rmol.GetAtomWithIdx(lines_idx[0][0]).SetNumRadicalElectrons(
         rmol.GetAtomWithIdx(lines_idx[0][0]).GetNumRadicalElectrons() - 1
@@ -204,12 +218,14 @@ def replace_mol(
     geometry.standard_orient(rmol, [0, 1, 2])
     if len([atom for atom in rmol.GetAtoms()]) > 50:
         return rmol
-    public_part = Chem.MolFromSmarts(rdFMCS.FindMCS((origin_mol, rmol)).smartsString)
-    for indice in mol.GetSubstructMatches(public_part):
+    """public_part = Chem.MolFromSmarts(
+        rdFMCS.FindMCS((origin_mol, rmol), matchValences=True).smartsString
+    )"""
+    for indice in mol.GetSubstructMatches(skeleton):
         if unique_queried_idx[0] not in indice:
             origin_indice = list(indice) + [unique_queried_idx[0]]
             break
-    for indice in rmol.GetSubstructMatches(public_part):
+    for indice in rmol.GetSubstructMatches(skeleton):
         if 0 not in indice:
             transed_indice = list(indice) + [0]
             break
@@ -237,33 +253,46 @@ def attempt_replacement(
     bind_idx: int = None,
     replace_all=False,
     attempt_num=10,
+    randomSeed=114514,
 ):
+    random_seeds = list(range(1, attempt_num + 1))
+    np.random.RandomState(randomSeed).shuffle(random_seeds)
+
     query = Chem.MolFromSmarts(query_smi)
-    for i in range(attempt_num):
+    for random_seed in random_seeds:
         if replace_all:
             match_num = len(mol.GetSubstructMatches(query))
-            new_mol = replace_mol(mol, query_smi, replacement_smi, bind_idx=None)
+            new_mol = replace_mol(
+                mol, query_smi, replacement_smi, bind_idx=None, randomSeed=random_seed
+            )
             if len(mol.GetSubstructMatches(query)) > match_num:
                 raise RuntimeError(
                     f"Endless loop: {replacement_smi} contains {query_smi}"
                 )
             while new_mol.GetSubstructMatches(query):
                 new_mol = replace_mol(
-                    new_mol, query_smi, replacement_smi, bind_idx=None
+                    new_mol,
+                    query_smi,
+                    replacement_smi,
+                    bind_idx=None,
+                    randomSeed=random_seed,
                 )
         else:
-            new_mol = replace_mol(mol, query_smi, replacement_smi, bind_idx)
+            new_mol = replace_mol(
+                mol, query_smi, replacement_smi, bind_idx, random_seed
+            )
         if check_crowding(new_mol):
             return new_mol
     raise RuntimeError(f"replacement {replacement_smi} is too big")
 
 
-def fix_geometry(replacement, bind_type: int):
+def fix_geometry(replacement, bind_type: int, randomSeed=114514):
     r = Chem.RWMol(replacement)
     idx = r.AddAtom(Chem.Atom("At"))
     r.AddBond(0, idx, Chem.BondType.SINGLE)
     r.UpdatePropertyCache()
-    AllChem.EmbedMolecule(r)
+    Chem.SanitizeMol(r)
+    AllChem.EmbedMolecule(r, randomSeed=randomSeed)
     geometry.standard_orient(r, [idx, 0])
     rdMolTransforms.SetBondLength(
         r.GetConformer(),
@@ -300,4 +329,5 @@ def reset_atom_index(mol: Chem.rdchem.Mol, mapping: List[int]) -> Chem.rdchem.Mo
             bond_list[bond_pair[2]],
         )
     rwmol.AddConformer(mol_copy.GetConformer(0))
+    Chem.SanitizeMol(rwmol)
     return rwmol

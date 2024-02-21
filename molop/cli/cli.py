@@ -98,6 +98,8 @@ class MolOPCLI:
         prefix: str = "# g16 gjf \n",
         suffix: str = "\n\n",
         template: str = None,
+        chk: bool = True,
+        oldchk: bool = False,
         frameID: int = -1,
     ):
         """
@@ -110,6 +112,8 @@ class MolOPCLI:
             prefix=prefix,
             suffix=suffix,
             template=template,
+            chk=chk,
+            oldchk=oldchk,
             frameID=frameID,
         )
         return self
