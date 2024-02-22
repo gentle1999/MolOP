@@ -1,8 +1,8 @@
 """
 Author: TMJ
-Date: 2024-01-11 09:58:27
+Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-01-28 14:02:10
+LastEditTime: 2024-02-22 12:10:42
 Description: 请填写简介
 """
 from openbabel import pybel
@@ -40,4 +40,4 @@ class SDFBlockParser(BaseBlockParser):
         self._formal_charges = get_formal_charges(self._rdmol)
         self._formal_spins = get_formal_spins(self._rdmol)
         self._charge = sum(self._formal_charges)
-        self._multiplicity = sum(self._formal_spins) * 2 + 1
+        self._multiplicity = sum(self._formal_spins) * (sum(self._formal_spins) + 1)

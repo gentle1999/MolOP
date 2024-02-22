@@ -196,14 +196,9 @@ def replace_mol(
     rmol.AddBond(lines_idx[0][0], 0, Chem.rdchem.BondType.SINGLE)
     skeleton.GetAtomWithIdx(
         lines_idx[0][0] - len([atom for atom in rr.GetAtoms()])
-    ).SetNumRadicalElectrons(
-        skeleton.GetAtomWithIdx(
-            lines_idx[0][0] - len([atom for atom in rr.GetAtoms()])
-        ).GetNumRadicalElectrons()
-        - 1
-    )
+    ).SetNumRadicalElectrons(mol.GetAtomWithIdx(start).GetNumRadicalElectrons())
     rmol.GetAtomWithIdx(lines_idx[0][0]).SetNumRadicalElectrons(
-        rmol.GetAtomWithIdx(lines_idx[0][0]).GetNumRadicalElectrons() - 1
+        mol.GetAtomWithIdx(start).GetNumRadicalElectrons()
     )
     replacement.GetAtomWithIdx(0).SetNumRadicalElectrons(0)
     idx_list = [
@@ -215,12 +210,9 @@ def replace_mol(
             end = 0
             break
     Chem.SanitizeMol(rmol)
-    geometry.standard_orient(rmol, [0, 1, 2])
-    if len([atom for atom in rmol.GetAtoms()]) > 50:
+    geometry.standard_orient(rmol, [0, 1, 2])    
+    if len([atom for atom in skeleton.GetAtoms()]) > 50:
         return rmol
-    """public_part = Chem.MolFromSmarts(
-        rdFMCS.FindMCS((origin_mol, rmol), matchValences=True).smartsString
-    )"""
     for indice in mol.GetSubstructMatches(skeleton):
         if unique_queried_idx[0] not in indice:
             origin_indice = list(indice) + [unique_queried_idx[0]]

@@ -519,13 +519,26 @@ class BaseBlockParser(MolBlock):
     def file_path(self):
         return self._file_path
 
+    @property
+    def pure_filename(self) -> str:
+        return os.path.splitext(self.file_name)[0]
+
+    @property
+    def file_format(self) -> str:
+        """
+        Get the file format of the object.
+        Returns:
+            str: The file format of the object.
+        """
+        return self._file_format
+
     def _check_path(self, file_path: str = None, format: str = ".xyz"):
         if file_path is None:
             return os.path.splitext(self._file_path)[0] + format
         if os.path.isdir(file_path):
             return os.path.join(
                 file_path,
-                os.path.splitext(self.file_name)[0] + format,
+                self.pure_filename + format,
             )
         return file_path
 
@@ -563,6 +576,7 @@ class BaseBlockParser(MolBlock):
 
     def to_GJF_block(
         self,
+        file_path: str = None,
         charge: int = None,
         multiplicity: int = None,
         template: str = None,
@@ -592,6 +606,7 @@ class BaseBlockParser(MolBlock):
         Returns:
             A modified GJF block.
         """
+        _file_path = self._check_path(file_path, ".gjf")
         if template is not None:
             if not os.path.isfile(template):
                 raise FileNotFoundError(f"{template} is not found.")
@@ -619,15 +634,17 @@ class BaseBlockParser(MolBlock):
         ) = parameter_comment_parser("\n".join([link, route]))
 
         if chk:
-            _link0[r"%chk"] = f"{os.path.splitext(self.file_name)[0]}.chk"
+            _link0[r"%chk"] = f"{os.path.splitext(os.path.basename(_file_path))[0]}.chk"
         if oldchk:
-            _link0[r"%oldchk"] = f"{os.path.splitext(self.file_name)[0]}.chk"
+            _link0[
+                r"%oldchk"
+            ] = f"{os.path.splitext(os.path.basename(_file_path))[0]}.chk"
         return (
             "\n".join([f"{key}={val}" for key, val in _link0.items()])
             + "\n"
             + route
             + "\n\n"
-            + f" Title: {os.path.splitext(self.file_name)[0]}\n\n"
+            + f" Title: {self.pure_filename}\n\n"
             + f"{charge if charge else self.charge} {multiplicity if multiplicity else self.multiplicity}\n"
             + "\n".join(
                 [
@@ -678,6 +695,7 @@ class BaseBlockParser(MolBlock):
         with open(_file_path, "w") as f:
             f.write(
                 self.to_GJF_block(
+                    file_path=file_path,
                     charge=charge,
                     multiplicity=multiplicity,
                     template=template,
