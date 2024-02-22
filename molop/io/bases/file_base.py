@@ -127,13 +127,26 @@ class BaseFileParser:
         """
         return os.path.basename(self._file_path)
 
+    @property
+    def pure_filename(self) -> str:
+        return os.path.splitext(self.file_name)[0]
+
+    @property
+    def file_format(self) -> str:
+        """
+        Get the file format of the object.
+        Returns:
+            str: The file format of the object.
+        """
+        return self._file_format
+
     def _check_path(self, file_path: str = None, format: str = ".xyz"):
         if file_path is None:
             return os.path.splitext(self._file_path)[0] + format
         if os.path.isdir(file_path):
             return os.path.join(
                 file_path,
-                os.path.splitext(self.file_name)[0] + format,
+                self.pure_filename + format,
             )
         return file_path
 
@@ -189,6 +202,7 @@ class BaseFileParser:
 
     def to_GJF_block(
         self,
+        file_path: str = None,
         charge: int = None,
         multiplicity: int = None,
         prefix: str = f"# g16 gjf \n",
@@ -221,6 +235,7 @@ class BaseFileParser:
             A modified GJF block.
         """
         return self.__frames[frameID].to_GJF_block(
+            file_path=file_path,
             charge=charge,
             multiplicity=multiplicity,
             prefix=prefix,
@@ -303,6 +318,7 @@ class BaseFileParser:
         with open(_file_path, "w") as f:
             f.write(
                 self.to_GJF_block(
+                    file_path=file_path,
                     charge=charge,
                     multiplicity=multiplicity,
                     prefix=prefix,
