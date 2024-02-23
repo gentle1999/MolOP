@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-02-22 12:10:42
+LastEditTime: 2024-02-22 19:58:08
 Description: 请填写简介
 """
 from openbabel import pybel
@@ -15,6 +15,7 @@ from molop.structure.structure import (
     get_formal_spins,
 )
 from molop.unit import atom_ureg
+from molop.utils import is_metal
 
 
 class SDFBlockParser(BaseBlockParser):
@@ -40,4 +41,7 @@ class SDFBlockParser(BaseBlockParser):
         self._formal_charges = get_formal_charges(self._rdmol)
         self._formal_spins = get_formal_spins(self._rdmol)
         self._charge = sum(self._formal_charges)
-        self._multiplicity = sum(self._formal_spins) * (sum(self._formal_spins) + 1)
+        if any(is_metal(atom) for atom in self._atoms):
+            self._multiplicity = 3
+        else:
+            self._multiplicity = sum(self._formal_spins) + 1
