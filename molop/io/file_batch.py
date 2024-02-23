@@ -62,11 +62,12 @@ def singlefile_parser(
     multiplicity=None,
     only_extract_structure=False,
     only_last_frame=False,
-) -> Union[PARSERTYPES, None]:
+) -> PARSERTYPES:
     if os.path.isfile(file_path):
         _, file_format = os.path.splitext(file_path)
         if file_format not in parsers:
-            raise NotImplementedError("Unknown file format: {}".format(file_format))
+            logger.error("Unknown file format: {}, {}".format(file_format, file_path))
+            return None
         for idx, parser in enumerate(parsers[file_format]):
             try:
                 if parser in (G16LOGParser, XTBOUTParser, G16IRCParser, G16FCHKParser):
@@ -96,12 +97,13 @@ def singlefile_parser(
                     logger.error(
                         f"Failed to parse file {file_path} with {parser.__name__}"
                     )
-                    raise Exception(f"Failed to parse file {file_path}")
+                    return None
                 logger.debug(
                     f"Failed to parse file {file_path} with {parser.__name__}, try {parsers[file_format][idx+1].__name__} instead"
                 )
     elif os.path.isdir(file_path):
-        raise IsADirectoryError(f"{file_path} is not a file.")
+        logger.error(f"{file_path} is not a file.")
+        return None
 
 
 class FileParserBatch(MutableMapping):
@@ -193,7 +195,7 @@ class FileParserBatch(MutableMapping):
                             total=len(arguments_list),
                             desc=f"MolOP parsing with {self.__n_jobs} jobs",
                         )
-                        if len(parser) > 0
+                        if parser is not None and len(parser) > 0
                     }
                 )
             else:
@@ -208,7 +210,7 @@ class FileParserBatch(MutableMapping):
                             delayed(singlefile_parser)(**arguments)
                             for arguments in arguments_list
                         )
-                        if len(parser) > 0
+                        if parser is not None and len(parser) > 0
                     }
                 )
         else:
@@ -224,7 +226,7 @@ class FileParserBatch(MutableMapping):
                             total=len(arguments_list),
                             desc=f"MolOP parsing with single thread",
                         )
-                        if len(parser) > 0
+                        if parser is not None and len(parser) > 0
                     }
                 )
             else:
@@ -235,7 +237,7 @@ class FileParserBatch(MutableMapping):
                             singlefile_parser(**arguments)
                             for arguments in arguments_list
                         )
-                        if len(parser) > 0
+                        if parser is not None and len(parser) > 0
                     }
                 )
 
