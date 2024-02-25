@@ -12,14 +12,15 @@ A complex example of using molop to read files and extract information. This scr
 
 
 ```python
-! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - gjf "../../tests/test_files/temp" --template="../../tests/test_files/g16gjf/test.gjf" - summary "../../tests/test_files/temp" - chemdraw "../../tests/test_files/temp" - smiles - end
+! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - gjf "../../tests/test_files/temp" --chk --template="../../tests/test_files/g16gjf/test.gjf" - summary "../../tests/test_files/temp" - chemdraw "../../tests/test_files/temp" - smiles - end
 ```
 
-    MolOP parsing with 16 jobs: 100%|███████████████| 39/39 [00:01<00:00, 31.87it/s]
-    0 files failed to parse, 39 successfully parsed
+    MolOP parsing with 16 jobs: 100%|███████████████| 41/41 [00:01<00:00, 32.14it/s]
+    0 files failed to parse, 41 successfully parsed
     gjf files saved to /home/tmj/proj/MolOP/tests/test_files/temp
     summary csv saved to /home/tmj/proj/MolOP/tests/test_files/temp/summary.csv
     chemdraw files saved to /home/tmj/proj/MolOP/tests/test_files/temp
+    CC[C@H](C)[C@H](NC(C)=O)C(=O)NCC(=O)N[C@@H](CC([O])=O)C(=O)N[C@@H](CC(N)=O)C(=O)N[C@H](C(=O)N[C@@H](CC(N)=O)C(=O)N[C@@H](CC([O])=O)C(=O)N[C@@H](Cc1c[nH]cn1)C(=O)N[C@@H](CCCCNC(C)=O)C(=O)NC)[C@@H](C)CC.O.[O]C=O.[O]C=O.[Rh][Rh]
     C=C[C@H]1[C@@H]2[C@H](C[C@@]1(C)O)OC[C@@H]2C
     CCC[C@H]1CO[C@H]2C[C@@](C)(O)C[C@@H]12
     CC(C)(C)[C@@H]1COC(=[C-]C2[N-][C@H](C(C)(C)C)CO2)[N-]1.C[CH-]C(=O)[N-]c1ccccc1.[Cu@TB7+5].[O-]c1ccccc1
@@ -28,6 +29,7 @@ A complex example of using molop to read files and extract information. This scr
     CNC(=O)C#[N+]/C(C(C)=O)=C(/C)[O-].COC(=O)C#CC(F)(F)F
     C=[N+](C)[N-]C.COC(=O)[C@@]1(OC)C#CC(Br)(Br)CCCC1
     CNC(=O)C#[N+]/C(C(C)=O)=C(\C)[O-].COC(=O)C#CC(F)(F)F
+    C/[NH+]=C(\C(=O)OC)c1ccccc1
     [CH3-]
     [C-]#CCC#C
     CC/C(C)=N/[O-]
@@ -115,8 +117,9 @@ Note that the `read` command is a mandatory command, and you can then chain func
 ! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - smiles - end
 ```
 
-    MolOP parsing with 16 jobs: 100%|███████████████| 39/39 [00:01<00:00, 32.46it/s]
-    0 files failed to parse, 39 successfully parsed
+    MolOP parsing with 16 jobs: 100%|███████████████| 41/41 [00:01<00:00, 31.26it/s]
+    0 files failed to parse, 41 successfully parsed
+    CC[C@H](C)[C@H](NC(C)=O)C(=O)NCC(=O)N[C@@H](CC([O])=O)C(=O)N[C@@H](CC(N)=O)C(=O)N[C@H](C(=O)N[C@@H](CC(N)=O)C(=O)N[C@@H](CC([O])=O)C(=O)N[C@@H](Cc1c[nH]cn1)C(=O)N[C@@H](CCCCNC(C)=O)C(=O)NC)[C@@H](C)CC.O.[O]C=O.[O]C=O.[Rh][Rh]
     C=C[C@H]1[C@@H]2[C@H](C[C@@]1(C)O)OC[C@@H]2C
     CCC[C@H]1CO[C@H]2C[C@@](C)(O)C[C@@H]12
     CC(C)(C)[C@@H]1COC(=[C-]C2[N-][C@H](C(C)(C)C)CO2)[N-]1.C[CH-]C(=O)[N-]c1ccccc1.[Cu@TB7+5].[O-]c1ccccc1
@@ -125,6 +128,7 @@ Note that the `read` command is a mandatory command, and you can then chain func
     CNC(=O)C#[N+]/C(C(C)=O)=C(/C)[O-].COC(=O)C#CC(F)(F)F
     C=[N+](C)[N-]C.COC(=O)[C@@]1(OC)C#CC(Br)(Br)CCCC1
     CNC(=O)C#[N+]/C(C(C)=O)=C(\C)[O-].COC(=O)C#CC(F)(F)F
+    C/[NH+]=C(\C(=O)OC)c1ccccc1
     [CH3-]
     [C-]#CCC#C
     CC/C(C)=N/[O-]
@@ -199,6 +203,52 @@ All commands are controlled with additional parameters, you can use the `molop c
     
     [1mNOTES[0m
         You can also use flags syntax for POSITIONAL ARGUMENTS
+
+
+
+```python
+! molop gjf --help
+```
+
+    INFO: Showing help with the command 'molop gjf -- --help'.
+    
+    [1mNAME[0m
+        molop gjf - Save the GJF file of any frame of each file.
+    
+    [1mSYNOPSIS[0m
+        molop gjf <flags>
+    
+    [1mDESCRIPTION[0m
+        Save the GJF file of any frame of each file.
+    
+    [1mFLAGS[0m
+        --file_dir=[4mFILE_DIR[0m
+            Type: Optional[str]
+            Default: None
+        --charge=[4mCHARGE[0m
+            Type: Optional[int]
+            Default: None
+        -m, --multiplicity=[4mMULTIPLICITY[0m
+            Type: Optional[int]
+            Default: None
+        -p, --prefix=[4mPREFIX[0m
+            Type: str
+            Default: '# g16 gjf \n'
+        -s, --suffix=[4mSUFFIX[0m
+            Type: str
+            Default: '\n\n'
+        -t, --template=[4mTEMPLATE[0m
+            Type: Optional[str]
+            Default: None
+        --chk=[4mCHK[0m
+            Type: bool
+            Default: True
+        -o, --oldchk=[4mOLDCHK[0m
+            Type: bool
+            Default: False
+        --frameID=[4mFRAMEID[0m
+            Type: int
+            Default: -1
 
 
 More useful features will be added in the future.

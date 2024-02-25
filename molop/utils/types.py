@@ -1,9 +1,9 @@
 """
 Author: TMJ
-Date: 2023-03-25 18:13:32
+Date: 2023-10-30 14:05:04
 LastEditors: TMJ
-LastEditTime: 2023-06-05 14:13:34
-Description: types
+LastEditTime: 2024-02-25 14:52:38
+Description: 请填写简介
 """
 from rdkit import Chem
 
