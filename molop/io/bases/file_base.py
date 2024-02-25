@@ -18,7 +18,7 @@ from molop.io.qm_file.G16IRCBlockParser import G16IRCBlockParser
 from molop.io.qm_file.G16LOGBlockParser import G16LOGBlockParser
 from molop.io.qm_file.XTBOUTBlockParser import XTBOUTBlockParser
 
-BlockType = Union[
+BLOCKTYPES = Union[
     BaseBlockParser,
     G16LOGBlockParser,
     G16IRCBlockParser,
@@ -27,6 +27,12 @@ BlockType = Union[
     GJFBlockParser,
     SDFBlockParser,
     XYZBlockParser,
+]
+QMBLOCKTYPES = Union[
+    G16LOGBlockParser,
+    G16IRCBlockParser,
+    G16FCHKBlockParser,
+    XTBOUTBlockParser,
 ]
 
 
@@ -46,7 +52,7 @@ class BaseFileParser:
     """
 
     _file_path: str
-    __frames: List[BlockType]
+    __frames: List[BLOCKTYPES]
     __index: int
     _allowed_formats: Tuple[str]
 
@@ -85,14 +91,14 @@ class BaseFileParser:
 
     def __next__(
         self,
-    ) -> BlockType:
+    ) -> BLOCKTYPES:
         if self.__index >= len(self):
             raise StopIteration
         else:
             self.__index += 1
             return self.__frames[self.__index - 1]
 
-    def __getitem__(self, frameID: int) -> BlockType:
+    def __getitem__(self, frameID: int) -> BLOCKTYPES:
         return self.__frames[frameID]
 
     def __len__(self) -> int:
@@ -153,7 +159,7 @@ class BaseFileParser:
     @property
     def frames(
         self,
-    ) -> List[BlockType]:
+    ) -> List[BLOCKTYPES]:
         """
         Get the list of parsed frames.
 
@@ -164,7 +170,7 @@ class BaseFileParser:
 
     def append(
         self,
-        frame: BlockType,
+        frame: BLOCKTYPES,
     ):
         """
         Append a frame to the list of frames.

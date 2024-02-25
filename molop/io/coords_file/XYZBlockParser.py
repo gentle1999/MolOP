@@ -1,8 +1,8 @@
 """
 Author: TMJ
-Date: 2024-01-11 09:58:01
+Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-01-27 15:08:01
+LastEditTime: 2024-02-23 20:53:25
 Description: 请填写简介
 """
 import re
@@ -42,7 +42,7 @@ class XYZBlockParser(BaseBlockParser):
             self._charge = int(cm[0][0])
             self._multiplicity = int(cm[0][1])
         for line in lines[2 : 2 + num_atoms]:
-            if re.match(r"^\s*[A-Z][a-z]?(\s+\-?\d+(\.\d+)?){3}$", line):
+            if re.search(r"[A-Za-z]+\s+[\d\.\-]+\s+[\d\.\-]+\s+[\d\.\-]+", line):
                 atom, x, y, z = line.split()
                 self._atoms.append(atom)
                 self._coords.append(

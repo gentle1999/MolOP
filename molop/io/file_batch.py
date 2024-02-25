@@ -15,7 +15,8 @@ from joblib import Parallel, cpu_count, delayed
 from tqdm import tqdm
 
 from molop.config import molopconfig
-from molop.io.bases.file_base import BaseFileParser, BlockType, BaseBlockParser
+from molop.io.types import PARSERTYPES
+from molop.io.bases.file_base import BaseFileParser, BaseBlockParser
 from molop.io.coords_file.gjf_parser import GJFParser
 from molop.io.coords_file.sdf_parser import SDFBlockParser, SDFParser
 from molop.io.coords_file.xyz_parser import XYZParser
@@ -24,16 +25,6 @@ from molop.io.qm_file.g16irc_parser import G16IRCParser
 from molop.io.qm_file.g16log_parser import G16LOGParser
 from molop.io.qm_file.xtbout_parser import XTBOUTParser
 from molop.logger.logger import logger
-
-PARSERTYPES = Union[
-    GJFParser,
-    SDFParser,
-    XYZParser,
-    G16FCHKParser,
-    G16IRCParser,
-    G16LOGParser,
-    XTBOUTParser,
-]
 
 parsers = {
     ".gjf": (GJFParser,),
