@@ -48,12 +48,39 @@ qm_parsers = (G16LOGParser, G16IRCParser, G16FCHKParser, XTBOUTParser)
 
 
 def singlefile_parser(
-    file_path,
+    file_path: str,
     charge=None,
     multiplicity=None,
     only_extract_structure=False,
     only_last_frame=False,
 ) -> PARSERTYPES:
+    """
+    A function to parse a single file based on its format.
+
+    Args:
+        file_path (str): The path of the file.
+        charge (int, optional): The molecular charge. Defaults to None.
+        multiplicity (int, optional): The molecular spin multiplicity. Defaults to None.
+        only_extract_structure (bool, optional): Whether to extract structure only. Defaults to False.
+        only_last_frame (bool, optional): Whether to extract the last frame only. Defaults to False.
+
+    Returns:
+        PARSERTYPES: An instance of the appropriate parser class.
+
+    Core Logic:
+        - Checks if the provided `file_path` is an actual file.
+        - Determines the file format by getting the file extension.
+        - If the format is not supported, logs an error and returns None.
+        - Iterates through the available parsers for that format.
+        - Tries to instantiate and return the parser object with the given parameters.
+        - If an exception occurs during parsing, it logs the error and tries the next parser in the list.
+        - If all parsers fail, logs the final error and returns None.
+        - If the `file_path` points to a directory, logs an error and returns None.
+
+    Raises:
+        None
+
+    """
     if os.path.isfile(file_path):
         _, file_format = os.path.splitext(file_path)
         if file_format not in parsers:
@@ -61,6 +88,7 @@ def singlefile_parser(
             return None
         for idx, parser in enumerate(parsers[file_format]):
             try:
+                # Instantiate and return specific parser classes with their respective arguments
                 if parser in (G16LOGParser, XTBOUTParser, G16IRCParser, G16FCHKParser):
                     p = parser(
                         file_path,
@@ -90,7 +118,7 @@ def singlefile_parser(
                     )
                     return None
                 logger.debug(
-                    f"Failed to parse file {file_path} with {parser.__name__}, try {parsers[file_format][idx+1].__name__} instead"
+                    f"Failed to parse file {file_path} with {parser.__name__}, trying {parsers[file_format][idx+1].__name__} instead"
                 )
     elif os.path.isdir(file_path):
         logger.error(f"{file_path} is not a file.")
@@ -245,12 +273,17 @@ class FileParserBatch(MutableMapping):
                     f"File {parser.file_path} already exists in the batch, skipped"
                 )
 
+    @property
+    def file_paths(self) -> List[str]:
+        """return a list of file paths"""
+        return [parser.file_path for parser in self]
+
     def to_GJF_file(
         self,
         file_path: str = None,
         charge: int = None,
         multiplicity: int = None,
-        prefix: str = "# g16 gjf \n",
+        prefix: str = "#p opt b3lyp def2svp freq EmpiricalDispersion=GD3BJ NoSymm\n",
         suffix="\n\n",
         template: str = None,
         chk: bool = True,
@@ -488,6 +521,38 @@ class FileParserBatch(MutableMapping):
         ]
         new_batch = FileParserBatch()
         new_batch.add_file_parsers(TS_parsers)
+        return new_batch
+
+    def filter_error(self) -> "FileParserBatch":
+        """
+        Return a new `FileParserBatch` with all the QM parsers that are flagged as errors.
+
+        Returns:
+            The new `FileParserBatch`.
+        """
+        error_parsers = [
+            parser
+            for parser in self
+            if parser.__class__ in qm_parsers and parser[-1].is_error()
+        ]
+        new_batch = FileParserBatch()
+        new_batch.add_file_parsers(error_parsers)
+        return new_batch
+
+    def filter_normal(self) -> "FileParserBatch":
+        """
+        Return a new `FileParserBatch` with all the QM parsers that are flagged as normal.
+
+        Returns:
+            The new `FileParserBatch`.
+        """
+        error_parsers = [
+            parser
+            for parser in self
+            if parser.__class__ in qm_parsers and not parser[-1].is_error()
+        ]
+        new_batch = FileParserBatch()
+        new_batch.add_file_parsers(error_parsers)
         return new_batch
 
     def filter_by_charge(self, charge: int) -> "FileParserBatch":

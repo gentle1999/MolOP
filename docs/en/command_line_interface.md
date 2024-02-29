@@ -15,8 +15,8 @@ A complex example of using molop to read files and extract information. This scr
 ! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - gjf "../../tests/test_files/temp" --chk --template="../../tests/test_files/g16gjf/test.gjf" - summary "../../tests/test_files/temp" - chemdraw "../../tests/test_files/temp" - smiles - end
 ```
 
-    MolOP parsing with 16 jobs: 100%|███████████████| 41/41 [00:01<00:00, 32.14it/s]
-    0 files failed to parse, 41 successfully parsed
+    MolOP parsing with 16 jobs: 100%|███████████████| 42/42 [00:01<00:00, 32.15it/s]
+    0 files failed to parse, 42 successfully parsed
     gjf files saved to /home/tmj/proj/MolOP/tests/test_files/temp
     summary csv saved to /home/tmj/proj/MolOP/tests/test_files/temp/summary.csv
     chemdraw files saved to /home/tmj/proj/MolOP/tests/test_files/temp
@@ -30,6 +30,7 @@ A complex example of using molop to read files and extract information. This scr
     C=[N+](C)[N-]C.COC(=O)[C@@]1(OC)C#CC(Br)(Br)CCCC1
     CNC(=O)C#[N+]/C(C(C)=O)=C(\C)[O-].COC(=O)C#CC(F)(F)F
     C/[NH+]=C(\C(=O)OC)c1ccccc1
+    C[NH+]=C(c1ccccc1)[N+](=O)[O-]
     [CH3-]
     [C-]#CCC#C
     CC/C(C)=N/[O-]
@@ -74,7 +75,7 @@ You can use MolOP CLI to do seprate tasks of course. There are the available com
         molop - CLI for MolOP.
     
     [1mSYNOPSIS[0m
-        molop [4mCOMMAND[0m
+        molop [4mCOMMAND[0m | [4mVALUE[0m
     
     [1mDESCRIPTION[0m
         CLI for MolOP.
@@ -85,14 +86,29 @@ You can use MolOP CLI to do seprate tasks of course. There are the available com
          auto
            Auto process the current directory.
     
+         charge
+           Filter the file batch by charge.
+    
          chemdraw
            Save the cdxml file of specified frames of each file.
     
          end
            End the command chain, stop printing help comments.
     
+         error
+           Filter the file batch by error judgement.
+    
          gjf
            Save the GJF file of any frame of each file.
+    
+         multi
+           Filter the file batch by multiplicity.
+    
+         normal
+           Filter the file batch by normal judgement.
+    
+         paths
+           Print the file paths of each file.
     
          read
            Read the files given and set the file batch object.
@@ -108,58 +124,108 @@ You can use MolOP CLI to do seprate tasks of course. There are the available com
     
          xyz
            Save the XYZ file of all frames of each file.
+    
+    [1mVALUES[0m
+        [1m[4mVALUE[0m[0m is one of the following:
+    
+         temp_batch
 
 
 Note that the `read` command is a mandatory command, and you can then chain function calls after it to continue with other commands. Any two commands need to be separated by the `-` symbol and terminated with the `end` command. For example:
 
 
 ```python
-! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - smiles - end
+! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - paths - end
 ```
 
-    MolOP parsing with 16 jobs: 100%|███████████████| 41/41 [00:01<00:00, 31.26it/s]
-    0 files failed to parse, 41 successfully parsed
-    CC[C@H](C)[C@H](NC(C)=O)C(=O)NCC(=O)N[C@@H](CC([O])=O)C(=O)N[C@@H](CC(N)=O)C(=O)N[C@H](C(=O)N[C@@H](CC(N)=O)C(=O)N[C@@H](CC([O])=O)C(=O)N[C@@H](Cc1c[nH]cn1)C(=O)N[C@@H](CCCCNC(C)=O)C(=O)NC)[C@@H](C)CC.O.[O]C=O.[O]C=O.[Rh][Rh]
-    C=C[C@H]1[C@@H]2[C@H](C[C@@]1(C)O)OC[C@@H]2C
-    CCC[C@H]1CO[C@H]2C[C@@](C)(O)C[C@@H]12
-    CC(C)(C)[C@@H]1COC(=[C-]C2[N-][C@H](C(C)(C)C)CO2)[N-]1.C[CH-]C(=O)[N-]c1ccccc1.[Cu@TB7+5].[O-]c1ccccc1
-    [Br-].[Br-].[Ni@OH26+3]c1ccccc1.[S-]Cc1ccccc1.c1c[nH]cn1.c1c[nH]cn1
-    CNC(=O)C#[N+]/C(C(C)=O)=C(/C)[O-].COC(=O)C#CC(F)(F)F
-    CNC(=O)C#[N+]/C(C(C)=O)=C(/C)[O-].COC(=O)C#CC(F)(F)F
-    C=[N+](C)[N-]C.COC(=O)[C@@]1(OC)C#CC(Br)(Br)CCCC1
-    CNC(=O)C#[N+]/C(C(C)=O)=C(\C)[O-].COC(=O)C#CC(F)(F)F
-    C/[NH+]=C(\C(=O)OC)c1ccccc1
-    [CH3-]
-    [C-]#CCC#C
-    CC/C(C)=N/[O-]
-    [C+]#CC#CC#C
-    [C+]1=C[C@H]2O[C@H]2C1
-    C1[C@@H]2[C]3CN2[C@@H]13
-    [H]/N=c1/[cH-]onn1
-    O=C1C=C=NC=[NH+]1
-    Oc1nc[c]cn1
-    Oc1n[c-]ncn1
-    N/C=N/C=C(/[O-])O
-    COC1=NCC[N-]1
-    O=CN[CH][C@H]1CO1
-    N#N.O=C=CC=O
-    C[NH2+]C/C(C[O-])=N/[O-]
-    Cc1[nH]c([O-])nc1O
-    Nc1[nH]c([O-])nc1O
-    O=CC1=C[N]C(O)=N1
-    C#Cc1nc(O)[c]o1
-    NC1(N)OCC(=O)O1
-    N#C[C-](C#N)/[NH+]=C/N
-    N[CH-]NC1=NC(=[OH+])N=N1
-    [O-]c1onc2c1CNC2
-    [O-]c1onc2c1C[NH2+]C2
-    CN1[C+]=CC([N+](=O)[O-])=C1
-    [NH2+]=c1[nH]ccc(F)c1[O-]
-    [C-]#C[C@@H]1N2C#[N+]C[C@]12C
-    C[C@H]1C2C[C-]=C3C=[N+]1[C@@H]32
-    C[C@@H]1[C@H](C)C2=C(CC2)[C@@H]1C
-    C/C([O-])=N/[N+]#N
-    CN/C([O-])=N/[O+]=N\c1ccccc1
+    MolOP parsing with 16 jobs: 100%|███████████████| 42/42 [00:01<00:00, 32.21it/s]
+    0 files failed to parse, 42 successfully parsed
+    /home/tmj/proj/MolOP/tests/test_files/g16log/111.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/11_Opt.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/3_Sp.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/RE_BOX-Anion-Real_Cu-III-Phenol_Major-Amide-Anion_From-IP_C-O-190_TS_Opt.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/S_Ph_Ni_TS.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/TS_4cGKps_ll_ad_4-18_6-13_optts_g16.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/TS_4cGKps_ll_ad_4-18_6-13_sp_g16.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/TS_Zy0fwX_ll_ad_14-19_15-16_optts_g16.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/TS_ts_guess_FaFxyx_template_4-18_6-13_optts_conf_g16.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/cation_0371_opt_g16.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/cation_0407_opt_g16.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_000001-3-.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_000107-3-.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_000180-9-.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_000484-1+.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_000672-3+.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_000696-4.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_000763-2-.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_000923-3+.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_000955-3.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_000958-3-.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_001232-4-.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_002924-8-.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_003051-3.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_003895.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_004015-3-.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_004478-6-.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_004517-4-.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_004669-4.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_004738-2.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_006075rearrange.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_009986.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_130366.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_131200-4-.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_131200.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_131941-4+.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_132072.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_133826.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_133858.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/molecule_0.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/r1_C2H3N3O_sp_g16.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/r1_C8H9N3O2_sp_g16.log
+
+
+You can use MolOP to filter out the error tasks and re-calculate them.
+
+For g16 log files, the error means the log file is end with "Error termination of Gaussian 16" or "SCF Done" not found.
+
+
+```python
+! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - error - paths - gjf "../../tests/test_files/temp" --chk --template="../../tests/test_files/g16gjf/test.gjf" - end
+```
+
+    MolOP parsing with 16 jobs: 100%|███████████████| 42/42 [00:01<00:00, 31.58it/s]
+    0 files failed to parse, 42 successfully parsed
+    /home/tmj/proj/MolOP/tests/test_files/g16log/cation_0407_opt_g16.log
+    gjf files saved to /home/tmj/proj/MolOP/tests/test_files/temp
+
+
+Also support other filters: `normal`, `charge`, `multi`
+
+
+```python
+! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - charge 1 - paths - end
+```
+
+    MolOP parsing with 16 jobs: 100%|███████████████| 42/42 [00:01<00:00, 31.71it/s]
+    0 files failed to parse, 42 successfully parsed
+    /home/tmj/proj/MolOP/tests/test_files/g16log/cation_0371_opt_g16.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/cation_0407_opt_g16.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_000484-1+.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_000672-3+.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_000923-3+.log
+    /home/tmj/proj/MolOP/tests/test_files/g16log/dsgdb9nsd_131941-4+.log
+
+
+Filter effects stack, which means any filter will be applied to the files filtered by the previous filter.
+
+
+```python
+! molop read "../../tests/test_files/g16log/*.log" --only_last_frame - charge 0 - multi 3 - paths - end
+```
+
+    MolOP parsing with 16 jobs: 100%|███████████████| 42/42 [00:01<00:00, 32.48it/s]
+    0 files failed to parse, 42 successfully parsed
+    /home/tmj/proj/MolOP/tests/test_files/g16log/111.log
 
 
 All commands are controlled with additional parameters, you can use the `molop command --help` command to see the help.
@@ -233,7 +299,7 @@ All commands are controlled with additional parameters, you can use the `molop c
             Default: None
         -p, --prefix=[4mPREFIX[0m
             Type: str
-            Default: '# g16 gjf \n'
+            Default: '#p opt b3lyp def2svp freq EmpiricalDispersion=GD3BJ NoSymm\n'
         -s, --suffix=[4mSUFFIX[0m
             Type: str
             Default: '\n\n'

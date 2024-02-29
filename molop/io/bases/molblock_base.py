@@ -146,7 +146,7 @@ class BaseBlockParser(MolBlock):
         charge: int = None,
         multiplicity: int = None,
         template: str = None,
-        prefix: str = "# g16 gjf",
+        prefix: str = "#p opt b3lyp def2svp freq EmpiricalDispersion=GD3BJ NoSymm\n",
         suffix="",
         chk: bool = True,
         oldchk: bool = False,
@@ -229,7 +229,7 @@ class BaseBlockParser(MolBlock):
         charge: int = None,
         multiplicity: int = None,
         template: str = None,
-        prefix: str = "# g16 gjf \n",
+        prefix: str = "#p opt b3lyp def2svp freq EmpiricalDispersion=GD3BJ NoSymm\n",
         suffix="",
         chk: bool = True,
         oldchk: bool = False,
@@ -1247,3 +1247,13 @@ class QMBaseBlockParser(BaseBlockParser):
         block_parsers[0].rdmol.RemoveAllConformers()
         block_parsers[-1].rdmol.RemoveAllConformers()
         return block_parsers[0].rdmol, block_parsers[-1].rdmol
+
+    def is_error(self) -> bool:
+        """
+        Check if the current frame is an error frame
+        """
+        if "termination" in self.state and self.state["termination"] == "Error":
+            return True
+        if "SCF Done" in self.state and self.state["SCF Done"] == False:
+            return True
+        return False

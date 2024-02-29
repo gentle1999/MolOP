@@ -45,7 +45,7 @@ class MolBlock(ABC):
     """
 
     _atoms: Union[List[str], List[int]]
-    _coords: List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]]
+    _coords: PlainQuantity
     _charge: int
     _multiplicity: int
     _bonds: List[Tuple[int, int, int]]
@@ -56,7 +56,8 @@ class MolBlock(ABC):
 
     def __init__(self):
         self._atoms: Union[List[str], List[int]] = []
-        self._coords: List[Tuple[float]] = []
+        self._coords: PlainQuantity = []
+        self._dimensionless_coords: np.ndarray = None
         self._charge: int = 0
         self._multiplicity: int = 1
         self._bonds: List[Tuple[int, int, int]] = None
@@ -96,17 +97,17 @@ class MolBlock(ABC):
         return list(set(self.atoms))
 
     @property
-    def coords(self) -> List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]]:
+    def coords(self) -> PlainQuantity:
         """
         Get the coordinates.
 
         Returns:
-            A list of coordinates. Each coordinate is a tuple of three plain quantities. Default unit is angstrom.
+            A matrix of coordinates with unit. Default unit is angstrom.
         """
         return self._coords
 
     @property
-    def dimensionless_coords(self) -> List[Tuple[float, float, float]]:
+    def dimensionless_coords(self) -> np.ndarray:
         """
         Get the dimensionless coordinates.
 
@@ -116,9 +117,9 @@ class MolBlock(ABC):
         Returns:
             A list of dimensionless coordinates
         """
-        return [
-            tuple([coord.to("angstrom").m for coord in atom]) for atom in self.coords
-        ]
+        if self._dimensionless_coords is None:
+            self._dimensionless_coords = self.coords.to("angstrom").m
+        return self._dimensionless_coords
 
     @property
     def charge(self) -> int:
@@ -234,12 +235,14 @@ class MolBlock(ABC):
                         f"{self._file_path}: rdkit determinebonds failed. Use MolOP structure recovery instead."
                     )
                     # If failed, use MolOP implementation
-                    omol = self.omol.write("sdf")
+                    omol = self.omol
                     if omol is None:
                         logger.error(
                             f"{self._file_path}: MolOP structure recovery failed."
                         )
-                    self._rdmol = Chem.MolFromMolBlock(omol, removeHs=False)
+                        return None
+                    omol_sdf = omol.write("sdf")
+                    self._rdmol = Chem.MolFromMolBlock(omol_sdf, removeHs=False)
                     self._bonds = get_bond_pairs(self._rdmol)
                     self._formal_charges = get_formal_charges(self._rdmol)
                     self._formal_spins = get_formal_spins(self._rdmol)
@@ -323,7 +326,8 @@ class MolBlock(ABC):
         Returns:
             The SMILES.
         """
-
+        if self.rdmol is None:
+            return ""
         smiles = Chem.MolToSmiles(self.rdmol)
         return smiles
 
