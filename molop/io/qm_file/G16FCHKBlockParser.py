@@ -11,6 +11,8 @@ import os
 import re
 from typing import Literal
 
+import numpy as np
+
 from molop.io.bases.molblock_base import QMBaseBlockParser
 from molop.logger.logger import logger
 from molop.unit import atom_ureg
@@ -62,14 +64,10 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                     len(coords) == self.__n_atom * 3
                 ), "Number of coordinates is not consistent."
                 break
+        temp_coords = []
         for i in range(0, len(coords), 3):
-            self._coords.append(
-                (
-                    (coords[i] * atom_ureg.bohr).to("angstrom"),
-                    (coords[i + 1] * atom_ureg.bohr).to("angstrom"),
-                    (coords[i + 2] * atom_ureg.bohr).to("angstrom"),
-                )
-            )
+            temp_coords.append((coords[i], coords[i + 1], coords[i + 2]))
+        self._coords = (np.array(temp_coords) * atom_ureg.bohr).to("angstrom")
 
     def _parse(self):
         self._parse_energy()
@@ -257,21 +255,20 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                         "IR intensities": freqs[idx + num_freqs * 3]
                         * atom_ureg.kmol
                         / atom_ureg.mol,
-                        "normal coordinates": [
-                            (
-                                x * atom_ureg.angstrom,
-                                y * atom_ureg.angstrom,
-                                z * atom_ureg.angstrom,
-                            )
-                            for x, y, z in [
-                                freq_modes[i : i + 3]
-                                for i in range(
-                                    idx * 3 * self.__n_atom,
-                                    (idx + 1) * 3 * self.__n_atom,
-                                    3,
-                                )
+                        "normal coordinates": np.array(
+                            [
+                                (x, y, z)
+                                for x, y, z in [
+                                    freq_modes[i : i + 3]
+                                    for i in range(
+                                        idx * 3 * self.__n_atom,
+                                        (idx + 1) * 3 * self.__n_atom,
+                                        3,
+                                    )
+                                ]
                             ]
-                        ],
+                        )
+                        * atom_ureg.angstrom,
                     }
                 )
         except:

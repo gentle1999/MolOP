@@ -8,9 +8,11 @@ Description: 请填写简介
 import re
 from typing import Literal
 
-from molop.utils import parameter_comment_parser
+import numpy as np
+
 from molop.io.bases.molblock_base import BaseBlockParser
 from molop.unit import atom_ureg
+from molop.utils import parameter_comment_parser
 
 
 class GJFBlockParser(BaseBlockParser):
@@ -66,6 +68,7 @@ class GJFBlockParser(BaseBlockParser):
         Parse the block.
         """
         lines = self._block.split("\n")
+        temp_coords = []
         for line in lines[1:]:
             if re.search(
                 r"[a-zA-z0-9]+\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)",
@@ -73,13 +76,8 @@ class GJFBlockParser(BaseBlockParser):
             ):
                 atom, x, y, z = line.split()
                 self._atoms.append(atom)
-                self._coords.append(
-                    (
-                        float(x) * atom_ureg.angstrom,
-                        float(y) * atom_ureg.angstrom,
-                        float(z) * atom_ureg.angstrom,
-                    )
-                )
+                temp_coords.append((float(x), float(y), float(z)))
+        self._coords = np.array(temp_coords) * atom_ureg.angstrom
 
     @property
     def parameter_comment(self) -> str:

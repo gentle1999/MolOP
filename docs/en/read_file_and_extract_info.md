@@ -67,7 +67,7 @@ IPythonConsole.molSize = 400, 400
 files = AutoParser("../../tests/test_files/g16log/*.log")
 ```
 
-    MolOP parsing with 16 jobs: 100%|██████████| 41/41 [00:03<00:00, 12.52it/s]
+    MolOP parsing with 16 jobs: 100%|██████████| 41/41 [00:02<00:00, 15.72it/s]
     0 files failed to parse, 41 successfully parsed
 
 

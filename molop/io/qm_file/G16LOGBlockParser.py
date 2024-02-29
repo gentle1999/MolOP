@@ -10,6 +10,7 @@ from molop.unit import atom_ureg
 from molop.utils import parameter_comment_parser
 from molop.utils import patterns
 
+
 class G16LOGBlockParser(QMBaseBlockParser):
     """
     Parser for G16 log Blocks.
@@ -80,15 +81,11 @@ class G16LOGBlockParser(QMBaseBlockParser):
         coords = patterns["coords"].findall(
             block,
         )[: self.__n_atom]
+        temp_coords = []
         for atom_num, x, y, z in coords:
             self._atoms.append(int(atom_num))
-            self._coords.append(
-                (
-                    float(x) * atom_ureg.angstrom,
-                    float(y) * atom_ureg.angstrom,
-                    float(z) * atom_ureg.angstrom,
-                )
-            )
+            temp_coords.append((float(x), float(y), float(z)))
+        self._coords = np.array(temp_coords) * atom_ureg.angstrom
 
     def _parse(self):
         self._parse_state()

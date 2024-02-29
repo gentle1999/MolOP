@@ -23,8 +23,10 @@ from molop import AutoParser
 files = AutoParser("../../tests/test_files/mix_format/*.log")  # path/to/file
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 3/3 [00:02<00:00,  1.40it/s]
-    0 files failed to parse, 3 successfully parsed
+    MolOP parsing with single thread:   0%|          | 0/3 [00:00<?, ?it/s]No version found in /home/tmj/proj/MolOP/tests/test_files/mix_format/RE_BOX-Anion-Real_Cu-III-Phenol_Major-Amide-Anion_From-IP_C-O-190_TS_Opt.log
+    Failed to parse file /home/tmj/proj/MolOP/tests/test_files/mix_format/RE_BOX-Anion-Real_Cu-III-Phenol_Major-Amide-Anion_From-IP_C-O-190_TS_Opt.log with G16LOGParser
+    MolOP parsing with single thread: 100%|██████████| 3/3 [00:00<00:00,  4.63it/s]
+    1 files failed to parse, 2 successfully parsed
 
 
 The file reading process can be automatically parallelized if you pass files more than your CPU cores. 
@@ -82,7 +84,7 @@ files[0][0].energy
 
 
 
--1828.255625 hartree/particle
+-6028.906538 hartree/particle
 
 
 

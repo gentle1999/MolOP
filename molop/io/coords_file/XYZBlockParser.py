@@ -2,10 +2,11 @@
 Author: TMJ
 Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-02-23 20:53:25
+LastEditTime: 2024-02-29 12:21:13
 Description: 请填写简介
 """
 import re
+import numpy as np
 
 from molop.io.bases.molblock_base import BaseBlockParser
 from molop.unit import atom_ureg
@@ -41,14 +42,10 @@ class XYZBlockParser(BaseBlockParser):
         if len(cm) == 1:
             self._charge = int(cm[0][0])
             self._multiplicity = int(cm[0][1])
+        temp_coords = []
         for line in lines[2 : 2 + num_atoms]:
             if re.search(r"[A-Za-z]+\s+[\d\.\-]+\s+[\d\.\-]+\s+[\d\.\-]+", line):
                 atom, x, y, z = line.split()
                 self._atoms.append(atom)
-                self._coords.append(
-                    (
-                        float(x) * atom_ureg.angstrom,
-                        float(y) * atom_ureg.angstrom,
-                        float(z) * atom_ureg.angstrom,
-                    )
-                )
+                temp_coords.append((float(x), float(y), float(z)))
+        self._coords = np.array(temp_coords) * atom_ureg.angstrom

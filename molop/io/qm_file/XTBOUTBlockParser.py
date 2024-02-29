@@ -1,6 +1,7 @@
 import re
 from typing import Literal
 
+import numpy as np
 from packaging.version import Version
 
 from molop.io.bases.molblock_base import QMBaseBlockParser
@@ -134,17 +135,16 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         lines = self._block.splitlines()
         for i, line in enumerate(lines):
             if "final structure" in line:
+                temp_coords = []
                 for j in range(i + 3, i + self.__n_atom + 3):
                     line = lines[j]
                     x, y, z, atom = line.split()
                     self._atoms.append(atom)
-                    self._coords.append(
-                        (
-                            (round(float(x), 6) * atom_ureg.bohr).to("angstrom"),
-                            (round(float(y), 6) * atom_ureg.bohr).to("angstrom"),
-                            (round(float(z), 6) * atom_ureg.bohr).to("angstrom"),
-                        )
+                    temp_coords.append(
+                        (round(float(x), 6), round(float(y), 6), round(float(z), 6))
                     )
+                self._coords = (np.array(temp_coords) * atom_ureg.bohr).to("angstrom")
+                break
 
     def _parse_coords_new(self):
         """
@@ -164,14 +164,13 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         lines = self._block.splitlines()
         for i, line in enumerate(lines):
             if "final structure" in line:
+                temp_coords = []
                 for j in range(i + 4, i + self.__n_atom + 4):
                     line = lines[j]
                     atom, x, y, z = line.split()
                     self._atoms.append(atom)
-                    self._coords.append(
-                        (
-                            round(float(x), 6) * atom_ureg.angstrom,
-                            round(float(y), 6) * atom_ureg.angstrom,
-                            round(float(z), 6) * atom_ureg.angstrom,
-                        )
+                    temp_coords.append(
+                        (round(float(x), 6), round(float(y), 6), round(float(z), 6))
                     )
+                self._coords = np.array(temp_coords) * atom_ureg.angstrom
+                break

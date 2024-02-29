@@ -22,7 +22,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 420.44it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 653.11it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -48,7 +48,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 83.01it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 83.35it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -88,7 +88,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 32.04it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 34.55it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -140,7 +140,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 65.88it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 73.23it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -166,7 +166,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 251.90it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 285.81it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -192,7 +192,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 578.37it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 634.54it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -218,7 +218,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 109.55it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 113.33it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -244,7 +244,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 131.05it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 138.28it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -270,7 +270,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 124.86it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 130.81it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -296,7 +296,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 67.50it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 69.03it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -322,7 +322,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 74.00it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 72.59it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -348,7 +348,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 63.32it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 56.04it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -374,7 +374,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 92.20it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 91.51it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -400,7 +400,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 66.41it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 67.79it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -440,7 +440,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 963.54it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 1503.33it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -466,7 +466,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 598.42it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 1095.40it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -492,7 +492,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 63.24it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 64.48it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -518,7 +518,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 103.22it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 104.88it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -544,7 +544,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 149.68it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 161.34it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -570,7 +570,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 109.22it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 107.92it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -610,7 +610,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 109.66it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 75.57it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -636,7 +636,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 125.92it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 113.22it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -676,7 +676,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 114.60it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 97.61it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -702,7 +702,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 154.27it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 158.35it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -728,7 +728,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 121.66it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 127.49it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -752,7 +752,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 12.47it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  9.63it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -776,7 +776,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 47.22it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 50.25it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -801,7 +801,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 17.82it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 20.39it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -826,7 +826,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 21.62it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 20.97it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -850,7 +850,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  1.85it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  2.33it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -874,7 +874,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  5.21it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  7.19it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -898,7 +898,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 68.09it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 70.30it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -922,7 +922,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 10.26it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  8.18it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -946,7 +946,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 30.04it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 27.73it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -970,7 +970,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  7.14it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  8.22it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -994,7 +994,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 16.06it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 16.99it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1018,7 +1018,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 15.38it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 15.64it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1042,7 +1042,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 13.95it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 14.90it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1066,7 +1066,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 13.75it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 15.18it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1090,7 +1090,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  9.70it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 13.07it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1114,7 +1114,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 865.52it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 2091.92it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1138,7 +1138,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  5.13it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00,  5.81it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1164,7 +1164,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 431.51it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 1633.93it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1190,7 +1190,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 399.91it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 1249.79it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1214,7 +1214,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 16.09it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 16.66it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1238,7 +1238,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 59.84it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 60.34it/s]
     0 files failed to parse, 1 successfully parsed
 
 
@@ -1268,7 +1268,7 @@ test_file = AutoParser(
 test_file[0][-1].rdmol
 ```
 
-    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 199.86it/s]
+    MolOP parsing with single thread: 100%|██████████| 1/1 [00:00<00:00, 202.38it/s]
     0 files failed to parse, 1 successfully parsed
 
 
