@@ -5,12 +5,10 @@ LastEditors: TMJ
 LastEditTime: 2024-02-12 16:49:38
 Description: 请填写简介
 """
-import os
 
 import fire
 
 from molop import AutoParser
-from molop.config import molopconfig
 from molop.io import FileParserBatch
 
 
@@ -137,35 +135,49 @@ class MolOPCLI:
         for _file in self.temp_batch:
             print(_file[-1].to_standard_SMILES())
         return self
-    
+
     def charge(self, charge: int):
         """
         Filter the file batch by charge.
         """
         self._temp_batch = self.temp_batch.filter_by_charge(charge)
         return self
-    
+
     def multi(self, multiplicity: int):
         """
         Filter the file batch by multiplicity.
         """
         self._temp_batch = self.temp_batch.filter_by_multi(multiplicity)
         return self
-    
+
     def normal(self):
         """
         Filter the file batch by normal judgement.
         """
         self._temp_batch = self.temp_batch.filter_normal()
         return self
-    
+
     def error(self):
         """
         Filter the file batch by error judgement.
         """
         self._temp_batch = self.temp_batch.filter_error()
         return self
-    
+
+    def ts(self):
+        """
+        Filter the file batch by TS judgement, which means the structure has a unique imagnary frequency.
+        """
+        self._temp_batch = self.temp_batch.filter_TS()
+        return self
+
+    def format(self, format: str):
+        """
+        Filter the file batch by format. e.g. "sdf" or ".sdf" are equal.
+        """
+        self._temp_batch = self.temp_batch.filter_by_format(format)
+        return self
+
     def paths(self):
         """
         Print the file paths of each file.

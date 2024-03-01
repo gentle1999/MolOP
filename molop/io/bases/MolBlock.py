@@ -243,6 +243,11 @@ class MolBlock(ABC):
                         return None
                     omol_sdf = omol.write("sdf")
                     self._rdmol = Chem.MolFromMolBlock(omol_sdf, removeHs=False)
+                    if self._rdmol is None:
+                        logger.error(
+                            f"{self._file_path}: MolOP structure recovery failed."
+                        )
+                        return None
                     self._bonds = get_bond_pairs(self._rdmol)
                     self._formal_charges = get_formal_charges(self._rdmol)
                     self._formal_spins = get_formal_spins(self._rdmol)

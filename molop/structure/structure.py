@@ -3,16 +3,15 @@ Including functions related to the structure of molecules
 """
 
 import itertools
-from copy import deepcopy
 from typing import List, Tuple
 import numpy as np
 
 from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem, rdFMCS
+from rdkit.Chem import AllChem
 from rdkit.Chem import rdMolTransforms
 
-from . import geometry, structure_recovery
-from ..utils.types import RdConformer, RdMol
+from . import geometry
+from ..utils.types import RdMol
 
 RDLogger.DisableLog("rdApp.*")
 
@@ -210,7 +209,7 @@ def replace_mol(
             end = 0
             break
     Chem.SanitizeMol(rmol)
-    geometry.standard_orient(rmol, [0, 1, 2])    
+    geometry.standard_orient(rmol, [0, 1, 2])
     if len([atom for atom in skeleton.GetAtoms()]) > 50:
         return rmol
     for indice in mol.GetSubstructMatches(skeleton):
@@ -245,6 +244,7 @@ def attempt_replacement(
     bind_idx: int = None,
     replace_all=False,
     attempt_num=10,
+    crowding_threshold=0.9,
     randomSeed=114514,
 ):
     random_seeds = list(range(1, attempt_num + 1))
@@ -273,7 +273,7 @@ def attempt_replacement(
             new_mol = replace_mol(
                 mol, query_smi, replacement_smi, bind_idx, random_seed
             )
-        if check_crowding(new_mol):
+        if check_crowding(new_mol, threshold=crowding_threshold):
             return new_mol
     raise RuntimeError(f"replacement {replacement_smi} is too big")
 
