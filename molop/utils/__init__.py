@@ -29,11 +29,11 @@ def parameter_comment_parser(
     """
     link0 = {
         f"{para.split('=')[0]}": f"{para.split('=')[1]}"
-        for para in patterns["link0"].findall(parameter_comment.split("\n")[0])
+        for para in g16logpatterns["link0"].findall(parameter_comment.split("\n")[0])
     }
     route = parameter_comment.split("\n")[1]
-    scrf_patt = patterns["scrf_patt"]
-    multi_params_patt = patterns["multi_params_patt"]
+    scrf_patt = g16logpatterns["scrf_patt"]
+    multi_params_patt = g16logpatterns["multi_params_patt"]
     functional = basis_set = None
     route_params = {}
     dieze_tag = None
@@ -69,7 +69,8 @@ def parameter_comment_parser(
     return link0, route_params, dieze_tag, functional, basis_set
 
 
-patterns = {
+g16logpatterns = {
+    "n atoms": re.compile(r"NAtoms=\s*(\d+)"),
     "coords start": re.compile(r"Standard orientation:"),
     "coords": re.compile(
         r"\s+\d+\s+(\d+)\s+\d+\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)"
@@ -123,6 +124,46 @@ patterns = {
         r"Sum of electronic and (thermal Free Energies|thermal Enthalpies|thermal Energies|zero-point Energies)=\s+([\-0-9.]+)"
     ),
     "corrections": re.compile(r"(Zero-point|Thermal) correction(.*)=\s+([\d\.-]+)"),
+}
+
+g16fchkpatterns = {
+    "charge": re.compile(r"Charge\s+[ICRU]+\s+([\-0-9]+)"),
+    "multi": re.compile(r"Multiplicity\s+[ICRU]+\s+([\-0-9]+)"),
+    "n_atoms": re.compile(r"Number of atoms\s+[ICRU]+\s+([0-9]+)"),
+    "version": re.compile(
+        r"Gaussian Version\s+[ICRU]\s+[A-Z=]+\s+[\-0-9]+\s+([a-zA-Z0-9\-\.]+)"
+    ),
+    "route": re.compile(
+        r"Route\s+[ICRU]\s+[A-Z=]+\s+[0-9]+\n([a-zA-Z%0-9\*#\/=\+\- ]+)\n"
+    ),
+    "total energy": re.compile(r"Total Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)"),
+    "scf energy": re.compile(r"SCF Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)"),
+    "thermal energy": re.compile(r"Thermal Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)"),
+    "thermal enthalpy": re.compile(r"Thermal Enthalpy\s+[A-Z]+\s+([\-\+0-9\.E]+)"),
+    "thermal free energy": re.compile(
+        r"Thermal Free Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)"
+    ),
+    "orbital": re.compile(r"(Alpha|Beta) Orbital Energies"),
+    "job status": re.compile(r"Job Status\s+[A-Z]+\s+([\-\+0-9\.E]+)"),
+    "spin": re.compile(r"S\*\*2\s+R\s+([\+\-\.0-9E]+)"),
+    "freq num": re.compile(r"Number of Normal Modes\s+[A-Z]+\s+([\-\+0-9\.E]+)"),
+}
+
+xtboutpatterns = {
+    "version": re.compile(
+        r"xtb (version \d+\.\d+\.\d+\s+\([0-9a-z]+\) compiled by ['0-9a-zA-Z@_-]+ on \d{4}-\d{2}-\d{2})"
+    ),
+    "old version": re.compile(
+        r"(Version\s+[0-9\.]+\s+[0-9a-zA-Z]+\s+[\(\)a-zA-Z0-9]+)"
+    ),
+    "charge": re.compile(r"charge\s+:\s+([-+0-9]+)"),
+    "total charge": re.compile(r"total charge\s+([\-\+0-9]+)"),
+    "parameter": re.compile(r"program call\s+:\s+([0-9a-zA-Z\\/_\-\s\.]+)\n"),
+    "n atoms": re.compile(r"number of atoms\s+:\s+(\d+)"),
+    "state": re.compile(r"GEOMETRY OPTIMIZATION CONVERGED"),
+    "homo": re.compile(r"([\+\-0-9.]+)\s+\(HOMO\)"),
+    "lumo": re.compile(r"([\+\-0-9.]+)\s+\(LUMO\)"),
+    
 }
 
 

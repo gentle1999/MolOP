@@ -1,12 +1,15 @@
 """
 Author: TMJ
-Date: 2024-01-24 12:33:24
+Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-02-02 19:14:14
+LastEditTime: 2024-03-01 19:34:02
 Description: 请填写简介
 """
 import os
 import re
+from typing import Literal
+
+from molop.utils import g16fchkpatterns, parameter_comment_parser
 
 from molop.io.bases.file_base import BaseQMFileParser
 from molop.io.qm_file.G16FCHKBlockParser import G16FCHKBlockParser
@@ -25,9 +28,7 @@ class G16FCHKParser(BaseQMFileParser):
         only_last_frame=False,
     ):
         self._check_formats(file_path)
-        super().__init__(
-            file_path, only_extract_structure, only_last_frame
-        )
+        super().__init__(file_path, only_extract_structure, only_last_frame)
         self.__force_charge = charge
         self.__force_multiplicity = multiplicity
         self._parse()
@@ -40,23 +41,27 @@ class G16FCHKParser(BaseQMFileParser):
         charge = (
             self.__force_charge
             if self.__force_charge
-            else int(re.findall(r"Charge\s+[A-Z]+\s+([\-0-9]+)", full_text)[0])
+            else int(re.search(g16fchkpatterns["charge"], full_text).group(1))
         )
         multi = (
             self.__force_multiplicity
             if self.__force_multiplicity
-            else int(re.findall(r"Multiplicity\s+[A-Z]+\s+([\-0-9]+)", full_text)[0])
+            else int(re.search(g16fchkpatterns["multi"], full_text).group(1))
         )
-        n_atoms = int(re.findall(r"Number of atoms\s+[A-Z]+\s+([0-9]+)", full_text)[0])
-        self._version = re.findall(
-            r"Gaussian Version\s+[A-Z\s+\=]+\s+[\-0-9]+\s+([a-zA-Z0-9\-\.]+)", full_text
-        )[0]
-        self._parameter_comment = (
-            "#"
-            + re.findall(
-                r"\#([a-zA-Z%0-9\.\#\=\s\-\+\(\)\,\"\*\/\\^]+)\nCharge", full_text
-            )[0]
+        n_atoms = int(re.search(g16fchkpatterns["n_atoms"], full_text).group(1))
+        self._version = re.search(g16fchkpatterns["version"], full_text).group(1)
+        self._parameter_comment = re.search(g16fchkpatterns["route"], full_text).group(
+            1
         )
+        
+        (
+            _,
+            self._route_params,
+            self._dieze_tag,
+            self._functional,
+            self._basis_set,
+        ) = parameter_comment_parser("\n"+self._parameter_comment)
+
         self.append(
             G16FCHKBlockParser(
                 block=full_text,
@@ -69,3 +74,20 @@ class G16FCHKParser(BaseQMFileParser):
                 only_extract_structure=self._only_extract_structure,
             )
         )
+
+
+    @property
+    def route_params(self) -> dict:
+        return self._route_params
+
+    @property
+    def dieze_tag(self) -> Literal["#N", "#P", "#T"]:
+        return self._dieze_tag
+
+    @property
+    def functional(self) -> str:
+        return self._functional
+
+    @property
+    def basis_set(self) -> str:
+        return self._basis_set

@@ -5,6 +5,7 @@ LastEditors: TMJ
 LastEditTime: 2024-01-25 23:10:59
 Description: 请填写简介
 """
+
 import os
 from collections.abc import MutableMapping
 from collections import OrderedDict
@@ -37,7 +38,7 @@ parsers = {
     ".xyz": (XYZParser,),
     ".sdf": (SDFParser,),
     ".mol": (SDFParser,),
-    ".out": (XTBOUTParser, G16IRCParser),
+    ".out": (G16IRCParser, XTBOUTParser),
     ".irc": (G16IRCParser,),
     ".fchk": (G16FCHKParser,),
     ".fck": (G16FCHKParser,),
@@ -111,10 +112,10 @@ def singlefile_parser(
                     return parser(file_path, only_last_frame=only_last_frame)
                 else:
                     return parser(file_path)
-            except:
+            except Exception as e:
                 if idx == len(parsers[file_format]) - 1:
                     logger.error(
-                        f"Failed to parse file {file_path} with {parser.__name__}"
+                        f"Failed to parse file {file_path} with {parser.__name__}. {e}"
                     )
                     return None
                 logger.debug(
@@ -579,18 +580,6 @@ class FileParserBatch(MutableMapping):
         return f"{self.__class__.__name__}({len(self)})"
 
     def to_summary_df(self):
-        def get_generator_value(g, idx):
-            i = 0
-            temp_g = g
-            try:
-                while i <= idx:
-                    temp_g = next(g)
-                    i += 1
-                else:
-                    return temp_g
-            except StopIteration:
-                return {"is imaginary": None, "freq": None}
-
         return pd.DataFrame(
             {
                 "parser": [parser.__class__.__name__ for parser in self],
@@ -605,115 +594,151 @@ class FileParserBatch(MutableMapping):
                     for parser in self
                 ],
                 "ZPE": [
-                    parser[-1].dimensionless_sum_energy["zero-point correction"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["zero-point correction"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "TCE": [
-                    parser[-1].dimensionless_sum_energy["TCE"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["TCE"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "TCH": [
-                    parser[-1].dimensionless_sum_energy["TCH"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["TCH"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "TCG": [
-                    parser[-1].dimensionless_sum_energy["TCG"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["TCG"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "ZPE-Gas": [
-                    parser[-1].dimensionless_sum_energy["zero-point gas"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["zero-point gas"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "E-Gas": [
-                    parser[-1].dimensionless_sum_energy["E gas"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["E gas"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "H-Gas": [
-                    parser[-1].dimensionless_sum_energy["H gas"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["H gas"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "G-Gas": [
-                    parser[-1].dimensionless_sum_energy["G gas"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["G gas"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "sp": [
-                    parser[-1].dimensionless_energy
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_energy
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "HOMO": [
-                    parser[-1].dimensionless_alpha_energy["homo"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_alpha_energy["homo"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "LUMO": [
-                    parser[-1].dimensionless_alpha_energy["lumo"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_alpha_energy["lumo"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "GAP": [
-                    parser[-1].dimensionless_alpha_energy["gap"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_alpha_energy["gap"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "first freq": [
-                    get_generator_value(parser[-1].dimensionless_frequencies, 0)["freq"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].first_freq(dimensionless=True)["freq"]
+                        if parser.__class__ in qm_parsers
+                        and parser[-1].first_freq(dimensionless=True) is not None
+                        else None
+                    )
                     for parser in self
                 ],
                 "first freq tag": [
-                    get_generator_value(parser[-1].dimensionless_frequencies, 0)[
-                        "is imaginary"
-                    ]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].first_freq(dimensionless=True)["is imaginary"]
+                        if parser.__class__ in qm_parsers
+                        and parser[-1].first_freq(dimensionless=True) is not None
+                        else None
+                    )
                     for parser in self
                 ],
                 "second freq": [
-                    get_generator_value(parser[-1].dimensionless_frequencies, 1)["freq"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].second_freq(dimensionless=True)["freq"]
+                        if parser.__class__ in qm_parsers
+                        and parser[-1].second_freq(dimensionless=True) is not None
+                        else None
+                    )
                     for parser in self
                 ],
                 "second freq tag": [
-                    get_generator_value(parser[-1].dimensionless_frequencies, 1)[
-                        "is imaginary"
-                    ]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].second_freq(dimensionless=True)["is imaginary"]
+                        if parser.__class__ in qm_parsers
+                        and parser[-1].second_freq(dimensionless=True) is not None
+                        else None
+                    )
                     for parser in self
                 ],
                 "S**2": [
-                    parser[-1].spin_eigenvalue
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].spin_eigenvalue
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "S": [
-                    parser[-1].spin_multiplicity
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].spin_multiplicity
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
             }
