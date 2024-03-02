@@ -244,7 +244,7 @@ def attempt_replacement(
     bind_idx: int = None,
     replace_all=False,
     attempt_num=10,
-    crowding_threshold=0.9,
+    crowding_threshold=0.75,
     randomSeed=114514,
 ):
     random_seeds = list(range(1, attempt_num + 1))

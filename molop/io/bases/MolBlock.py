@@ -1,8 +1,9 @@
 import os
 from abc import ABC, abstractmethod
-from typing import Dict, List, Literal, Tuple, Union
+from typing import Dict, List, Literal, Tuple, TypeVar, Union
 
 import numpy as np
+import numpy.typing as npt
 from openbabel import pybel
 from pint.facets.plain import PlainQuantity
 from rdkit import Chem
@@ -16,7 +17,9 @@ from molop.structure.structure import (
     get_formal_charges,
     get_formal_spins,
 )
+from molop.utils.types import arrayNx3, arrayN, RdMol, RWMol
 from molop.structure.structure_recovery import xyz_block_to_omol
+from molop.unit import atom_ureg
 
 
 class MolBlock(ABC):
@@ -26,7 +29,7 @@ class MolBlock(ABC):
     Attributes:
         _atoms Union[List[str], List[int]]:
             **Need to be given**: Save the atoms. Consistent with the atomic order in the original file. Supports both element numbers and element symbols.
-        _coords List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]]:
+        _coords PlainQuantity:
             **Need to be given**: Save the coordinates described by [pint](https://pint.readthedocs.io/en/stable/). Consistent with the atomic order in the original file. Defualt unit is angstrom.
         _charge int:
             **Need to be given**: Save the total charge. Allowed charge range is -3 to 3.
@@ -56,15 +59,14 @@ class MolBlock(ABC):
 
     def __init__(self):
         self._atoms: Union[List[str], List[int]] = []
-        self._coords: PlainQuantity = []
-        self._dimensionless_coords: np.ndarray = None
+        self._coords: PlainQuantity = np.array([[]]) * atom_ureg.angstrom
         self._charge: int = 0
         self._multiplicity: int = 1
         self._bonds: List[Tuple[int, int, int]] = None
         self._formal_charges: List[int] = None
         self._formal_spins: List[int] = None
         self._omol: pybel.Molecule = None
-        self._rdmol: Union[Chem.rdchem.RWMol, Chem.rdchem.Mol] = None
+        self._rdmol: Union[RdMol, RWMol] = None
 
     @property
     def atoms(self) -> List[str]:
@@ -107,7 +109,7 @@ class MolBlock(ABC):
         return self._coords
 
     @property
-    def dimensionless_coords(self) -> np.ndarray:
+    def dimensionless_coords(self) -> arrayNx3[np.float32]:
         """
         Get the dimensionless coordinates.
 
@@ -115,11 +117,11 @@ class MolBlock(ABC):
             - `angstrom`
 
         Returns:
-            A list of dimensionless coordinates
+            A `np.ndarray` of dimensionless coordinates
         """
-        if self._dimensionless_coords is None:
-            self._dimensionless_coords = self.coords.to("angstrom").m
-        return self._dimensionless_coords
+        if self.coords is None:
+            return None
+        return self.coords.to("angstrom").m.astype(np.float32)
 
     @property
     def charge(self) -> int:
@@ -141,6 +143,11 @@ class MolBlock(ABC):
         """
         return self._multiplicity
 
+    def __get_topology(self):
+        self._bonds = get_bond_pairs(self.rdmol)
+        self._formal_charges = get_formal_charges(self.rdmol)
+        self._formal_spins = get_formal_spins(self.rdmol)
+
     @property
     def bonds(self) -> List[Tuple[int, int, int]]:
         """
@@ -150,9 +157,7 @@ class MolBlock(ABC):
             A list of bonds. Each bond is a tuple of three integers. The first two integers are the atom indices of the bond. The third integer is the bond order(follow rdkit bond order `Chem.rdchem.BondType`).
         """
         if self._bonds is None:
-            self._bonds = get_bond_pairs(self.rdmol)
-            self._formal_charges = get_formal_charges(self.rdmol)
-            self._formal_spins = get_formal_spins(self.rdmol)
+            self.__get_topology()
         return self._bonds
 
     @property
@@ -164,9 +169,7 @@ class MolBlock(ABC):
             A list of formal charges. Consistent with the atomic order.
         """
         if self._formal_charges is None:
-            self._bonds = get_bond_pairs(self.rdmol)
-            self._formal_charges = get_formal_charges(self.rdmol)
-            self._formal_spins = get_formal_spins(self.rdmol)
+            self.__get_topology()
         return self._formal_charges
 
     @property
@@ -178,9 +181,7 @@ class MolBlock(ABC):
             A list of formal spins. Consistent with the atomic order.
         """
         if self._formal_spins is None:
-            self._bonds = get_bond_pairs(self.rdmol)
-            self._formal_charges = get_formal_charges(self.rdmol)
-            self._formal_spins = get_formal_spins(self.rdmol)
+            self.__get_topology()
         return self._formal_spins
 
     @property
@@ -227,9 +228,7 @@ class MolBlock(ABC):
                     conn_mol = Chem.Mol(raw_mol)
                     rdDetermineBonds.DetermineBonds(conn_mol, charge=self._charge)
                     self._rdmol = conn_mol
-                    self._bonds = get_bond_pairs(self._rdmol)
-                    self._formal_charges = get_formal_charges(self._rdmol)
-                    self._formal_spins = get_formal_spins(self._rdmol)
+                    self.__get_topology()
                 except:
                     logger.debug(
                         f"{self._file_path}: rdkit determinebonds failed. Use MolOP structure recovery instead."
@@ -248,9 +247,7 @@ class MolBlock(ABC):
                             f"{self._file_path}: MolOP structure recovery failed."
                         )
                         return None
-                    self._bonds = get_bond_pairs(self._rdmol)
-                    self._formal_charges = get_formal_charges(self._rdmol)
-                    self._formal_spins = get_formal_spins(self._rdmol)
+                    self.__get_topology()
             else:
                 assert (
                     self._formal_charges and self._formal_spins
@@ -309,8 +306,8 @@ class MolBlock(ABC):
             + f"charge {self.charge} multiplicity {self.multiplicity}\n"
             + "\n".join(
                 [
-                    f"{atom:10s}{x.m:10.5f}{y.m:10.5f}{z.m:10.5f}"
-                    for atom, x, y, z in zip(self.atoms, *zip(*self.coords))
+                    f"{atom:10s}{x:10.5f}{y:10.5f}{z:10.5f}"
+                    for atom, (x, y, z) in zip(self.atoms, self.dimensionless_coords)
                 ]
             )
         )

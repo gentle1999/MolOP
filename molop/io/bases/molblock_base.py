@@ -5,9 +5,10 @@ LastEditors: TMJ
 LastEditTime: 2024-02-09 20:48:19
 Description: 请填写简介
 """
+
 import os
 import re
-from typing import Any, Dict, Generator, List, Literal, Tuple, Union
+from typing import Any, Dict, List, Literal, Tuple, Union
 
 import numpy as np
 from openbabel import pybel
@@ -28,6 +29,7 @@ from molop.structure.structure import (
 from molop.structure.structure_recovery import xyz_block_to_omol
 from molop.unit import atom_ureg
 from molop.utils import parameter_comment_parser
+from molop.utils.types import arrayNx3, arrayN
 
 
 class BaseBlockParser(MolBlock):
@@ -329,7 +331,7 @@ class BaseBlockParser(MolBlock):
         return {
             "type": self._block_type,
             "file_path": self._file_path,
-            "block": self.block,
+            # "block": self.block,
             "SMILES": self.to_SMILES(),
             "frameID": self._frameID,
             "atoms": self.atoms,
@@ -372,10 +374,7 @@ class BaseBlockParser(MolBlock):
         """
         new_parser = BaseBlockParser(block=Chem.MolToXYZBlock(new_mol))
         new_parser._atoms = [atom.GetSymbol() for atom in new_mol.GetAtoms()]
-        new_parser._coords = [
-            (x * atom_ureg.angstrom, y * atom_ureg.angstrom, z * atom_ureg.angstrom)
-            for x, y, z in new_mol.GetConformer().GetPositions()
-        ]
+        new_parser._coords = new_mol.GetConformer().GetPositions() * atom_ureg.angstrom
         new_parser._file_path = (
             os.path.splitext(self._file_path)[0] + f"_{rebuild_type}.xyz"
         )
@@ -501,9 +500,9 @@ class QMBaseBlockParser(BaseBlockParser):
             The spin multiplicity of the molecule.
         _spin_eigenvalue float:
             The spin eigenvalue of the molecule. spin egigenvalue = sqrt(spin multiplicity * (spin multiplicity + 1)).
-        _gradients List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]]:
+        _gradients PlainQuantity:
             The gradients (forces) of the molecule.
-        _frequencies List[Dict[str, Union[bool, PlainQuantity, List[Tuple[PlainQuantity]]]]]:
+        _frequencies List[Dict[str, Union[bool, PlainQuantity]]]:
             The frequencies of the molecule. The frequency dict has the following keys:
 
                 - is imaginary: bool
@@ -511,10 +510,10 @@ class QMBaseBlockParser(BaseBlockParser):
                 - reduced masses: PlainQuantity
                 - IR intensities: PlainQuantity
                 - force constants: PlainQuantity
-                - normal coordinates: List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]]
-        _alpha_FMO_orbits List[PlainQuantity]:
+                - normal coordinates: PlainQuantity
+        _alpha_FMO_orbits PlainQuantity:
             The alpha FMO orbitals of the molecule.
-        _beta_FMO_orbits List[PlainQuantity]:
+        _beta_FMO_orbits PlainQuantity:
             The beta FMO orbitals of the molecule.
         _alpha_energy Dict[str, PlainQuantity]:
             The alpha energy of the molecule. The energy dict has the following keys:
@@ -550,7 +549,7 @@ class QMBaseBlockParser(BaseBlockParser):
     _energy: PlainQuantity
     _partial_charges: List[float]
     _spin_densities: List[float]
-    _gradients: List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]]
+    _gradients: PlainQuantity
     _spin_multiplicity: float
     _spin_eigenvalue: float
     # _hessian: List[List[float]]
@@ -567,12 +566,11 @@ class QMBaseBlockParser(BaseBlockParser):
             Union[
                 bool,
                 PlainQuantity,
-                List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]],
             ],
         ],
     ]
-    _alpha_FMO_orbits: List[PlainQuantity]
-    _beta_FMO_orbits: List[PlainQuantity]
+    _alpha_FMO_orbits: PlainQuantity
+    _beta_FMO_orbits: PlainQuantity
     _alpha_energy: Dict[Literal["gap", "homo", "lumo"], PlainQuantity]
     _beta_energy: Dict[Literal["gap", "homo", "lumo"], PlainQuantity]
     _sum_energy: Dict[
@@ -604,10 +602,10 @@ class QMBaseBlockParser(BaseBlockParser):
         self._spin_densities: List[float] = []
         self._spin_multiplicity: float = None
         self._spin_eigenvalue: float = None
-        self._gradients: List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]] = []
+        self._gradients: PlainQuantity = None
         # self._hessian: List[List[float]] = []
-        self._alpha_FMO_orbits: List[PlainQuantity] = []
-        self._beta_FMO_orbits: List[PlainQuantity] = []
+        self._alpha_FMO_orbits: PlainQuantity = None
+        self._beta_FMO_orbits: PlainQuantity = None
         self._alpha_energy = {
             "gap": None,
             "homo": None,
@@ -629,6 +627,7 @@ class QMBaseBlockParser(BaseBlockParser):
             "TCG": None,
         }
         self._frequencies = []
+        self._dimensionless_frequencies = None
         # self._nbo_analysis = []
         self._state = {}
 
@@ -698,7 +697,7 @@ class QMBaseBlockParser(BaseBlockParser):
         return self._spin_eigenvalue
 
     @property
-    def gradients(self) -> List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]]:
+    def gradients(self) -> PlainQuantity:
         """
         Get the gradients of the molecule.
 
@@ -710,7 +709,7 @@ class QMBaseBlockParser(BaseBlockParser):
     @property
     def dimensionless_gradients(
         self,
-    ) -> Generator[Tuple[float, float, float], None, None]:
+    ) -> arrayNx3[np.float32]:
         """
         Get the dimensionless gradients of the molecule.
 
@@ -720,10 +719,9 @@ class QMBaseBlockParser(BaseBlockParser):
         Returns:
             The dimensionless gradients of the molecule.
         """
-        return (
-            tuple([gradient.to("hartree/bohr").m for gradient in atom])
-            for atom in self.gradients
-        )
+        if self.gradients is None:
+            return None
+        return self.gradients.to("hartree/bohr").m
 
     # @property
     # def hessian(self) -> List[float]:
@@ -752,11 +750,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 "force constants",
                 "normal coordinates",
             ],
-            Union[
-                bool,
-                PlainQuantity,
-                List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]],
-            ],
+            Union[bool, PlainQuantity],
         ]
     ]:
         """
@@ -770,7 +764,7 @@ class QMBaseBlockParser(BaseBlockParser):
     @property
     def dimensionless_imaginary_frequencies(
         self,
-    ) -> Generator[
+    ) -> List[
         Dict[
             Literal[
                 "is imaginary",
@@ -780,14 +774,8 @@ class QMBaseBlockParser(BaseBlockParser):
                 "force constants",
                 "normal coordinates",
             ],
-            Union[
-                bool,
-                float,
-                List[Tuple[float, float, float]],
-            ],
-        ],
-        None,
-        None,
+            Union[bool, float, arrayNx3[np.float32]],
+        ]
     ]:
         """
         Get the dimensionless imaginary frequencies of the molecule.
@@ -802,7 +790,7 @@ class QMBaseBlockParser(BaseBlockParser):
         Returns:
             The dimensionless imaginary frequencies of the molecule.
         """
-        return (freq for freq in self.dimensionless_frequencies if freq["is imaginary"])
+        return [freq for freq in self.dimensionless_frequencies if freq["is imaginary"]]
 
     @property
     def frequencies(
@@ -817,11 +805,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 "force constants",
                 "normal coordinates",
             ],
-            Union[
-                bool,
-                PlainQuantity,
-                List[Tuple[PlainQuantity, PlainQuantity, PlainQuantity]],
-            ],
+            Union[bool, PlainQuantity],
         ]
     ]:
         """
@@ -835,7 +819,7 @@ class QMBaseBlockParser(BaseBlockParser):
     @property
     def dimensionless_frequencies(
         self,
-    ) -> Generator[
+    ) -> List[
         Dict[
             Literal[
                 "is imaginary",
@@ -845,14 +829,8 @@ class QMBaseBlockParser(BaseBlockParser):
                 "force constants",
                 "normal coordinates",
             ],
-            Union[
-                bool,
-                float,
-                List[Tuple[float, float, float]],
-            ],
-        ],
-        None,
-        None,
+            Union[bool, float, arrayNx3[np.float32]],
+        ]
     ]:
         """
         Get the dimensionless frequencies of the molecule.
@@ -867,23 +845,46 @@ class QMBaseBlockParser(BaseBlockParser):
         Returns:
             The dimensionless frequencies of the molecule.
         """
-        return (
-            {
-                "freq": freq["freq"].to("cm^-1").m,
-                "is imaginary": freq["is imaginary"],
-                "reduced masses": freq["reduced masses"].to("amu").m,
-                "IR intensities": freq["IR intensities"].to("kmol/mol").m,
-                "force constants": freq["force constants"].to("mdyne/angstrom").m,
-                "normal coordinates": [
-                    tuple([coord.to("angstrom").m for coord in atom])
-                    for atom in freq["normal coordinates"]
-                ],
-            }
-            for freq in self._frequencies
-        )
+        if self._dimensionless_frequencies is None:
+            self._dimensionless_frequencies = [
+                {
+                    "freq": freq["freq"].to("cm^-1").m,
+                    "is imaginary": freq["is imaginary"],
+                    "reduced masses": freq["reduced masses"].to("amu").m,
+                    "IR intensities": freq["IR intensities"].to("kmol/mol").m,
+                    "force constants": freq["force constants"].to("mdyne/angstrom").m,
+                    "normal coordinates": freq["normal coordinates"].to("angstrom").m,
+                }
+                for freq in self._frequencies
+            ]
+        return self._dimensionless_frequencies
+
+    def first_freq(self, dimensionless=False):
+        """
+        Get the first frequency of the molecule.
+        """
+        if len(self.frequencies) < 1:
+            return None
+        else:
+            if dimensionless:
+                return self.dimensionless_frequencies[0]
+            else:
+                return self.frequencies[0]
+
+    def second_freq(self, dimensionless=False):
+        """
+        Get the first frequency of the molecule.
+        """
+        if len(self.frequencies) < 2:
+            return None
+        else:
+            if dimensionless:
+                return self.dimensionless_frequencies[1]
+            else:
+                return self.frequencies[1]
 
     @property
-    def alpha_FMO_orbits(self) -> List[PlainQuantity]:
+    def alpha_FMO_orbits(self) -> PlainQuantity:
         """
         Get the alpha FMO orbitals of the molecule.
 
@@ -893,7 +894,7 @@ class QMBaseBlockParser(BaseBlockParser):
         return self._alpha_FMO_orbits
 
     @property
-    def dimensionless_alpha_FMO_orbits(self) -> Generator[float, None, None]:
+    def dimensionless_alpha_FMO_orbits(self) -> arrayN[np.float32]:
         """
         Get the dimensionless alpha FMO orbitals of the molecule.
 
@@ -903,7 +904,9 @@ class QMBaseBlockParser(BaseBlockParser):
         Returns:
             The dimensionless alpha FMO orbitals of the molecule.
         """
-        return (orbit.to("hartree/particle").m for orbit in self.alpha_FMO_orbits)
+        if self.alpha_FMO_orbits is None:
+            return None
+        return self.alpha_FMO_orbits.to("hartree/particle").m.astype(np.float32)
 
     @property
     def alpha_energy(self) -> Dict[Literal["gap", "homo", "lumo"], PlainQuantity]:
@@ -932,7 +935,7 @@ class QMBaseBlockParser(BaseBlockParser):
         }
 
     @property
-    def beta_FMO_orbits(self) -> List[PlainQuantity]:
+    def beta_FMO_orbits(self) -> PlainQuantity:
         """
         Get the beta FMO orbitals of the molecule.
 
@@ -942,7 +945,7 @@ class QMBaseBlockParser(BaseBlockParser):
         return self._beta_FMO_orbits
 
     @property
-    def dimensionless_beta_FMO_orbits(self) -> Generator[float, None, None]:
+    def dimensionless_beta_FMO_orbits(self) -> arrayN[np.float32]:
         """
         Get the dimensionless beta FMO orbitals of the molecule.
 
@@ -952,7 +955,9 @@ class QMBaseBlockParser(BaseBlockParser):
         Returns:
             The dimensionless beta FMO orbitals of the molecule.
         """
-        return (orbit.to("hartree/particle").m for orbit in self.beta_FMO_orbits)
+        if self.beta_FMO_orbits is None:
+            return None
+        return self.beta_FMO_orbits.to("hartree/particle").m
 
     @property
     def beta_energy(self) -> Dict[Literal["gap", "homo", "lumo"], PlainQuantity]:
@@ -1112,14 +1117,17 @@ class QMBaseBlockParser(BaseBlockParser):
                 "state": self.state,
                 "energy": self.dimensionless_energy,
                 "sum_energy": self.dimensionless_sum_energy,
-                "gradients": list(self.dimensionless_gradients),
-                "frequencies": list(self.dimensionless_frequencies),
-                "imaginary_frequencies": list(self.dimensionless_imaginary_frequencies),
+                "gradients": self.dimensionless_gradients,
+                "frequencies": [
+                    self.first_freq(dimensionless=True),
+                    self.second_freq(dimensionless=True),
+                ],
+                "imaginary_frequencies": self.dimensionless_imaginary_frequencies,
                 "partial_charges": self.partial_charges,
                 "spin_densities": self.spin_densities,
-                "alpha_FMO_orbits": list(self.dimensionless_alpha_FMO_orbits),
+                "alpha_FMO_orbits": self.dimensionless_alpha_FMO_orbits,
                 "alpha_energy": self.dimensionless_alpha_energy,
-                "beta_FMO_orbits": list(self.dimensionless_beta_FMO_orbits),
+                "beta_FMO_orbits": self.dimensionless_beta_FMO_orbits,
                 "beta_energy": self.dimensionless_beta_energy,
                 "spin_eginvalue": self.spin_eigenvalue,
                 "spin_multiplicity": self.spin_multiplicity,
@@ -1147,14 +1155,14 @@ class QMBaseBlockParser(BaseBlockParser):
                 f"state: {self.state}\n"
                 + f"energy: {self.energy}\n"
                 + f"sum energy: {self.sum_energy}\n"
-                + f"gradients number: {len(self.gradients)}\n"
+                + f"gradients number: {len(self.gradients) if self.gradients is not None else 0}\n"
                 + f"frequencies number: {len(self.frequencies)}\n"
                 + f"imaginary frequencies number: {len(self.imaginary_frequencies)}\n"
                 + f"partial charges number: {len(self.partial_charges)}\n"
                 + f"spin densities number: {len(self.spin_densities)}\n"
-                + f"alpha FMO orbits number: {len(self.alpha_FMO_orbits)}\n"
+                + f"alpha FMO orbits number: {len(self.alpha_FMO_orbits) if self.alpha_FMO_orbits is not None else 0}\n"
                 + f"alpha energy: {self.alpha_energy}\n"
-                + f"beta FMO orbits number: {len(self.beta_FMO_orbits)}\n"
+                + f"beta FMO orbits number: {len(self.beta_FMO_orbits) if self.beta_FMO_orbits is not None else 0}\n"
                 + f"beta energy: {self.beta_energy}\n"
                 + f"spin eigenvalue: {self.spin_eigenvalue}\n"
                 + f"spin multiplicity: {self.spin_multiplicity}\n"
@@ -1179,11 +1187,7 @@ class QMBaseBlockParser(BaseBlockParser):
             # Calculate extreme coordinates based on current ratio
             extreme_coords = (
                 self.rdmol.GetConformer().GetPositions()
-                - np.array(
-                    self.dimensionless_imaginary_frequencies.__next__()[
-                        "normal coordinates"
-                    ]
-                )
+                - self.dimensionless_imaginary_frequencies[0]["normal coordinates"]
                 * ratio
             )
 
@@ -1250,10 +1254,6 @@ class QMBaseBlockParser(BaseBlockParser):
 
     def is_error(self) -> bool:
         """
-        Check if the current frame is an error frame
+        Abstrcact method to check if the current frame is an error. The details are implemented in the derived classes.
         """
-        if "termination" in self.state and self.state["termination"] == "Error":
-            return True
-        if "SCF Done" in self.state and self.state["SCF Done"] == False:
-            return True
         return False

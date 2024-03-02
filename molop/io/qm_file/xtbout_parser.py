@@ -1,17 +1,17 @@
-'''
+"""
 Author: TMJ
-Date: 2024-01-12 09:24:49
+Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-02-15 18:14:09
+LastEditTime: 2024-03-02 21:17:14
 Description: 请填写简介
-'''
-
+"""
 import os
 import re
 
 from molop.io.bases.file_base import BaseQMFileParser
 from molop.io.qm_file.XTBOUTBlockParser import XTBOUTBlockParser
 from molop.logger.logger import logger
+from molop.utils import xtboutpatterns
 
 
 class XTBOUTParser(BaseQMFileParser):
@@ -26,9 +26,7 @@ class XTBOUTParser(BaseQMFileParser):
         only_last_frame=False,
     ):
         self._check_formats(file_path)
-        super().__init__(
-            file_path, only_extract_structure, only_last_frame
-        )
+        super().__init__(file_path, only_extract_structure, only_last_frame)
         self.__force_charge = charge
         self.__force_multiplicity = multiplicity
         self._parse()
@@ -41,39 +39,28 @@ class XTBOUTParser(BaseQMFileParser):
             lines = fr.readlines()
         fr.close()
         full_text = "".join(lines)
-        try:
-            version = re.findall(
-                r"xtb (version \d+\.\d+\.\d+\s+\([0-9a-z]+\) compiled by ['0-9a-zA-Z\@\_\-]+ on \d{4}-\d{2}-\d{2})",
-                full_text,
-            )[0]
-        except:
-            try:
-                version = re.findall(
-                    r"(Version\s+[0-9\.]+\s+[0-9a-zA-Z]+\s+[\(\)a-zA-Z0-9]+)",
-                    full_text,
-                )[0]
-            except:
-                version = ""
+        version_match = re.search(xtboutpatterns["version"], full_text)
+        if version_match is None:
+            version_match = re.search(xtboutpatterns["old version"], full_text)
+        if version_match:
+            version = version_match.group(1)
+        else:
+            version = ""
         self._version = version
-        try:
-            charge = int(re.findall(r"charge\s+\:\s+([\-\+0-9]+)", full_text)[0])
-        except:
-            charge = int(
-                float(re.findall(r"total charge\s+([\-\+0-9]+)", full_text)[0])
-            )
+        charge_match = re.search(xtboutpatterns["charge"], full_text)
+        if charge_match is None:
+            charge_match = re.search(xtboutpatterns["total charge"], full_text)
+        if charge_match:
+            charge = int(float(charge_match.group(1)))
         if self.__force_charge is not None:
             charge = self.__force_charge
         multi = 1
         if self.__force_multiplicity is not None:
             multi = self.__force_multiplicity
-        try:
-            self._parameter_comment = " ".join(
-                re.findall(
-                    r"program call\s+\:\s+([0-9a-zA-Z\\/_\-\s\.]+)\n",
-                    full_text,
-                )[0].split()[2:]
-            )
-        except:
+        parameter_match = re.search(xtboutpatterns["parameter"], full_text)
+        if parameter_match:
+            self._parameter_comment = parameter_match.group(1)
+        else:
             logger.error(
                 f"No parameter comment found or illegal characters in {self._file_path}"
             )

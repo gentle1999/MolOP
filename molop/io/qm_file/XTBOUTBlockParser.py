@@ -7,6 +7,7 @@ from packaging.version import Version
 from molop.io.bases.molblock_base import QMBaseBlockParser
 from molop.logger.logger import logger
 from molop.unit import atom_ureg
+from molop.utils import xtboutpatterns
 
 
 class XTBOUTBlockParser(QMBaseBlockParser):
@@ -32,20 +33,12 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         self._multiplicity = multiplicity
         self._version = version
         self._parameter_comment = parameter_comment
-        try:
-            self.__n_atom = int(
-                re.findall(
-                    r"number of atoms\s+\:\s+(\d+)",
-                    self._block,
-                )[0]
-            )
-        except:
-            self.__n_atom = int(
-                re.findall(
-                    r"final structure:\s+\=+\s+(\d+)",
-                    self._block,
-                )[0]
-            )
+        n_atoms_match = re.search(xtboutpatterns["n atoms"], self._block)
+        if n_atoms_match:
+            self.__n_atom = int(n_atoms_match.group(1))
+        else:
+            logger.error("No number of atoms found in the block.")
+            raise ValueError("No number of atoms found in the block.")
         self._parse_coords()
         if not self._only_extract_structure:
             self._parse()
@@ -67,10 +60,16 @@ class XTBOUTBlockParser(QMBaseBlockParser):
             return self._parse_coords_new()
 
     def _parse_state(self):
-        if re.search("GEOMETRY OPTIMIZATION CONVERGED", self._block):
+        if re.search(xtboutpatterns["state"], self._block):
             self._state["geometric_optimization"] = True
         else:
             self._state["geometric_optimization"] = False
+    
+    def is_error(self) -> bool:
+        if "geometric_optimization" in self._state:
+            return self._state["geometric_optimization"] == False
+        else:
+            return True
 
     def _parse_energy(self):
         lines = self._block.splitlines()
@@ -105,13 +104,15 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         self._partial_charges = charges
 
     def _parse_orbitals(self):
+        if not re.search(xtboutpatterns["homo"], self._block):
+            return
         self._alpha_energy["homo"] = (
-            round(float(re.findall(r"([\+\-0-9.]+)\s+\(HOMO\)", self._block)[-1]), 6)
+            round(float(re.findall(xtboutpatterns["homo"], self._block)[-1]), 6)
             * atom_ureg.eV
             / atom_ureg.particle
         ).to("hartree/particle")
         self._alpha_energy["lumo"] = (
-            round(float(re.findall(r"([\+\-0-9.]+)\s+\(LUMO\)", self._block)[-1]), 6)
+            round(float(re.findall(xtboutpatterns["lumo"], self._block)[-1]), 6)
             * atom_ureg.eV
             / atom_ureg.particle
         ).to("hartree/particle")

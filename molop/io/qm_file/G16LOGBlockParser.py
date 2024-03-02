@@ -7,8 +7,7 @@ import numpy as np
 from molop.io.bases.molblock_base import QMBaseBlockParser
 from molop.logger.logger import logger
 from molop.unit import atom_ureg
-from molop.utils import parameter_comment_parser
-from molop.utils import patterns
+from molop.utils import g16logpatterns, parameter_comment_parser
 
 
 class G16LOGBlockParser(QMBaseBlockParser):
@@ -73,19 +72,19 @@ class G16LOGBlockParser(QMBaseBlockParser):
         return {k.lower(): v for k, v in self._route_params.items()}
 
     def _parse_coords(self):
-        matches = patterns["coords start"].search(self._block)
+        matches = g16logpatterns["coords start"].search(self._block)
         if matches:
             block = self._block[matches.start() :]
         else:
             block = self._block
-        coords = patterns["coords"].findall(
+        coords = g16logpatterns["coords"].findall(
             block,
         )[: self.__n_atom]
         temp_coords = []
         for atom_num, x, y, z in coords:
             self._atoms.append(int(atom_num))
             temp_coords.append((float(x), float(y), float(z)))
-        self._coords = np.array(temp_coords) * atom_ureg.angstrom
+        self._coords = np.array(temp_coords, np.float32) * atom_ureg.angstrom
 
     def _parse(self):
         self._parse_state()
@@ -102,22 +101,22 @@ class G16LOGBlockParser(QMBaseBlockParser):
 
     def _parse_state(self):
         if "opt" in self._lower_route_params:
-            matches = patterns["opt stat"].findall(self._block)
+            matches = g16logpatterns["opt stat"].findall(self._block)
             if matches:
                 for key, val in matches:
                     self._state[key] = val == "YES"
-        matches = patterns["termination"].findall(self._block)
+        matches = g16logpatterns["termination"].findall(self._block)
         if matches:
             self._state["termination"] = matches[0]
-        matches = patterns["failure reason"].findall(self._block)
+        matches = g16logpatterns["failure reason"].findall(self._block)
         if matches:
             self._state["failure reason"] = matches[0]
 
     def _parse_energy(self):
         if self.energy is None:
-            energy = patterns["energy"].findall(self._block)
+            energy = g16logpatterns["energy"].findall(self._block)
             if not energy:
-                energy = patterns["energy alter"].findall(self._block)
+                energy = g16logpatterns["energy alter"].findall(self._block)
                 if energy:
                     energy = ["".join(energy[0].split("\n "))]
             if energy:
@@ -129,12 +128,12 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 self._state["SCF Done"] = False
 
     def _parse_mulliken_charges(self):
-        if patterns["mulliken start"].search(self._block):
-            charges = patterns["mulliken match"].findall(
+        if g16logpatterns["mulliken start"].search(self._block):
+            charges = g16logpatterns["mulliken match"].findall(
                 self._block[
-                    patterns["mulliken start"]
+                    g16logpatterns["mulliken start"]
                     .search(self._block)
-                    .start() : patterns["mulliken end"]
+                    .start() : g16logpatterns["mulliken end"]
                     .search(self._block)
                     .end()
                 ]
@@ -143,12 +142,12 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 self._partial_charges.append(float(charge))
 
     def _parse_spin_density(self):
-        if patterns["spin density start"].search(self._block):
-            spin_densities = patterns["spin density match"].findall(
+        if g16logpatterns["spin density start"].search(self._block):
+            spin_densities = g16logpatterns["spin density match"].findall(
                 self._block[
-                    patterns["spin density start"]
+                    g16logpatterns["spin density start"]
                     .search(self._block)
-                    .start() : patterns["spin density end"]
+                    .start() : g16logpatterns["spin density end"]
                     .search(self._block)
                     .end()
                 ]
@@ -157,38 +156,40 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 self._spin_densities.append(float(spin_density))
 
     def _parse_gradient(self):
-        if patterns["gradients start"].search(self._block):
-            gradients = patterns["gradients match"].findall(
+        if g16logpatterns["gradients start"].search(self._block):
+            gradients = g16logpatterns["gradients match"].findall(
                 self._block[
-                    patterns["gradients start"]
+                    g16logpatterns["gradients start"]
                     .search(self._block)
-                    .start() : patterns["gradients end"]
+                    .start() : g16logpatterns["gradients end"]
                     .search(self._block)
                     .end()
                 ]
             )
+            temp_gradients = []
             for fx, fy, fz in gradients:
-                self._gradients.append(
-                    (
-                        float(fx) * atom_ureg.hartree / atom_ureg.bohr,
-                        float(fy) * atom_ureg.hartree / atom_ureg.bohr,
-                        float(fz) * atom_ureg.hartree / atom_ureg.bohr,
-                    )
-                )
+                temp_gradients.append((float(fx), float(fy), float(fz)))
+            self._gradients = (
+                np.array(temp_gradients, np.float32)
+                * atom_ureg.hartree
+                / atom_ureg.bohr
+            )
 
     def _parse_spins(self):
-        s = patterns["spins"].findall(self._block)
+        s = g16logpatterns["spins"].findall(self._block)
         if s:
             self._spin_multiplicity = float(s[-1][1])
             self._spin_eigenvalue = float(s[-1][0])
 
     def _parse_orbitals(self):
-        matches = patterns["orbital"].findall(self._block)
+        matches = g16logpatterns["orbital"].findall(self._block)
+        temp_alpha_orbitals = []
+        temp_beta_orbitals = []
         for orbital_type, occ_stat, energies in matches:
             if orbital_type == "Alpha":
-                self._alpha_FMO_orbits.extend(
+                temp_alpha_orbitals.extend(
                     (
-                        round(e, 6) * atom_ureg.hartree / atom_ureg.particle
+                        round(e, 6)
                         for e in map(
                             float,
                             [energies[j : j + 10] for j in range(0, len(energies), 10)],
@@ -196,11 +197,11 @@ class G16LOGBlockParser(QMBaseBlockParser):
                     )
                 )
                 if occ_stat == "occ.":
-                    homo_idx = len(self._alpha_FMO_orbits) - 1
+                    homo_idx = len(temp_alpha_orbitals) - 1
             elif orbital_type == "Beta":
-                self._beta_FMO_orbits.extend(
+                temp_beta_orbitals.extend(
                     (
-                        round(e, 6) * atom_ureg.hartree / atom_ureg.particle
+                        round(e, 6)
                         for e in map(
                             float,
                             [energies[j : j + 10] for j in range(0, len(energies), 10)],
@@ -208,8 +209,13 @@ class G16LOGBlockParser(QMBaseBlockParser):
                     )
                 )
                 if occ_stat == "occ.":
-                    homo_idx = len(self._beta_FMO_orbits) - 1
-        if self._alpha_FMO_orbits:
+                    homo_idx = len(temp_beta_orbitals) - 1
+        if temp_alpha_orbitals:
+            self._alpha_FMO_orbits = (
+                np.array(temp_alpha_orbitals, dtype=np.float32)
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
             self._alpha_energy["homo"] = self._alpha_FMO_orbits[homo_idx]
             self._alpha_energy["lumo"] = self._alpha_FMO_orbits[homo_idx + 1]
             self._alpha_energy["gap"] = (
@@ -217,7 +223,12 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
-        if self._beta_FMO_orbits:
+        if temp_beta_orbitals:
+            self._beta_FMO_orbits = (
+                np.array(temp_beta_orbitals, dtype=np.float32)
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
             self._beta_energy["homo"] = self._beta_FMO_orbits[homo_idx]
             self._beta_energy["lumo"] = self._beta_FMO_orbits[homo_idx + 1]
             self._beta_energy["gap"] = (
@@ -228,14 +239,14 @@ class G16LOGBlockParser(QMBaseBlockParser):
 
     def _parse_frequencies(self):
         if "freq" in self._lower_route_params:
-            matches = patterns["freq start"].search(self._block)
+            matches = g16logpatterns["freq start"].search(self._block)
             if matches:
                 block = self._block[matches.end() :]
-                freqs = patterns["freq"].findall(block)
-                red_masses = patterns["freq red. masses"].findall(block)
-                frc_consts = patterns["freq frc consts"].findall(block)
-                ir_intens = patterns["freq IR Inten"].findall(block)
-                freq_modes = patterns["freq mode"].findall(block)
+                freqs = g16logpatterns["freq"].findall(block)
+                red_masses = g16logpatterns["freq red. masses"].findall(block)
+                frc_consts = g16logpatterns["freq frc consts"].findall(block)
+                ir_intens = g16logpatterns["freq IR Inten"].findall(block)
+                freq_modes = g16logpatterns["freq mode"].findall(block)
                 freq_modes_reindex = []
                 for i in range(0, len(freq_modes), 3 * self.__n_atom):
                     freq_modes_reindex.append(freq_modes[i : i + 3 * self.__n_atom : 3])
@@ -264,7 +275,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
                             "IR intensities": (
                                 float(ir_inten) * atom_ureg.kmol / atom_ureg.mol
                             ),
-                            "normal coordinates": np.array(freq_mode).astype(np.float16)
+                            "normal coordinates": np.array(freq_mode, dtype=np.float32)
                             * atom_ureg.angstrom,
                         }
                     )
@@ -280,13 +291,13 @@ class G16LOGBlockParser(QMBaseBlockParser):
             ("Thermal", " to Enthalpy"): "TCH",
             ("Thermal", " to Gibbs Free Energy"): "TCG",
         }
-        matches = patterns["sum energies"].findall(self._block)
+        matches = g16logpatterns["sum energies"].findall(self._block)
         if matches:
             for tag, val in matches:
                 self._sum_energy[mappings[tag]] = round(
                     float(val) * atom_ureg.hartree / atom_ureg.particle, 6
                 )
-        matches = patterns["corrections"].findall(self._block)
+        matches = g16logpatterns["corrections"].findall(self._block)
         if matches:
             for tag1, tag2, val in matches:
                 self._sum_energy[mappings[(tag1, tag2)]] = round(
@@ -331,3 +342,13 @@ class G16LOGBlockParser(QMBaseBlockParser):
                         }
                     )
                 break
+
+    def is_error(self) -> bool:
+        """
+        Check if the current frame is an error frame
+        """
+        if "termination" in self.state and self.state["termination"] == "Error":
+            return True
+        if "SCF Done" in self.state and self.state["SCF Done"] == False:
+            return True
+        return False
