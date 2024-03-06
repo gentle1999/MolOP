@@ -518,7 +518,7 @@ class FileParserBatch(MutableMapping):
         TS_parsers = [
             parser
             for parser in self
-            if parser.__class__ in qm_parsers and parser[-1].is_TS
+            if parser.__class__ in qm_parsers and parser[-1].is_TS()
         ]
         new_batch = FileParserBatch()
         new_batch.add_file_parsers(TS_parsers)

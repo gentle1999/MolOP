@@ -479,6 +479,21 @@ class BaseBlockParser(MolBlock):
             rebuild_type="transform",
         )
 
+    def is_error(self) -> bool:
+        """
+        Abstrcact method to check if the current frame is an error. The details are implemented in the derived classes.
+        """
+        return False
+
+    def is_TS(self) -> bool:
+        """
+        Check if the molecule is a TS. Can not check if the molecule is a TS without frequency information. Thus this function returns False.
+
+        Returns:
+            False
+        """
+        return False
+
 
 class QMBaseBlockParser(BaseBlockParser):
     """
@@ -586,6 +601,7 @@ class QMBaseBlockParser(BaseBlockParser):
         ],
         PlainQuantity,
     ]
+    _dipole: PlainQuantity
     # _nbo_analysis: List[Dict[str, Dict[str, PlainQuantity]]]
 
     _state: Dict[str, bool]
@@ -628,6 +644,11 @@ class QMBaseBlockParser(BaseBlockParser):
         }
         self._frequencies = []
         self._dimensionless_frequencies = None
+        self._wiberg_bond_order: np.ndarray[np.float32] = None
+        self._mo_bond_order: np.ndarray[np.float32] = None
+        self._nao_bond_order: np.ndarray[np.float32] = None
+        self._nbo_bond_order: List[Tuple[int, int, int]]
+        self._dipole = None
         # self._nbo_analysis = []
         self._state = {}
 
@@ -727,7 +748,6 @@ class QMBaseBlockParser(BaseBlockParser):
     # def hessian(self) -> List[float]:
     # return self._hessian
 
-    @property
     def is_TS(self) -> bool:
         """
         Check if the molecule is a TS.
@@ -1040,6 +1060,38 @@ class QMBaseBlockParser(BaseBlockParser):
         }
 
     @property
+    def wiberg_bond_order(self):
+        """
+        Get the wiberg_bond_order of the molecule.
+        """
+        return self._wiberg_bond_order
+
+    @property
+    def nao_bond_order(self):
+        """
+        Get the NAO bond order of the molecule.
+        """
+        return self._nao_bond_order
+
+    @property
+    def mo_bond_order(self):
+        """
+        Get the MO bond order of the molecule.
+        """
+        return self._mo_bond_order
+
+    @property
+    def dipole(self):
+        return self._dipole
+    
+    @property
+    def dimensionless_dipole(self) -> np.ndarray:
+        if self.dipole is None:
+            return None
+        else:
+            return self.dipole.to("debye").m
+
+    @property
     def state(self) -> Dict[str, bool]:
         """
         Get the state of the calculation.
@@ -1177,7 +1229,7 @@ class QMBaseBlockParser(BaseBlockParser):
         Returns:
             A list of base block parsers for transition state vibration calculations.
         """
-        if not self.is_TS:
+        if not self.is_TS():
             raise RuntimeError("This is not a TS")
 
         block_parsers = []  # Initialize a list of base block parsers
@@ -1251,9 +1303,3 @@ class QMBaseBlockParser(BaseBlockParser):
         block_parsers[0].rdmol.RemoveAllConformers()
         block_parsers[-1].rdmol.RemoveAllConformers()
         return block_parsers[0].rdmol, block_parsers[-1].rdmol
-
-    def is_error(self) -> bool:
-        """
-        Abstrcact method to check if the current frame is an error. The details are implemented in the derived classes.
-        """
-        return False
