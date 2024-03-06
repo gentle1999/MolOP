@@ -1,4 +1,5 @@
 import time
+import math
 from itertools import chain
 from typing import Literal
 
@@ -96,6 +97,10 @@ class G16LOGBlockParser(QMBaseBlockParser):
         self._parse_orbitals()
         self._parse_sum_energy()
         self._parse_frequencies()
+        self._wiberg_bond_order = self._parse_bond_order("wiberg")
+        self._nao_bond_order = self._parse_bond_order("nao")
+        self._mo_bond_order = self._parse_bond_order("mo")
+        self._parse_dipole()
         # self._parse_hessian()
         # self._parse_nbo()
 
@@ -303,6 +308,37 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 self._sum_energy[mappings[(tag1, tag2)]] = round(
                     float(val) * atom_ureg.hartree / atom_ureg.particle, 6
                 )
+
+    def _parse_bond_order(self, _type: Literal["wiberg", "nao", "mo"]):
+        start_matches = g16logpatterns[f"{_type}_start"].search(self._block)
+        end_matches = g16logpatterns[f"{_type}_end"].search(self._block)
+        if start_matches and end_matches:
+            temp_block = self._block[start_matches.start() : end_matches.end()]
+            digits = list(map(float, g16logpatterns["digit"].findall(temp_block)))
+            blks = []
+            for idx in range(math.ceil(len(digits) / (self.__n_atom * 9))):
+                block_length = (
+                    min(self.__n_atom * 9, len(digits) - idx * self.__n_atom * 9)
+                    // self.__n_atom
+                )
+                blks.append(
+                    np.array(
+                        digits[
+                            idx * self.__n_atom * 9 : idx * self.__n_atom * 9
+                            + min(
+                                self.__n_atom * 9, len(digits) - idx * self.__n_atom * 9
+                            )
+                        ]
+                    ).reshape(-1, block_length)
+                )
+            return np.concatenate(blks, axis=1)
+        return None
+
+    def _parse_dipole(self):
+        matches = g16logpatterns["dipole"].search(self._block)
+        if matches:
+            dipole = np.array(list(map(float, matches.groups())))
+            self._dipole = dipole * atom_ureg.debye
 
     def _parse_hessian(self):
         lines = self._block.splitlines()

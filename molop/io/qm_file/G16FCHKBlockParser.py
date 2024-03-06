@@ -100,6 +100,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
         self._parse_frequencies()
         self._parse_spin()
         # self._parse_hessian()
+        self._parse_dipole()
         self._parse_state()
         # self._parse_nbo()
 
@@ -254,6 +255,13 @@ class G16FCHKBlockParser(QMBaseBlockParser):
             self._spin_multiplicity = round(
                 math.sqrt(self._spin_eigenvalue + 0.25) - 0.5, 2
             )
+
+    def _parse_dipole(self):
+        matches = re.search(g16fchkpatterns["dipole"], self._block)
+        if matches:
+            self._dipole = np.array(
+                list(map(float, matches.groups()))
+            ) * atom_ureg.debye
 
     def _parse_state(self):
         matches = re.search(g16fchkpatterns["job status"], self._block)

@@ -48,6 +48,8 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         self._parse_energy()
         self._parse_partial_charges()
         self._parse_orbitals()
+        self._wiberg_bond_order = self._parse_bond_order()
+        self._parse_dipole()
 
     def _parse_coords(self):
         if self._version is None:
@@ -64,7 +66,7 @@ class XTBOUTBlockParser(QMBaseBlockParser):
             self._state["geometric_optimization"] = True
         else:
             self._state["geometric_optimization"] = False
-    
+
     def is_error(self) -> bool:
         if "geometric_optimization" in self._state:
             return self._state["geometric_optimization"] == False
@@ -175,3 +177,37 @@ class XTBOUTBlockParser(QMBaseBlockParser):
                     )
                 self._coords = np.array(temp_coords) * atom_ureg.angstrom
                 break
+
+    def _parse_bond_order(self):
+        start_matches = xtboutpatterns[f"wiberg_start"].search(self._block)
+        end_matches = xtboutpatterns[f"wiberg_end"].search(self._block)
+        result = np.zeros((self.__n_atom, self.__n_atom))
+        if start_matches:
+            temp_block = self._block[start_matches.start() : end_matches.end()]
+            for idx, sub_temp_block in enumerate(
+                xtboutpatterns["index"].split(temp_block)[1:]
+            ):
+                bond = list(
+                    map(
+                        lambda x: int(x) - 1,
+                        xtboutpatterns["bond"].findall(sub_temp_block),
+                    )
+                )
+                value = list(
+                    map(float, xtboutpatterns["value"].findall(sub_temp_block))
+                )[1:]
+                for i, v in zip(bond, value):
+                    result[idx][i] = v
+                    result[i][idx] = v
+            return result
+        return None
+
+    def _parse_dipole(self):
+        dipole_start = xtboutpatterns["dipole_start"].search(self._block)
+        dipole_end = xtboutpatterns["dipole_end"].search(self._block)
+        if dipole_start and dipole_end:
+            temp_block = self._block[dipole_start.start() : dipole_end.end()]
+            values = list(map(float, xtboutpatterns["value"].findall(temp_block)))
+            self._dipole = (np.array(values[:3]) + np.array(values[3:6])).astype(
+                np.float32
+            ) * atom_ureg.debye

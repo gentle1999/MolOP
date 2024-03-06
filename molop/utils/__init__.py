@@ -69,7 +69,7 @@ def parameter_comment_parser(
     return link0, route_params, dieze_tag, functional, basis_set
 
 
-g16logpatterns = {
+g16logpatterns: Dict[str, re.Pattern] = {
     "n atoms": re.compile(r"NAtoms=\s*(\d+)"),
     "coords start": re.compile(r"Standard orientation:"),
     "coords": re.compile(
@@ -124,9 +124,19 @@ g16logpatterns = {
         r"Sum of electronic and (thermal Free Energies|thermal Enthalpies|thermal Energies|zero-point Energies)=\s+([\-0-9.]+)"
     ),
     "corrections": re.compile(r"(Zero-point|Thermal) correction(.*)=\s+([\d\.-]+)"),
+    "wiberg_start": re.compile(r"Wiberg bond index matrix in the NAO basis"),
+    "wiberg_end": re.compile(r"Wiberg bond index, Totals by atom"),
+    "nao_start": re.compile(r"Atom-atom overlap-weighted NAO bond order"),
+    "nao_end": re.compile(r"Atom-atom overlap-weighted NAO bond order, Totals by atom"),
+    "mo_start": re.compile(r"MO bond order"),
+    "mo_end": re.compile(r"MO atomic valencies"),
+    "digit": re.compile(r"[\s-]\d+.\d+"),
+    "dipole": re.compile(
+        r"X=\s+([\s-]\d+\.\d+)\s+Y=\s+([\s-]\d+\.\d+)\s+Z=\s+([\s-]\d+\.\d+)\s+"
+    ),
 }
 
-g16fchkpatterns = {
+g16fchkpatterns: Dict[str, re.Pattern] = {
     "charge": re.compile(r"Charge\s+[ICRU]+\s+([\-0-9]+)"),
     "multi": re.compile(r"Multiplicity\s+[ICRU]+\s+([\-0-9]+)"),
     "n_atoms": re.compile(r"Number of atoms\s+[ICRU]+\s+([0-9]+)"),
@@ -147,9 +157,10 @@ g16fchkpatterns = {
     "job status": re.compile(r"Job Status\s+[A-Z]+\s+([\-\+0-9\.E]+)"),
     "spin": re.compile(r"S\*\*2\s+R\s+([\+\-\.0-9E]+)"),
     "freq num": re.compile(r"Number of Normal Modes\s+[A-Z]+\s+([\-\+0-9\.E]+)"),
+    "dipole": re.compile(r"Dipole Moment\s+[ICRU]\s+N=\s+\d+\n\s+([-\d.E]+)\s+([-\d.E]+)\s+([-\d.E]+)"),
 }
 
-xtboutpatterns = {
+xtboutpatterns: Dict[str, re.Pattern] = {
     "version": re.compile(
         r"xtb (version \d+\.\d+\.\d+\s+\([0-9a-z]+\) compiled by ['0-9a-zA-Z@_-]+ on \d{4}-\d{2}-\d{2})"
     ),
@@ -163,7 +174,13 @@ xtboutpatterns = {
     "state": re.compile(r"GEOMETRY OPTIMIZATION CONVERGED"),
     "homo": re.compile(r"([\+\-0-9.]+)\s+\(HOMO\)"),
     "lumo": re.compile(r"([\+\-0-9.]+)\s+\(LUMO\)"),
-    
+    "wiberg_start": re.compile(r"#   Z sym  total"),
+    "wiberg_end": re.compile(r"molecular dipole"),
+    "index": re.compile(r" \d+\s+\d+\s+[a-zA-Z]+"),
+    "bond": re.compile(r"(\d+)\s+[a-zA-Z]+"),
+    "value": re.compile(r"[\s-]\d+\.\d+"),
+    "dipole_start": re.compile(r"molecular dipole"),
+    "dipole_end": re.compile(r"molecular quadrupole"),
 }
 
 

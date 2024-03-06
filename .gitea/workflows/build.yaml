@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository code
-        uses: https://gitea.com/actions/checkout@v3
+        uses: http://10.72.201.58:13000/actions/checkout@v4
       - name: set mirror
         run: pip config set global.index-url https://mirrors.zju.edu.cn/pypi/web/simple
       - name: register to gitea
