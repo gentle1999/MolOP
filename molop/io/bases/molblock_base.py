@@ -646,8 +646,9 @@ class QMBaseBlockParser(BaseBlockParser):
         self._dimensionless_frequencies = None
         self._wiberg_bond_order: np.ndarray[np.float32] = None
         self._mo_bond_order: np.ndarray[np.float32] = None
-        self._nao_bond_order: np.ndarray[np.float32] = None
-        self._nbo_bond_order: List[Tuple[int, int, int]]
+        self._atom_atom_overlap_bond_order: np.ndarray[np.float32] = None
+        self._nbo_bond_order: List[Tuple[int, int, int, PlainQuantity]] = []
+        self._nbo_charges: List[float] = []
         self._dipole = None
         # self._nbo_analysis = []
         self._state = {}
@@ -1067,11 +1068,11 @@ class QMBaseBlockParser(BaseBlockParser):
         return self._wiberg_bond_order
 
     @property
-    def nao_bond_order(self):
+    def atom_atom_overlap_bond_order(self):
         """
         Get the NAO bond order of the molecule.
         """
-        return self._nao_bond_order
+        return self._atom_atom_overlap_bond_order
 
     @property
     def mo_bond_order(self):
@@ -1081,15 +1082,50 @@ class QMBaseBlockParser(BaseBlockParser):
         return self._mo_bond_order
 
     @property
-    def dipole(self):
+    def dipole(self)-> PlainQuantity:
+        """
+        Get the dipole of the molecule.
+        """
         return self._dipole
-    
+
     @property
     def dimensionless_dipole(self) -> np.ndarray:
+        """
+        Get the dimensionless dipole of the molecule.
+
+        Unit will be transformed:
+            - `debye`
+        """
         if self.dipole is None:
             return None
         else:
             return self.dipole.to("debye").m
+
+    @property
+    def nbo_bond_order(self) -> List[Tuple[int, int, int, PlainQuantity]]:
+        """
+        Get the NBO bond order and energy of the molecule.
+        """
+        return self._nbo_bond_order
+
+    @property
+    def dimensionless_nbo_bond_order(self) -> List[Tuple[int, int, int, float]]:
+        """
+        Get the NBO bond order and dimensionless energy of the molecule.
+        
+        Unit will be transformed:
+            - `hartree/particle`
+        """
+        return [
+            (a, b, c, d.to("hartree/particle").m) for a, b, c, d in self.nbo_bond_order
+        ]
+
+    @property
+    def nbo_charges(self) -> List[float]:
+        """
+        NBO charges
+        """
+        return self._nbo_charges
 
     @property
     def state(self) -> Dict[str, bool]:
@@ -1121,9 +1157,6 @@ class QMBaseBlockParser(BaseBlockParser):
         """
         return self._version
 
-    # @property
-    # def nbo_analysis(self):
-    # return self._nbo_analysis
 
     def to_dict(self):
         """

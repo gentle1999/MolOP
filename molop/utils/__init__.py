@@ -126,14 +126,20 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "corrections": re.compile(r"(Zero-point|Thermal) correction(.*)=\s+([\d\.-]+)"),
     "wiberg_start": re.compile(r"Wiberg bond index matrix in the NAO basis"),
     "wiberg_end": re.compile(r"Wiberg bond index, Totals by atom"),
-    "nao_start": re.compile(r"Atom-atom overlap-weighted NAO bond order"),
-    "nao_end": re.compile(r"Atom-atom overlap-weighted NAO bond order, Totals by atom"),
+    "atom_atom_overlap_start": re.compile(r"Atom-atom overlap-weighted NAO bond order"),
+    "atom_atom_overlap_end": re.compile(r"Atom-atom overlap-weighted NAO bond order, Totals by atom"),
     "mo_start": re.compile(r"MO bond order"),
     "mo_end": re.compile(r"MO atomic valencies"),
     "digit": re.compile(r"[\s-]\d+.\d+"),
     "dipole": re.compile(
         r"X=\s+([\s-]\d+\.\d+)\s+Y=\s+([\s-]\d+\.\d+)\s+Z=\s+([\s-]\d+\.\d+)\s+"
     ),
+    "nbo charge start": re.compile(r"Summary of Natural Population Analysis:"),
+    "nbo charge end": re.compile(r"=\n\s+\* Total \*"),
+    "nbo charge match": re.compile(r"[A-Za-z]+\s+\d+\s+([-\d.]+)"),
+    "nbo summary start": re.compile(r"Natural Bond Orbitals \(Summary\):"),
+    "nbo summary end": re.compile(r"-\n\s+Total Lewis"),
+    "nbo summary match": re.compile(r"BD\s+\(\s+\d\)\s+[A-Za-z]+\s+(\d+)\s+-[\sA-Za-z]+\s+(\d+)\s+(\d+.\d+)\s+([-\d.]+)")
 }
 
 g16fchkpatterns: Dict[str, re.Pattern] = {
