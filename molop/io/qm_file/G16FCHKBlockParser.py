@@ -263,6 +263,10 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                 list(map(float, matches.groups()))
             ) * atom_ureg.debye
 
+    #TODO NBO section
+    # route section: pop=saveNBO or pop=saveNLMO
+    # ref: http://sobereva.com/134
+
     def _parse_state(self):
         matches = re.search(g16fchkpatterns["job status"], self._block)
         if matches:

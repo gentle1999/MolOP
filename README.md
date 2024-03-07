@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-02-29 20:56:47
+ * @LastEditTime: 2024-03-06 16:19:13
  * @Description: 请填写简介
 -->
 # MolOP
@@ -42,7 +42,6 @@ All teat cases shown in the [test_cases](tutorial/test_cases.ipynb) file.
 ## Installation for Users
 
 ```bash
-conda install openbabel -c conda-forge # openbabel is a necessary dependence
 pip install --extra-index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop --upgrade
 ```
 

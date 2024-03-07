@@ -98,11 +98,11 @@ class G16LOGBlockParser(QMBaseBlockParser):
         self._parse_sum_energy()
         self._parse_frequencies()
         self._wiberg_bond_order = self._parse_bond_order("wiberg")
-        self._nao_bond_order = self._parse_bond_order("nao")
+        self._atom_atom_overlap_bond_order = self._parse_bond_order("atom_atom_overlap")
         self._mo_bond_order = self._parse_bond_order("mo")
+        self._parse_nbo_charges()
+        self._parse_nbo_bond_order()
         self._parse_dipole()
-        # self._parse_hessian()
-        # self._parse_nbo()
 
     def _parse_state(self):
         if "opt" in self._lower_route_params:
@@ -190,6 +190,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
         matches = g16logpatterns["orbital"].findall(self._block)
         temp_alpha_orbitals = []
         temp_beta_orbitals = []
+        homo_idx = None
         for orbital_type, occ_stat, energies in matches:
             if orbital_type == "Alpha":
                 temp_alpha_orbitals.extend(
@@ -215,7 +216,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 )
                 if occ_stat == "occ.":
                     homo_idx = len(temp_beta_orbitals) - 1
-        if temp_alpha_orbitals:
+        if temp_alpha_orbitals and homo_idx:
             self._alpha_FMO_orbits = (
                 np.array(temp_alpha_orbitals, dtype=np.float32)
                 * atom_ureg.hartree
@@ -228,7 +229,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
-        if temp_beta_orbitals:
+        if temp_beta_orbitals and homo_idx:
             self._beta_FMO_orbits = (
                 np.array(temp_beta_orbitals, dtype=np.float32)
                 * atom_ureg.hartree
@@ -309,7 +310,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
                     float(val) * atom_ureg.hartree / atom_ureg.particle, 6
                 )
 
-    def _parse_bond_order(self, _type: Literal["wiberg", "nao", "mo"]):
+    def _parse_bond_order(self, _type: Literal["wiberg", "atom_atom_overlap", "mo"]):
         start_matches = g16logpatterns[f"{_type}_start"].search(self._block)
         end_matches = g16logpatterns[f"{_type}_end"].search(self._block)
         if start_matches and end_matches:
@@ -340,44 +341,50 @@ class G16LOGBlockParser(QMBaseBlockParser):
             dipole = np.array(list(map(float, matches.groups())))
             self._dipole = dipole * atom_ureg.debye
 
-    def _parse_hessian(self):
-        lines = self._block.splitlines()
-        hess_lines = []
-        append_line = False
-        for line in reversed(lines):
-            if r"\\@" in line or line.startswith(" @") or line.startswith(r" \@"):
-                append_line = True
-            if append_line:
-                hess_lines.append(line.strip("\n").strip(" "))
-            if "NImag" in line:
-                append_line = "end"
-                break
-        if append_line == "end":
-            hess_str = "".join(hess_lines[::-1]).split(r"\\")[-3]
-            hess_val = [float(val) for val in hess_str.split(",")]
-            n = self.__n_atom * 3
-            if len(hess_val) != n * (n + 1) // 2:
-                logger.warning(
-                    f"The number of elements {len(hess_val)} in the Hessian matrix is not consistent with the number of atoms {self.__n_atom} in {self._file_path}"
-                )
-            else:
-                self._hessian = hess_val
+    def _parse_nbo_charges(self):
+        start_matches = g16logpatterns[f"nbo charge start"].search(self._block)
+        end_matches = g16logpatterns[f"nbo charge end"].search(self._block)
+        if start_matches and end_matches:
+            temp_block = self._block[start_matches.start() : end_matches.end()]
+            charges = list(
+                map(float, g16logpatterns["nbo charge match"].findall(temp_block))
+            )
+            self._nbo_charges = charges
 
-    def _parse_nbo(self):
-        lines = self._block.splitlines()
-        for idx, line in enumerate(lines):
-            if "Summary of Natural Population Analysis" in line:
-                for i in range(idx + 6, idx + 6 + self.__n_atom):
-                    _, _, natural_charge, core, valence, rydberg, _ = lines[i].split()
-                    self._nbo_analysis.append(
-                        {
-                            "natural_charge": float(natural_charge),
-                            "core": float(core),
-                            "valence": float(valence),
-                            "rydberg": float(rydberg),
-                        }
-                    )
-                break
+    def _parse_nbo_bond_order(self):
+        start_matches = g16logpatterns[f"nbo summary start"].search(self._block)
+        end_matches = g16logpatterns[f"nbo summary end"].search(self._block)
+        if start_matches and end_matches:
+            temp_block = self._block[start_matches.start() : end_matches.end()]
+            temp_dict = {}
+            for idx1, idx2, occ, energy in g16logpatterns["nbo summary match"].findall(
+                temp_block
+            ):
+                _idx1, _idx2, _occ, _energy = (
+                    int(idx1),
+                    int(idx2),
+                    float(occ),
+                    float(energy),
+                )
+                if (_idx1, _idx2) in temp_dict:
+                    temp_dict[(_idx1, _idx2)]["energy"] += _energy * _occ
+                    temp_dict[(_idx1, _idx2)]["bond_order"] += 1
+                else:
+                    temp_dict[(_idx1, _idx2)] = {
+                        "energy": _energy * _occ,
+                        "bond_order": 1,
+                    }
+            self._nbo_bond_order = [
+                (
+                    idx1 - 1,
+                    idx2 - 1,
+                    temp_dict[(idx1, idx2)]["bond_order"],
+                    temp_dict[(idx1, idx2)]["energy"]
+                    * atom_ureg.hartree
+                    / atom_ureg.particle,
+                )
+                for idx1, idx2 in temp_dict
+            ]
 
     def is_error(self) -> bool:
         """
