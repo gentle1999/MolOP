@@ -122,14 +122,14 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                 )
         thermal_energy = re.search(g16fchkpatterns["thermal energy"], self._block)
         if thermal_energy:
-            self._sum_energy["E gas"] = (
+            self._sum_energy["E sum"] = (
                 round(float(thermal_energy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
         thermal_enthalpy = re.search(g16fchkpatterns["thermal enthalpy"], self._block)
         if thermal_enthalpy:
-            self._sum_energy["H gas"] = (
+            self._sum_energy["H sum"] = (
                 round(float(thermal_enthalpy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle
@@ -138,7 +138,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
             g16fchkpatterns["thermal free energy"], self._block
         )
         if thermal_enthalpy:
-            self._sum_energy["G gas"] = (
+            self._sum_energy["G sum"] = (
                 round(float(thermal_free_energy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle

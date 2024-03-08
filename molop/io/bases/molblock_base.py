@@ -546,9 +546,9 @@ class QMBaseBlockParser(BaseBlockParser):
             The sum energy of the molecule. The energy dict has the following keys:
 
                 - zero-point gas: PlainQuantity
-                - E gas: PlainQuantity
-                - H gas: PlainQuantity
-                - G gas: PlainQuantity
+                - E sum: PlainQuantity
+                - H sum: PlainQuantity
+                - G sum: PlainQuantity
                 - zero-point correction: PlainQuantity
                 - TCE: PlainQuantity
                 - TCH: PlainQuantity
@@ -591,9 +591,9 @@ class QMBaseBlockParser(BaseBlockParser):
     _sum_energy: Dict[
         Literal[
             "zero-point gas",
-            "E gas",
-            "H gas",
-            "G gas",
+            "E sum",
+            "H sum",
+            "G sum",
             "zero-point correction",
             "TCE",
             "TCH",
@@ -634,9 +634,9 @@ class QMBaseBlockParser(BaseBlockParser):
         }
         self._sum_energy = {
             "zero-point gas": None,
-            "E gas": None,
-            "H gas": None,
-            "G gas": None,
+            "E sum": None,
+            "H sum": None,
+            "G sum": None,
             "zero-point correction": None,
             "TCE": None,
             "TCH": None,
@@ -1012,9 +1012,9 @@ class QMBaseBlockParser(BaseBlockParser):
     ) -> Dict[
         Literal[
             "zero-point gas",
-            "E gas",
-            "H gas",
-            "G gas",
+            "E sum",
+            "H sum",
+            "G sum",
             "zero-point correction",
             "TCE",
             "TCH",
@@ -1036,9 +1036,9 @@ class QMBaseBlockParser(BaseBlockParser):
     ) -> Dict[
         Literal[
             "zero-point gas",
-            "E gas",
-            "H gas",
-            "G gas",
+            "E sum",
+            "H sum",
+            "G sum",
             "zero-point correction",
             "TCE",
             "TCH",
