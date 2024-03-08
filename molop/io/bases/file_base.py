@@ -18,10 +18,17 @@ from molop.io.qm_file.G16IRCBlockParser import G16IRCBlockParser
 from molop.io.qm_file.G16LOGBlockParser import G16LOGBlockParser
 from molop.io.qm_file.XTBOUTBlockParser import XTBOUTBlockParser
 
-BlockType = Union[
+BLOCKTYPES = Union[
+    BaseBlockParser,
+    G16LOGBlockParser,
+    G16IRCBlockParser,
+    G16FCHKBlockParser,
+    XTBOUTBlockParser,
     GJFBlockParser,
     SDFBlockParser,
     XYZBlockParser,
+]
+QMBLOCKTYPES = Union[
     G16LOGBlockParser,
     G16IRCBlockParser,
     G16FCHKBlockParser,
@@ -45,7 +52,7 @@ class BaseFileParser:
     """
 
     _file_path: str
-    __frames: List[BlockType]
+    __frames: List[BLOCKTYPES]
     __index: int
     _allowed_formats: Tuple[str]
 
@@ -84,14 +91,14 @@ class BaseFileParser:
 
     def __next__(
         self,
-    ) -> BlockType:
+    ) -> BLOCKTYPES:
         if self.__index >= len(self):
             raise StopIteration
         else:
             self.__index += 1
             return self.__frames[self.__index - 1]
 
-    def __getitem__(self, frameID: int) -> BlockType:
+    def __getitem__(self, frameID: int) -> BLOCKTYPES:
         return self.__frames[frameID]
 
     def __len__(self) -> int:
@@ -127,9 +134,32 @@ class BaseFileParser:
         return os.path.basename(self._file_path)
 
     @property
+    def pure_filename(self) -> str:
+        return os.path.splitext(self.file_name)[0]
+
+    @property
+    def file_format(self) -> str:
+        """
+        Get the file format of the object.
+        Returns:
+            str: The file format of the object.
+        """
+        return self._file_format
+
+    def _check_path(self, file_path: str = None, format: str = ".xyz"):
+        if file_path is None:
+            return os.path.splitext(self._file_path)[0] + format
+        if os.path.isdir(file_path):
+            return os.path.join(
+                file_path,
+                self.pure_filename + format,
+            )
+        return file_path
+
+    @property
     def frames(
         self,
-    ) -> List[BlockType]:
+    ) -> List[BLOCKTYPES]:
         """
         Get the list of parsed frames.
 
@@ -140,8 +170,8 @@ class BaseFileParser:
 
     def append(
         self,
-        frame: BlockType,
-    ) -> None:
+        frame: BLOCKTYPES,
+    ):
         """
         Append a frame to the list of frames.
 
@@ -178,11 +208,14 @@ class BaseFileParser:
 
     def to_GJF_block(
         self,
+        file_path: str = None,
         charge: int = None,
         multiplicity: int = None,
-        prefix: str = f"# g16 gjf \n",
+        prefix: str = f"#p opt b3lyp def2svp freq EmpiricalDispersion=GD3BJ NoSymm\n",
         suffix="",
         template: str = None,
+        chk: bool = True,
+        oldchk: bool = False,
         frameID=-1,
     ) -> str:
         """
@@ -199,16 +232,23 @@ class BaseFileParser:
                 prefix to add to the beginning of the gjf file, priority is lower than template.
             suffix str:
                 suffix to add to the end of the gjf file, priority is lower than template.
+            chk bool:
+                If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
+            oldchk bool:
+                If true, add the oldchk keyword to the link0 section. Will use the file name as the chk file name.
 
         Returns:
             A modified GJF block.
         """
         return self.__frames[frameID].to_GJF_block(
+            file_path=file_path,
             charge=charge,
             multiplicity=multiplicity,
             prefix=prefix,
             suffix=suffix,
             template=template,
+            chk=chk,
+            oldchk=oldchk,
         )
 
     def to_XYZ_file(self, file_path: str = None):
@@ -221,15 +261,11 @@ class BaseFileParser:
         Returns:
             The absolute path of the XYZ file.
         """
-        if file_path is None:
-            file_path = self._file_path
-        if os.path.isdir(file_path):
-            raise IsADirectoryError(f"{file_path} is a directory.")
-        file_path = os.path.splitext(file_path)[0] + ".xyz"
-        with open(file_path, "w") as f:
+        _file_path = self._check_path(file_path, ".xyz")
+        with open(_file_path, "w") as f:
             f.write(self.to_XYZ_block())
         f.close()
-        return os.path.abspath(file_path)
+        return os.path.abspath(_file_path)
 
     def to_SDF_file(self, file_path: str = None):
         """
@@ -241,15 +277,11 @@ class BaseFileParser:
         Returns:
             The absolute path of the SDF file.
         """
-        if file_path is None:
-            file_path = self._file_path
-        if os.path.isdir(file_path):
-            raise IsADirectoryError(f"{file_path} is a directory.")
-        file_path = os.path.splitext(file_path)[0] + ".sdf"
-        with open(file_path, "w") as f:
+        _file_path = self._check_path(file_path, ".sdf")
+        with open(_file_path, "w") as f:
             f.write(self.to_SDF_block())
         f.close()
-        return os.path.abspath(file_path)
+        return os.path.abspath(_file_path)
 
     def to_GJF_file(
         self,
@@ -257,8 +289,10 @@ class BaseFileParser:
         charge: int = None,
         multiplicity: int = None,
         template: str = None,
-        prefix: str = f"# g16 gjf \n",
+        prefix: str = f"#p opt b3lyp def2svp freq EmpiricalDispersion=GD3BJ NoSymm\n",
         suffix="\n\n",
+        chk: bool = True,
+        oldchk: bool = False,
         frameID=-1,
     ):
         """
@@ -279,27 +313,30 @@ class BaseFileParser:
                 suffix to add to the end of the gjf file, priority is lower than template.
             frameID int:
                 The frame ID to write.
+            chk bool:
+                If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
+            oldchk bool:
+                If true, add the oldchk keyword to the link0 section. Will use the file name as the chk file name.
         Returns:
             The path to the GJF file.
         """
-        if file_path is None:
-            file_path = self._file_path
-        if os.path.isdir(file_path):
-            raise IsADirectoryError(f"{file_path} is a directory.")
-        file_path = os.path.splitext(file_path)[0] + ".gjf"
-        with open(file_path, "w") as f:
+        _file_path = self._check_path(file_path, ".gjf")
+        with open(_file_path, "w") as f:
             f.write(
                 self.to_GJF_block(
+                    file_path=file_path,
                     charge=charge,
                     multiplicity=multiplicity,
                     prefix=prefix,
                     suffix=suffix,
                     template=template,
+                    chk=chk,
+                    oldchk=oldchk,
                     frameID=frameID,
                 )
             )
         f.close()
-        return os.path.abspath(file_path)
+        return os.path.abspath(_file_path)
 
     def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=True):
         """
@@ -396,6 +433,88 @@ class BaseFileParser:
         file_path = os.path.splitext(file_path)[0] + "_geometry_analysis.csv"
         df.to_csv(file_path)
         return file_path
+
+    def replace_substituent(
+        self,
+        query_smi: str,
+        replacement_smi: str,
+        bind_idx: int = None,
+        replace_all=False,
+        attempt_num: int = 10,
+        frameID=-1,
+    ) -> BaseBlockParser:
+        """
+        Replace the substituent with the given SMARTS. The substituent is defined by the query_smi, and the new substituent is defined by the replacement_smi.
+
+        Parameters:
+            query_smi str:
+                The SMARTS to query the substituent in the original molecule.
+            replacement_smi str:
+                The SMARTS of new substituent. The bind atom is the first atom of the replacement_smi.
+            bind_idx int:
+                The index of the atom to bind the new substituent. The default is None, which means to replace the first legal atom in original molecule.
+                If specified, try to replace the atom. User should meke sure the atom is legal.
+                Detail example in (Repalce Substituent)[Repalce Substituent]
+            replace_all bool:
+                If True, replace all the substituent queried in the original molecule.
+            attempt_num int:
+                Max attempt times to replace the substituent. Each time a new substituent conformation will be used for substitution.
+            frameID int:
+                The frame ID to replace.
+        Returns:
+            The new parser.
+        """
+        return self.__frames[frameID].replace_substituent(
+            query_smi, replacement_smi, bind_idx, replace_all, attempt_num
+        )
+
+    def reset_atom_index(
+        self,
+        mapping_smarts: str,
+        frameID: int = -1,
+    ) -> BaseBlockParser:
+        """
+        Reset the atom index of the molecule according to the mapping SMARTS.
+
+        Parameters:
+            mapping_smarts str:
+                The SMARTS to query the molecule substructure.
+                The queried atoms will be renumbered and placed at the beginning of all atoms according to the order of the atoms in SMARTS. The relative order of the remaining atoms remains unchanged.
+            frameID int:
+                The frame ID to reset.
+        Returns:
+            The new parser.
+        """
+        return self.__frames[frameID].reset_atom_index(mapping_smarts)
+
+    def standard_orient(
+        self,
+        anchor_list: List[int],
+        frameID: int = -1,
+    ) -> BaseBlockParser:
+        """
+        Depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_X`, and `rotate_anchor_to_XY` are executed in order to obtain the normalized oriented molecule.
+
+        Sub-functions:
+            - `translate_anchor`: Translate the entire molecule so that the specified atom reaches the origin.
+            - `rotate_anchor_to_X`: Rotate the specified second atom along the axis passing through the origin so that it reaches the positive half-axis of the X-axis.
+            - `rotate_anchor_to_XY`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
+
+        Parameters:
+            anchor_list List[int]:
+                A list of indices of the atoms to be translated to origin, rotated to X axis, and rotated again to XY face:
+
+                - If length is 1, execute `translate_anchor`
+                - If length is 2, execute `translate_anchor` and `rotate_anchor_to_X`
+                - If length is 3, execute `translate_anchor`, `rotate_anchor_to_X` and `rotate_anchor_to_XY`
+                - If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
+            frameID int:
+                The frame ID to standardize orientation.
+
+        Returns:
+            The new parser.
+        """
+        return self.__frames[frameID].standard_orient(anchor_list)
 
 
 class BaseQMFileParser(BaseFileParser):

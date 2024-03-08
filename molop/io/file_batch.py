@@ -5,17 +5,19 @@ LastEditors: TMJ
 LastEditTime: 2024-01-25 23:10:59
 Description: 请填写简介
 """
+
 import os
 from collections.abc import MutableMapping
 from collections import OrderedDict
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Generator
 from molop.config import molopconfig
 import pandas as pd
 from joblib import Parallel, cpu_count, delayed
 from tqdm import tqdm
 
 from molop.config import molopconfig
-from molop.io.bases.file_base import BaseFileParser, BlockType
+from molop.io.types import PARSERTYPES
+from molop.io.bases.file_base import BaseFileParser, BaseBlockParser
 from molop.io.coords_file.gjf_parser import GJFParser
 from molop.io.coords_file.sdf_parser import SDFBlockParser, SDFParser
 from molop.io.coords_file.xyz_parser import XYZParser
@@ -24,16 +26,6 @@ from molop.io.qm_file.g16irc_parser import G16IRCParser
 from molop.io.qm_file.g16log_parser import G16LOGParser
 from molop.io.qm_file.xtbout_parser import XTBOUTParser
 from molop.logger.logger import logger
-
-PARSERTYPES = Union[
-    GJFParser,
-    SDFParser,
-    XYZParser,
-    G16FCHKParser,
-    G16IRCParser,
-    G16LOGParser,
-    XTBOUTParser,
-]
 
 parsers = {
     ".gjf": (GJFParser,),
@@ -46,7 +38,7 @@ parsers = {
     ".xyz": (XYZParser,),
     ".sdf": (SDFParser,),
     ".mol": (SDFParser,),
-    ".out": (XTBOUTParser, G16IRCParser),
+    ".out": (G16IRCParser, XTBOUTParser),
     ".irc": (G16IRCParser,),
     ".fchk": (G16FCHKParser,),
     ".fck": (G16FCHKParser,),
@@ -57,18 +49,47 @@ qm_parsers = (G16LOGParser, G16IRCParser, G16FCHKParser, XTBOUTParser)
 
 
 def singlefile_parser(
-    file_path,
+    file_path: str,
     charge=None,
     multiplicity=None,
     only_extract_structure=False,
     only_last_frame=False,
-) -> Union[PARSERTYPES, None]:
+) -> PARSERTYPES:
+    """
+    A function to parse a single file based on its format.
+
+    Args:
+        file_path (str): The path of the file.
+        charge (int, optional): The molecular charge. Defaults to None.
+        multiplicity (int, optional): The molecular spin multiplicity. Defaults to None.
+        only_extract_structure (bool, optional): Whether to extract structure only. Defaults to False.
+        only_last_frame (bool, optional): Whether to extract the last frame only. Defaults to False.
+
+    Returns:
+        PARSERTYPES: An instance of the appropriate parser class.
+
+    Core Logic:
+        - Checks if the provided `file_path` is an actual file.
+        - Determines the file format by getting the file extension.
+        - If the format is not supported, logs an error and returns None.
+        - Iterates through the available parsers for that format.
+        - Tries to instantiate and return the parser object with the given parameters.
+        - If an exception occurs during parsing, it logs the error and tries the next parser in the list.
+        - If all parsers fail, logs the final error and returns None.
+        - If the `file_path` points to a directory, logs an error and returns None.
+
+    Raises:
+        None
+
+    """
     if os.path.isfile(file_path):
         _, file_format = os.path.splitext(file_path)
         if file_format not in parsers:
-            raise NotImplementedError("Unknown file format: {}".format(file_format))
+            logger.error("Unknown file format: {}, {}".format(file_format, file_path))
+            return None
         for idx, parser in enumerate(parsers[file_format]):
             try:
+                # Instantiate and return specific parser classes with their respective arguments
                 if parser in (G16LOGParser, XTBOUTParser, G16IRCParser, G16FCHKParser):
                     p = parser(
                         file_path,
@@ -91,17 +112,18 @@ def singlefile_parser(
                     return parser(file_path, only_last_frame=only_last_frame)
                 else:
                     return parser(file_path)
-            except:
+            except Exception as e:
                 if idx == len(parsers[file_format]) - 1:
                     logger.error(
-                        f"Failed to parse file {file_path} with {parser.__name__}"
+                        f"Failed to parse file {file_path} with {parser.__name__}. {e}"
                     )
-                    raise Exception(f"Failed to parse file {file_path}")
+                    return None
                 logger.debug(
-                    f"Failed to parse file {file_path} with {parser.__name__}, try {parsers[file_format][idx+1].__name__} instead"
+                    f"Failed to parse file {file_path} with {parser.__name__}, trying {parsers[file_format][idx+1].__name__} instead"
                 )
     elif os.path.isdir(file_path):
-        raise IsADirectoryError(f"{file_path} is not a file.")
+        logger.error(f"{file_path} is not a file.")
+        return None
 
 
 class FileParserBatch(MutableMapping):
@@ -193,7 +215,7 @@ class FileParserBatch(MutableMapping):
                             total=len(arguments_list),
                             desc=f"MolOP parsing with {self.__n_jobs} jobs",
                         )
-                        if len(parser) > 0
+                        if parser is not None and len(parser) > 0
                     }
                 )
             else:
@@ -208,7 +230,7 @@ class FileParserBatch(MutableMapping):
                             delayed(singlefile_parser)(**arguments)
                             for arguments in arguments_list
                         )
-                        if len(parser) > 0
+                        if parser is not None and len(parser) > 0
                     }
                 )
         else:
@@ -224,7 +246,7 @@ class FileParserBatch(MutableMapping):
                             total=len(arguments_list),
                             desc=f"MolOP parsing with single thread",
                         )
-                        if len(parser) > 0
+                        if parser is not None and len(parser) > 0
                     }
                 )
             else:
@@ -235,7 +257,7 @@ class FileParserBatch(MutableMapping):
                             singlefile_parser(**arguments)
                             for arguments in arguments_list
                         )
-                        if len(parser) > 0
+                        if parser is not None and len(parser) > 0
                     }
                 )
 
@@ -252,27 +274,38 @@ class FileParserBatch(MutableMapping):
                     f"File {parser.file_path} already exists in the batch, skipped"
                 )
 
+    @property
+    def file_paths(self) -> List[str]:
+        """return a list of file paths"""
+        return [parser.file_path for parser in self]
+
     def to_GJF_file(
         self,
         file_path: str = None,
         charge: int = None,
         multiplicity: int = None,
-        prefix: str = "# g16 gjf \n",
+        prefix: str = "#p opt b3lyp def2svp freq EmpiricalDispersion=GD3BJ NoSymm\n",
         suffix="\n\n",
         template: str = None,
+        chk: bool = True,
+        oldchk: bool = False,
         frameID=-1,
     ) -> None:
         """file_path should be a directory, prefix and suffix are optional"""
         if file_path is None:
             file_path = os.path.curdir
+        if not os.path.isdir(file_path):
+            raise NotADirectoryError(f"{file_path} is not a directory")
         for parser in self:
             parser.to_GJF_file(
-                os.path.join(file_path, parser.file_name),
+                os.path.join(file_path, parser.pure_filename + ".gjf"),
                 charge=charge,
                 multiplicity=multiplicity,
                 prefix=prefix,
                 suffix=suffix,
                 template=template,
+                chk=chk,
+                oldchk=oldchk,
                 frameID=frameID,
             )
         logger.info(f"gjf files saved to {os.path.abspath(file_path)}")
@@ -280,23 +313,29 @@ class FileParserBatch(MutableMapping):
     def to_XYZ_file(self, file_path: str = None) -> None:
         if file_path is None:
             file_path = os.path.curdir
+        if not os.path.isdir(file_path):
+            raise NotADirectoryError(f"{file_path} is not a directory")
         for parser in self:
-            parser.to_XYZ_file(os.path.join(file_path, parser.file_name))
+            parser.to_XYZ_file(os.path.join(file_path, parser.pure_filename + ".xyz"))
         logger.info(f"xyz files saved to {os.path.abspath(file_path)}")
 
     def to_SDF_file(self, file_path: str = None) -> None:
         if file_path is None:
             file_path = os.path.curdir
+        if not os.path.isdir(file_path):
+            raise NotADirectoryError(f"{file_path} is not a directory")
         for parser in self:
-            parser.to_SDF_file(os.path.join(file_path, parser.file_name))
+            parser.to_SDF_file(os.path.join(file_path, parser.pure_filename + ".sdf"))
         logger.info(f"sdf files saved to {os.path.abspath(file_path)}")
 
     def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=True) -> None:
         if file_path is None:
             file_path = os.path.curdir
+        if not os.path.isdir(file_path):
+            raise NotADirectoryError(f"{file_path} is not a directory")
         for parser in self:
             parser.to_chemdraw(
-                os.path.join(file_path, parser.file_name),
+                os.path.join(file_path, parser.pure_filename + ".cdxml"),
                 frameID=frameID,
                 keep3D=keep3D,
             )
@@ -309,13 +348,34 @@ class FileParserBatch(MutableMapping):
         bind_idx: int = None,
         replace_all: bool = False,
         attempt_num: int = 10,
-    ) -> List[BlockType]:
-        """only consider the last frame of each file"""
+        frameID=-1,
+    ) -> "FileParserBatch":
+        """
+        Replace the substituent with the given SMARTS. The substituent is defined by the query_smi, and the new substituent is defined by the replacement_smi.
+
+        Parameters:
+            query_smi str:
+                The SMARTS to query the substituent in the original molecule.
+            replacement_smi str:
+                The SMARTS of new substituent. The bind atom is the first atom of the replacement_smi.
+            bind_idx int:
+                The index of the atom to bind the new substituent. The default is None, which means to replace the first legal atom in original molecule.
+                If specified, try to replace the atom. User should meke sure the atom is legal.
+                Detail example in (Repalce Substituent)[Repalce Substituent]
+            replace_all bool:
+                If True, replace all the substituent queried in the original molecule.
+            attempt_num int:
+                Max attempt times to replace the substituent. Each time a new substituent conformation will be used for substitution.
+            frameID int:
+                The frameID to replace.
+        Returns:
+            The new `FileParserBatch`.
+        """
         new_parsers = []
         if molopconfig.show_progress_bar:
             for parser in tqdm(self):
                 try:
-                    temp_parser = parser[-1].replace_substituent(
+                    temp_parser = parser[frameID].replace_substituent(
                         query_smi=query_smi,
                         replacement_smi=replacement_smi,
                         bind_idx=bind_idx,
@@ -335,7 +395,7 @@ class FileParserBatch(MutableMapping):
         else:
             for parser in self:
                 try:
-                    temp_parser = parser[-1].replace_substituent(
+                    temp_parser = parser[frameID].replace_substituent(
                         query_smi=query_smi,
                         replacement_smi=replacement_smi,
                         bind_idx=bind_idx,
@@ -353,12 +413,16 @@ class FileParserBatch(MutableMapping):
                         f"Failed to replace substituent from {query_smi} to {replacement_smi} in {parser.file_path}, {parser.file_name}"
                     )
 
+        new_batch = FileParserBatch()
+        new_batch.add_file_parsers(new_parsers)
         logger.info(
             f"{len(new_parsers)} files successfully replaced, {len(self.__parsers) - len(new_parsers)} files failed to replace"
         )
-        return new_parsers
+        return new_batch
 
-    def reset_atom_index(self, mapping_smarts: str) -> "FileParserBatch":
+    def reset_atom_index(
+        self, mapping_smarts: str, frameID: int = -1
+    ) -> "FileParserBatch":
         """only consider the last frame of each file"""
         new_parsers = []
         if molopconfig.show_progress_bar:
@@ -394,14 +458,102 @@ class FileParserBatch(MutableMapping):
         )
         return new_batch
 
+    def standard_orient(
+        self,
+        anchor_list: List[int],
+        frameID: int = -1,
+    ) -> "FileParserBatch":
+        """
+        Depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_X`, and `rotate_anchor_to_XY` are executed in order to obtain the normalized oriented molecule.
+
+        Sub-functions:
+            - `translate_anchor`: Translate the entire molecule so that the specified atom reaches the origin.
+            - `rotate_anchor_to_X`: Rotate the specified second atom along the axis passing through the origin so that it reaches the positive half-axis of the X-axis.
+            - `rotate_anchor_to_XY`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
+
+        Parameters:
+            anchor_list List[int]:
+                A list of indices of the atoms to be translated to origin, rotated to X axis, and rotated again to XY face:
+
+                - If length is 1, execute `translate_anchor`
+                - If length is 2, execute `translate_anchor` and `rotate_anchor_to_X`
+                - If length is 3, execute `translate_anchor`, `rotate_anchor_to_X` and `rotate_anchor_to_XY`
+                - If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
+
+
+        Returns:
+            The new `FileParserBatch`.
+        """
+        new_parsers = []
+        if molopconfig.show_progress_bar:
+            for parser in tqdm(self):
+                try:
+                    temp_parser = parser[frameID].standard_orient(anchor_list)
+                    temp_file_path = temp_parser.to_SDF_file()
+                    new_parsers.append(SDFParser(temp_file_path, only_last_frame=True))
+                    os.remove(temp_file_path)
+                except Exception as e:
+                    logger.error(
+                        f"{e}: Failed to standard_orient by {anchor_list} in {parser.file_path}, {parser.file_name}"
+                    )
+        else:
+            for parser in self:
+                try:
+                    temp_parser = parser[frameID].standard_orient(anchor_list)
+                    temp_file_path = temp_parser.to_SDF_file()
+                    new_parsers.append(SDFParser(temp_file_path, only_last_frame=True))
+                    os.remove(temp_file_path)
+                except Exception as e:
+                    logger.error(
+                        f"{e}: Failed to standard_orient by {anchor_list} in {parser.file_path}, {parser.file_name}"
+                    )
+        new_batch = FileParserBatch()
+        new_batch.add_file_parsers(new_parsers)
+        logger.info(
+            f"{len(new_parsers)} files successfully replaced, {len(self.__parsers) - len(new_parsers)} files failed to standard_orient"
+        )
+        return new_batch
+
     def filter_TS(self) -> "FileParserBatch":
         TS_parsers = [
             parser
             for parser in self
-            if parser.__class__ in qm_parsers and parser[-1].is_TS
+            if parser.__class__ in qm_parsers and parser[-1].is_TS()
         ]
         new_batch = FileParserBatch()
         new_batch.add_file_parsers(TS_parsers)
+        return new_batch
+
+    def filter_error(self) -> "FileParserBatch":
+        """
+        Return a new `FileParserBatch` with all the QM parsers that are flagged as errors.
+
+        Returns:
+            The new `FileParserBatch`.
+        """
+        error_parsers = [
+            parser
+            for parser in self
+            if parser.__class__ in qm_parsers and parser[-1].is_error()
+        ]
+        new_batch = FileParserBatch()
+        new_batch.add_file_parsers(error_parsers)
+        return new_batch
+
+    def filter_normal(self) -> "FileParserBatch":
+        """
+        Return a new `FileParserBatch` with all the QM parsers that are flagged as normal.
+
+        Returns:
+            The new `FileParserBatch`.
+        """
+        error_parsers = [
+            parser
+            for parser in self
+            if parser.__class__ in qm_parsers and not parser[-1].is_error()
+        ]
+        new_batch = FileParserBatch()
+        new_batch.add_file_parsers(error_parsers)
         return new_batch
 
     def filter_by_charge(self, charge: int) -> "FileParserBatch":
@@ -428,18 +580,6 @@ class FileParserBatch(MutableMapping):
         return f"{self.__class__.__name__}({len(self)})"
 
     def to_summary_df(self):
-        def get_generator_value(g, idx):
-            i = 0
-            temp_g = g
-            try:
-                while i <= idx:
-                    temp_g = next(g)
-                    i += 1
-                else:
-                    return temp_g
-            except StopIteration:
-                return {"is imaginary": None, "freq": None}
-
         return pd.DataFrame(
             {
                 "parser": [parser.__class__.__name__ for parser in self],
@@ -454,115 +594,151 @@ class FileParserBatch(MutableMapping):
                     for parser in self
                 ],
                 "ZPE": [
-                    parser[-1].dimensionless_sum_energy["zero-point correction"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["zero-point correction"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "TCE": [
-                    parser[-1].dimensionless_sum_energy["TCE"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["TCE"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "TCH": [
-                    parser[-1].dimensionless_sum_energy["TCH"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["TCH"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "TCG": [
-                    parser[-1].dimensionless_sum_energy["TCG"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["TCG"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "ZPE-Gas": [
-                    parser[-1].dimensionless_sum_energy["zero-point gas"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["zero-point gas"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "E-Gas": [
-                    parser[-1].dimensionless_sum_energy["E gas"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["E gas"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "H-Gas": [
-                    parser[-1].dimensionless_sum_energy["H gas"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["H gas"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "G-Gas": [
-                    parser[-1].dimensionless_sum_energy["G gas"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_sum_energy["G gas"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "sp": [
-                    parser[-1].dimensionless_energy
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_energy
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "HOMO": [
-                    parser[-1].dimensionless_alpha_energy["homo"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_alpha_energy["homo"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "LUMO": [
-                    parser[-1].dimensionless_alpha_energy["lumo"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_alpha_energy["lumo"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "GAP": [
-                    parser[-1].dimensionless_alpha_energy["gap"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].dimensionless_alpha_energy["gap"]
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "first freq": [
-                    get_generator_value(parser[-1].dimensionless_frequencies, 0)["freq"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].first_freq(dimensionless=True)["freq"]
+                        if parser.__class__ in qm_parsers
+                        and parser[-1].first_freq(dimensionless=True) is not None
+                        else None
+                    )
                     for parser in self
                 ],
                 "first freq tag": [
-                    get_generator_value(parser[-1].dimensionless_frequencies, 0)[
-                        "is imaginary"
-                    ]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].first_freq(dimensionless=True)["is imaginary"]
+                        if parser.__class__ in qm_parsers
+                        and parser[-1].first_freq(dimensionless=True) is not None
+                        else None
+                    )
                     for parser in self
                 ],
                 "second freq": [
-                    get_generator_value(parser[-1].dimensionless_frequencies, 1)["freq"]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].second_freq(dimensionless=True)["freq"]
+                        if parser.__class__ in qm_parsers
+                        and parser[-1].second_freq(dimensionless=True) is not None
+                        else None
+                    )
                     for parser in self
                 ],
                 "second freq tag": [
-                    get_generator_value(parser[-1].dimensionless_frequencies, 1)[
-                        "is imaginary"
-                    ]
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].second_freq(dimensionless=True)["is imaginary"]
+                        if parser.__class__ in qm_parsers
+                        and parser[-1].second_freq(dimensionless=True) is not None
+                        else None
+                    )
                     for parser in self
                 ],
                 "S**2": [
-                    parser[-1].spin_eigenvalue
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].spin_eigenvalue
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
                 "S": [
-                    parser[-1].spin_multiplicity
-                    if parser.__class__ in qm_parsers
-                    else None
+                    (
+                        parser[-1].spin_multiplicity
+                        if parser.__class__ in qm_parsers
+                        else None
+                    )
                     for parser in self
                 ],
             }

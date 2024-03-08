@@ -77,6 +77,7 @@ nav:
       - Read a file and extract info: read_file_and_extract_info.md
       - Transform in gjf: transform_in_gjf.md
       - Command line interface: command_line_interface.md
+      - Spctial features: spatial_features.md
   - API: 
     - io:
       - bases:

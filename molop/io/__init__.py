@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-14 14:40:02
 LastEditors: TMJ
-LastEditTime: 2024-02-18 18:44:14
+LastEditTime: 2024-02-20 19:50:10
 Description: 请填写简介
 """
 from glob import glob
@@ -18,7 +18,7 @@ def AutoParser(
     n_jobs: int = -1,
     only_extract_structure=False,
     only_last_frame=False,
-) -> Union[FileParserBatch, None]:
+) -> FileParserBatch:
     """
     The Entrypoint of MolOP
 

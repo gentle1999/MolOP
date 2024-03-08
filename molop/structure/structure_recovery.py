@@ -627,6 +627,7 @@ def fix_over_bonded_C(given_charge: int, omol: pybel.Molecule):
                         atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
                     )
                     break
+    return given_charge
 
 
 def fix_convinced_possitive_N(given_charge: int, omol: pybel.Molecule):
@@ -654,6 +655,7 @@ def fix_convinced_possitive_N(given_charge: int, omol: pybel.Molecule):
         ):
             atom.OBAtom.SetFormalCharge(1)
             given_charge -= 1
+    return given_charge
 
 
 def fix_fake_dipole(given_charge: int, omol: pybel.Molecule):
@@ -688,6 +690,7 @@ def fix_fake_dipole(given_charge: int, omol: pybel.Molecule):
                         atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
                             atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
                         )
+    return given_charge
 
 
 def fix_CN_in_doubt(given_charge: int, omol: pybel.Molecule):
@@ -727,6 +730,7 @@ def fix_CN_in_doubt(given_charge: int, omol: pybel.Molecule):
                 atom_1.GetBond(atom_2).SetBondOrder(
                     atom_1.GetBond(atom_2).GetBondOrder() - 1
                 )
+    return given_charge
 
 
 def fix_over_bonded_N_in_possitive(given_charge: int, omol: pybel.Molecule):
@@ -750,6 +754,7 @@ def fix_over_bonded_N_in_possitive(given_charge: int, omol: pybel.Molecule):
             ):
                 atom.OBAtom.SetFormalCharge(1)  # Set the formal charge of the atom to 1
                 given_charge -= 1  # Decrease the given charge by 1
+    return given_charge
 
 
 def fix_charge_on_metal(
@@ -775,6 +780,7 @@ def fix_charge_on_metal(
                     atom.OBAtom.GetFormalCharge() + charge_to_be_allocated
                 )
                 charge_to_be_allocated -= charge_to_be_allocated
+    return charge_to_be_allocated
 
 
 def fix_over_bonded_heteroatom(
@@ -802,6 +808,7 @@ def fix_over_bonded_heteroatom(
                 if over_valence > 0:
                     atom.OBAtom.SetFormalCharge(over_valence)
                     charge_to_be_allocated -= over_valence
+    return charge_to_be_allocated
 
 
 def fix_unbonded_heteroatom(
@@ -849,6 +856,7 @@ def fix_unbonded_heteroatom(
                         resonance.OBMol.AddBond(atom.idx, closet_spin_atom.idx, 1)
                         atom.OBAtom.SetFormalCharge(1)
                         charge_to_be_allocated -= 1
+    return charge_to_be_allocated
 
 
 def xyz_block_to_omol(
@@ -884,11 +892,11 @@ def xyz_block_to_omol(
 
     # N-BCP
     fix_N_BCP(omol)
-    fix_over_bonded_C(given_charge, omol)
-    fix_fake_dipole(given_charge, omol)
-    fix_CN_in_doubt(given_charge, omol)
-    fix_over_bonded_N_in_possitive(given_charge, omol)
-    fix_convinced_possitive_N(given_charge, omol)
+    given_charge = fix_over_bonded_C(given_charge, omol)
+    given_charge = fix_fake_dipole(given_charge, omol)
+    given_charge = fix_CN_in_doubt(given_charge, omol)
+    given_charge = fix_over_bonded_N_in_possitive(given_charge, omol)
+    given_charge = fix_convinced_possitive_N(given_charge, omol)
     omol.OBMol.MakeDativeBonds()
     clean_neighbor_radicals(omol)
 
@@ -907,9 +915,15 @@ def xyz_block_to_omol(
 
         charge_to_be_allocated = abs(charge)
         clean_neighbor_radicals(resonance)
-        fix_charge_on_metal(resonance, charge, charge_to_be_allocated)
-        fix_over_bonded_heteroatom(resonance, charge, charge_to_be_allocated)
-        fix_unbonded_heteroatom(resonance, charge, charge_to_be_allocated)
+        charge_to_be_allocated = fix_charge_on_metal(
+            resonance, charge, charge_to_be_allocated
+        )
+        charge_to_be_allocated = fix_over_bonded_heteroatom(
+            resonance, charge, charge_to_be_allocated
+        )
+        charge_to_be_allocated = fix_unbonded_heteroatom(
+            resonance, charge, charge_to_be_allocated
+        )
 
         if charge > 0:
             # Step 2.2.4: If no heteroatom (with the neighboring free radical) found, allocate the positive charge to the carbon or hydrogen atom with free radical.

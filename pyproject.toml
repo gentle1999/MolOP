@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "molop"
-version = "0.1.25.1"
+version = "0.1.27.2"
 description = "Molcule OPerator"
 authors = ["tmj <mj_t@zju.edu.cn>"]
 license = "MIT"
@@ -18,6 +18,7 @@ packages = [{ include = "molop" }]
 [tool.poetry.dependencies]
 python = ">=3.8"
 rdkit = ">=2023.9.4"
+openbabel-wheel = "~3.1.1"
 numpy = ">=1.24.2"
 pandas = ">=2.0.3"
 scipy = ">=1.10.1"
@@ -25,6 +26,10 @@ tqdm = ">=4.66.1"
 pint = ">=0.21.1"
 joblib = ">=1.3.2"
 fire = ">=0.5.0"
+trimesh = { version = "~4.1.3", optional = true }
+scikit-learn = { version = ">=1.2.2", optional = true }
+scikit-image = { version = ">=0.21.0", optional = true }
+matplotlib = { version = ">=3.7.1", optional = true }
 mordred = { version = ">=1.2.0", optional = true }
 dscribe = { version = ">=2.1.0", optional = true }
 ase = { version = ">=3.22.1", optional = true }
@@ -39,8 +44,13 @@ notebook = { version = "~6.4.12", optional = true }
 nbconvert = { version = ">=7.14.2", optional = true }
 
 [tool.poetry.extras]
-full = ["mordred", "dscribe", "ase"]
+spatial = ["trimesh", "matplotlib", "scikit-image", "scikit-learn"]
+desc = ["mordred", "dscribe", "ase"]
+full = ["mordred", "dscribe", "ase", "trimesh", "matplotlib"]
 dev = [
+    "trimesh",
+    "scikit-image",
+    "scikit-learn",
     "mordred",
     "dscribe",
     "ase",

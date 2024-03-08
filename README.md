@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-02-13 14:17:48
+ * @LastEditTime: 2024-03-06 16:19:13
  * @Description: 请填写简介
 -->
 # MolOP
@@ -30,7 +30,7 @@ This repository, **Molecule OPerator**, which is the basic molecule information 
 - Offer the moleculer geometry and structure edit functions. `Doing`
   - Substructure replacement `Done`
   - Atom index reset `Done`
-  - Orientation change `TODO`
+  - Orientation change `Done`
   - Other functions `TODO`
 
 ## Get Start
@@ -42,7 +42,6 @@ All teat cases shown in the [test_cases](tutorial/test_cases.ipynb) file.
 ## Installation for Users
 
 ```bash
-conda install openbabel -c conda-forge # openbabel is a necessary dependence
 pip install --extra-index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop --upgrade
 ```
 
@@ -58,11 +57,10 @@ pip install --extra-index-url http://10.72.201.58:13000/api/packages/tmj/pypi/si
 # clone the repository
 git clone http://10.72.201.58:13000/tmj/MolOP.git
 cd MolOP
-conda create -n molop python=3.8
+# create a new environment (conda is not necessary)
+conda create -n molop python=3.8 # The lowest python version is 3.8
 conda activate molop
-python -m ipykernel install --user --name molop
 # install the dependencies
-conda install openbabel -c conda-forge # openbabel is a necessary dependence
 pip install poetry
 pip install .[dev]
 ```

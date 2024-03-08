@@ -1,13 +1,15 @@
-'''
+"""
 Author: TMJ
-Date: 2024-01-09 19:54:01
+Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-02-06 19:10:56
+LastEditTime: 2024-03-02 22:33:30
 Description: 请填写简介
-'''
+"""
+from typing import Literal
 import os
 import re
 
+from molop.utils import parameter_comment_parser
 from molop.io.bases.file_base import BaseFileParser
 from molop.io.coords_file.GJFBlockParser import GJFBlockParser
 
@@ -41,20 +43,53 @@ class GJFParser(BaseFileParser):
                     charge = self.__force_charge
                 if self.__force_multiplicity is not None:
                     multi = self.__force_multiplicity
-                self._parameter_comment = "".join(lines[:idx])
+                self._parameter_comment = "".join(lines[: idx - 2])
 
-            if re.match(r"^\s*[A-Z][a-z]?(\s+\-?\d+(\.\d+)?){3}$", line):
+            if re.search(
+                r"[a-zA-z0-9]+\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)",
+                line,
+            ):
                 block_end = idx
+        (
+            self._link0,
+            self._route_params,
+            self._dieze_tag,
+            self._functional,
+            self._basis_set,
+        ) = parameter_comment_parser(self.parameter_comment)
         self.append(
             GJFBlockParser(
                 "".join(lines[block_start : block_end + 1]),
                 charge,
                 multi,
                 file_path=self._file_path,
-                parameter_comment=self._parameter_comment,
+                parameter_comment=self.parameter_comment,
             )
         )
 
     @property
     def parameter_comment(self) -> str:
-        return self._parameter_comment
+        link, route = self._parameter_comment.split("#")
+        link = link.replace("\n", " ")
+        route = "#" + route.replace("\n", " ")
+        return "\n".join([link, route])
+
+    @property
+    def link0(self) -> dict:
+        return self._link0
+
+    @property
+    def route_params(self) -> dict:
+        return self._route_params
+
+    @property
+    def dieze_tag(self) -> Literal["#N", "#P", "#T"]:
+        return self._dieze_tag
+
+    @property
+    def functional(self) -> str:
+        return self._functional
+
+    @property
+    def basis_set(self) -> str:
+        return self._basis_set

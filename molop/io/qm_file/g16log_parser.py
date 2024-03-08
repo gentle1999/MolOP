@@ -11,9 +11,9 @@ import time
 from molop.io.bases.file_base import BaseQMFileParser
 from molop.io.qm_file.G16LOGBlockParser import (
     G16LOGBlockParser,
-    parameter_comment_parser,
 )
 from molop.logger.logger import logger
+from molop.utils import parameter_comment_parser, g16logpatterns
 
 
 class G16LOGParser(BaseQMFileParser):
@@ -40,7 +40,11 @@ class G16LOGParser(BaseQMFileParser):
         fr.close()
         self._parse_charge_multi(full_text, force_charge, force_multiplicity)
         self._parse_input_parameter(full_text)
-        n_atom = int(re.findall(r"NAtoms=\s*(\d+)", full_text)[0])
+        n_atom_match = re.search(g16logpatterns["n atoms"], full_text)
+        if n_atom_match:
+            n_atom = int(n_atom_match.group(1))
+        else:
+            raise RuntimeError("No atoms found in the file.")
         blocks = []
         matches = re.search(r"Input orientation:", full_text)
         if matches:

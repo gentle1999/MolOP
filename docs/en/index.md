@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2024-01-30 16:53:29
  * @LastEditors: TMJ
- * @LastEditTime: 2024-02-12 21:40:53
+ * @LastEditTime: 2024-02-20 19:30:39
  * @Description: 请填写简介
 -->
 # MolOP
@@ -30,7 +30,7 @@
 - Offer the moleculer geometry and structure edit functions. `Doing`
     - Substructure replacement `Done`
     - Atom index reset `Done`
-    - Orientation change `TODO`
+    - Orientation change `Done`
     - Other functions `TODO`
 
 

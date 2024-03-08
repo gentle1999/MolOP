@@ -5,15 +5,16 @@ LastEditors: TMJ
 LastEditTime: 2024-01-24 16:25:48
 Description: 请填写简介
 """
-import itertools
 import math
-import os
 import re
 from typing import Literal
+
+import numpy as np
 
 from molop.io.bases.molblock_base import QMBaseBlockParser
 from molop.logger.logger import logger
 from molop.unit import atom_ureg
+from molop.utils import g16fchkpatterns, parameter_comment_parser
 
 
 class G16FCHKBlockParser(QMBaseBlockParser):
@@ -41,9 +42,33 @@ class G16FCHKBlockParser(QMBaseBlockParser):
         self.__n_atom = n_atom
         self._version = version
         self._parameter_comment = parameter_comment
+
+        (
+            _,
+            self._route_params,
+            self._dieze_tag,
+            self._functional,
+            self._basis_set,
+        ) = parameter_comment_parser("\n" + self._parameter_comment)
         self._parse_coords()
         if not self._only_extract_structure:
             self._parse()
+
+    @property
+    def route_params(self) -> dict:
+        return self._route_params
+
+    @property
+    def dieze_tag(self) -> Literal["#N", "#P", "#T"]:
+        return self._dieze_tag
+
+    @property
+    def functional(self) -> str:
+        return self._functional
+
+    @property
+    def basis_set(self) -> str:
+        return self._basis_set
 
     def _parse_coords(self):
         lines = self._block.splitlines()
@@ -62,100 +87,62 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                     len(coords) == self.__n_atom * 3
                 ), "Number of coordinates is not consistent."
                 break
+        temp_coords = []
         for i in range(0, len(coords), 3):
-            self._coords.append(
-                (
-                    (coords[i] * atom_ureg.bohr).to("angstrom"),
-                    (coords[i + 1] * atom_ureg.bohr).to("angstrom"),
-                    (coords[i + 2] * atom_ureg.bohr).to("angstrom"),
-                )
-            )
+            temp_coords.append((coords[i], coords[i + 1], coords[i + 2]))
+        self._coords = (np.array(temp_coords) * atom_ureg.bohr).to("angstrom")
 
     def _parse(self):
         self._parse_energy()
         self._parse_partial_charges()
         self._parse_gradient()
-        self._parse_orbitals("Alpha")
-        self._parse_orbitals("Beta")
+        self._parse_orbitals()
         self._parse_frequencies()
         self._parse_spin()
         # self._parse_hessian()
+        self._parse_dipole()
         self._parse_state()
         # self._parse_nbo()
 
     def _parse_energy(self):
-        try:
+        total_energy = re.search(g16fchkpatterns["total energy"], self._block)
+        if total_energy:
             self._energy = (
-                round(
-                    float(
-                        re.findall(
-                            r"Total Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
-                        )[0]
-                    ),
-                    6,
-                )
+                round(float(total_energy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
-        except:
-            self._energy = (
-                round(
-                    float(
-                        re.findall(
-                            r"SCF Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
-                        )[0]
-                    ),
-                    6,
+        else:
+            scf_energy = re.search(g16fchkpatterns["scf energy"], self._block)
+            if scf_energy:
+                self._energy = (
+                    round(float(scf_energy.group(1)), 6)
+                    * atom_ureg.hartree
+                    / atom_ureg.particle
                 )
-                * atom_ureg.hartree
-                / atom_ureg.particle
-            )
-        try:
+        thermal_energy = re.search(g16fchkpatterns["thermal energy"], self._block)
+        if thermal_energy:
             self._sum_energy["E gas"] = (
-                round(
-                    float(
-                        re.findall(
-                            r"Thermal Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
-                        )[0]
-                    ),
-                    6,
-                )
+                round(float(thermal_energy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
-        except:
-            pass
-        try:
+        thermal_enthalpy = re.search(g16fchkpatterns["thermal enthalpy"], self._block)
+        if thermal_enthalpy:
             self._sum_energy["H gas"] = (
-                round(
-                    float(
-                        re.findall(
-                            r"Thermal Enthalpy\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
-                        )[0]
-                    ),
-                    6,
-                )
+                round(float(thermal_enthalpy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
-        except:
-            pass
-        try:
+        thermal_free_energy = re.search(
+            g16fchkpatterns["thermal free energy"], self._block
+        )
+        if thermal_enthalpy:
             self._sum_energy["G gas"] = (
-                round(
-                    float(
-                        re.findall(
-                            r"Thermal Free Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)",
-                            self._block,
-                        )[0]
-                    ),
-                    6,
-                )
+                round(float(thermal_free_energy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
-        except:
-            pass
 
     def _parse_partial_charges(self):
         lines = self._block.splitlines()
@@ -179,31 +166,28 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                     len(raw_gradient) == self.__n_atom * 3
                 ), "Number of gradient is not consistent."
                 break
-        for i in range(0, len(raw_gradient), 3):
-            self._gradients.append(
-                (
-                    raw_gradient[i] * atom_ureg.hartree / atom_ureg.bohr,
-                    raw_gradient[i + 1] * atom_ureg.hartree / atom_ureg.bohr,
-                    raw_gradient[i + 2] * atom_ureg.hartree / atom_ureg.bohr,
-                )
-            )
+        self._gradients = (
+            np.array(raw_gradient).reshape(-1, 3) * atom_ureg.hartree / atom_ureg.bohr
+        )
 
-    def _parse_orbitals(self, orbitals: Literal["Alpha", "Beta"]):
+    def _parse_orbitals(self):
         lines = self._block.splitlines()
         orbitals_energy = []
         for i, line in enumerate(lines):
-            if f"{orbitals} Orbital Energies" in line:
+            matches = re.search(g16fchkpatterns["orbital"], line)
+            if matches:
                 for j in range(i + 1, i + 1 + math.ceil(int(line.split()[-1]) / 5.0)):
                     orbitals_energy.extend(list(map(float, lines[j].split())))
                 break
         occ = math.ceil(self.total_electrons / 2.0)
         if len(orbitals_energy) == 0:
             return
-        if orbitals == "Alpha":
-            self._alpha_FMO_orbits = [
-                (round(energy, 6) * atom_ureg.hartree / atom_ureg.particle)
-                for energy in orbitals_energy
-            ]
+        if matches.group(1) == "Alpha":
+            self._alpha_FMO_orbits = (
+                np.array(orbitals_energy, dtype=np.float32)
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
             self._alpha_energy["homo"] = self._alpha_FMO_orbits[occ - 1]
             self._alpha_energy["lumo"] = self._alpha_FMO_orbits[occ]
             self._alpha_energy["gap"] = (
@@ -212,10 +196,11 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                 / atom_ureg.particle
             )
         else:
-            self._beta_FMO_orbits = [
-                (round(energy, 6) * atom_ureg.hartree / atom_ureg.particle)
-                for energy in orbitals_energy
-            ]
+            self._beta_FMO_orbits = (
+                np.array(orbitals_energy, dtype=np.float32)
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
             self._beta_energy["homo"] = self._beta_FMO_orbits[occ - 1]
             self._beta_energy["lumo"] = self._beta_FMO_orbits[occ]
             self._beta_energy["gap"] = (
@@ -225,12 +210,9 @@ class G16FCHKBlockParser(QMBaseBlockParser):
             )
 
     def _parse_frequencies(self):
-        try:
-            num_freqs = int(
-                re.findall(
-                    r"Number of Normal Modes\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
-                )[0]
-            )
+        freq_num = re.search(g16fchkpatterns["freq num"], self._block)
+        if freq_num:
+            num_freqs = int(freq_num.group(1))
             freqs = []
             freq_modes = []
             lines = self._block.splitlines()
@@ -257,42 +239,43 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                         "IR intensities": freqs[idx + num_freqs * 3]
                         * atom_ureg.kmol
                         / atom_ureg.mol,
-                        "normal coordinates": [
-                            (
-                                x * atom_ureg.angstrom,
-                                y * atom_ureg.angstrom,
-                                z * atom_ureg.angstrom,
-                            )
-                            for x, y, z in [
-                                freq_modes[i : i + 3]
-                                for i in range(
-                                    idx * 3 * self.__n_atom,
-                                    (idx + 1) * 3 * self.__n_atom,
-                                    3,
-                                )
+                        "normal coordinates": np.array(
+                            freq_modes[
+                                idx * 3 * self.__n_atom : (idx + 1) * 3 * self.__n_atom
                             ]
-                        ],
+                        ).reshape(-1, 3)
+                        * atom_ureg.angstrom,
                     }
                 )
-        except:
-            # logger.info(f"Frequencies not found in {self._file_path}")
-            pass
 
     def _parse_spin(self):
-        try:
-            self._spin_eigenvalue = round(
-                float(re.findall(r"S\*\*2\s+R\s+([\+\-\.0-9E]+)", self._block)[0]), 2
-            )
+        matches = re.search(g16fchkpatterns["spin"], self._block)
+        if matches:
+            self._spin_eigenvalue = round(float(matches.group(1)), 2)
             self._spin_multiplicity = round(
                 math.sqrt(self._spin_eigenvalue + 0.25) - 0.5, 2
             )
-        except:
-            self._spin_eigenvalue = None
+
+    def _parse_dipole(self):
+        matches = re.search(g16fchkpatterns["dipole"], self._block)
+        if matches:
+            self._dipole = np.array(
+                list(map(float, matches.groups()))
+            ) * atom_ureg.debye
+
+    #TODO NBO section
+    # route section: pop=saveNBO or pop=saveNLMO
+    # ref: http://sobereva.com/134
 
     def _parse_state(self):
-        try:
-            self._state["Job Status"] = re.findall(
-                r"Job Status\s+[A-Z]+\s+([\-\+0-9\.E]+)", self._block
-            )[0]
-        except:
+        matches = re.search(g16fchkpatterns["job status"], self._block)
+        if matches:
+            self._state["Job Status"] = matches.group(1) == "1"
+        else:
             self._state["Job Status"] = False
+
+    def is_error(self) -> bool:
+        if "Job Status" in self._state:
+            return self._state["Job Status"] == False
+        else:
+            return True
