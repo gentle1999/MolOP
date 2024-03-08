@@ -70,7 +70,8 @@ nav:
   - Installaton: install.md
   - Get Start:
       - Read Files: read_files.md
-      - Structure Recovery Cases: structure_recovery_cases.md
+      - Structure Recovery Benchmark: structure_recover_benchmark.md
+      - Structure Recovery: structure_recovery.md
       - Supporting Input File formats: supporting_input_file_formats.md
       - Supporting Output File formats: supporting_output_file_formats.md
   - Examples:

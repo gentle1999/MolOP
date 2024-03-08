@@ -635,7 +635,7 @@ class FileParserBatch(MutableMapping):
                 ],
                 "E-Gas": [
                     (
-                        parser[-1].dimensionless_sum_energy["E gas"]
+                        parser[-1].dimensionless_sum_energy["E sum"]
                         if parser.__class__ in qm_parsers
                         else None
                     )
@@ -643,15 +643,15 @@ class FileParserBatch(MutableMapping):
                 ],
                 "H-Gas": [
                     (
-                        parser[-1].dimensionless_sum_energy["H gas"]
+                        parser[-1].dimensionless_sum_energy["H sum"]
                         if parser.__class__ in qm_parsers
                         else None
                     )
                     for parser in self
                 ],
-                "G-Gas": [
+                "G sum": [
                     (
-                        parser[-1].dimensionless_sum_energy["G gas"]
+                        parser[-1].dimensionless_sum_energy["G sum"]
                         if parser.__class__ in qm_parsers
                         else None
                     )

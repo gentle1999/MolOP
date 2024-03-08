@@ -340,7 +340,8 @@ class MolBlock(ABC):
         Returns:
             The SMILES.
         """
-        return rdMolStandardize.StandardizeSmiles(self.to_SMILES())
+        # return rdMolStandardize.StandardizeSmiles(self.to_SMILES())
+        return Chem.MolToSmiles(Chem.MolFromSmiles(self.to_SMILES()))
 
     def to_InChI(self) -> str:
         """

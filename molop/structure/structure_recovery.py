@@ -645,7 +645,7 @@ def fix_convinced_possitive_N(given_charge: int, omol: pybel.Molecule):
     """
     for atom in omol.atoms:
         if (
-            atom.atomicnum == 7
+            atom.atomicnum in (7, 15)
             and atom.OBAtom.GetExplicitValence() == 4
             and atom.OBAtom.GetFormalCharge() == 0
             and all(
