@@ -9,11 +9,10 @@ import os
 import re
 from typing import Literal
 
-from molop.utils import g16fchkpatterns, parameter_comment_parser
-
 from molop.io.bases.file_base import BaseQMFileParser
 from molop.io.qm_file.G16FCHKBlockParser import G16FCHKBlockParser
 from molop.logger.logger import logger
+from molop.utils import g16fchkpatterns, parameter_comment_parser
 
 
 class G16FCHKParser(BaseQMFileParser):

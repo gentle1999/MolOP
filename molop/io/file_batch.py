@@ -180,7 +180,8 @@ class FileParserBatch(MutableMapping):
         file_paths = []
         for file_path in files:
             if not os.path.isfile(file_path):
-                raise FileNotFoundError(f"{file_path} is not a file.")
+                logger.warning(f"{file_path} is not a file.")
+                continue
             if os.path.splitext(file_path)[1] not in parsers:
                 logger.warning(f"Unsupported input file format: {file_path}")
                 continue
@@ -278,6 +279,11 @@ class FileParserBatch(MutableMapping):
     def file_paths(self) -> List[str]:
         """return a list of file paths"""
         return [parser.file_path for parser in self]
+    
+    @property
+    def file_names(self) -> List[str]:
+        """return a list of file names"""
+        return [parser.file_name for parser in self]
 
     def to_GJF_file(
         self,
@@ -627,7 +633,7 @@ class FileParserBatch(MutableMapping):
                 ],
                 "ZPE-Gas": [
                     (
-                        parser[-1].dimensionless_sum_energy["zero-point gas"]
+                        parser[-1].dimensionless_sum_energy["zero-point sum"]
                         if parser.__class__ in qm_parsers
                         else None
                     )

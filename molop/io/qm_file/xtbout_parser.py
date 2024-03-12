@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-03-02 21:17:14
+LastEditTime: 2024-03-12 20:00:53
 Description: 请填写简介
 """
 import os
@@ -45,7 +45,7 @@ class XTBOUTParser(BaseQMFileParser):
         if version_match:
             version = version_match.group(1)
         else:
-            version = ""
+            version = "???"
         self._version = version
         charge_match = re.search(xtboutpatterns["charge"], full_text)
         if charge_match is None:
