@@ -187,6 +187,16 @@ xtboutpatterns: Dict[str, re.Pattern] = {
     "value": re.compile(r"[\s-]\d+\.\d+"),
     "dipole_start": re.compile(r"molecular dipole"),
     "dipole_end": re.compile(r"molecular quadrupole"),
+    "coords_start": re.compile(r"final structure"),
+    "coords_new": re.compile(r"([a-zA-Z]+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)"),
+    "coords_old": re.compile(r"([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([a-zA-Z]+)"),
+    "coords_end": re.compile(r"Bond Distances"),
+    "zp correct": re.compile(r"zero point energy\s+([\-\+0-9.]+)"),
+    "H correct": re.compile(r"\d+.\d+\s+\d+.\d+E[+-]\d+\s+(\d+.\d+E[+-]\d+)\s+\d+.\d+E[+-]\d+\s+\d+.\d+E[+-]\d+"),
+    "G correct": re.compile(r"\d+.\d+\s+\d+.\d+E[+-]\d+\s+\d+.\d+E[+-]\d+\s+\d+.\d+E[+-]\d+\s+(\d+.\d+E[+-]\d+)"),
+    "sum H": re.compile(r"TOTAL ENTHALPY\s+([\-\+0-9.]+)"),
+    "sum G": re.compile(r"TOTAL FREE ENERGY\s+([\-\+0-9.]+)"),
+    "sum E": re.compile(r"TOTAL ENERGY\s+([\-\+0-9.]+)"),
 }
 
 

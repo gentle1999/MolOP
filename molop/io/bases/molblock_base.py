@@ -545,7 +545,7 @@ class QMBaseBlockParser(BaseBlockParser):
         _sum_energy Dict[str, PlainQuantity]:
             The sum energy of the molecule. The energy dict has the following keys:
 
-                - zero-point gas: PlainQuantity
+                - zero-point sum: PlainQuantity
                 - E sum: PlainQuantity
                 - H sum: PlainQuantity
                 - G sum: PlainQuantity
@@ -590,7 +590,7 @@ class QMBaseBlockParser(BaseBlockParser):
     _beta_energy: Dict[Literal["gap", "homo", "lumo"], PlainQuantity]
     _sum_energy: Dict[
         Literal[
-            "zero-point gas",
+            "zero-point sum",
             "E sum",
             "H sum",
             "G sum",
@@ -633,7 +633,7 @@ class QMBaseBlockParser(BaseBlockParser):
             "lumo": None,
         }
         self._sum_energy = {
-            "zero-point gas": None,
+            "zero-point sum": None,
             "E sum": None,
             "H sum": None,
             "G sum": None,
@@ -1011,7 +1011,7 @@ class QMBaseBlockParser(BaseBlockParser):
         self,
     ) -> Dict[
         Literal[
-            "zero-point gas",
+            "zero-point sum",
             "E sum",
             "H sum",
             "G sum",
@@ -1035,7 +1035,7 @@ class QMBaseBlockParser(BaseBlockParser):
         self,
     ) -> Dict[
         Literal[
-            "zero-point gas",
+            "zero-point sum",
             "E sum",
             "H sum",
             "G sum",

@@ -288,7 +288,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
 
     def _parse_sum_energy(self):
         mappings = {
-            "zero-point Energies": "zero-point gas",
+            "zero-point Energies": "zero-point sum",
             "thermal Energies": "E sum",
             "thermal Enthalpies": "H sum",
             "thermal Free Energies": "G sum",
