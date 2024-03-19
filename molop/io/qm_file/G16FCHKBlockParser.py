@@ -14,7 +14,12 @@ import numpy as np
 from molop.io.bases.molblock_base import QMBaseBlockParser
 from molop.logger.logger import logger
 from molop.unit import atom_ureg
-from molop.utils import g16fchkpatterns, parameter_comment_parser
+from molop.utils import (
+    g16fchkpatterns,
+    get_solvent,
+    get_solvent_model,
+    parameter_comment_parser,
+)
 
 
 class G16FCHKBlockParser(QMBaseBlockParser):
@@ -44,12 +49,12 @@ class G16FCHKBlockParser(QMBaseBlockParser):
         self._parameter_comment = parameter_comment
 
         (
-            _,
             self._route_params,
             self._dieze_tag,
-            self._functional,
-            self._basis_set,
-        ) = parameter_comment_parser("\n" + self._parameter_comment)
+        ) = parameter_comment_parser(self._parameter_comment)
+        self._solvent_model = get_solvent_model(self.route_params)
+        self._solvent = get_solvent(self.route_params)
+        self._parse_functional_basis()
         self._parse_coords()
         if not self._only_extract_structure:
             self._parse()
@@ -61,14 +66,13 @@ class G16FCHKBlockParser(QMBaseBlockParser):
     @property
     def dieze_tag(self) -> Literal["#N", "#P", "#T"]:
         return self._dieze_tag
-
-    @property
-    def functional(self) -> str:
-        return self._functional
-
-    @property
-    def basis_set(self) -> str:
-        return self._basis_set
+    
+    def _parse_functional_basis(self):
+        for idx, line in enumerate(self._block.splitlines()):
+            if idx == 1:
+                self._functional = line.split()[1].lower()
+                self._basis = line.split()[2]
+                break
 
     def _parse_coords(self):
         lines = self._block.splitlines()
@@ -259,11 +263,11 @@ class G16FCHKBlockParser(QMBaseBlockParser):
     def _parse_dipole(self):
         matches = re.search(g16fchkpatterns["dipole"], self._block)
         if matches:
-            self._dipole = np.array(
-                list(map(float, matches.groups()))
-            ) * atom_ureg.debye
+            self._dipole = (
+                np.array(list(map(float, matches.groups()))) * atom_ureg.debye
+            )
 
-    #TODO NBO section
+    # TODO NBO section
     # route section: pop=saveNBO or pop=saveNLMO
     # ref: http://sobereva.com/134
 

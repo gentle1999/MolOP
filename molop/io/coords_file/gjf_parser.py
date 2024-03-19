@@ -2,16 +2,21 @@
 Author: TMJ
 Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-03-02 22:33:30
+LastEditTime: 2024-03-18 16:53:46
 Description: 请填写简介
 """
-from typing import Literal
 import os
 import re
+from typing import Literal
 
-from molop.utils import parameter_comment_parser
 from molop.io.bases.file_base import BaseFileParser
 from molop.io.coords_file.GJFBlockParser import GJFBlockParser
+from molop.utils import (
+    get_solvent,
+    get_solvent_model,
+    link0_parser,
+    parameter_comment_parser,
+)
 
 
 class GJFParser(BaseFileParser):
@@ -50,13 +55,16 @@ class GJFParser(BaseFileParser):
                 line,
             ):
                 block_end = idx
+        link, route = self._parameter_comment.split("#")
+        link = link.replace("\n", " ")
+        route = "#" + route.replace("\n", " ")
+
+        self._link0 = link0_parser(link)
         (
-            self._link0,
             self._route_params,
             self._dieze_tag,
-            self._functional,
-            self._basis_set,
-        ) = parameter_comment_parser(self.parameter_comment)
+        ) = parameter_comment_parser(route)
+
         self.append(
             GJFBlockParser(
                 "".join(lines[block_start : block_end + 1]),
@@ -87,9 +95,9 @@ class GJFParser(BaseFileParser):
         return self._dieze_tag
 
     @property
-    def functional(self) -> str:
-        return self._functional
+    def solvent_model(self) -> str:
+        return get_solvent_model(self.route_params)
 
     @property
-    def basis_set(self) -> str:
-        return self._basis_set
+    def solvent(self) -> str:
+        return get_solvent(self.route_params)

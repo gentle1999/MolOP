@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-03-12 20:00:53
+LastEditTime: 2024-03-18 20:05:18
 Description: 请填写简介
 """
 import os
@@ -67,6 +67,17 @@ class XTBOUTParser(BaseQMFileParser):
             raise ValueError(
                 f"No parameter comment found or illegal characters in {self._file_path}"
             )
+        functional_match = re.search(xtboutpatterns["method"], full_text)
+        if functional_match:
+            self._functional = functional_match.group(1)
+            self._basis = self._functional
+        solvent_match = re.search(xtboutpatterns["solvent model"], full_text)
+        if solvent_match:
+            self._solvent_model = solvent_match.group(1)
+            self._solvent = re.search(xtboutpatterns["solvent"], full_text).group(1)
+        temperature_match = re.search(xtboutpatterns["temperature"], full_text)
+        if temperature_match:
+            self._temperature = float(temperature_match.group(1))
 
         self.append(
             XTBOUTBlockParser(
@@ -74,6 +85,11 @@ class XTBOUTParser(BaseQMFileParser):
                 charge=charge,
                 multiplicity=multi,
                 version=version,
+                basis=self._basis,
+                functional=self._functional,
+                solvent_model=self._solvent_model,
+                solvent=self._solvent,
+                temperature=self._temperature,
                 file_path=self._file_path,
                 parameter_comment=self._parameter_comment,
                 only_extract_structure=self._only_extract_structure,

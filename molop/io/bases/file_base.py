@@ -9,19 +9,18 @@ import os
 from typing import List, Tuple, Union
 import pandas as pd
 
+from molop.unit import atom_ureg
 from molop.io.bases.molblock_base import BaseBlockParser
 from molop.io.coords_file.GJFBlockParser import GJFBlockParser
 from molop.io.coords_file.SDFBlockParser import SDFBlockParser
 from molop.io.coords_file.XYZBlockParser import XYZBlockParser
 from molop.io.qm_file.G16FCHKBlockParser import G16FCHKBlockParser
-from molop.io.qm_file.G16IRCBlockParser import G16IRCBlockParser
 from molop.io.qm_file.G16LOGBlockParser import G16LOGBlockParser
 from molop.io.qm_file.XTBOUTBlockParser import XTBOUTBlockParser
 
 BLOCKTYPES = Union[
     BaseBlockParser,
     G16LOGBlockParser,
-    G16IRCBlockParser,
     G16FCHKBlockParser,
     XTBOUTBlockParser,
     GJFBlockParser,
@@ -30,7 +29,6 @@ BLOCKTYPES = Union[
 ]
 QMBLOCKTYPES = Union[
     G16LOGBlockParser,
-    G16IRCBlockParser,
     G16FCHKBlockParser,
     XTBOUTBlockParser,
 ]
@@ -111,7 +109,7 @@ class BaseFileParser:
         return hash(str(self))
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({str(self)})"
+        return f"{str(self)}(frame num: {len(self)})"
 
     @property
     def file_path(self) -> str:
@@ -545,9 +543,16 @@ class BaseQMFileParser(BaseFileParser):
     ) -> None:
         super().__init__(file_path)
         self._parameter_comment: str = None
+        self._basis: str = None
+        self._functional: str = None
+        self._temperature: float = 298.15
+
+        self._solvent_model: str = None
+        self._solvent: str = None
+
         self._only_extract_structure: bool = only_extract_structure
         self._only_last_frame = only_last_frame
-        self._version = None
+        self._version: str = None
 
     @property
     def parameter_comment(self) -> str:
@@ -568,3 +573,33 @@ class BaseQMFileParser(BaseFileParser):
             str: The version of the object.
         """
         return self._version
+
+    @property
+    def functional(self) -> str:
+        return self._functional
+
+    @property
+    def basis(self) -> str:
+        return self._basis
+
+    @property
+    def temperature(self) -> float:
+        return self._temperature
+
+    @property
+    def solvent_model(self) -> str:
+        return self._solvent_model
+
+    @property
+    def solvent(self) -> str:
+        return self._solvent
+
+    def __repr__(self) -> str:
+        return (
+            f"{str(self)}\n"
+            + f"functional: {self.functional}\n"
+            + f"basis: {self.basis}\n"
+            + f"solvent_model: {self.solvent_model}\n"
+            + f"solvent: {self.solvent}\n"
+            + f"frame num: {len(self)}"
+        )

@@ -12,7 +12,12 @@ import numpy as np
 
 from molop.io.bases.molblock_base import BaseBlockParser
 from molop.unit import atom_ureg
-from molop.utils import parameter_comment_parser
+from molop.utils import (
+    get_solvent,
+    get_solvent_model,
+    link0_parser,
+    parameter_comment_parser,
+)
 
 
 class GJFBlockParser(BaseBlockParser):
@@ -23,20 +28,27 @@ class GJFBlockParser(BaseBlockParser):
     _block_type = "G16 GJF"
 
     def __init__(
-        self, block: str, charge=0, multiplicity=1, file_path="", parameter_comment=None
+        self,
+        block: str,
+        charge=0,
+        multiplicity=1,
+        file_path="",
+        parameter_comment: str = None,
     ):
         super().__init__(block)
         self._file_path = file_path
         self._charge = charge
         self._multiplicity = multiplicity
         self._parameter_comment = parameter_comment
+        link, route = self._parameter_comment.split("#")
+        link = link.replace("\n", " ")
+        route = "#" + route.replace("\n", " ")
+
+        self._link0 = link0_parser(link)
         (
-            self._link0,
             self._route_params,
             self._dieze_tag,
-            self._functional,
-            self._basis_set,
-        ) = parameter_comment_parser(self._parameter_comment)
+        ) = parameter_comment_parser(route)
         self._parse()
 
     @property
@@ -52,16 +64,12 @@ class GJFBlockParser(BaseBlockParser):
         return self._dieze_tag
 
     @property
-    def functional(self) -> str:
-        return self._functional
+    def solvent_model(self) -> str:
+        return get_solvent_model(self.route_params)
 
     @property
-    def basis_set(self) -> str:
-        return self._basis_set
-
-    @property
-    def _lower_route_params(self) -> dict:
-        return {k.lower(): v for k, v in self._route_params.items()}
+    def solvent(self) -> str:
+        return get_solvent(self.route_params)
 
     def _parse(self):
         """

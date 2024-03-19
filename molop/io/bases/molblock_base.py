@@ -28,7 +28,7 @@ from molop.structure.structure import (
 )
 from molop.structure.structure_recovery import xyz_block_to_omol
 from molop.unit import atom_ureg
-from molop.utils import parameter_comment_parser
+from molop.utils import parameter_comment_parser, link0_parser
 from molop.utils.types import arrayNx3, arrayN
 
 
@@ -188,18 +188,13 @@ class BaseBlockParser(MolBlock):
                     r"[a-zA-z0-9]+\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)",
                     line,
                 ):
-                    suffix = "".join(lines[i + 1 :])
-
+                    suffix = lines[i + 1 :]
+        suffix = "".join(suffix)
         link, route = prefix.split("#")
         link = link.replace("\n", " ")
         route = "#" + route.replace("\n", " ")
-        (
-            _link0,
-            _route_params,
-            _dieze_tag,
-            _functional,
-            _basis_set,
-        ) = parameter_comment_parser("\n".join([link, route]))
+
+        _link0 = link0_parser(link)
 
         if chk:
             _link0[r"%chk"] = f"{os.path.splitext(os.path.basename(_file_path))[0]}.chk"
@@ -559,67 +554,29 @@ class QMBaseBlockParser(BaseBlockParser):
             A flag to indicate whether to only extract the structure.
     """
 
-    _version: str
-    _parameter_comment: str
-    _energy: PlainQuantity
-    _partial_charges: List[float]
-    _spin_densities: List[float]
-    _gradients: PlainQuantity
-    _spin_multiplicity: float
-    _spin_eigenvalue: float
-    # _hessian: List[List[float]]
-    _frequencies: List[
-        Dict[
-            Literal[
-                "is imaginary",
-                "freq",
-                "reduced masses",
-                "IR intensities",
-                "force constants",
-                "normal coordinates",
-            ],
-            Union[
-                bool,
-                PlainQuantity,
-            ],
-        ],
-    ]
-    _alpha_FMO_orbits: PlainQuantity
-    _beta_FMO_orbits: PlainQuantity
-    _alpha_energy: Dict[Literal["gap", "homo", "lumo"], PlainQuantity]
-    _beta_energy: Dict[Literal["gap", "homo", "lumo"], PlainQuantity]
-    _sum_energy: Dict[
-        Literal[
-            "zero-point sum",
-            "E sum",
-            "H sum",
-            "G sum",
-            "zero-point correction",
-            "TCE",
-            "TCH",
-            "TCG",
-        ],
-        PlainQuantity,
-    ]
-    _dipole: PlainQuantity
-    # _nbo_analysis: List[Dict[str, Dict[str, PlainQuantity]]]
-
-    _state: Dict[str, bool]
-    _only_extract_structure: bool
-
     def __init__(self, block: str, only_extract_structure=False) -> None:
         super().__init__(block)
         self._only_extract_structure = only_extract_structure
 
+        # qm software basic information
+        self._qm_software: str = None
         self._version: str = None
         self._parameter_comment: str = None
+        self._basis: str = None
+        self._functional: str = None
+        self._temperature: float = 298.15
+
+        # Solvent properties
+        self._solvent_model: str = None
+        self._solvent: str = None
+
+        # Molecule properties
         self._energy: PlainQuantity = None
         self._partial_charges: List[float] = []
         self._spin_densities: List[float] = []
         self._spin_multiplicity: float = None
         self._spin_eigenvalue: float = None
         self._gradients: PlainQuantity = None
-        # self._hessian: List[List[float]] = []
         self._alpha_FMO_orbits: PlainQuantity = None
         self._beta_FMO_orbits: PlainQuantity = None
         self._alpha_energy = {
@@ -642,7 +599,22 @@ class QMBaseBlockParser(BaseBlockParser):
             "TCH": None,
             "TCG": None,
         }
-        self._frequencies = []
+        self._frequencies: List[
+            Dict[
+                Literal[
+                    "is imaginary",
+                    "freq",
+                    "reduced masses",
+                    "IR intensities",
+                    "force constants",
+                    "normal coordinates",
+                ],
+                Union[
+                    bool,
+                    PlainQuantity,
+                ],
+            ],
+        ] = []
         self._dimensionless_frequencies = None
         self._wiberg_bond_order: np.ndarray[np.float32] = None
         self._mo_bond_order: np.ndarray[np.float32] = None
@@ -650,7 +622,6 @@ class QMBaseBlockParser(BaseBlockParser):
         self._nbo_bond_order: List[Tuple[int, int, int, PlainQuantity]] = []
         self._nbo_charges: List[float] = []
         self._dipole = None
-        # self._nbo_analysis = []
         self._state = {}
 
     @property
@@ -1082,7 +1053,7 @@ class QMBaseBlockParser(BaseBlockParser):
         return self._mo_bond_order
 
     @property
-    def dipole(self)-> PlainQuantity:
+    def dipole(self) -> PlainQuantity:
         """
         Get the dipole of the molecule.
         """
@@ -1112,7 +1083,7 @@ class QMBaseBlockParser(BaseBlockParser):
     def dimensionless_nbo_bond_order(self) -> List[Tuple[int, int, int, float]]:
         """
         Get the NBO bond order and dimensionless energy of the molecule.
-        
+
         Unit will be transformed:
             - `hartree/particle`
         """
@@ -1156,7 +1127,6 @@ class QMBaseBlockParser(BaseBlockParser):
             The version of the QM software.
         """
         return self._version
-
 
     def to_dict(self):
         """
@@ -1336,3 +1306,32 @@ class QMBaseBlockParser(BaseBlockParser):
         block_parsers[0].rdmol.RemoveAllConformers()
         block_parsers[-1].rdmol.RemoveAllConformers()
         return block_parsers[0].rdmol, block_parsers[-1].rdmol
+
+    @property
+    def functional(self) -> str:
+        return self._functional
+
+    @property
+    def basis(self) -> str:
+        return self._basis
+
+    @property
+    def temperature(self) -> float:
+        return self._temperature
+
+    @property
+    def solvent_model(self) -> str:
+        return self._solvent_model
+
+    @property
+    def solvent(self) -> str:
+        return self._solvent
+
+    def __repr__(self) -> str:
+        return (
+            f"{self.__class__.__name__}({str(self)})\n"
+            + f"functional: {self.functional}\n"
+            + f"basis: {self.basis}\n"
+            + f"solvent_model: {self.solvent_model}\n"
+            + f"solvent: {self.solvent}"
+        )
