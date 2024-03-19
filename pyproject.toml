@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "molop"
-version = "0.1.27.4"
+version = "0.1.28"
 description = "Molcule OPerator"
 authors = ["tmj <mj_t@zju.edu.cn>"]
 license = "MIT"
@@ -46,7 +46,15 @@ nbconvert = { version = ">=7.14.2", optional = true }
 [tool.poetry.extras]
 spatial = ["trimesh", "matplotlib", "scikit-image", "scikit-learn"]
 desc = ["mordred", "dscribe", "ase"]
-full = ["mordred", "dscribe", "ase", "trimesh", "matplotlib"]
+full = [
+    "mordred",
+    "dscribe",
+    "ase",
+    "trimesh",
+    "matplotlib",
+    "scikit-image",
+    "scikit-learn",
+]
 dev = [
     "trimesh",
     "scikit-image",

@@ -1,4 +1,3 @@
-import time
 import math
 from itertools import chain
 from typing import Literal
@@ -8,7 +7,13 @@ import numpy as np
 from molop.io.bases.molblock_base import QMBaseBlockParser
 from molop.logger.logger import logger
 from molop.unit import atom_ureg
-from molop.utils import g16logpatterns, parameter_comment_parser
+from molop.utils import (
+    g16logpatterns,
+    get_solvent,
+    get_solvent_model,
+    link0_parser,
+    parameter_comment_parser,
+)
 
 
 class G16LOGBlockParser(QMBaseBlockParser):
@@ -25,8 +30,10 @@ class G16LOGBlockParser(QMBaseBlockParser):
         multiplicity=1,
         n_atom=1,
         file_path="",
-        version=None,
-        parameter_comment=None,
+        version: str = None,
+        parameter_comment: str = None,
+        functional: str = None,
+        basis: str = None,
         only_extract_structure=False,
     ):
         super().__init__(block, only_extract_structure)
@@ -36,13 +43,26 @@ class G16LOGBlockParser(QMBaseBlockParser):
         self.__n_atom = n_atom
         self._version = version
         self._parameter_comment = parameter_comment
+        link, route = self._parameter_comment.split("#")
+        link = link.replace("\n", " ")
+        route = "#" + route.replace("\n", " ")
+        self._link0 = link0_parser(link)
+
         (
-            self._link0,
             self._route_params,
             self._dieze_tag,
-            self._functional,
-            self._basis_set,
-        ) = parameter_comment_parser(self._parameter_comment)
+        ) = parameter_comment_parser(route)
+        self._solvent_model = get_solvent_model(self.route_params)
+        self._solvent = get_solvent(self.route_params)
+        self._parse_functional_basis()
+        temperature_match = g16logpatterns["Temperature"].search(block)
+        if temperature_match:
+            self._temperature = float(temperature_match.group(1))
+        if self._functional == "unknown":
+            self._functional = functional
+        if self._basis == "unknown":
+            self._basis = basis
+
         self._parse_coords()
 
         if not self._only_extract_structure:
@@ -59,18 +79,6 @@ class G16LOGBlockParser(QMBaseBlockParser):
     @property
     def dieze_tag(self) -> Literal["#N", "#P", "#T"]:
         return self._dieze_tag
-
-    @property
-    def functional(self) -> str:
-        return self._functional
-
-    @property
-    def basis_set(self) -> str:
-        return self._basis_set
-
-    @property
-    def _lower_route_params(self) -> dict:
-        return {k.lower(): v for k, v in self._route_params.items()}
 
     def _parse_coords(self):
         matches = g16logpatterns["coords start"].search(self._block)
@@ -104,8 +112,23 @@ class G16LOGBlockParser(QMBaseBlockParser):
         self._parse_nbo_bond_order()
         self._parse_dipole()
 
+    def _parse_functional_basis(self):
+        if g16logpatterns["Pseudopotential"].search(self._block):
+            self._functional = "pseudopotential"
+        else:
+            functional_match = g16logpatterns["functional"].search(self._block)
+            if functional_match:
+                self._functional = functional_match.group(1).lower()
+            else:
+                self._functional = "unknown"
+        basis_match = g16logpatterns["basis"].search(self._block)
+        if basis_match:
+            self._basis = basis_match.group(1)
+        else:
+            self._basis = "unknown"
+
     def _parse_state(self):
-        if "opt" in self._lower_route_params:
+        if "opt" in self._route_params:
             matches = g16logpatterns["opt stat"].findall(self._block)
             if matches:
                 for key, val in matches:
@@ -244,7 +267,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
             )
 
     def _parse_frequencies(self):
-        if "freq" in self._lower_route_params:
+        if "freq" in self._route_params:
             matches = g16logpatterns["freq start"].search(self._block)
             if matches:
                 block = self._block[matches.end() :]

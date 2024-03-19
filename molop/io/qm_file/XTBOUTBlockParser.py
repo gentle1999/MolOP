@@ -22,6 +22,11 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         block: str,
         charge=0,
         multiplicity=1,
+        basis: str = None,
+        functional: str = None,
+        solvent_model: str = None,
+        solvent: str = None,
+        temperature: float = 298.15,
         file_path="",
         version=None,
         parameter_comment=None,
@@ -32,6 +37,11 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         self._charge = charge
         self._multiplicity = multiplicity
         self._version = version
+        self._basis = basis
+        self._functional = functional
+        self._solvent_model = solvent_model
+        self._solvent = solvent
+        self._temperature = temperature
         self._parameter_comment = parameter_comment
         self._parse_coords()
         if not self._only_extract_structure:

@@ -7,24 +7,23 @@ Description: 请填写简介
 """
 
 import os
-from collections.abc import MutableMapping
 from collections import OrderedDict
-from typing import Dict, List, Union, Generator
-from molop.config import molopconfig
+from collections.abc import MutableMapping
+from typing import Dict, Generator, List, Union
+
 import pandas as pd
 from joblib import Parallel, cpu_count, delayed
 from tqdm import tqdm
 
 from molop.config import molopconfig
-from molop.io.types import PARSERTYPES
-from molop.io.bases.file_base import BaseFileParser, BaseBlockParser
+from molop.io.bases.file_base import BaseBlockParser, BaseFileParser
 from molop.io.coords_file.gjf_parser import GJFParser
 from molop.io.coords_file.sdf_parser import SDFBlockParser, SDFParser
 from molop.io.coords_file.xyz_parser import XYZParser
 from molop.io.qm_file.g16fchk_parser import G16FCHKParser
-from molop.io.qm_file.g16irc_parser import G16IRCParser
 from molop.io.qm_file.g16log_parser import G16LOGParser
 from molop.io.qm_file.xtbout_parser import XTBOUTParser
+from molop.io.types import PARSERTYPES
 from molop.logger.logger import logger
 
 parsers = {
@@ -38,14 +37,14 @@ parsers = {
     ".xyz": (XYZParser,),
     ".sdf": (SDFParser,),
     ".mol": (SDFParser,),
-    ".out": (G16IRCParser, XTBOUTParser),
-    ".irc": (G16IRCParser,),
+    ".out": (G16LOGParser, XTBOUTParser),
+    ".irc": (G16LOGParser,),
     ".fchk": (G16FCHKParser,),
     ".fck": (G16FCHKParser,),
     ".fch": (G16FCHKParser,),
 }
 
-qm_parsers = (G16LOGParser, G16IRCParser, G16FCHKParser, XTBOUTParser)
+qm_parsers = (G16LOGParser, G16FCHKParser, XTBOUTParser)
 
 
 def singlefile_parser(
@@ -90,7 +89,7 @@ def singlefile_parser(
         for idx, parser in enumerate(parsers[file_format]):
             try:
                 # Instantiate and return specific parser classes with their respective arguments
-                if parser in (G16LOGParser, XTBOUTParser, G16IRCParser, G16FCHKParser):
+                if parser in qm_parsers:
                     p = parser(
                         file_path,
                         charge=charge,
@@ -279,7 +278,7 @@ class FileParserBatch(MutableMapping):
     def file_paths(self) -> List[str]:
         """return a list of file paths"""
         return [parser.file_path for parser in self]
-    
+
     @property
     def file_names(self) -> List[str]:
         """return a list of file names"""
@@ -585,6 +584,7 @@ class FileParserBatch(MutableMapping):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({len(self)})"
 
+    # TODO change to row base
     def to_summary_df(self):
         return pd.DataFrame(
             {

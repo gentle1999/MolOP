@@ -11,9 +11,27 @@ import re
 from typing import Dict, Tuple
 
 
+def link0_parser(
+    link0: str,
+) -> Dict:
+    """
+    Parse link0 from G16 log file.
+
+    Args:
+        link0 (str): The link0 section from the G16 log file.
+
+    Returns:
+        - link0 (Dict): A dictionary containing parameter-value pairs extracted from the link0 section.
+    """
+    return {
+        f"{para.split('=')[0]}": f"{para.split('=')[1]}"
+        for para in g16logpatterns["link0"].findall(link0)
+    }
+
+
 def parameter_comment_parser(
-    parameter_comment: str,
-) -> Tuple[Dict, Dict, str, str, str]:
+    route: str,
+) -> Tuple[Dict, str]:
     """
     Parse parameter comment from G16 log file.
 
@@ -21,44 +39,33 @@ def parameter_comment_parser(
         parameter_comment (str): The parameter comment from the G16 log file.
 
     Returns:
-        - link0 (Dict): A dictionary containing parameter-value pairs extracted from the first line of the parameter comment.
         - route_params (Dict): A dictionary containing parameter-value pairs extracted from the route section of the parameter comment.
         - dieze_tag (str): The dieze tag extracted from the route section of the parameter comment.
-        - functional (str): The functional extracted from the route section of the parameter comment.
-        - basis_set (str): The basis set extracted from the route section of the parameter comment.
     """
-    link0 = {
-        f"{para.split('=')[0]}": f"{para.split('=')[1]}"
-        for para in g16logpatterns["link0"].findall(parameter_comment.split("\n")[0])
-    }
-    route = parameter_comment.split("\n")[1]
-    scrf_patt = g16logpatterns["scrf_patt"]
+    _route = (
+        route.replace(" =", "=")
+        .replace("= ", "=")
+        .replace(" ,", ",")
+        .replace(", ", ",")
+        .replace("/", " ")
+        .lower()
+    )
+
     multi_params_patt = g16logpatterns["multi_params_patt"]
-    functional = basis_set = None
     route_params = {}
     dieze_tag = None
 
-    if route:
-        if "/" in route:
-            tok = route.split("/")
-            functional = tok[0].split()[-1]
-            basis_set = tok[1].split()[0]
-            for tok in [functional, basis_set, "/"]:
-                route = route.replace(tok, "")
-
-        for tok in route.split():
-            if scrf_patt.match(tok):
-                m = scrf_patt.match(tok)
-                route_params[m.group(1)] = m.group(2)
-            elif tok.upper() in ["#", "#N", "#P", "#T"]:
+    if _route:
+        for tok in _route.split():
+            if tok.upper() in ["#", "#N", "#P", "#T"]:
                 # does not store # in route to avoid error in input
                 dieze_tag = "#N" if tok == "#" else tok
                 continue
             else:
-                m = re.match(multi_params_patt, tok.strip("#"))
+                m = re.search(multi_params_patt, tok.strip("#"))
                 if m:
                     pars = {}
-                    for par in m.group(2).split(","):
+                    for par in m.group(3).split(","):
                         p = par.split("=")
                         pars[p[0]] = None if len(p) == 1 else p[1]
                     route_params[m.group(1)] = pars
@@ -66,7 +73,36 @@ def parameter_comment_parser(
                     d = tok.strip("#").split("=")
                     route_params[d[0]] = None if len(d) == 1 else d[1]
 
-    return link0, route_params, dieze_tag, functional, basis_set
+    return route_params, dieze_tag
+
+
+def get_solvent_model(route_params: dict) -> str:
+    if "scrf" in route_params:
+        if isinstance(route_params["scrf"], str):
+            return route_params["scrf"]
+        elif isinstance(route_params["scrf"], dict):
+            model = [
+                f"{key}={value}" if value else f"{key}"
+                for key, value in route_params["scrf"].items()
+                if key != "solvent"
+            ]
+
+            if len(model) == 0:
+                return "smd"
+            else:
+                return ",".join(model)
+    return ""
+
+
+def get_solvent(route_params: dict) -> str:
+    if "scrf" in route_params:
+        if isinstance(route_params["scrf"], str):
+            return "water"
+        elif isinstance(route_params["scrf"], dict):
+            for key, value in route_params["scrf"].items():
+                if key == "solvent":
+                    return value
+    return ""
 
 
 g16logpatterns: Dict[str, re.Pattern] = {
@@ -75,9 +111,13 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "coords": re.compile(
         r"\s+\d+\s+(\d+)\s+\d+\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)"
     ),
-    "link0": re.compile(r"\%[a-z]+=[^\s]+"),
+    "link0": re.compile(r"\%[a-zA-Z]+=[^\s]+"),
     "scrf_patt": re.compile(r"^([sS][cC][rR][fF])\s*=\s*(.+)"),
-    "multi_params_patt": re.compile(r"^([A-z]+[0-9]*)[\s=]+\((.*)\)$"),
+    "multi_params_patt": re.compile(r"([A-z\d]+)([\s=]+)*\(([a-zA-Z\d,=\-\(\)]+)\)"),
+    "basis": re.compile(r"Standard basis:\s+([^\s]+)"),
+    "functional": re.compile(r"SCF Done:  E\(([^\s]+)\)"),
+    "Pseudopotential": re.compile(r"Pseudopotential Parameters"),
+    "Temperature": re.compile(r"Temperature\s+(\d+.\d+)"),
     "mulliken start": re.compile(
         r"(Mulliken charges:|Mulliken atomic charges|Mulliken charges and spin densities:)"
     ),
@@ -127,7 +167,9 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "wiberg_start": re.compile(r"Wiberg bond index matrix in the NAO basis"),
     "wiberg_end": re.compile(r"Wiberg bond index, Totals by atom"),
     "atom_atom_overlap_start": re.compile(r"Atom-atom overlap-weighted NAO bond order"),
-    "atom_atom_overlap_end": re.compile(r"Atom-atom overlap-weighted NAO bond order, Totals by atom"),
+    "atom_atom_overlap_end": re.compile(
+        r"Atom-atom overlap-weighted NAO bond order, Totals by atom"
+    ),
     "mo_start": re.compile(r"MO bond order"),
     "mo_end": re.compile(r"MO atomic valencies"),
     "digit": re.compile(r"[\s-]\d+.\d+"),
@@ -139,7 +181,9 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "nbo charge match": re.compile(r"[A-Za-z]+\s+\d+\s+([-\d.]+)"),
     "nbo summary start": re.compile(r"Natural Bond Orbitals \(Summary\):"),
     "nbo summary end": re.compile(r"-\n\s+Total Lewis"),
-    "nbo summary match": re.compile(r"BD\s+\(\s+\d\)\s+[A-Za-z]+\s+(\d+)\s+-[\sA-Za-z]+\s+(\d+)\s+(\d+.\d+)\s+([-\d.]+)")
+    "nbo summary match": re.compile(
+        r"BD\s+\(\s+\d\)\s+[A-Za-z]+\s+(\d+)\s+-[\sA-Za-z]+\s+(\d+)\s+(\d+.\d+)\s+([-\d.]+)"
+    ),
 }
 
 g16fchkpatterns: Dict[str, re.Pattern] = {
@@ -150,7 +194,7 @@ g16fchkpatterns: Dict[str, re.Pattern] = {
         r"Gaussian Version\s+[ICRU]\s+[A-Z=]+\s+[\-0-9]+\s+([a-zA-Z0-9\-\.]+)"
     ),
     "route": re.compile(
-        r"Route\s+[ICRU]\s+[A-Z=]+\s+[0-9]+\n([a-zA-Z%0-9\*#\/=\+\- ]+)\n"
+        r"Route\s+[ICRU]\s+[A-Z=]+\s+[0-9]+\n([a-zA-Z%0-9\*#\/=\+\- \n\(\),]+)\nCharge"
     ),
     "total energy": re.compile(r"Total Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)"),
     "scf energy": re.compile(r"SCF Energy\s+[A-Z]+\s+([\-\+0-9\.E]+)"),
@@ -163,10 +207,16 @@ g16fchkpatterns: Dict[str, re.Pattern] = {
     "job status": re.compile(r"Job Status\s+[A-Z]+\s+([\-\+0-9\.E]+)"),
     "spin": re.compile(r"S\*\*2\s+R\s+([\+\-\.0-9E]+)"),
     "freq num": re.compile(r"Number of Normal Modes\s+[A-Z]+\s+([\-\+0-9\.E]+)"),
-    "dipole": re.compile(r"Dipole Moment\s+[ICRU]\s+N=\s+\d+\n\s+([-\d.E]+)\s+([-\d.E]+)\s+([-\d.E]+)"),
+    "dipole": re.compile(
+        r"Dipole Moment\s+[ICRU]\s+N=\s+\d+\n\s+([-\d.E]+)\s+([-\d.E]+)\s+([-\d.E]+)"
+    ),
 }
 
 xtboutpatterns: Dict[str, re.Pattern] = {
+    "method": re.compile(r"Hamiltonian\s+([GFN\d\-xTB]+)"),
+    "solvent model": re.compile(r"Solvation model:\s+([a-zA-Z\d]+)"),
+    "solvent": re.compile(r"Solvent\s+([a-zA-Z\d\-]+)\n"),
+    "temperature": re.compile(r"electronic temp.\s+(\d+.\d+)\s+K"),
     "version": re.compile(
         r"xtb (version \d+\.\d+\.\d+\s+\([0-9a-z]+\) compiled by ['0-9a-zA-Z@_-]+ on \d{4}-\d{2}-\d{2})"
     ),
@@ -188,12 +238,20 @@ xtboutpatterns: Dict[str, re.Pattern] = {
     "dipole_start": re.compile(r"molecular dipole"),
     "dipole_end": re.compile(r"molecular quadrupole"),
     "coords_start": re.compile(r"final structure"),
-    "coords_new": re.compile(r"([a-zA-Z]+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)"),
-    "coords_old": re.compile(r"([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([a-zA-Z]+)"),
+    "coords_new": re.compile(
+        r"([a-zA-Z]+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)"
+    ),
+    "coords_old": re.compile(
+        r"([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([a-zA-Z]+)"
+    ),
     "coords_end": re.compile(r"Bond Distances"),
     "zp correct": re.compile(r"zero point energy\s+([\-\+0-9.]+)"),
-    "H correct": re.compile(r"\d+.\d+\s+\d+.\d+E[+-]\d+\s+(\d+.\d+E[+-]\d+)\s+\d+.\d+E[+-]\d+\s+\d+.\d+E[+-]\d+"),
-    "G correct": re.compile(r"\d+.\d+\s+\d+.\d+E[+-]\d+\s+\d+.\d+E[+-]\d+\s+\d+.\d+E[+-]\d+\s+(\d+.\d+E[+-]\d+)"),
+    "H correct": re.compile(
+        r"\d+.\d+\s+\d+.\d+E[+-]\d+\s+(\d+.\d+E[+-]\d+)\s+\d+.\d+E[+-]\d+\s+\d+.\d+E[+-]\d+"
+    ),
+    "G correct": re.compile(
+        r"\d+.\d+\s+\d+.\d+E[+-]\d+\s+\d+.\d+E[+-]\d+\s+\d+.\d+E[+-]\d+\s+(\d+.\d+E[+-]\d+)"
+    ),
     "sum H": re.compile(r"TOTAL ENTHALPY\s+([\-\+0-9.]+)"),
     "sum G": re.compile(r"TOTAL FREE ENERGY\s+([\-\+0-9.]+)"),
     "sum E": re.compile(r"TOTAL ENERGY\s+([\-\+0-9.]+)"),
