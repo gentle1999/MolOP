@@ -352,17 +352,6 @@ class BaseFileParser:
         """
         return self.__frames[frameID].to_chemdraw(file_path, keep3D=keep3D)
 
-    def summary(self):
-        """
-        Print a summary of the object.
-        """
-        print(
-            f"file path: {self._file_path}\n"
-            + f"frame num: {len(self)}\n"
-            + f"first SMILES: {self[0].to_SMILES()}\n"
-            + f"last SMILES: {self[-1].to_SMILES()}\n"
-        )
-
     def geometry_analysis_df(
         self, key_atoms: List[List[int]], precision: int = 1, one_start=False
     ) -> pd.DataFrame:
@@ -513,6 +502,13 @@ class BaseFileParser:
             The new parser.
         """
         return self.__frames[frameID].standard_orient(anchor_list)
+
+    def to_summary_df(self) -> pd.DataFrame:
+        """
+        Returns:
+            A pandas DataFrame containing the summary information of the parser.
+        """
+        return pd.concat([frame.to_summary_series() for frame in self.__frames], axis=1).T
 
 
 class BaseQMFileParser(BaseFileParser):

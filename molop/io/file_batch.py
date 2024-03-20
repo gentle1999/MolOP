@@ -519,15 +519,20 @@ class FileParserBatch(MutableMapping):
         )
         return new_batch
 
-    def filter_TS(self) -> "FileParserBatch":
-        TS_parsers = [
-            parser
-            for parser in self
-            if parser.__class__ in qm_parsers and parser[-1].is_TS()
-        ]
-        new_batch = FileParserBatch()
-        new_batch.add_file_parsers(TS_parsers)
+    @classmethod
+    def __new_batch(cls, parsers: List[PARSERTYPES]):
+        new_batch = cls()
+        new_batch.add_file_parsers(parsers)
         return new_batch
+
+    def filter_TS(self) -> "FileParserBatch":
+        return self.__new_batch(
+            [
+                parser
+                for parser in self
+                if parser.__class__ in qm_parsers and parser[-1].is_TS()
+            ]
+        )
 
     def filter_error(self) -> "FileParserBatch":
         """
@@ -536,14 +541,13 @@ class FileParserBatch(MutableMapping):
         Returns:
             The new `FileParserBatch`.
         """
-        error_parsers = [
-            parser
-            for parser in self
-            if parser.__class__ in qm_parsers and parser[-1].is_error()
-        ]
-        new_batch = FileParserBatch()
-        new_batch.add_file_parsers(error_parsers)
-        return new_batch
+        return self.__new_batch(
+            [
+                parser
+                for parser in self
+                if parser.__class__ in qm_parsers and parser[-1].is_error()
+            ]
+        )
 
     def filter_normal(self) -> "FileParserBatch":
         """
@@ -552,203 +556,36 @@ class FileParserBatch(MutableMapping):
         Returns:
             The new `FileParserBatch`.
         """
-        error_parsers = [
-            parser
-            for parser in self
-            if parser.__class__ in qm_parsers and not parser[-1].is_error()
-        ]
-        new_batch = FileParserBatch()
-        new_batch.add_file_parsers(error_parsers)
-        return new_batch
+        return self.__new_batch(
+            [
+                parser
+                for parser in self
+                if parser.__class__ in qm_parsers and not parser[-1].is_error()
+            ]
+        )
 
     def filter_by_charge(self, charge: int) -> "FileParserBatch":
-        TS_parsers = [parser for parser in self if parser[-1].charge == charge]
-        new_batch = FileParserBatch()
-        new_batch.add_file_parsers(TS_parsers)
-        return new_batch
+        return self.__new_batch(
+            [parser for parser in self if parser[-1].charge == charge]
+        )
 
     def filter_by_multi(self, multi: int) -> "FileParserBatch":
-        TS_parsers = [parser for parser in self if parser[-1].multiplicity == multi]
-        new_batch = FileParserBatch()
-        new_batch.add_file_parsers(TS_parsers)
-        return new_batch
+        return self.__new_batch(
+            [parser for parser in self if parser[-1].multiplicity == multi]
+        )
 
     def filter_by_format(self, format: str) -> "FileParserBatch":
         if not format.startswith("."):
             format = "." + format
-        TS_parsers = [parser for parser in self if parser._file_format == format]
-        new_batch = FileParserBatch()
-        new_batch.add_file_parsers(TS_parsers)
-        return new_batch
+        return self.__new_batch(
+            [parser for parser in self if parser._file_format == format]
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({len(self)})"
 
-    # TODO change to row base
     def to_summary_df(self):
-        return pd.DataFrame(
-            {
-                "parser": [parser.__class__.__name__ for parser in self],
-                "file_name": [parser.file_name for parser in self],
-                "file_path": [parser.file_path for parser in self],
-                "file_format": [parser._file_format for parser in self],
-                "charge": [parser[-1].charge for parser in self],
-                "multiplicity": [parser[-1].multiplicity for parser in self],
-                "SMILES": [parser[-1].to_standard_SMILES() for parser in self],
-                "status": [
-                    parser[-1].state if parser.__class__ in qm_parsers else None
-                    for parser in self
-                ],
-                "ZPE": [
-                    (
-                        parser[-1].dimensionless_sum_energy["zero-point correction"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-                "TCE": [
-                    (
-                        parser[-1].dimensionless_sum_energy["TCE"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-                "TCH": [
-                    (
-                        parser[-1].dimensionless_sum_energy["TCH"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-                "TCG": [
-                    (
-                        parser[-1].dimensionless_sum_energy["TCG"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-                "ZPE-Gas": [
-                    (
-                        parser[-1].dimensionless_sum_energy["zero-point sum"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-                "E-Gas": [
-                    (
-                        parser[-1].dimensionless_sum_energy["E sum"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-                "H-Gas": [
-                    (
-                        parser[-1].dimensionless_sum_energy["H sum"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-                "G sum": [
-                    (
-                        parser[-1].dimensionless_sum_energy["G sum"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-                "sp": [
-                    (
-                        parser[-1].dimensionless_energy
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-                "HOMO": [
-                    (
-                        parser[-1].dimensionless_alpha_energy["homo"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-                "LUMO": [
-                    (
-                        parser[-1].dimensionless_alpha_energy["lumo"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-                "GAP": [
-                    (
-                        parser[-1].dimensionless_alpha_energy["gap"]
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-                "first freq": [
-                    (
-                        parser[-1].first_freq(dimensionless=True)["freq"]
-                        if parser.__class__ in qm_parsers
-                        and parser[-1].first_freq(dimensionless=True) is not None
-                        else None
-                    )
-                    for parser in self
-                ],
-                "first freq tag": [
-                    (
-                        parser[-1].first_freq(dimensionless=True)["is imaginary"]
-                        if parser.__class__ in qm_parsers
-                        and parser[-1].first_freq(dimensionless=True) is not None
-                        else None
-                    )
-                    for parser in self
-                ],
-                "second freq": [
-                    (
-                        parser[-1].second_freq(dimensionless=True)["freq"]
-                        if parser.__class__ in qm_parsers
-                        and parser[-1].second_freq(dimensionless=True) is not None
-                        else None
-                    )
-                    for parser in self
-                ],
-                "second freq tag": [
-                    (
-                        parser[-1].second_freq(dimensionless=True)["is imaginary"]
-                        if parser.__class__ in qm_parsers
-                        and parser[-1].second_freq(dimensionless=True) is not None
-                        else None
-                    )
-                    for parser in self
-                ],
-                "S**2": [
-                    (
-                        parser[-1].spin_eigenvalue
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-                "S": [
-                    (
-                        parser[-1].spin_multiplicity
-                        if parser.__class__ in qm_parsers
-                        else None
-                    )
-                    for parser in self
-                ],
-            }
-        )
+        return pd.concat([parser[-1].to_summary_series() for parser in self], axis=1).T
 
     def to_summary_csv(self, file_path: str = None):
         if not file_path:

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-03-18 19:33:11
+LastEditTime: 2024-03-20 14:51:29
 Description: 请填写简介
 """
 import os
@@ -65,7 +65,6 @@ class G16FCHKParser(BaseQMFileParser):
         ) = parameter_comment_parser(self._parameter_comment)
         self._solvent_model = get_solvent_model(self.route_params)
         self._solvent = get_solvent(self.route_params)
-        
 
         self.append(
             G16FCHKBlockParser(
@@ -79,7 +78,7 @@ class G16FCHKParser(BaseQMFileParser):
                 only_extract_structure=self._only_extract_structure,
             )
         )
-    
+
     def _parse_functional_basis(self, full_text: str):
         for idx, line in enumerate(full_text.splitlines()):
             if idx == 1:

@@ -1,14 +1,15 @@
-'''
+"""
 Author: TMJ
-Date: 2024-01-31 21:57:38
+Date: 2024-02-14 14:40:02
 LastEditors: TMJ
-LastEditTime: 2024-02-19 21:17:36
+LastEditTime: 2024-03-20 15:04:21
 Description: 请填写简介
-'''
+"""
 from molop.logger.logger import logger
 import logging
 from openbabel import pybel
 from rdkit import RDLogger
+from rdkit.Chem import AllChem
 
 
 class MolOPConfig:
@@ -22,6 +23,7 @@ class MolOPConfig:
         # ob_log_handler.SetOutputLevel(0)
         pybel.ob.obErrorLog.StopLogging()
         self.max_jobs = 16
+        self.fpgen = AllChem.GetMorganGenerator(radius=2, fpSize=2048)
 
     def quiet(self):
         self.show_progress_bar = False

@@ -37,6 +37,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
         only_extract_structure=False,
     ):
         super().__init__(block, only_extract_structure)
+        self._qm_software = "Gaussian"
         self._file_path = file_path
         self._charge = charge
         self._multiplicity = multiplicity
@@ -132,13 +133,13 @@ class G16LOGBlockParser(QMBaseBlockParser):
             matches = g16logpatterns["opt stat"].findall(self._block)
             if matches:
                 for key, val in matches:
-                    self._state[key] = val == "YES"
+                    self._status[key] = val == "YES"
         matches = g16logpatterns["termination"].findall(self._block)
         if matches:
-            self._state["termination"] = matches[0]
+            self._status["termination"] = matches[0]
         matches = g16logpatterns["failure reason"].findall(self._block)
         if matches:
-            self._state["failure reason"] = matches[0]
+            self._status["failure reason"] = matches[0]
 
     def _parse_energy(self):
         if self.energy is None:
@@ -151,9 +152,9 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 self._energy = (
                     round(float(energy[0]), 6) * atom_ureg.hartree / atom_ureg.particle
                 )
-                self._state["SCF Done"] = True
+                self._status["SCF Done"] = True
             else:
-                self._state["SCF Done"] = False
+                self._status["SCF Done"] = False
 
     def _parse_mulliken_charges(self):
         if g16logpatterns["mulliken start"].search(self._block):
@@ -413,8 +414,8 @@ class G16LOGBlockParser(QMBaseBlockParser):
         """
         Check if the current frame is an error frame
         """
-        if "termination" in self.state and self.state["termination"] == "Error":
+        if "termination" in self.status and self.status["termination"] == "Error":
             return True
-        if "SCF Done" in self.state and self.state["SCF Done"] == False:
+        if "SCF Done" in self.status and self.status["SCF Done"] == False:
             return True
         return False
