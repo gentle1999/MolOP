@@ -33,6 +33,7 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         only_extract_structure=False,
     ):
         super().__init__(block, only_extract_structure)
+        self._qm_software = "xTB"
         self._file_path = file_path
         self._charge = charge
         self._multiplicity = multiplicity
@@ -77,13 +78,13 @@ class XTBOUTBlockParser(QMBaseBlockParser):
 
     def _parse_state(self):
         if re.search(xtboutpatterns["state"], self._block):
-            self._state["geometric_optimization"] = True
+            self._status["geometric_optimization"] = True
         else:
-            self._state["geometric_optimization"] = False
+            self._status["geometric_optimization"] = False
 
     def is_error(self) -> bool:
-        if "geometric_optimization" in self._state:
-            return self._state["geometric_optimization"] == False
+        if "geometric_optimization" in self._status:
+            return self._status["geometric_optimization"] == False
         else:
             return True
 

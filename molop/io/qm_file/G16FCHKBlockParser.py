@@ -41,6 +41,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
         only_extract_structure=False,
     ):
         super().__init__(block, only_extract_structure)
+        self._qm_software = "Gaussian"
         self._file_path = file_path
         self._charge = charge
         self._multiplicity = multiplicity
@@ -274,12 +275,12 @@ class G16FCHKBlockParser(QMBaseBlockParser):
     def _parse_state(self):
         matches = re.search(g16fchkpatterns["job status"], self._block)
         if matches:
-            self._state["Job Status"] = matches.group(1) == "1"
+            self._status["Job Status"] = matches.group(1) == "1"
         else:
-            self._state["Job Status"] = False
+            self._status["Job Status"] = False
 
     def is_error(self) -> bool:
-        if "Job Status" in self._state:
-            return self._state["Job Status"] == False
+        if "Job Status" in self._status:
+            return self._status["Job Status"] == False
         else:
             return True

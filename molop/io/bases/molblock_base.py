@@ -10,6 +10,7 @@ import os
 import re
 from typing import Any, Dict, List, Literal, Tuple, Union
 
+import pandas as pd
 import numpy as np
 from openbabel import pybel
 from pint.facets.plain import PlainQuantity
@@ -30,6 +31,7 @@ from molop.structure.structure_recovery import xyz_block_to_omol
 from molop.unit import atom_ureg
 from molop.utils import parameter_comment_parser, link0_parser
 from molop.utils.types import arrayNx3, arrayN
+from molop.config import molopconfig
 
 
 class BaseBlockParser(MolBlock):
@@ -98,7 +100,7 @@ class BaseBlockParser(MolBlock):
         Returns:
             str: The file format of the object.
         """
-        return self._file_format
+        return os.path.splitext(self.file_path)[-1]
 
     def _check_path(self, file_path: str = None, format: str = ".xyz"):
         if file_path is None:
@@ -305,51 +307,44 @@ class BaseBlockParser(MolBlock):
 
     def to_dict(self) -> Dict[str, Any]:
         """
-        Get the information of the block as a dict.
+        Get the necessary information for molecule recovery as a dict.
 
         Contents:
-            - type: str
-            - file_path: str
-            - block: str
-            - SMILES: str
-            - frameID: int
+            - smiles: str
+            - atom_number: int
+            - total_charge: int
+            - total_multiplicity: int
             - atoms: List[str]
             - coords: List[Tuple[float, float, float]]
             - bonds: List[Tuple[int, int, int]]
-            - total charge: int
-            - total multiplicity: int
-            - formal charges: List[int]
+            - formal_charges: List[int]
+            - formal_spins: List[int]
 
         Returns:
             The information of the block as a dict.
         """
         return {
-            "type": self._block_type,
-            "file_path": self._file_path,
-            # "block": self.block,
-            "SMILES": self.to_SMILES(),
-            "frameID": self._frameID,
-            "atoms": self.atoms,
-            "coords": self.dimensionless_coords,
-            "bonds": self.bonds,
-            "total charge": self.charge,
-            "total multiplicity": self.multiplicity,
-            "formal charges": self.formal_charges,
-            "formal spins": self.formal_spins,
+            "smiles": self.to_standard_SMILES(),
+            "atom_number": len(self),
+            "total_charge": self.charge,
+            "total_multiplicity": self.multiplicity,
+            "atoms": [Chem.Atom(atom).GetAtomicNum() for atom in self.atoms],
+            "coords": self._flatten(self.dimensionless_coords),
+            "bonds": self._flatten(self.bonds),
+            "formal_charges": self.formal_charges,
+            "formal_spins": self.formal_spins,
+            "molwt": self.calc_rdkit_descs(["MolWt"])["MolWt"],
+            "qed": self.calc_rdkit_descs(["qed"])["qed"],
+            "logp": self.calc_rdkit_descs(["MolLogP"])["MolLogP"],
+            "morgan_fp4_2048": molopconfig.fpgen.GetFingerprint(self.rdmol).ToList(),
         }
 
-    def summary(self):
-        """
-        Print the information of the block.
-        """
-        print(
-            f"type: {self._block_type}\n"
-            + f"file path: {self._file_path}\n"
-            + f"frameID: {self._frameID}\n"
-            + f"SMILES: {self.to_SMILES()}\n"
-            + f"atom number: {len(self)}\n"
-            + f"total charge: {self.charge}\n"
-        )
+    @staticmethod
+    def _flatten(sequence):
+        if sequence is None:
+            return None
+        else:
+            return np.array(sequence).flatten().tolist()
 
     def rebuild_parser(
         self,
@@ -489,6 +484,23 @@ class BaseBlockParser(MolBlock):
         """
         return False
 
+    def to_summary_series(self) -> pd.Series:
+        """
+        Generate a summary series for the current frame.
+        """
+        return pd.Series(
+            {
+                "parser": self.__class__.__name__,
+                "file_path": self.file_path,
+                "file_name": self.file_name,
+                "file_format": self.file_format,
+                "frame_index": self._frameID,
+                "charge": self.charge,
+                "multiplicity": self.multiplicity,
+                "SMILES": self.to_standard_SMILES(),
+            }
+        )
+
 
 class QMBaseBlockParser(BaseBlockParser):
     """
@@ -622,7 +634,7 @@ class QMBaseBlockParser(BaseBlockParser):
         self._nbo_bond_order: List[Tuple[int, int, int, PlainQuantity]] = []
         self._nbo_charges: List[float] = []
         self._dipole = None
-        self._state = {}
+        self._status = {}
 
     @property
     def energy(self) -> PlainQuantity:
@@ -856,7 +868,14 @@ class QMBaseBlockParser(BaseBlockParser):
         Get the first frequency of the molecule.
         """
         if len(self.frequencies) < 1:
-            return None
+            return {
+                "freq": None,
+                "is imaginary": None,
+                "reduced masses": None,
+                "IR intensities": None,
+                "force constants": None,
+                "normal coordinates": None,
+            }
         else:
             if dimensionless:
                 return self.dimensionless_frequencies[0]
@@ -868,7 +887,14 @@ class QMBaseBlockParser(BaseBlockParser):
         Get the first frequency of the molecule.
         """
         if len(self.frequencies) < 2:
-            return None
+            return {
+                "freq": None,
+                "is imaginary": None,
+                "reduced masses": None,
+                "IR intensities": None,
+                "force constants": None,
+                "normal coordinates": None,
+            }
         else:
             if dimensionless:
                 return self.dimensionless_frequencies[1]
@@ -1099,14 +1125,14 @@ class QMBaseBlockParser(BaseBlockParser):
         return self._nbo_charges
 
     @property
-    def state(self) -> Dict[str, bool]:
+    def status(self) -> Dict[str, bool]:
         """
         Get the state of the calculation.
 
         Returns:
             The state of the calculation.
         """
-        return self._state
+        return self._status
 
     @property
     def parameter_comment(self) -> str:
@@ -1117,6 +1143,10 @@ class QMBaseBlockParser(BaseBlockParser):
             The parameter comment of the calculation.
         """
         return self._parameter_comment
+
+    @property
+    def qm_software(self) -> str:
+        return self._qm_software
 
     @property
     def version(self) -> str:
@@ -1167,63 +1197,52 @@ class QMBaseBlockParser(BaseBlockParser):
         return {
             **super().to_dict(),
             **{
-                "version": self.version,
-                "parameter_comment": self.parameter_comment,
-                "state": self.state,
-                "energy": self.dimensionless_energy,
-                "sum_energy": self.dimensionless_sum_energy,
-                "gradients": self.dimensionless_gradients,
-                "frequencies": [
-                    self.first_freq(dimensionless=True),
-                    self.second_freq(dimensionless=True),
-                ],
-                "imaginary_frequencies": self.dimensionless_imaginary_frequencies,
-                "partial_charges": self.partial_charges,
+                "qm_software": self.qm_software,
+                "qm_software_version": self.version,
+                "functional": self.functional,
+                "basis": self.basis,
+                "solvent_model": self.solvent_model,
+                "solvent": self.solvent,
+                "temperature": self.temperature,
+                "mulliken_charge": self.partial_charges,
                 "spin_densities": self.spin_densities,
-                "alpha_FMO_orbits": self.dimensionless_alpha_FMO_orbits,
-                "alpha_energy": self.dimensionless_alpha_energy,
-                "beta_FMO_orbits": self.dimensionless_beta_FMO_orbits,
-                "beta_energy": self.dimensionless_beta_energy,
+                "gradients": self._flatten(self.dimensionless_gradients),
+                "single_point_energy": self.dimensionless_energy,
+                "zero_point_correction": self.dimensionless_sum_energy[
+                    "zero-point correction"
+                ],
+                "energy_correction": self.dimensionless_sum_energy["TCE"],
+                "enthalpy_correction": self.dimensionless_sum_energy["TCH"],
+                "gibbs_free_energy_correction": self.dimensionless_sum_energy["TCG"],
+                "zero_point_sum": self.dimensionless_sum_energy["zero-point sum"],
+                "thermal_energy_sum": self.dimensionless_sum_energy["E sum"],
+                "thermal_enthalpy_sum": self.dimensionless_sum_energy["H sum"],
+                "thermal_free_energy_sum": self.dimensionless_sum_energy["G sum"],
+                "alpha_orbital_energies": self._flatten(
+                    self.dimensionless_alpha_FMO_orbits
+                ),
+                "beta_orbital_energies": self._flatten(
+                    self.dimensionless_beta_FMO_orbits
+                ),
+                "alpha_homo": float(self.dimensionless_alpha_energy["homo"]),
+                "alpha_lumo": float(self.dimensionless_alpha_energy["homo"]),
+                "alpha_gap": float(self.dimensionless_alpha_energy["gap"]),
+                "beta_homo": float(self.dimensionless_beta_energy["homo"]),
+                "beta_lumo": float(self.dimensionless_beta_energy["lumo"]),
+                "beta_gap": float(self.dimensionless_beta_energy["gap"]),
+                "first_frequency": self.first_freq(dimensionless=True)["freq"],
+                "first_vibration_mode": self._flatten(
+                    self.first_freq(dimensionless=True)["normal coordinates"]
+                ),
+                "second_frequency": self.second_freq(dimensionless=True)["freq"],
+                "second_vibration_mode": self._flatten(
+                    self.second_freq(dimensionless=True)["normal coordinates"]
+                ),
                 "spin_eginvalue": self.spin_eigenvalue,
                 "spin_multiplicity": self.spin_multiplicity,
-                # "nbo_analysis": self.nbo_analysis,
-                # "hessian": self.hessian,
+                "is_TS": self.is_TS(),
             },
         }
-
-    def summary(self):
-        """
-        Print the summary of the molecule.
-        """
-        print(
-            f"type: {self._block_type}\n"
-            + f"file path: {self._file_path}\n"
-            + f"frameID: {self._frameID}\n"
-            + f"SMILES: {self.to_SMILES()}\n"
-            + f"atom number: {len(self)}\n"
-            + f"total charge: {self.charge}\n"
-            + f"version: {self.version}\n"
-            + f"parameter comment: \n{self.parameter_comment}\n"
-        )
-        if not self._only_extract_structure:
-            print(
-                f"state: {self.state}\n"
-                + f"energy: {self.energy}\n"
-                + f"sum energy: {self.sum_energy}\n"
-                + f"gradients number: {len(self.gradients) if self.gradients is not None else 0}\n"
-                + f"frequencies number: {len(self.frequencies)}\n"
-                + f"imaginary frequencies number: {len(self.imaginary_frequencies)}\n"
-                + f"partial charges number: {len(self.partial_charges)}\n"
-                + f"spin densities number: {len(self.spin_densities)}\n"
-                + f"alpha FMO orbits number: {len(self.alpha_FMO_orbits) if self.alpha_FMO_orbits is not None else 0}\n"
-                + f"alpha energy: {self.alpha_energy}\n"
-                + f"beta FMO orbits number: {len(self.beta_FMO_orbits) if self.beta_FMO_orbits is not None else 0}\n"
-                + f"beta energy: {self.beta_energy}\n"
-                + f"spin eigenvalue: {self.spin_eigenvalue}\n"
-                + f"spin multiplicity: {self.spin_multiplicity}\n"
-                # + f"nbo analysis number: {len(self.nbo_analysis)}\n"
-                # + f"hessian number: {len(self.hessian)}\n"
-            )
 
     def ts_vibration(self) -> List[BaseBlockParser]:
         """
@@ -1334,4 +1353,43 @@ class QMBaseBlockParser(BaseBlockParser):
             + f"basis: {self.basis}\n"
             + f"solvent_model: {self.solvent_model}\n"
             + f"solvent: {self.solvent}"
+        )
+
+    def to_summary_series(self) -> pd.Series:
+        """
+        Generate a summary series for the current frame.
+        """
+        return pd.Series(
+            {
+                "parser": self.__class__.__name__,
+                "file_path": self.file_path,
+                "file_name": self.file_name,
+                "file_format": self.file_format,
+                "frame_index": self._frameID,
+                "charge": self.charge,
+                "multiplicity": self.multiplicity,
+                "SMILES": self.to_standard_SMILES(),
+                "functional": self.functional,
+                "basis": self.basis,
+                "temperature": self.temperature,
+                "status": str(self.status),
+                "ZPE": self.dimensionless_sum_energy["zero-point correction"],
+                "TCE": self.dimensionless_sum_energy["TCE"],
+                "TCH": self.dimensionless_sum_energy["TCH"],
+                "TCG": self.dimensionless_sum_energy["TCG"],
+                "ZPE-Gas": self.dimensionless_sum_energy["zero-point sum"],
+                "E-Gas": self.dimensionless_sum_energy["E sum"],
+                "H-Gas": self.dimensionless_sum_energy["H sum"],
+                "G-Gas": self.dimensionless_sum_energy["G sum"],
+                "sp": self.dimensionless_energy,
+                "HOMO": self.dimensionless_alpha_energy["homo"],
+                "LUMO": self.dimensionless_alpha_energy["lumo"],
+                "GAP": self.dimensionless_alpha_energy["gap"],
+                "first freq": self.first_freq(dimensionless=True)["freq"],
+                "first freq tag": self.first_freq(dimensionless=True)["is imaginary"],
+                "second freq": self.second_freq(dimensionless=True)["freq"],
+                "second freq tag": self.second_freq(dimensionless=True)["is imaginary"],
+                "S**2": self.spin_eigenvalue,
+                "S": self.spin_multiplicity,
+            }
         )
