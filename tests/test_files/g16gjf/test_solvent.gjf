@@ -1,7 +1,7 @@
 %mem=60GB
 %nprocshared=32
 %chk=H_anion.chk
-# B3LYP def2svp Opt freq EmpiricalDispersion=GD3BJ NoSymm scrf(SMD,solvent=ethanol)
+# B3LYP def2svp Opt freq EmpiricalDispersion=GD3BJ NoSymm scrf(SMD,solvent=ethanol) pop=Hirshfeld
 
  Title: H_anion
 

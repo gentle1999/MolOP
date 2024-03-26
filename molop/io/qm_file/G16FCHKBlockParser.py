@@ -7,18 +7,19 @@ Description: 请填写简介
 """
 import math
 import re
-from typing import Literal
+from typing import Literal, List
 
 import numpy as np
 
 from molop.io.bases.molblock_base import QMBaseBlockParser
 from molop.logger.logger import logger
 from molop.unit import atom_ureg
-from molop.utils import (
+from molop.utils.g16patterns import (
     g16fchkpatterns,
     get_solvent,
     get_solvent_model,
     parameter_comment_parser,
+    shell_to_orbitals,
 )
 
 
@@ -41,20 +42,20 @@ class G16FCHKBlockParser(QMBaseBlockParser):
         only_extract_structure=False,
     ):
         super().__init__(block, only_extract_structure)
-        self._qm_software = "Gaussian"
+        self.qm_software = "Gaussian"
         self._file_path = file_path
         self._charge = charge
         self._multiplicity = multiplicity
         self.__n_atom = n_atom
-        self._version = version
-        self._parameter_comment = parameter_comment
+        self.version = version
+        self.parameter_comment = parameter_comment
 
         (
             self._route_params,
             self._dieze_tag,
-        ) = parameter_comment_parser(self._parameter_comment)
-        self._solvent_model = get_solvent_model(self.route_params)
-        self._solvent = get_solvent(self.route_params)
+        ) = parameter_comment_parser(self.parameter_comment)
+        self.solvent_model = get_solvent_model(self.route_params)
+        self.solvent = get_solvent(self.route_params)
         self._parse_functional_basis()
         self._parse_coords()
         if not self._only_extract_structure:
@@ -67,206 +68,212 @@ class G16FCHKBlockParser(QMBaseBlockParser):
     @property
     def dieze_tag(self) -> Literal["#N", "#P", "#T"]:
         return self._dieze_tag
-    
+
     def _parse_functional_basis(self):
         for idx, line in enumerate(self._block.splitlines()):
             if idx == 1:
-                self._functional = line.split()[1].lower()
-                self._basis = line.split()[2]
+                self.functional = line.split()[1].lower()
+                self.basis = line.split()[2]
                 break
 
     def _parse_coords(self):
-        lines = self._block.splitlines()
-        coords = []
-        for i, line in enumerate(lines):
-            if "Atomic numbers" in line:
-                for j in range(i + 1, i + 1 + math.ceil(self.__n_atom / 6.0)):
-                    self._atoms.extend(list(map(int, lines[j].split())))
-                assert (
-                    len(self.atoms) == self.__n_atom
-                ), "Number of atoms is not consistent."
-            if "Current cartesian coordinates" in line:
-                for j in range(i + 1, i + 1 + math.ceil(self.__n_atom * 3 / 5.0)):
-                    coords.extend(list(map(float, lines[j].split())))
-                assert (
-                    len(coords) == self.__n_atom * 3
-                ), "Number of coordinates is not consistent."
-                break
-        temp_coords = []
-        for i in range(0, len(coords), 3):
-            temp_coords.append((coords[i], coords[i + 1], coords[i + 2]))
-        self._coords = (np.array(temp_coords) * atom_ureg.bohr).to("angstrom")
+        atomic_numbers = self._parse_block(
+            "atomic_number_start", "int_digits", end_tag="atomic_number_end"
+        )
+        if len(atomic_numbers) > 0:
+            self._atoms = list(map(int, atomic_numbers))
+        else:
+            raise RuntimeError("No atomic number found in fchk file.")
+        coords = self._parse_block("coords_start", "float_digits", end_tag="coords_end")
+        if len(coords) > 0:
+            coords = np.array(list(map(float, coords))).reshape(-1, 3)
+        else:
+            raise RuntimeError("No coords found in fchk file.")
+        self._coords = (coords * atom_ureg.bohr).to("angstrom")
 
     def _parse(self):
         self._parse_energy()
-        self._parse_partial_charges()
-        self._parse_gradient()
-        self._parse_orbitals()
-        self._parse_frequencies()
         self._parse_spin()
+        self._parse_state()
+        self._parse_thermal_energy()
+        self._parse_orbitals()
+        self._parse_mulliken_charges()
+        self._parse_gradient()
+        self._parse_frequencies()
         # self._parse_hessian()
         self._parse_dipole()
-        self._parse_state()
         # self._parse_nbo()
 
     def _parse_energy(self):
-        total_energy = re.search(g16fchkpatterns["total energy"], self._block)
+        total_energy = g16fchkpatterns["total energy"].search(self._block)
         if total_energy:
-            self._energy = (
+            self._total_energy = (
                 round(float(total_energy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
-        else:
-            scf_energy = re.search(g16fchkpatterns["scf energy"], self._block)
-            if scf_energy:
-                self._energy = (
-                    round(float(scf_energy.group(1)), 6)
-                    * atom_ureg.hartree
-                    / atom_ureg.particle
-                )
-        thermal_energy = re.search(g16fchkpatterns["thermal energy"], self._block)
+        scf_energy = g16fchkpatterns["scf energy"].search(self._block)
+        if scf_energy:
+            self.scf_energy = (
+                round(float(scf_energy.group(1)), 6)
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
+        for matches in g16fchkpatterns["mp2-4"].finditer(self._block):
+            setattr(
+                self,
+                f"{matches.group(1).lower()}_energy",
+                round(float(matches.group(2)), 6)
+                * atom_ureg.hartree
+                / atom_ureg.particle,
+            )
+        cluster_energy = g16fchkpatterns["cluster energy"].search(self._block)
+        if cluster_energy:
+            self.ccsd_energy = (
+                round(float(cluster_energy.group(1)), 6)
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
+        
+
+    def _parse_thermal_energy(self):
+        thermal_energy = g16fchkpatterns["thermal energy"].search(self._block)
         if thermal_energy:
-            self._sum_energy["E sum"] = (
+            self.sum_energy["E sum"] = (
                 round(float(thermal_energy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
-        thermal_enthalpy = re.search(g16fchkpatterns["thermal enthalpy"], self._block)
+        thermal_enthalpy = g16fchkpatterns["thermal enthalpy"].search(self._block)
         if thermal_enthalpy:
-            self._sum_energy["H sum"] = (
+            self.sum_energy["H sum"] = (
                 round(float(thermal_enthalpy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
-        thermal_free_energy = re.search(
-            g16fchkpatterns["thermal free energy"], self._block
-        )
+        thermal_free_energy = g16fchkpatterns["thermal free energy"].search(self._block)
         if thermal_enthalpy:
-            self._sum_energy["G sum"] = (
+            self.sum_energy["G sum"] = (
                 round(float(thermal_free_energy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
 
-    def _parse_partial_charges(self):
-        lines = self._block.splitlines()
-        for i, line in enumerate(lines):
-            if "Mulliken Charges" in line:
-                for j in range(i + 1, i + 1 + math.ceil(self.__n_atom / 5.0)):
-                    self._partial_charges.extend(list(map(float, lines[j].split())))
-                assert (
-                    len(self._partial_charges) == self.__n_atom
-                ), "Number of charges is not consistent."
-                break
+    def _parse_orbitals(self):
+        alpha_orbitals_energy = self._parse_block(
+            "alpha_start", "float_digits", "alpha_end"
+        )
+        beta_orbitals_energy = self._parse_block(
+            "beta_start", "float_digits", "beta_end"
+        )
+        if len(alpha_orbitals_energy) > 0:
+            elec_num = int(g16fchkpatterns["alpha_elec"].search(self._block).group(1))
+            alpha_orbitals_energy = list(
+                map(
+                    float,
+                    alpha_orbitals_energy,
+                )
+            )
+            occ = math.ceil(elec_num / 2.0)
+            self.alpha_FMO_orbits = (
+                np.array(alpha_orbitals_energy, dtype=np.float32)
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
+            self.alpha_energy["homo"] = self.alpha_FMO_orbits[occ - 1]
+            self.alpha_energy["lumo"] = self.alpha_FMO_orbits[occ]
+            self.alpha_energy["gap"] = (
+                round((self.alpha_energy["lumo"] - self.alpha_energy["homo"]).m, 6)
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
+
+        if len(beta_orbitals_energy) > 0:
+            elec_num = int(g16fchkpatterns["beta_elec"].search(self._block).group(1))
+            beta_orbitals_energy = list(
+                map(
+                    float,
+                    beta_orbitals_energy,
+                )
+            )
+            occ = math.ceil(elec_num / 2.0)
+            self.beta_FMO_orbits = (
+                np.array(beta_orbitals_energy, dtype=np.float32)
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
+            self.beta_energy["homo"] = self.beta_FMO_orbits[occ - 1]
+            self.beta_energy["lumo"] = self.alpha_FMO_orbits[occ]
+            self.beta_energy["gap"] = (
+                round((self.beta_energy["lumo"] - self.beta_energy["homo"]).m, 6)
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
+
+    def _parse_mulliken_charges(self):
+        mulliken_match = self._parse_block(
+            "mulliken_start", "float_digits", "gradient_start"
+        )
+        if len(mulliken_match) > 0:
+            self.mulliken_charges = list(map(float, mulliken_match))
 
     def _parse_gradient(self):
-        lines = self._block.splitlines()
-        raw_gradient = []
-        for i, line in enumerate(lines):
-            if "Cartesian Gradient" in line:
-                for j in range(i + 1, i + 1 + math.ceil(self.__n_atom * 3 / 5.0)):
-                    raw_gradient.extend(list(map(float, lines[j].split())))
-                assert (
-                    len(raw_gradient) == self.__n_atom * 3
-                ), "Number of gradient is not consistent."
-                break
-        self._gradients = (
-            np.array(raw_gradient).reshape(-1, 3) * atom_ureg.hartree / atom_ureg.bohr
+        gradients = self._parse_block("gradient_start", "float_digits", "gradient_end")
+        if len(gradients) > 0:
+            gradients = list(map(float, gradients))
+        self.gradients = (
+            np.array(gradients).reshape(-1, 3) * atom_ureg.hartree / atom_ureg.bohr
         )
 
-    def _parse_orbitals(self):
-        lines = self._block.splitlines()
-        orbitals_energy = []
-        for i, line in enumerate(lines):
-            matches = re.search(g16fchkpatterns["orbital"], line)
-            if matches:
-                for j in range(i + 1, i + 1 + math.ceil(int(line.split()[-1]) / 5.0)):
-                    orbitals_energy.extend(list(map(float, lines[j].split())))
-                break
-        occ = math.ceil(self.total_electrons / 2.0)
-        if len(orbitals_energy) == 0:
-            return
-        if matches.group(1) == "Alpha":
-            self._alpha_FMO_orbits = (
-                np.array(orbitals_energy, dtype=np.float32)
-                * atom_ureg.hartree
-                / atom_ureg.particle
-            )
-            self._alpha_energy["homo"] = self._alpha_FMO_orbits[occ - 1]
-            self._alpha_energy["lumo"] = self._alpha_FMO_orbits[occ]
-            self._alpha_energy["gap"] = (
-                round((self._alpha_energy["lumo"] - self._alpha_energy["homo"]).m, 6)
-                * atom_ureg.hartree
-                / atom_ureg.particle
-            )
-        else:
-            self._beta_FMO_orbits = (
-                np.array(orbitals_energy, dtype=np.float32)
-                * atom_ureg.hartree
-                / atom_ureg.particle
-            )
-            self._beta_energy["homo"] = self._beta_FMO_orbits[occ - 1]
-            self._beta_energy["lumo"] = self._beta_FMO_orbits[occ]
-            self._beta_energy["gap"] = (
-                round((self._beta_energy["lumo"] - self._beta_energy["homo"]).m, 6)
-                * atom_ureg.hartree
-                / atom_ureg.particle
-            )
-
     def _parse_frequencies(self):
-        freq_num = re.search(g16fchkpatterns["freq num"], self._block)
+        freq_num = g16fchkpatterns["freq num"].search(self._block)
         if freq_num:
             num_freqs = int(freq_num.group(1))
-            freqs = []
-            freq_modes = []
-            lines = self._block.splitlines()
-            for idx, line in enumerate(lines):
-                if "Vib-E2" in line:
-                    for j in range(
-                        idx + 1, idx + 1 + math.ceil(int(line.split()[-1]) / 5.0)
-                    ):
-                        freqs.extend(list(map(float, lines[j].split())))
-                if "Vib-Modes" in line:
-                    for j in range(
-                        idx + 1, idx + 1 + math.ceil(int(line.split()[-1]) / 5.0)
-                    ):
-                        freq_modes.extend(list(map(float, lines[j].split())))
-            for idx in range(num_freqs):
-                self._frequencies.append(
-                    {
-                        "is imaginary": freqs[idx] < 0,
-                        "freq": freqs[idx] * atom_ureg.cm_1,
-                        "reduced masses": freqs[idx + num_freqs] * atom_ureg.amu,
-                        "force constants": freqs[idx + num_freqs * 2]
-                        * atom_ureg.mdyne
-                        / atom_ureg.angstrom,
-                        "IR intensities": freqs[idx + num_freqs * 3]
-                        * atom_ureg.kmol
-                        / atom_ureg.mol,
-                        "normal coordinates": np.array(
-                            freq_modes[
-                                idx * 3 * self.__n_atom : (idx + 1) * 3 * self.__n_atom
-                            ]
-                        ).reshape(-1, 3)
-                        * atom_ureg.angstrom,
-                    }
+            freqs = list(
+                map(
+                    float,
+                    self._parse_block("vib_e2_start", "float_digits", "vib_mode_start"),
                 )
+            )
+            freq_modes = list(
+                map(
+                    float,
+                    self._parse_block("vib_mode_start", "float_digits", "vib_mode_end"),
+                )
+            )
+            self.frequencies = [
+                {
+                    "is imaginary": freqs[idx] < 0,
+                    "freq": freqs[idx] * atom_ureg.cm_1,
+                    "reduced masses": freqs[idx + num_freqs] * atom_ureg.amu,
+                    "force constants": freqs[idx + num_freqs * 2]
+                    * atom_ureg.mdyne
+                    / atom_ureg.angstrom,
+                    "IR intensities": freqs[idx + num_freqs * 3]
+                    * atom_ureg.kmol
+                    / atom_ureg.mol,
+                    "normal coordinates": np.array(
+                        freq_modes[
+                            idx * 3 * self.__n_atom : (idx + 1) * 3 * self.__n_atom
+                        ]
+                    ).reshape(-1, 3)
+                    * atom_ureg.angstrom,
+                }
+                for idx in range(num_freqs)
+            ]
 
     def _parse_spin(self):
-        matches = re.search(g16fchkpatterns["spin"], self._block)
+        matches = g16fchkpatterns["spin"].search(self._block)
         if matches:
-            self._spin_eigenvalue = round(float(matches.group(1)), 2)
-            self._spin_multiplicity = round(
-                math.sqrt(self._spin_eigenvalue + 0.25) - 0.5, 2
+            self.spin_eigenvalue = round(float(matches.group(1)), 2)
+            self.spin_multiplicity = round(
+                math.sqrt(self.spin_eigenvalue + 0.25) - 0.5, 2
             )
 
     def _parse_dipole(self):
         matches = re.search(g16fchkpatterns["dipole"], self._block)
         if matches:
-            self._dipole = (
-                np.array(list(map(float, matches.groups()))) * atom_ureg.debye
-            )
+            self.dipole = np.array(list(map(float, matches.groups()))) * atom_ureg.debye
 
     # TODO NBO section
     # route section: pop=saveNBO or pop=saveNLMO
@@ -275,12 +282,42 @@ class G16FCHKBlockParser(QMBaseBlockParser):
     def _parse_state(self):
         matches = re.search(g16fchkpatterns["job status"], self._block)
         if matches:
-            self._status["Job Status"] = matches.group(1) == "1"
+            self.status["Job Status"] = matches.group(1) == "1"
         else:
-            self._status["Job Status"] = False
+            self.status["Job Status"] = False
 
     def is_error(self) -> bool:
-        if "Job Status" in self._status:
-            return self._status["Job Status"] == False
+        if "Job Status" in self.status:
+            return self.status["Job Status"] == False
         else:
             return True
+
+    def _parse_block(
+        self, start_tag: str, item_map: str, end_tag: str = None
+    ) -> List[str]:
+        start_match = g16fchkpatterns[start_tag].search(self._block)
+        temp_list = []
+        if start_match:
+            num = int(start_match.group(1))
+            if end_tag:
+                end_match = g16fchkpatterns[end_tag].search(self._block)
+                temp_list = [
+                    matches.group(0)
+                    for i, matches in enumerate(
+                        g16fchkpatterns[item_map].finditer(
+                            self._block[start_match.end() : end_match.start()]
+                        )
+                    )
+                    if i < num
+                ]
+            else:
+                temp_list = [
+                    matches.group(0)
+                    for i, matches in enumerate(
+                        g16fchkpatterns[item_map].finditer(
+                            self._block[start_match.end() :]
+                        )
+                    )
+                    if i < num
+                ]
+        return temp_list

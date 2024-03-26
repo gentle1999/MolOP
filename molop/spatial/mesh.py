@@ -5,16 +5,18 @@ LastEditors: TMJ
 LastEditTime: 2024-02-25 18:15:28
 Description: 请填写简介
 """
-from typing import Literal, List, Sequence, Tuple, Union, Dict
+from typing import Dict, List, Literal, Sequence, Tuple, Union
 
 import matplotlib as mpl
 import numpy as np
 import trimesh
 from rdkit import Chem
+from sklearn.preprocessing import MinMaxScaler, RobustScaler, StandardScaler
 from trimesh.visual import ColorVisuals
+from trimesh.visual.color import vertex_to_face_color
 
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, RobustScaler
 from molop.io.types import BLOCKTYPES, QMBLOCKTYPES
+from molop.logger.logger import logger
 from molop.utils.consts import cutoff_epsilon_sigma_dict, k, qe
 
 pt = Chem.GetPeriodicTable()
@@ -124,6 +126,7 @@ class MoleculeMeshLayer:
         values: Union[Literal["vdw", "electric_potential"], np.ndarray] = "vdw",
         cmap: str = "coolwarm",
         scaler: Literal["minmax", "standard", "robust"] = "minmax",
+        **kwargs,
     ):
         if scaler == "minmax":
             _scaler = MinMaxScaler()
@@ -135,9 +138,9 @@ class MoleculeMeshLayer:
             raise ValueError(f"Scaler {scaler} is not supported")
         if isinstance(values, str):
             if values == "vdw":
-                _values = self.Lennard_Jones_potential()
+                _values = self.Lennard_Jones_potential(**kwargs)
             elif values == "electric_potential":
-                _values = self.electric_potential()
+                _values = self.electric_potential(**kwargs)
         else:
             assert values.shape[0] == self.mesh.vertices.shape[0], (
                 f"The number of values {values.shape[0]} must be equal to the number of vertices "
@@ -149,9 +152,7 @@ class MoleculeMeshLayer:
         vertex_colors = colormap(
             _scaler.fit_transform(_values.reshape(-1, 1)).flatten()
         )[np.newaxis, :, :3][0]
-        face_colors = trimesh.visual.color.vertex_to_face_color(
-            vertex_colors, self.mesh.faces
-        )
+        face_colors = vertex_to_face_color(vertex_colors, self.mesh.faces)
         self.mesh.visual = ColorVisuals(
             vertex_colors=vertex_colors, face_colors=face_colors
         )
@@ -187,15 +188,27 @@ class MoleculeMeshLayer:
             )
         return self.__cutoff, self.__epsilon, self.__sigma
 
-    def electric_potential(self):
+    def electric_potential(self, charge: Literal["mulliken", "nbo"] = "mulliken"):
         if self._mesh is None:
             raise ValueError("The mesh has not been built yet.")
-        return np.apply_along_axis(self._get_ep, 1, self._mesh.vertices)
+        if charge == "nbo":
+            if self._block.nbo_charges is None:
+                logger.warning(
+                    "The NBO charges are not available, try Mulliken charges instead"
+                )
+                charges = self._block.mulliken_charges
+        else:
+            charges = self._block.mulliken_charges
+        if charges is None:
+            raise ValueError("The charges are not available")
+        return np.apply_along_axis(
+            self._get_ep, 1, pos=self._mesh.vertices, charges=charges
+        )
 
-    def _get_ep(self, pos):
+    def _get_ep(self, pos: np.ndarray, charges: np.ndarray):
         diff = self._block.dimensionless_coords - pos
         dis = np.linalg.norm(diff, axis=1) * 1e-10
-        charge = np.array(self._block.partial_charges) * qe
+        charge = charges * qe
         return np.sum(k * charge / dis)
 
     def show(self):

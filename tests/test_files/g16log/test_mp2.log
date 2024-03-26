@@ -1,9 +1,9 @@
  Entering Gaussian System, Link 0=g16
- Input=tests/test_files/g16gjf/test_solvent.gjf
- Output=tests/test_files/g16gjf/test_solvent.log
+ Input=test_mp2.gjf
+ Output=test_mp2.log
  Initial command:
- /home/tmj/soft/g16/l1.exe "/home/tmj/soft/g16temp/Gau-1548109.inp" -scrdir="/home/tmj/soft/g16temp/"
- Entering Link 1 = /home/tmj/soft/g16/l1.exe PID=   1548111.
+ /home/tmj/soft/g16/l1.exe "/home/tmj/soft/g16temp/Gau-1637982.inp" -scrdir="/home/tmj/soft/g16temp/"
+ Entering Link 1 = /home/tmj/soft/g16/l1.exe PID=   1637984.
   
  Copyright (c) 1988-2019, Gaussian, Inc.  All Rights Reserved.
   
@@ -82,29 +82,34 @@
  %nprocshared=32
  Will use up to   32 processors via shared memory.
  %chk=H_anion.chk
- ----------------------------------------------------------------------
- # B3LYP def2svp Opt freq EmpiricalDispersion=GD3BJ NoSymm scrf(SMD,sol
- vent=ethanol) pop=Hirshfeld
- ----------------------------------------------------------------------
- 1/18=20,19=15,26=3,38=1/1,3;
+ ---------------------------------------------------------------------
+ # mp2 def2svp Opt freq NoSymm scrf(SMD,solvent=ethanol) pop=Hirshfeld
+ ---------------------------------------------------------------------
+ 1/18=20,19=15,26=6,38=1/1,3;
  2/9=110,12=2,15=1,17=6,18=5,40=1/2;
- 3/5=43,7=101,11=2,25=1,30=1,70=32201,71=1,72=4,74=-5,124=41/1,2,3;
+ 3/5=43,7=101,11=9,25=1,30=1,70=32201,71=1,72=4/1,2,3;
  4//1;
  5/5=2,38=5,53=4/2;
- 6/7=2,8=2,9=2,10=2,28=1,79=1/1;
- 7/30=1/1,2,3,16;
- 1/18=20,19=15,26=3/3(2);
+ 8/6=4,10=1/1;
+ 9/15=2,16=-3/6;
+ 10/5=1,31=1/2;
+ 6/7=2,8=2,9=2,10=2,79=1/1;
+ 7/12=2,30=1/1,2,3,16;
+ 1/18=20,19=15,26=6/3(2);
  2/9=110,15=1/2;
  99//99;
  2/9=110,15=1/2;
- 3/5=43,7=101,11=2,25=1,30=1,70=32205,71=1,72=4,74=-5,124=41/1,2,3;
+ 3/5=43,7=101,11=9,25=1,30=1,70=32205,71=1,72=4/1,2,3;
  4/5=5,16=3,69=1/1;
  5/5=2,38=5,53=4/2;
- 7/30=1/1,2,3,16;
- 1/18=20,19=15,26=3/3(-5);
+ 8/6=4,10=1/1;
+ 9/15=2,16=-3/6;
+ 10/5=1,31=1/2;
+ 7/12=2,30=1/1,2,3,16;
+ 1/18=20,19=15,26=6/3(-8);
  2/9=110,15=1/2;
- 6/7=2,8=2,9=2,10=2,19=2,28=1,79=1/1;
- 99/9=1/99;
+ 6/7=2,8=2,9=2,10=2,79=1/1;
+ 99/9=10/99;
  --------------
  Title: H_anion
  --------------
@@ -117,7 +122,7 @@
  Berny optimization.
  Initialization pass.
  No Z-matrix variables, so optimization will use Cartesian coordinates.
- Trust Radius=3.00D-01 FncErr=1.00D-07 GrdErr=1.00D-06 EigMax=2.50D+02 EigMin=1.00D-04
+ Trust Radius=3.00D-01 FncErr=5.00D-06 GrdErr=5.00D-06 EigMax=2.50D+02 EigMin=1.00D-04
  Number of steps in this run=     20 maximum allowed number of steps=    100.
  GradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGrad
 
@@ -139,9 +144,8 @@
        nuclear repulsion energy         0.0000000000 Hartrees.
  NAtoms=    1 NActive=    1 NUniq=    1 SFac= 1.00D+00 NAtFMM=   60 NAOKFM=F Big=F
  Integral buffers will be    131072 words long.
- Raffenetti 2 integral format.
+ Raffenetti 1 integral format.
  Two-electron integral symmetry is turned off.
- Nuclear repulsion after empirical dispersion term =        0.0000000000 Hartrees.
  ------------------------------------------------------------------------------
  Polarizable Continuum Model (PCM)
  =================================
@@ -178,15 +182,15 @@
  NBasis=     5 RedAO= T EigKep=  3.15D-01  NBF=     5
  NBsUse=     5 1.00D-06 EigRej= -1.00D+00 NBFU=     5
  ExpMin= 1.22D-01 ExpMax= 1.30D+01 ExpMxC= 1.30D+01 IAcc=3 IRadAn=         5 AccDes= 0.00D+00
- Harris functional with IExCor=  402 and IRadAn=       5 diagonalized for initial guess.
- HarFok:  IExCor=  402 AccDes= 0.00D+00 IRadAn=         5 IDoV= 1 UseB2=F ITyADJ=14
+ Harris functional with IExCor=  205 and IRadAn=       5 diagonalized for initial guess.
+ HarFok:  IExCor=  205 AccDes= 0.00D+00 IRadAn=         5 IDoV= 1 UseB2=F ITyADJ=14
  ICtDFT=  3500011 ScaDFX=  1.000000  1.000000  1.000000  1.000000
  FoFCou: FMM=F IPFlag=           0 FMFlag=      100000 FMFlg1=           0
          NFxFlg=           0 DoJE=T BraDBF=F KetDBF=T FulRan=T
          wScrn=  0.000000 ICntrl=       500 IOpCl=  0 I1Cent=   200000004 NGrid=           0
          NMat0=    1 NMatS0=      1 NMatT0=    0 NMatD0=    1 NMtDS0=    0 NMtDT0=    0
  Symmetry not used in FoFCou.
- Keep R1 ints in memory in canonical form, NReq=26962361.
+ Keep R1 ints in memory in canonical form, NReq=6401908.
  Requested convergence on RMS density matrix=1.00D-08 within 128 cycles.
  Requested convergence on MAX density matrix=1.00D-06.
  Requested convergence on             energy=1.00D-06.
@@ -196,11 +200,36 @@
  Iteration    1 A*A^-1 deviation from orthogonality  is 6.47D-16 for     97     13.
  Iteration    1 A^-1*A deviation from unit magnitude is 2.00D-15 for     19.
  Iteration    1 A^-1*A deviation from orthogonality  is 6.12D-16 for    105     68.
- Error on total polarization charges =  0.11826
- SCF Done:  E(RB3LYP) = -0.648471528359     A.U. after    5 cycles
-            NFock=  5  Conv=0.35D-09     -V/T= 1.9607
+ Error on total polarization charges =  0.12079
+ SCF Done:  E(RHF) = -0.607571827361     A.U. after    5 cycles
+            NFock=  5  Conv=0.90D-12     -V/T= 1.9172
  SMD-CDS (non-electrostatic) energy       (kcal/mol) =       0.36
  (included in total energy above)
+ Range of M.O.s used for correlation:     1     5
+ NBasis=     5 NAE=     1 NBE=     1 NFC=     0 NFV=     0
+ NROrb=      5 NOA=     1 NOB=     1 NVA=     4 NVB=     4
+ Fully direct method using O(ONN) memory.
+ JobTyp=1 Pass  1:  I=   1 to   1 NPSUse= 32 ParTrn=T ParDer=T DoDerP=T.
+ Spin components of T(2) and E(2):
+     alpha-alpha T2 =       0.0000000000D+00 E2=      0.0000000000D+00
+     alpha-beta  T2 =       0.5665513630D-02 E2=     -0.1631976141D-01
+     beta-beta   T2 =       0.0000000000D+00 E2=      0.0000000000D+00
+ ANorm=    0.1002828756D+01
+ E2 =    -0.1631976141D-01 EUMP2 =    -0.62389158877125D+00
+          IDoAtm=1
+ NEqPCM:  Using equilibrium solvation (IEInf=0, Eps=  24.8520, EpsInf=   1.8526)
+          Differentiating once with respect to electric field.
+                with respect to dipole field.
+          Differentiating once with respect to nuclear coordinates.
+ Keep R1 ints in memory in canonical form, NReq=6402212.
+          There are     1 degrees of freedom in the 1st order CPHF.  IDoFFX=0 NUNeed=     1.
+ LinEq1:  Iter=  0 NonCon=     1 RMS=1.44D-02 Max=2.88D-02 NDo=     1
+ AX will form     1 AO Fock derivatives at one time.
+ LinEq1:  Iter=  1 NonCon=     0 RMS=7.16D-19 Max=1.07D-18 NDo=     1
+ Linear equations converged to 1.000D-10 1.000D-09 after     1 iterations.
+ End of Minotr F.D. properties file   721 does not exist.
+ End of Minotr F.D. properties file   722 does not exist.
+ End of Minotr F.D. properties file   788 does not exist.
 
  **********************************************************************
 
@@ -208,8 +237,8 @@
 
  **********************************************************************
 
- Alpha  occ. eigenvalues --   -0.18754
- Alpha virt. eigenvalues --    0.54469   1.51919   1.51919   1.51919
+ Alpha  occ. eigenvalues --   -0.31305
+ Alpha virt. eigenvalues --    0.74883   1.78412   1.78412   1.78412
           Condensed to atoms (all electrons):
                1
      1  H    2.000000
@@ -219,26 +248,26 @@
  Sum of Mulliken charges =  -1.00000
  Mulliken charges with hydrogens summed into heavy atoms:
                1
- Electronic spatial extent (au):  <R**2>=              8.1727
+ Electronic spatial extent (au):  <R**2>=              8.2805
  Charge=             -1.0000 electrons
  Dipole moment (field-independent basis, Debye):
-    X=              0.0000    Y=             -0.0000    Z=              0.0000  Tot=              0.0000
+    X=             -0.0000    Y=              0.0000    Z=              0.0000  Tot=              0.0000
  Quadrupole moment (field-independent basis, Debye-Ang):
-   XX=             -3.6642   YY=             -3.6642   ZZ=             -3.6642
-   XY=              0.0000   XZ=             -0.0000   YZ=              0.0000
+   XX=             -3.7125   YY=             -3.7125   ZZ=             -3.7125
+   XY=              0.0000   XZ=              0.0000   YZ=             -0.0000
  Traceless Quadrupole moment (field-independent basis, Debye-Ang):
    XX=              0.0000   YY=              0.0000   ZZ=              0.0000
-   XY=              0.0000   XZ=             -0.0000   YZ=              0.0000
+   XY=              0.0000   XZ=              0.0000   YZ=             -0.0000
  Octapole moment (field-independent basis, Debye-Ang**2):
-  XXX=              0.0000  YYY=             -0.0000  ZZZ=              0.0000  XYY=              0.0000
-  XXY=             -0.0000  XXZ=              0.0000  XZZ=              0.0000  YZZ=             -0.0000
+  XXX=             -0.0000  YYY=              0.0000  ZZZ=              0.0000  XYY=             -0.0000
+  XXY=              0.0000  XXZ=              0.0000  XZZ=             -0.0000  YZZ=              0.0000
   YYZ=              0.0000  XYZ=              0.0000
  Hexadecapole moment (field-independent basis, Debye-Ang**3):
- XXXX=             -5.2982 YYYY=             -5.2982 ZZZZ=             -5.2982 XXXY=              0.0000
- XXXZ=             -0.0000 YYYX=              0.0000 YYYZ=              0.0000 ZZZX=             -0.0000
- ZZZY=              0.0000 XXYY=             -1.7661 XXZZ=             -1.7661 YYZZ=             -1.7661
- XXYZ=              0.0000 YYXZ=             -0.0000 ZZXY=              0.0000
- N-N= 5.673609642280D-04 E-N=-1.638452181154D+00  KE= 6.750306692750D-01
+ XXXX=             -5.4032 YYYY=             -5.4032 ZZZZ=             -5.4032 XXXY=              0.0000
+ XXXZ=              0.0000 YYYX=              0.0000 YYYZ=             -0.0000 ZZZX=              0.0000
+ ZZZY=             -0.0000 XXYY=             -1.8011 XXZZ=             -1.8011 YYZZ=             -1.8011
+ XXYZ=             -0.0000 YYXZ=              0.0000 ZZXY=              0.0000
+ N-N= 5.673609642280D-04 E-N=-1.622559250516D+00  KE= 6.624001835072D-01
  There are a total of       21654 grid points.
  ElSum from          density=        1.9999999999
  ElSum from atomic densities=        1.0000000000
@@ -264,13 +293,13 @@
    1 Symmetry operations used in ECPInt.
  ECPInt:  NShTT=       6 NPrTT=      18 LenC2=       7 LenP2D=      18.
  LDataN:  DoStor=T MaxTD1= 3 Len=   28
- D1PCM: PCM CHGder 1st derivatives, ID1Alg=3 FixD1E=F DoIter=F DoCFld=F I1PDM=0.
- Calling FoFJK, ICntrl=      2127 FMM=F ISym2X=0 I1Cent= 0 IOpClX= 0 NMat=1 NMatS=1 NMatT=0.
+ D1PCM: PCM CHGder 1st derivatives, ID1Alg=3 FixD1E=F DoIter=F DoCFld=F I1PDM=2.
+ Calling FoFJK, ICntrl=  10002127 FMM=F ISym2X=0 I1Cent= 0 IOpClX= 0 NMat=1 NMatS=1 NMatT=0.
  -------------------------------------------------------------------
  Center     Atomic                   Forces (Hartrees/Bohr)
  Number     Number              X              Y              Z
  -------------------------------------------------------------------
-      1        1          -0.000000000   -0.000000000    0.000000000
+      1        1          -0.000000000    0.000000000    0.000000000
  -------------------------------------------------------------------
  Cartesian Forces:  Max     0.000000000 RMS     0.000000000
 
@@ -295,7 +324,7 @@
  Variable       Old X    -DE/DX   Delta X   Delta X   Delta X     New X
                                  (Linear)    (Quad)   (Total)
     X1        0.00000  -0.00000   0.00000   0.00000   0.00000   0.00000
-    Y1        0.00000  -0.00000   0.00000   0.00000   0.00000   0.00000
+    Y1        0.00000   0.00000   0.00000   0.00000   0.00000   0.00000
     Z1        0.00000   0.00000   0.00000   0.00000   0.00000   0.00000
          Item               Value     Threshold  Converged?
  Maximum Force            0.000000     0.000450     YES
@@ -320,33 +349,38 @@
  Deg. of freedom     0
  Full point group                 OH      NOp  48
  Unable to Open any file for archive entry.
- 1\1\GINC-TMJ\FOpt\RB3LYP\def2SVP\H1(1-)\TMJ\23-Mar-2024\0\\# B3LYP def
- 2svp Opt freq EmpiricalDispersion=GD3BJ NoSymm scrf(SMD,solvent=ethano
- l) pop=Hirshfeld\\Title: H_anion\\-1,1\H,0.,0.,0.\\Version=ES64L-G16Re
- vC.01\HF=-0.6484715\RMSD=3.508e-10\RMSF=3.719e-18\Dipole=0.,0.,0.\Quad
- rupole=0.,0.,0.,0.,0.,0.\PG=OH [O(H1)]\\@
+ 1\1\GINC-TMJ\FOpt\RMP2-FC\def2SVP\H1(1-)\TMJ\23-Mar-2024\0\\# mp2 def2
+ svp Opt freq NoSymm scrf(SMD,solvent=ethanol) pop=Hirshfeld\\Title: H_
+ anion\\-1,1\H,0.,0.,0.\\Version=ES64L-G16RevC.01\HF=-0.6075718\MP2=-0.
+ 6238916\RMSD=9.026e-13\RMSF=2.322e-18\Dipole=0.,0.,0.\PG=OH [O(H1)]\\@
  The archive entry for this job was punched.
 
 
- EXPERIENCE IS THE FRUIT OF THE TREE OF ERRORS.
- Job cpu time:       0 days  0 hours  3 minutes 14.7 seconds.
- Elapsed time:       0 days  0 hours  0 minutes  7.2 seconds.
+ WISDOM IS KNOWING WHAT TO DO,
+ SKILL IS KNOWING HOW TO DO IT,
+ AND VIRTUE IS NOT DOING IT.
+ Job cpu time:       0 days  0 hours  3 minutes 32.8 seconds.
+ Elapsed time:       0 days  0 hours  0 minutes  7.9 seconds.
  File lengths (MBytes):  RWF=      6 Int=      0 D2E=      0 Chk=      1 Scr=      1
- Normal termination of Gaussian 16 at Sat Mar 23 19:43:55 2024.
+ Normal termination of Gaussian 16 at Sat Mar 23 22:20:31 2024.
  Link1:  Proceeding to internal job step number  2.
- -------------------------------------------------------------------
- #N Geom=AllCheck Guess=TCheck SCRF=Check GenChk RB3LYP/def2SVP Freq
- -------------------------------------------------------------------
+ ---------------------------------------------------------------------
+ #N Geom=AllCheck Guess=TCheck SCRF=Check GenChk RMP2(FC)/def2SVP Freq
+ ---------------------------------------------------------------------
  1/10=4,29=7,30=1,38=1,40=1/1,3;
  2/12=2,15=1,40=1/2;
- 3/5=43,7=101,11=2,14=-4,25=1,30=1,70=2,71=2,74=-5,116=1,124=41,140=1/1,2,3;
+ 3/5=43,7=101,11=1,14=-4,25=1,30=1,70=2,71=2,116=1,140=1/1,2,3;
  4/5=101/1;
  5/5=2,38=6,98=1/2;
- 8/6=4,10=90,11=11/1;
- 11/6=1,8=1,9=11,15=111,16=1,31=1/1,2,10;
- 10/6=1,31=1/2;
- 6/7=2,8=2,9=2,10=2,28=1,79=1/1;
- 7/8=1,10=1,25=1,30=1/1,2,3,16;
+ 8/6=3,8=1,10=1,19=11,30=-1/1;
+ 9/15=3,16=-3/6;
+ 11/6=1,8=1,15=11,17=12,24=-1,27=1,28=-2,29=300,31=1,32=6,42=3/1,2,10;
+ 10/6=2,21=1,31=1/2;
+ 8/6=4,8=1,10=1,19=11,30=-1/11,4;
+ 10/5=1,20=4,31=1/2;
+ 11/12=2,14=11,16=1,17=2,28=-2,31=1,42=3,76=2/2,10,12;
+ 6/7=2,8=2,9=2,10=2,79=1/1;
+ 7/8=1,10=1,12=2,25=1,30=1,44=2/1,2,3,16;
  1/10=4,30=1/3;
  99//99;
  Structure from the checkpoint file:  "H_anion.chk"
@@ -383,9 +417,8 @@
        nuclear repulsion energy         0.0000000000 Hartrees.
  NAtoms=    1 NActive=    1 NUniq=    1 SFac= 1.00D+00 NAtFMM=   60 NAOKFM=F Big=F
  Integral buffers will be    131072 words long.
- Raffenetti 2 integral format.
+ Raffenetti 1 integral format.
  Two-electron integral symmetry is turned off.
- Nuclear repulsion after empirical dispersion term =        0.0000000000 Hartrees.
  Force inversion solution in PCM.
  ------------------------------------------------------------------------------
  Polarizable Continuum Model (PCM)
@@ -427,7 +460,7 @@
  Initial guess from the checkpoint file:  "H_anion.chk"
  B after Tr=     0.000000    0.000000    0.000000
          Rot=    1.000000    0.000000    0.000000    0.000000 Ang=   0.00 deg.
- Keep R1 ints in memory in canonical form, NReq=26962361.
+ Keep R1 ints in memory in canonical form, NReq=6401908.
  Requested convergence on RMS density matrix=1.00D-08 within 128 cycles.
  Requested convergence on MAX density matrix=1.00D-06.
  Requested convergence on             energy=1.00D-06.
@@ -438,20 +471,29 @@
  Iteration    1 A^-1*A deviation from unit magnitude is 2.00D-15 for     19.
  Iteration    1 A^-1*A deviation from orthogonality  is 6.12D-16 for    105     68.
  Skip diagonalization as Alpha Fock matrix is already diagonal.
- Error on total polarization charges =  0.11826
- SCF Done:  E(RB3LYP) = -0.648471528359     A.U. after    1 cycles
-            NFock=  1  Conv=0.00D+00     -V/T= 1.9607
+ Error on total polarization charges =  0.12079
+ SCF Done:  E(RHF) = -0.607571827361     A.U. after    1 cycles
+            NFock=  1  Conv=0.00D+00     -V/T= 1.9172
  SMD-CDS (non-electrostatic) energy       (kcal/mol) =       0.36
  (included in total energy above)
- DoSCS=F DFT=T ScalE2(SS,OS)=  1.000000  1.000000
  Range of M.O.s used for correlation:     1     5
  NBasis=     5 NAE=     1 NBE=     1 NFC=     0 NFV=     0
  NROrb=      5 NOA=     1 NOB=     1 NVA=     4 NVB=     4
+ Disk-based method using ON**2 memory for  1 occupieds at a time.
+ Permanent disk used for amplitudes=          16 words.
+ Estimated scratch disk usage=      786010 words.
+ Actual    scratch disk usage=      786010 words.
+ JobTyp=1 Pass  1:  I=   1 to   1 NPSUse= 32 ParTrn=T ParDer=T DoDerP=T.
+ (rs|ai) integrals will be sorted in core.
+ Spin components of T(2) and E(2):
+     alpha-alpha T2 =       0.0000000000D+00 E2=      0.0000000000D+00
+     alpha-beta  T2 =       0.5665513630D-02 E2=     -0.1631976141D-01
+     beta-beta   T2 =       0.0000000000D+00 E2=      0.0000000000D+00
+ ANorm=    0.1002828756D+01
+ E2 =    -0.1631976141D-01 EUMP2 =    -0.62389158877125D+00
    1 Symmetry operations used in ECPInt.
  ECPInt:  NShTT=       6 NPrTT=      18 LenC2=       7 LenP2D=      18.
  LDataN:  DoStor=T MaxTD1= 3 Len=   28
- Symmetrizing basis deriv contribution to polar:
- IMax=3 JMax=2 DiffMx= 0.00D+00
  G2DrvN: will do     2 centers at a time, making    1 passes.
  Calling FoFCou, ICntrl=  3107 FMM=F I1Cent=   0 AccDes= 0.00D+00.
  NEqPCM:  Using equilibrium solvation (IEInf=0, Eps=  24.8520, EpsInf=   1.8526)
@@ -464,17 +506,63 @@
           Differentiating once with respect to electric field.
                 with respect to dipole field.
           Differentiating once with respect to nuclear coordinates.
- Keep R1 ints in memory in canonical form, NReq=26851245.
- CalDSu exits because no D1Ps are significant.
-          There are     6 degrees of freedom in the 1st order CPHF.  IDoFFX=6 NUNeed=     3.
-      3 vectors produced by pass  0 Test12= 6.67D-17 1.67D-08 XBig12= 1.29D-01 3.20D-01.
+ Keep R1 ints in memory in canonical form, NReq=6402212.
+          There are     6 degrees of freedom in the 1st order CPHF.  IDoFFX=6 NUNeed=     6.
+      3 vectors produced by pass  0 Test12= 6.67D-17 1.67D-08 XBig12= 8.51D-02 2.60D-01.
  AX will form     3 AO Fock derivatives at one time.
- InvSVY:  IOpt=1 It=  1 EMax= 1.11D-16
+ InvSVY:  IOpt=1 It=  1 EMax= 3.32D-33
  Solved reduced A of dimension     3 with     3 vectors.
- Isotropic polarizability for W=    0.000000        0.92 Bohr**3.
  End of Minotr F.D. properties file   721 does not exist.
  End of Minotr F.D. properties file   722 does not exist.
  End of Minotr F.D. properties file   788 does not exist.
+ MDV=  8053063680.
+ Form MO integral derivatives with frozen-active canonical formalism.
+ Discarding MO integrals.
+ Reordered first order wavefunction length =           32
+ In DefCFB: NBatch=  1 ICI=  1 ICA=  4 LFMax=  4
+            Large arrays: LIAPS=         400 LIARS=         700 words.
+ Semi-Direct transformation.
+ ModeAB=           2 MOrb=             1 LenV=    8052945730
+ LASXX=           40 LTotXX=          40 LenRXX=          40
+ LTotAB=          71 MaxLAS=          75 LenRXY=          75
+ NonZer=          90 LenScr=      785920 LnRSAI=           0
+ LnScr1=           0 LExtra=           0 Total=       786035
+ MaxDsk=          -1 SrtSym=           F ITran=            4
+ JobTyp=0 Pass  1:  I=   1 to   1.
+ (rs|ai) integrals will be sorted in core.
+ Spin components of T(2) and E(2):
+     alpha-alpha T2 =       0.0000000000D+00 E2=      0.0000000000D+00
+     alpha-beta  T2 =       0.5665513630D-02 E2=     -0.1631976141D-01
+     beta-beta   T2 =       0.0000000000D+00 E2=      0.0000000000D+00
+ ANorm=    0.1418214027D+01
+ E2 =    -0.1631976141D-01 EUMP2 =    -0.62389158877125D+00
+          IDoAtm=1
+ NEqPCM:  Using equilibrium solvation (IEInf=0, Eps=  24.8520, EpsInf=   1.8526)
+          Differentiating once with respect to electric field.
+                with respect to dipole field.
+          Differentiating once with respect to nuclear coordinates.
+          There are     1 degrees of freedom in the 1st order CPHF.  IDoFFX=0 NUNeed=     1.
+ LinEq1:  Iter=  0 NonCon=     1 RMS=1.44D-02 Max=2.88D-02 NDo=     1
+ AX will form     1 AO Fock derivatives at one time.
+ LinEq1:  Iter=  1 NonCon=     0 RMS=1.68D-19 Max=2.82D-19 NDo=     1
+ Linear equations converged to 1.000D-10 1.000D-09 after     1 iterations.
+ End of Minotr F.D. properties file   721 does not exist.
+ End of Minotr F.D. properties file   722 does not exist.
+ End of Minotr F.D. properties file   788 does not exist.
+ Symmetrizing basis deriv contribution to polar:
+ IMax=3 JMax=2 DiffMx= 0.00D+00
+ G2DrvN: will do     2 centers at a time, making    1 passes.
+ Calling FoFCou, ICntrl=  3107 FMM=F I1Cent=   0 AccDes= 0.00D+00.
+ NEqPCM:  Using equilibrium solvation (IEInf=0, Eps=  24.8520, EpsInf=   1.8526)
+ G2PCM: DoFxE=T DoFxN=F DoGrad=F DoDP/DQ/DG/TGxP=FFFF NFrqRd=   0 IEInf=0 SqF1=F DoCFld=F IF1Alg=4.
+ End of G2Drv F.D. properties file   721 does not exist.
+ End of G2Drv F.D. properties file   722 does not exist.
+ End of G2Drv F.D. properties file   788 does not exist.
+ R2 and R3 integrals will be kept in memory, NReq=      800240.
+ DD1Dir will call FoFMem   1 times, MxPair=         2
+ NAB=     1 NAA=     0 NBB=     0.
+ G2PCM: DoFxE=F DoFxN=F DoGrad=T DoDP/DQ/DG/TGxP=FFFF NFrqRd=   0 IEInf=0 SqF1=F DoCFld=F IF1Alg=4.
+ Discarding MO integrals.
 
  **********************************************************************
 
@@ -482,8 +570,8 @@
 
  **********************************************************************
 
- Alpha  occ. eigenvalues --   -0.18754
- Alpha virt. eigenvalues --    0.54469   1.51919   1.51919   1.51919
+ Alpha  occ. eigenvalues --   -0.31305
+ Alpha virt. eigenvalues --    0.74883   1.78412   1.78412   1.78412
           Condensed to atoms (all electrons):
                1
      1  H    2.000000
@@ -499,26 +587,26 @@
  Sum of APT charges =  -1.00000
  APT charges with hydrogens summed into heavy atoms:
                1
- Electronic spatial extent (au):  <R**2>=              8.1727
+ Electronic spatial extent (au):  <R**2>=              8.2805
  Charge=             -1.0000 electrons
  Dipole moment (field-independent basis, Debye):
-    X=              0.0000    Y=             -0.0000    Z=              0.0000  Tot=              0.0000
+    X=             -0.0000    Y=              0.0000    Z=              0.0000  Tot=              0.0000
  Quadrupole moment (field-independent basis, Debye-Ang):
-   XX=             -3.6642   YY=             -3.6642   ZZ=             -3.6642
-   XY=              0.0000   XZ=             -0.0000   YZ=              0.0000
+   XX=             -3.7125   YY=             -3.7125   ZZ=             -3.7125
+   XY=              0.0000   XZ=              0.0000   YZ=             -0.0000
  Traceless Quadrupole moment (field-independent basis, Debye-Ang):
    XX=              0.0000   YY=              0.0000   ZZ=              0.0000
-   XY=              0.0000   XZ=             -0.0000   YZ=              0.0000
+   XY=              0.0000   XZ=              0.0000   YZ=             -0.0000
  Octapole moment (field-independent basis, Debye-Ang**2):
-  XXX=              0.0000  YYY=             -0.0000  ZZZ=              0.0000  XYY=              0.0000
-  XXY=             -0.0000  XXZ=              0.0000  XZZ=              0.0000  YZZ=             -0.0000
+  XXX=             -0.0000  YYY=              0.0000  ZZZ=              0.0000  XYY=             -0.0000
+  XXY=              0.0000  XXZ=              0.0000  XZZ=             -0.0000  YZZ=              0.0000
   YYZ=              0.0000  XYZ=              0.0000
  Hexadecapole moment (field-independent basis, Debye-Ang**3):
- XXXX=             -5.2982 YYYY=             -5.2982 ZZZZ=             -5.2982 XXXY=              0.0000
- XXXZ=             -0.0000 YYYX=              0.0000 YYYZ=              0.0000 ZZZX=             -0.0000
- ZZZY=              0.0000 XXYY=             -1.7661 XXZZ=             -1.7661 YYZZ=             -1.7661
- XXYZ=              0.0000 YYXZ=             -0.0000 ZZXY=              0.0000
- N-N= 5.673609642280D-04 E-N=-1.638452181154D+00  KE= 6.750306692750D-01
+ XXXX=             -5.4032 YYYY=             -5.4032 ZZZZ=             -5.4032 XXXY=              0.0000
+ XXXZ=              0.0000 YYYX=              0.0000 YYYZ=             -0.0000 ZZZX=              0.0000
+ ZZZY=             -0.0000 XXYY=             -1.8011 XXZZ=             -1.8011 YYZZ=             -1.8011
+ XXYZ=             -0.0000 YYXZ=              0.0000 ZZXY=              0.0000
+ N-N= 5.673609642280D-04 E-N=-1.622559250516D+00  KE= 6.624001835072D-01
  There are a total of       21654 grid points.
  ElSum from          density=        1.9999999999
  ElSum from atomic densities=        1.0000000000
@@ -541,15 +629,15 @@
  EQQ=  0.00000000000     EQD=  0.00000000000     EDD=  0.00000000000    
  EQQ+QD+DD=  0.00000000000    
  
-  Exact polarizability:       0.916      -0.000       0.916      -0.000       0.000       0.916
- Approx polarizability:       0.881      -0.000       0.881       0.000       0.000       0.881
+  Exact polarizability:       0.873       0.000       0.873       0.000      -0.000       0.873
+ Approx polarizability:       0.714       0.000       0.714       0.000      -0.000       0.714
    1 Symmetry operations used in ECPInt.
  ECPInt:  NShTT=       6 NPrTT=      18 LenC2=       7 LenP2D=      18.
  LDataN:  DoStor=T MaxTD1= 4 Len=   56
- D2PCM: PCM CHGder 2nd derivatives, FixD1E=F FixD2E=F DoIter=F DoCFld=F I1PDM=0
- Calling FoFJK, ICntrl=    100127 FMM=F ISym2X=0 I1Cent= 0 IOpClX= 0 NMat=1 NMatS=1 NMatT=0.
+ D2PCM: PCM CHGder 2nd derivatives, FixD1E=F FixD2E=F DoIter=F DoCFld=F I1PDM=2
+ Calling FoFJK, ICntrl=  10100127 FMM=F ISym2X=0 I1Cent= 0 IOpClX= 0 NMat=1 NMatS=1 NMatT=0.
  Full mass-weighted force constant matrix:
- Low frequencies ---   -0.0001   -0.0001   -0.0001
+ Low frequencies ---   -0.0000    0.0000    0.0000
  Diagonal vibrational polarizability:
         0.0000000       0.0000000       0.0000000
  Harmonic frequencies (cm**-1), IR intensities (KM/Mole), Raman scattering
@@ -572,10 +660,10 @@
  Thermal correction to Energy=                    0.001416
  Thermal correction to Enthalpy=                  0.002360
  Thermal correction to Gibbs Free Energy=        -0.010000
- Sum of electronic and zero-point Energies=             -0.648472
- Sum of electronic and thermal Energies=                -0.647055
- Sum of electronic and thermal Enthalpies=              -0.646111
- Sum of electronic and thermal Free Energies=           -0.658471
+ Sum of electronic and zero-point Energies=             -0.623892
+ Sum of electronic and thermal Energies=                -0.622475
+ Sum of electronic and thermal Enthalpies=              -0.621531
+ Sum of electronic and thermal Free Energies=           -0.633891
  
                      E (Thermal)             CV                S
                       KCal/Mol        Cal/Mol-Kelvin    Cal/Mol-Kelvin
@@ -596,7 +684,7 @@
  Center     Atomic                   Forces (Hartrees/Bohr)
  Number     Number              X              Y              Z
  -------------------------------------------------------------------
-      1        1          -0.000000000    0.000000000   -0.000000000
+      1        1           0.000000000   -0.000000000    0.000000000
  -------------------------------------------------------------------
  Cartesian Forces:  Max     0.000000000 RMS     0.000000000
 
@@ -608,8 +696,8 @@
  Second derivative matrix not updated -- analytic derivatives used.
  The second derivative matrix:
                           X1        Y1        Z1
-           X1          -0.00000
-           Y1           0.00000  -0.00000
+           X1           0.00000
+           Y1          -0.00000   0.00000
            Z1           0.00000  -0.00000  -0.00000
  ITU=  0
      Eigenvalues --- 
@@ -619,9 +707,9 @@
          Rot=    1.000000    0.000000    0.000000    0.000000 Ang=   0.00 deg.
  Variable       Old X    -DE/DX   Delta X   Delta X   Delta X     New X
                                  (Linear)    (Quad)   (Total)
-    X1        0.00000  -0.00000   0.00000   0.00000   0.00000   0.00000
-    Y1        0.00000   0.00000   0.00000   0.00000   0.00000   0.00000
-    Z1        0.00000  -0.00000   0.00000   0.00000   0.00000   0.00000
+    X1        0.00000   0.00000   0.00000   0.00000   0.00000   0.00000
+    Y1        0.00000  -0.00000   0.00000   0.00000   0.00000   0.00000
+    Z1        0.00000   0.00000   0.00000   0.00000   0.00000   0.00000
          Item               Value     Threshold  Converged?
  Maximum Force            0.000000     0.000450     YES
  RMS     Force            0.000000     0.000300     YES
@@ -648,31 +736,30 @@
  (esu units = cm**3 , SI units = C**2 m**2 J**-1)
  Alpha(0;0):
                (au)            (10**-24 esu)      (10**-40 SI)
-   iso        0.916313D+00      0.135784D+00      0.151080D+00
+   iso        0.873182D+00      0.129392D+00      0.143968D+00
    aniso      0.000000D+00      0.000000D+00      0.000000D+00
-   xx         0.916313D+00      0.135784D+00      0.151080D+00
+   xx         0.873182D+00      0.129392D+00      0.143968D+00
    yx         0.000000D+00      0.000000D+00      0.000000D+00
-   yy         0.916313D+00      0.135784D+00      0.151080D+00
+   yy         0.873182D+00      0.129392D+00      0.143968D+00
    zx         0.000000D+00      0.000000D+00      0.000000D+00
    zy         0.000000D+00      0.000000D+00      0.000000D+00
-   zz         0.916313D+00      0.135784D+00      0.151080D+00
+   zz         0.873182D+00      0.129392D+00      0.143968D+00
 
  ----------------------------------------------------------------------
  Unable to Open any file for archive entry.
- 1\1\GINC-TMJ\Freq\RB3LYP\def2SVP\H1(1-)\TMJ\23-Mar-2024\0\\#N Geom=All
- Check Guess=TCheck SCRF=Check GenChk RB3LYP/def2SVP Freq\\Title: H_ani
- on\\-1,1\H,0.,0.,0.\\Version=ES64L-G16RevC.01\HF=-0.6484715\RMSD=0.000
- e+00\RMSF=1.592e-18\Thermal=0.0014163\ETot=-0.6470553\HTot=-0.6461111\
- GTot=-0.6584712\Dipole=0.,0.,0.\DipoleDeriv=-1.,0.,0.,0.,-1.,0.,0.,0.,
- -1.\Polar=0.9163125,0.,0.9163125,0.,0.,0.9163125\Quadrupole=0.,0.,0.,0
- .,0.,0.\PG=OH [O(H1)]\NImag=0\\0.,0.,0.,0.,0.,0.\\0.,0.,0.\\\@
+ 1\1\GINC-TMJ\Freq\RMP2-FC\def2SVP\H1(1-)\TMJ\23-Mar-2024\0\\#N Geom=Al
+ lCheck Guess=TCheck SCRF=Check GenChk RMP2(FC)/def2SVP Freq\\Title: H_
+ anion\\-1,1\H,0.,0.,0.\\Version=ES64L-G16RevC.01\HF=-0.6075718\MP2=-0.
+ 6238916\RMSD=0.000e+00\RMSF=2.619e-18\Thermal=0.0014163\ETot=-0.622475
+ 3\HTot=-0.6215311\GTot=-0.6338913\Dipole=0.,0.,0.\DipoleDeriv=-1.,0.,0
+ .,0.,-1.,0.,0.,0.,-1.\Polar=0.8731822,0.,0.8731822,0.,0.,0.8731822\PG=
+ OH [O(H1)]\NImag=0\\0.,0.,0.,0.,0.,0.\\0.,0.,0.\\\@
  The archive entry for this job was punched.
 
 
- IF OTHER PEOPLE ARE GOING TO TALK, CONVERSATION IS SIMPLY IMPOSSIBLE.
-
-                                               -- WHISTLER'S PRINCIPLE
- Job cpu time:       0 days  0 hours  4 minutes  7.9 seconds.
- Elapsed time:       0 days  0 hours  0 minutes  9.1 seconds.
- File lengths (MBytes):  RWF=      6 Int=      0 D2E=      0 Chk=      1 Scr=      1
- Normal termination of Gaussian 16 at Sat Mar 23 19:44:05 2024.
+ SIGN SEEN IN A RESTAURANT-
+ WE RESERVE THE RIGHT TO SERVE REFUSE TO ANYONE.
+ Job cpu time:       0 days  0 hours  7 minutes 24.8 seconds.
+ Elapsed time:       0 days  0 hours  0 minutes 16.3 seconds.
+ File lengths (MBytes):  RWF=     13 Int=      0 D2E=      0 Chk=      1 Scr=      1
+ Normal termination of Gaussian 16 at Sat Mar 23 22:20:48 2024.

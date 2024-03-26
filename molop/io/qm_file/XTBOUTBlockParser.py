@@ -7,7 +7,7 @@ from packaging.version import Version
 from molop.io.bases.molblock_base import QMBaseBlockParser
 from molop.logger.logger import logger
 from molop.unit import atom_ureg
-from molop.utils import xtboutpatterns
+from molop.utils.xtbpatterns import xtboutpatterns
 
 
 class XTBOUTBlockParser(QMBaseBlockParser):
@@ -33,17 +33,17 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         only_extract_structure=False,
     ):
         super().__init__(block, only_extract_structure)
-        self._qm_software = "xTB"
+        self.qm_software = "xTB"
         self._file_path = file_path
         self._charge = charge
         self._multiplicity = multiplicity
-        self._version = version
-        self._basis = basis
-        self._functional = functional
-        self._solvent_model = solvent_model
-        self._solvent = solvent
-        self._temperature = temperature
-        self._parameter_comment = parameter_comment
+        self.version = version
+        self.basis = basis
+        self.functional = functional
+        self.solvent_model = solvent_model
+        self.solvent = solvent
+        self.temperature = temperature
+        self.parameter_comment = parameter_comment
         self._parse_coords()
         if not self._only_extract_structure:
             self._parse()
@@ -51,93 +51,36 @@ class XTBOUTBlockParser(QMBaseBlockParser):
     def _parse(self):
         self._parse_state()
         self._parse_energy()
-        self._parse_partial_charges()
+        self._parse_mulliken_charges()
         self._parse_orbitals()
-        self._wiberg_bond_order = self._parse_bond_order()
+        self.wiberg_bond_order = self._parse_bond_order()
         self._parse_dipole()
         self._parse_thermo()
 
     def _parse_coords(self):
-        coords_match = re.search(xtboutpatterns["coords_start"], self._block)
+        coords_match = xtboutpatterns["coords_start"].search(self._block)
         if not coords_match:
             logger.error(
                 "No coordinates found. If you are using `--hess`, use `--ohess` instead. See https://xtb-docs.readthedocs.io/en/latest/hessian.html for more details."
             )
             raise RuntimeError("No coordinates found.")
+        coords_type_match = xtboutpatterns["coords_type"].search(self._block)
+        if coords_type_match:
+            coords_type = coords_type_match.group(1)
         coords_end = re.search(xtboutpatterns["coords_end"], self._block)
         coords_block = self._block[coords_match.start() : coords_end.end()]
-        if self._version is None:
-            version = Version("0.0.0")
+        if coords_type == "xyz":
+            if self.version is None:
+                version = Version("0.0.0")
+            else:
+                version = Version(self.version.split()[1])
+            if version <= Version("6.2.2"):
+                self._parse_coords_old(coords_block)
+            else:
+                self._parse_coords_new(coords_block)
         else:
-            version = Version(self._version.split()[1])
-        if version <= Version("6.2.2"):
-            self._parse_coords_old(coords_block)
-        else:
-            self._parse_coords_new(coords_block)
+            raise ValueError(f"unsupported coords type: {coords_type}")
         self.__n_atom = len(self.atoms)
-
-    def _parse_state(self):
-        if re.search(xtboutpatterns["state"], self._block):
-            self._status["geometric_optimization"] = True
-        else:
-            self._status["geometric_optimization"] = False
-
-    def is_error(self) -> bool:
-        if "geometric_optimization" in self._status:
-            return self._status["geometric_optimization"] == False
-        else:
-            return True
-
-    def _parse_energy(self):
-        lines = self._block.splitlines()
-        for line in reversed(lines):
-            if "total E" in line:
-                self._energy = (
-                    round(float(line.split()[-1]), 6)
-                    * atom_ureg.hartree
-                    / atom_ureg.particle
-                )
-                return
-            if "TOTAL ENERGY" in line:
-                self._energy = (
-                    round(float(line.split()[-3]), 6)
-                    * atom_ureg.hartree
-                    / atom_ureg.particle
-                )
-                return
-        raise ValueError("Energy not found")
-
-    def _parse_partial_charges(self):
-        lines = self._block.splitlines()
-        charges_sect = False
-        charges = []
-        for line in lines:
-            if "Mol." in line:
-                charges_sect = False
-            if charges_sect and len(line.split()) == 7:
-                charges.append(float(line.split()[4]))
-            if "covCN" in line:
-                charges_sect = True
-        self._partial_charges = charges
-
-    def _parse_orbitals(self):
-        if not re.search(xtboutpatterns["homo"], self._block):
-            return
-        self._alpha_energy["homo"] = (
-            round(float(re.findall(xtboutpatterns["homo"], self._block)[-1]), 6)
-            * atom_ureg.eV
-            / atom_ureg.particle
-        ).to("hartree/particle")
-        self._alpha_energy["lumo"] = (
-            round(float(re.findall(xtboutpatterns["lumo"], self._block)[-1]), 6)
-            * atom_ureg.eV
-            / atom_ureg.particle
-        ).to("hartree/particle")
-        self._alpha_energy["gap"] = (
-            round((self.alpha_energy["lumo"] - self.alpha_energy["homo"]).m, 6)
-            * atom_ureg.eV
-            / atom_ureg.particle
-        )
 
     def _parse_coords_old(self, block: str):
         """
@@ -179,6 +122,69 @@ class XTBOUTBlockParser(QMBaseBlockParser):
             self._atoms.append(atom)
         self._coords = np.array(temp_coords) * atom_ureg.angstrom
 
+    def _parse_state(self):
+        if re.search(xtboutpatterns["state"], self._block):
+            self.status["geometric_optimization"] = True
+        else:
+            self.status["geometric_optimization"] = False
+
+    def is_error(self) -> bool:
+        if "geometric_optimization" in self.status:
+            return self.status["geometric_optimization"] == False
+        else:
+            return True
+
+    def _parse_energy(self):
+        lines = self._block.splitlines()
+        for line in reversed(lines):
+            if "total E" in line:
+                self.scf_energy = (
+                    round(float(line.split()[-1]), 6)
+                    * atom_ureg.hartree
+                    / atom_ureg.particle
+                )
+                return
+            if "TOTAL ENERGY" in line:
+                self._total_energy = (
+                    round(float(line.split()[-3]), 6)
+                    * atom_ureg.hartree
+                    / atom_ureg.particle
+                )
+                return
+        raise ValueError("Energy not found")
+
+    def _parse_mulliken_charges(self):
+        lines = self._block.splitlines()
+        charges_sect = False
+        charges = []
+        for line in lines:
+            if "Mol." in line:
+                charges_sect = False
+            if charges_sect and len(line.split()) == 7:
+                charges.append(float(line.split()[4]))
+            if "covCN" in line:
+                charges_sect = True
+        self.mulliken_charges = charges
+
+    def _parse_orbitals(self):
+        if not re.search(xtboutpatterns["homo"], self._block):
+            return
+        self.alpha_energy["homo"] = (
+            round(float(re.findall(xtboutpatterns["homo"], self._block)[-1]), 6)
+            * atom_ureg.eV
+            / atom_ureg.particle
+        ).to("hartree/particle")
+        self.alpha_energy["lumo"] = (
+            round(float(re.findall(xtboutpatterns["lumo"], self._block)[-1]), 6)
+            * atom_ureg.eV
+            / atom_ureg.particle
+        ).to("hartree/particle")
+        self.alpha_energy["gap"] = (
+            round((self.alpha_energy["lumo"] - self.alpha_energy["homo"]).m, 6)
+            * atom_ureg.eV
+            / atom_ureg.particle
+        )
+
     def _parse_bond_order(self):
         start_matches = xtboutpatterns[f"wiberg_start"].search(self._block)
         end_matches = xtboutpatterns[f"wiberg_end"].search(self._block)
@@ -216,31 +222,31 @@ class XTBOUTBlockParser(QMBaseBlockParser):
     def _parse_thermo(self):
         zpc = xtboutpatterns["zp correct"].search(self._block)
         if zpc:
-            self._sum_energy["zero-point correction"] = (
+            self.sum_energy["zero-point correction"] = (
                 float(zpc.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )
         hc = xtboutpatterns["H correct"].search(self._block)
         if hc:
-            self._sum_energy["TCH"] = (
+            self.sum_energy["TCH"] = (
                 float(hc.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )
         gc = xtboutpatterns["G correct"].search(self._block)
         if gc:
-            self._sum_energy["TCG"] = (
+            self.sum_energy["TCG"] = (
                 float(gc.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )
         se = xtboutpatterns["sum E"].search(self._block)
         if se:
-            self._sum_energy["zero-point sum"] = (
+            self.sum_energy["zero-point sum"] = (
                 float(se.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )
         sh = xtboutpatterns["sum H"].search(self._block)
         if sh:
-            self._sum_energy["H sum"] = (
+            self.sum_energy["H sum"] = (
                 float(sh.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )
         sg = xtboutpatterns["sum G"].search(self._block)
         if sg:
-            self._sum_energy["G sum"] = (
+            self.sum_energy["G sum"] = (
                 float(sg.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )

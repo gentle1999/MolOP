@@ -11,7 +11,7 @@ from typing import Literal
 from molop.io.bases.file_base import BaseQMFileParser
 from molop.io.qm_file.G16LOGBlockParser import G16LOGBlockParser
 from molop.logger.logger import logger
-from molop.utils import (
+from molop.utils.g16patterns import (
     g16logpatterns,
     get_solvent,
     get_solvent_model,
@@ -47,7 +47,7 @@ class G16LOGParser(BaseQMFileParser):
         self._parse_functional_basis(full_text)
         temperature_match = g16logpatterns["Temperature"].search(full_text)
         if temperature_match:
-            self._temperature = float(temperature_match.group(1))
+            self.temperature = float(temperature_match.group(1))
         n_atom_match = re.search(g16logpatterns["n atoms"], full_text)
         if n_atom_match:
             n_atom = int(n_atom_match.group(1))
@@ -72,9 +72,9 @@ class G16LOGParser(BaseQMFileParser):
                     n_atom=n_atom,
                     file_path=self._file_path,
                     version=self.version,
-                    parameter_comment=self._parameter_comment,
-                    functional=self._functional,
-                    basis=self._basis,
+                    parameter_comment=self.parameter_comment,
+                    functional=self.functional,
+                    basis=self.basis,
                     only_extract_structure=self._only_extract_structure,
                 ),
             )
@@ -96,11 +96,11 @@ class G16LOGParser(BaseQMFileParser):
         else:
             logger.error(f"No version found in {self._file_path}")
             raise ValueError(f"No version found in {self._file_path}")
-        self._version = version
-        self._parameter_comment = "\n".join(
+        self.version = version
+        self.parameter_comment = "\n".join(
             (para_1.replace("\n", " "), para_2.replace("\n ", ""))
         )
-        link, route = self._parameter_comment.split("#")
+        link, route = self.parameter_comment.split("#")
         link = link.replace("\n", " ")
         route = "#" + route.replace("\n", " ")
         self._link0 = link0_parser(link)
@@ -109,8 +109,8 @@ class G16LOGParser(BaseQMFileParser):
             self._route_params,
             self._dieze_tag,
         ) = parameter_comment_parser(route)
-        self._solvent_model = get_solvent_model(self.route_params)
-        self._solvent = get_solvent(self.route_params)
+        self.solvent_model = get_solvent_model(self.route_params)
+        self.solvent = get_solvent(self.route_params)
 
     def _parse_charge_multi(
         self, full_text, force_charge=None, force_multiplicity=None
@@ -128,19 +128,18 @@ class G16LOGParser(BaseQMFileParser):
         self._charge, self._multiplicity = charge, multi
 
     def _parse_functional_basis(self, full_text: str):
-        if g16logpatterns["Pseudopotential"].search(full_text):
-            self._functional = "pseudopotential"
+        functional_match = g16logpatterns["functional"].search(full_text)
+        if functional_match:
+            self.functional = functional_match.group(1).lower()
         else:
-            functional_match = g16logpatterns["functional"].search(full_text)
-            if functional_match:
-                self._functional = functional_match.group(1).lower()
-            else:
-                self._functional = "unknown"
+            self.functional = "unknown"
         basis_match = g16logpatterns["basis"].search(full_text)
         if basis_match:
-            self._basis = basis_match.group(1)
+            self.basis = basis_match.group(1)
         else:
-            self._basis = "unknown"
+            self.basis = "unknown"
+        if g16logpatterns["Pseudopotential"].search(full_text):
+            self.basis = "pseudopotential"
 
     @property
     def link0(self) -> dict:

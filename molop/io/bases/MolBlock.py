@@ -224,6 +224,8 @@ class MolBlock(ABC):
                     # Issues known:
                     # - Can not recognize radicals
                     # - Can not recognize Metals
+                    if len(self.atoms) <= 1:
+                        raise ValueError("Single atom is not allowed in this function.")
                     raw_mol = Chem.MolFromXYZBlock(self.to_XYZ_block())
                     conn_mol = Chem.Mol(raw_mol)
                     rdDetermineBonds.DetermineBonds(conn_mol, charge=self._charge)
@@ -234,10 +236,11 @@ class MolBlock(ABC):
                         f"{self._file_path}: rdkit determinebonds failed. Use MolOP structure recovery instead."
                     )
                     # If failed, use MolOP implementation
-                    omol = self.omol
-                    if omol is None:
+                    try:
+                        omol = self.omol
+                    except Exception as e:
                         logger.error(
-                            f"{self._file_path}: MolOP structure recovery failed."
+                            f"{self._file_path}: MolOP structure recovery failed. {e}"
                         )
                         return None
                     omol_sdf = omol.write("sdf")
