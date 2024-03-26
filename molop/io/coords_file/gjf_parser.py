@@ -11,12 +11,10 @@ from typing import Literal
 
 from molop.io.bases.file_base import BaseFileParser
 from molop.io.coords_file.GJFBlockParser import GJFBlockParser
-from molop.utils import (
+from molop.utils.g16patterns import (
     get_solvent,
-    get_solvent_model,
-    link0_parser,
-    parameter_comment_parser,
 )
+from molop.utils.g16patterns import get_solvent_model, link0_parser, parameter_comment_parser
 
 
 class GJFParser(BaseFileParser):

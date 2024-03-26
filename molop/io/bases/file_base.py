@@ -526,10 +526,8 @@ class BaseQMFileParser(BaseFileParser):
             The version of the QM software.
     """
 
-    _parameter_comment: str
     _only_extract_structure: bool
     _only_last_frame: bool
-    _version: str
 
     def __init__(
         self,
@@ -538,57 +536,18 @@ class BaseQMFileParser(BaseFileParser):
         only_last_frame=False,
     ) -> None:
         super().__init__(file_path)
-        self._parameter_comment: str = None
-        self._basis: str = None
-        self._functional: str = None
-        self._temperature: float = 298.15
+        self.parameter_comment: str = None
+        self.basis: str = None
+        self.functional: str = None
+        self.temperature: float = 298.15
 
-        self._solvent_model: str = None
-        self._solvent: str = None
+        self.solvent_model: str = None
+        self.solvent: str = None
 
         self._only_extract_structure: bool = only_extract_structure
         self._only_last_frame = only_last_frame
-        self._version: str = None
+        self.version: str = None
 
-    @property
-    def parameter_comment(self) -> str:
-        """
-        Get the parameter comment for the object.
-
-        Returns:
-            str: The parameter comment for the object.
-        """
-        return self._parameter_comment
-
-    @property
-    def version(self) -> str:
-        """
-        Get the version of the object.
-
-        Returns:
-            str: The version of the object.
-        """
-        return self._version
-
-    @property
-    def functional(self) -> str:
-        return self._functional
-
-    @property
-    def basis(self) -> str:
-        return self._basis
-
-    @property
-    def temperature(self) -> float:
-        return self._temperature
-
-    @property
-    def solvent_model(self) -> str:
-        return self._solvent_model
-
-    @property
-    def solvent(self) -> str:
-        return self._solvent
 
     def __repr__(self) -> str:
         return (

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-03-20 14:51:29
+LastEditTime: 2024-03-23 21:06:58
 Description: 请填写简介
 """
 import os
@@ -12,7 +12,7 @@ from typing import Literal
 from molop.io.bases.file_base import BaseQMFileParser
 from molop.io.qm_file.G16FCHKBlockParser import G16FCHKBlockParser
 from molop.logger.logger import logger
-from molop.utils import (
+from molop.utils.g16patterns import (
     g16fchkpatterns,
     get_solvent,
     get_solvent_model,
@@ -53,8 +53,8 @@ class G16FCHKParser(BaseQMFileParser):
             else int(re.search(g16fchkpatterns["multi"], full_text).group(1))
         )
         n_atoms = int(re.search(g16fchkpatterns["n_atoms"], full_text).group(1))
-        self._version = re.search(g16fchkpatterns["version"], full_text).group(1)
-        self._parameter_comment = (
+        self.version = re.search(g16fchkpatterns["version"], full_text).group(1)
+        self.parameter_comment = (
             re.search(g16fchkpatterns["route"], full_text).group(1).replace("\n", "")
         )
         self._parse_functional_basis(full_text)
@@ -62,9 +62,9 @@ class G16FCHKParser(BaseQMFileParser):
         (
             self._route_params,
             self._dieze_tag,
-        ) = parameter_comment_parser(self._parameter_comment)
-        self._solvent_model = get_solvent_model(self.route_params)
-        self._solvent = get_solvent(self.route_params)
+        ) = parameter_comment_parser(self.parameter_comment)
+        self.solvent_model = get_solvent_model(self.route_params)
+        self.solvent = get_solvent(self.route_params)
 
         self.append(
             G16FCHKBlockParser(
@@ -73,8 +73,8 @@ class G16FCHKParser(BaseQMFileParser):
                 multiplicity=multi,
                 n_atom=n_atoms,
                 file_path=self._file_path,
-                version=self._version,
-                parameter_comment=self._parameter_comment,
+                version=self.version,
+                parameter_comment=self.parameter_comment,
                 only_extract_structure=self._only_extract_structure,
             )
         )
@@ -82,8 +82,8 @@ class G16FCHKParser(BaseQMFileParser):
     def _parse_functional_basis(self, full_text: str):
         for idx, line in enumerate(full_text.splitlines()):
             if idx == 1:
-                self._functional = line.split()[1].lower()
-                self._basis = line.split()[2]
+                self.functional = line.split()[1].lower()
+                self.basis = line.split()[2]
                 break
 
     @property

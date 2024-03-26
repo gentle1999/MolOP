@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-02-21 21:19:52
+LastEditTime: 2024-03-23 21:09:01
 Description: 请填写简介
 """
 import re
@@ -12,7 +12,7 @@ import numpy as np
 
 from molop.io.bases.molblock_base import BaseBlockParser
 from molop.unit import atom_ureg
-from molop.utils import (
+from molop.utils.g16patterns import (
     get_solvent,
     get_solvent_model,
     link0_parser,
