@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-02-29 12:21:13
+LastEditTime: 2024-03-31 16:05:02
 Description: 请填写简介
 """
 import re
@@ -36,7 +36,7 @@ class XYZBlockParser(BaseBlockParser):
         """
         Parse the block.
         """
-        lines = self._block.split("\n")
+        lines = self._block.splitlines()
         num_atoms = int(lines[0])
         cm = re.findall(r"charge\s+([\-0-9]+)\s+multiplicity\s+([\-0-9]+)\s+", lines[1])
         if len(cm) == 1:

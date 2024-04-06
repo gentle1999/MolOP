@@ -184,6 +184,7 @@ class BaseFileParser:
         frame._frameID = len(self.__frames)
         if frame._frameID > 0:
             self.__frames[frame._frameID - 1]._next_block = frame
+            frame._prev_block = self.__frames[frame._frameID - 1]
         self.__frames.append(frame)
 
     def to_XYZ_block(self) -> str:
@@ -508,7 +509,9 @@ class BaseFileParser:
         Returns:
             A pandas DataFrame containing the summary information of the parser.
         """
-        return pd.concat([frame.to_summary_series() for frame in self.__frames], axis=1).T
+        return pd.concat(
+            [frame.to_summary_series() for frame in self.__frames], axis=1
+        ).T
 
 
 class BaseQMFileParser(BaseFileParser):
@@ -547,7 +550,6 @@ class BaseQMFileParser(BaseFileParser):
         self._only_extract_structure: bool = only_extract_structure
         self._only_last_frame = only_last_frame
         self.version: str = None
-
 
     def __repr__(self) -> str:
         return (
