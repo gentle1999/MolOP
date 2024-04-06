@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2024-02-02 10:43:56
  * @LastEditors: TMJ
- * @LastEditTime: 2024-02-19 13:54:45
+ * @LastEditTime: 2024-03-27 15:13:13
  * @Description: 请填写简介
 -->
 # Supporting Input File Formats
@@ -19,7 +19,7 @@ files = AutoParser("path/to/*.log")
 ### Transform in batch
 
 ```python
-files.to_XYZ_files(file_path="path/to/out")
+files.to_XYZ_file(file_path="path/to/out")
 ```
 You can determine the file path by setting the `file_path` parameter. If the `file_path` parameter is not set, the default file path will be the working directory. Then the output files will be saved as `file_path/<filename>.xyz`
 
@@ -45,7 +45,7 @@ files[i][j].to_XYZ_file(file_path="path/to/out.xyz") # save the XYZ block with s
 ### Transform in batch
 
 ```python
-files.to_SDF_files(file_path="path/to/out")
+files.to_SDF_file(file_path="path/to/out")
 ```
 You can determine the file path by setting the `file_path` parameter. If the `file_path` parameter is not set, the default file path will be the working directory. Then the output files will be saved as `file_path/<filename>.sdf`
 

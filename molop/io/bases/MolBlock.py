@@ -119,8 +119,6 @@ class MolBlock(ABC):
         Returns:
             A `np.ndarray` of dimensionless coordinates
         """
-        if self.coords is None:
-            return None
         return self.coords.to("angstrom").m.astype(np.float32)
 
     @property

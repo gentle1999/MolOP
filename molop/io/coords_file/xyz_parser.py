@@ -1,8 +1,8 @@
 '''
 Author: TMJ
-Date: 2024-01-11 21:02:36
+Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-02-11 18:37:45
+LastEditTime: 2024-03-31 20:08:34
 Description: 请填写简介
 '''
 import os
@@ -40,7 +40,11 @@ class XYZParser(BaseFileParser):
         anchor = 0
         blocks = []
         while anchor < len(lines):
-            num_atoms = int(lines[anchor])
+            try:
+                num_atoms = int(lines[anchor])
+            except:
+                anchor += 1
+                continue
             blocks.append("".join(lines[anchor : anchor + num_atoms + 2]))
             anchor += num_atoms + 2
         if self._only_last_frame:
@@ -62,5 +66,5 @@ class XYZParser(BaseFileParser):
                 )
                 self.append(block)
         if len(blocks) > 0:
-            self._charge = block.charge
-            self._multiplicity = block.multiplicity
+            self._charge = self.frames[-1].charge
+            self._multiplicity = self.frames[-1].multiplicity

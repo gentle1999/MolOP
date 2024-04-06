@@ -5,6 +5,7 @@ LastEditors: TMJ
 LastEditTime: 2024-03-23 21:03:37
 Description: 请填写简介
 """
+
 import re
 from typing import Dict, Tuple
 
@@ -142,7 +143,7 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "n atoms": re.compile(r"NAtoms=\s*(\d+)"),
     "coords_start": re.compile(r"Standard orientation:"),
     "coords_end": re.compile(
-        r"(Basis read|Standard basis|Rotational constants \(GHZ\))"
+        r"(Basis read|Standard basis|Rotational constants \(GHZ\)|Symmetry turned off)"
     ),
     "coords": re.compile(
         r"\s+\d+\s+(\d+)\s+\d+\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)"
@@ -266,6 +267,12 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "nbo summary match": re.compile(
         r"BD\s+\(\s+\d\)\s+[A-Za-z]+\s+(\d+)\s+-[\sA-Za-z]+\s+(\d+)\s+(\d+.\d+)\s+([-\d.]+)"
     ),
+    "tail_start": re.compile(
+        r"(Unable to Open any file for archive entry.|Test job not archived.)"
+    ),
+    "tail_end": re.compile(r"\\@"),
+    "tail_match": re.compile(r"(HF|MP2|MP3|MP4[SDTQ]*|CCSD[\(\)T]*)=([\s-]\d+.\d+)"),
+    "tail_thermal_match": re.compile(r"(ZeroPoint|Thermal|ETot|HTot|GTot)=([\s-]\d+.\d+)")
 }
 
 

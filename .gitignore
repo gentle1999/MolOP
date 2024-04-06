@@ -268,5 +268,6 @@ docs/*/read_file_and_extract_info.md
 docs/*/read_files.md
 docs/*/spatial_features.md
 docs/*/structure_recover_benchmark.md
+docs/*/qc_parser_benchmark.md
 docs/*/transform_in_gjf.md
 docs/*/structure_recovery_cases.md

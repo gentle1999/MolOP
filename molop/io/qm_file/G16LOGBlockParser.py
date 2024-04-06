@@ -112,6 +112,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
         self._parse_sum_energy()
         self._parse_gradient()
         self._parse_state()
+        self._parse_tail()
 
     def _parse_rotation_consts(self):
         rotation_consts = g16logpatterns["rotation_consts"].search(
@@ -207,8 +208,8 @@ class G16LOGBlockParser(QMBaseBlockParser):
     def _parse_spins(self):
         s = g16logpatterns["spins"].search(self.__block)
         if s:
-            self._spin_multiplicity = float(s.group(1))
-            self._spin_eigenvalue = float(s.group(2))
+            self.spin_multiplicity = float(s.group(1))
+            self.spin_eigenvalue = float(s.group(2))
 
     def _parse_orbitals(self):
         orbital_start = g16logpatterns["orbital_start"].search(self.__block)
@@ -419,7 +420,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
                     ).reshape(-1, block_length)
                 )
             return np.concatenate(blks, axis=1)
-        return None
+        return np.array([[]])
 
     def _parse_nbo_charges(self):
         start_matches = g16logpatterns[f"nbo charge start"].search(self.__block)
@@ -577,3 +578,34 @@ class G16LOGBlockParser(QMBaseBlockParser):
         if "SCF Done" in self.status and self.status["SCF Done"] == False:
             return True
         return False
+
+    def _parse_tail(self):
+        start = g16logpatterns["tail_start"].search(self.__block)
+        end = g16logpatterns["tail_end"].search(self.__block)
+        if start and end:
+            tail = self.__block[start.end() : end.start()]
+            tail = tail.replace("\n ", "")
+            energies_match = g16logpatterns["tail_match"].findall(tail)
+            for e, v in energies_match:
+                if "HF" in e:
+                    self.scf_energy = float(v) * atom_ureg.hartree / atom_ureg.particle
+                if "MP2" in e:
+                    self.mp2_energy = float(v) * atom_ureg.hartree / atom_ureg.particle
+                if "MP3" in e:
+                    self.mp2_energy = float(v) * atom_ureg.hartree / atom_ureg.particle
+                if "MP4" in e:
+                    self.mp2_energy = float(v) * atom_ureg.hartree / atom_ureg.particle
+                if "CCSD" in e:
+                    self.ccsd_energy = float(v) * atom_ureg.hartree / atom_ureg.particle
+            thermal_match = g16logpatterns["tail_thermal_match"].findall(tail)
+            for e, v in thermal_match:
+                if "ZeroPoint" in e:
+                    self.sum_energy["zero-point correction"] = float(v) * atom_ureg.hartree / atom_ureg.particle
+                if "Thermal" in e:
+                    self.sum_energy["TCE"] = float(v) * atom_ureg.hartree / atom_ureg.particle
+                if "ETot" in e:
+                    self.sum_energy["E sum"] = float(v) * atom_ureg.hartree / atom_ureg.particle
+                if "HTot" in e:
+                    self.sum_energy["H sum"] = float(v) * atom_ureg.hartree / atom_ureg.particle
+                if "GTot" in e:
+                    self.sum_energy["G sum"] = float(v) * atom_ureg.hartree / atom_ureg.particle
