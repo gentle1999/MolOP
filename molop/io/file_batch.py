@@ -26,7 +26,7 @@ from molop.io.qm_file.xtbout_parser import XTBOUTParser
 from molop.io.types import PARSERTYPES
 from molop.logger.logger import logger
 
-parsers = {
+parsers:Dict[str, PARSERTYPES] = {
     ".gjf": (GJFParser,),
     ".gau": (GJFParser,),
     ".com": (GJFParser,),

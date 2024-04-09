@@ -2,9 +2,10 @@
 Author: TMJ
 Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-03-23 21:06:58
+LastEditTime: 2024-04-09 10:25:47
 Description: 请填写简介
 """
+
 import os
 import re
 from typing import Literal
@@ -36,6 +37,7 @@ class G16FCHKParser(BaseQMFileParser):
         self.__force_charge = charge
         self.__force_multiplicity = multiplicity
         self._parse()
+        self._post_parse()
 
     def _parse(self):
         with open(self.file_path, "r") as fr:

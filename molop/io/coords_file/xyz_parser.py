@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-03-31 20:08:34
+LastEditTime: 2024-04-09 10:25:41
 Description: 请填写简介
 '''
 import os
@@ -29,6 +29,7 @@ class XYZParser(BaseFileParser):
         self._charge = charge if charge else 0
         self._multiplicity = multiplicity if multiplicity else 1
         self._parse()
+        self._post_parse()
 
     def _parse(self):
         """

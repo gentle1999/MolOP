@@ -30,6 +30,7 @@ class GJFParser(BaseFileParser):
         self.__force_charge = charge
         self.__force_multiplicity = multiplicity
         self._parse()
+        self._post_parse()
 
     def _parse(self):
         """
