@@ -1,10 +1,10 @@
-"""
+'''
 Author: TMJ
-Date: 2023-10-30 18:21:31
+Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-02-02 19:04:52
+LastEditTime: 2024-04-09 10:25:21
 Description: 请填写简介
-"""
+'''
 
 import os
 
@@ -26,6 +26,7 @@ class SDFParser(BaseFileParser):
         super().__init__(file_path)
         self._only_last_frame = only_last_frame
         self._parse()
+        self._post_parse()
 
     def _parse(self):
         for mol in pybel.readfile("sdf", self._file_path):

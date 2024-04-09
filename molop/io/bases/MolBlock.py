@@ -41,8 +41,8 @@ class MolBlock(ABC):
             **Predicted**: Save the formal charges. Consistent with the atomic order.
         _formal_spins List[int]:
             **Predicted**: Save the formal spins. Consistent with the atomic order.
-        _omol pybel.Molecule:
-            **Predicted**: Save the openbabel molecule object.
+        _omol str:
+            **Predicted**: Save the sdf from openbabel.
         _rdmol Union[Chem.rdchem.RWMol, Chem.rdchem.Mol]:
             **Predicted**: Save the rdkit molecule object.
     """
@@ -54,7 +54,7 @@ class MolBlock(ABC):
     _bonds: List[Tuple[int, int, int]]
     _formal_charges: List[int]
     _formal_spins: List[int]
-    _omol: pybel.Molecule
+    _omol: str
     _rdmol: Union[Chem.rdchem.RWMol, Chem.rdchem.Mol]
 
     def __init__(self):
@@ -142,6 +142,8 @@ class MolBlock(ABC):
         return self._multiplicity
 
     def __get_topology(self):
+        if self.rdmol is None:
+            return
         self._bonds = get_bond_pairs(self.rdmol)
         self._formal_charges = get_formal_charges(self.rdmol)
         self._formal_spins = get_formal_spins(self.rdmol)
@@ -194,18 +196,16 @@ class MolBlock(ABC):
             if self._bonds is None:
                 try:
                     self._omol = xyz_block_to_omol(
-                        self.to_XYZ_block(),
-                        self._charge,
-                    )
+                        self.to_XYZ_block(), self._charge
+                    ).write("sdf")
                 except Exception as e:
                     raise RuntimeError(f"{self._file_path}: {e}")
             else:
                 assert (
                     self._formal_charges and self._formal_spins
                 ), "If bonds given, formal charges and spins must be provided."
-                omol = pybel.readstring("sdf", self.to_SDF_block())
-                self._omol = omol
-        return self._omol
+                self._omol = self.to_SDF_block()
+        return pybel.readstring("sdf", self._omol)
 
     @property
     def rdmol(self) -> Union[Chem.rdchem.Mol, Chem.rdchem.RWMol]:
@@ -342,7 +342,7 @@ class MolBlock(ABC):
             The SMILES.
         """
         # return rdMolStandardize.StandardizeSmiles(self.to_SMILES())
-        return Chem.MolToSmiles(Chem.MolFromSmiles(self.to_SMILES()))
+        return Chem.CanonSmiles(self.to_SMILES(), useChiral=True)
 
     def to_InChI(self) -> str:
         """

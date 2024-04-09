@@ -16,7 +16,7 @@ from rdkit import Chem
 
 pt = Chem.GetPeriodicTable()
 HETEROATOM = (7, 8, 9, 15, 16, 17, 35, 53)
-
+DEBUG_TAG = "[DEBUG]|[STRUCTURE RECOVERY]"
 
 def get_under_bonded_number(atom: ob.OBAtom) -> int:
     """
@@ -64,12 +64,6 @@ def clean_neighbor_radicals(omol: pybel.Molecule):
             radical_atom_1.OBAtom.GetBond(
                 radical_atom_2.OBAtom
             )  # the two atoms should be bonded
-            # and pt.GetDefaultValence(radical_atom_1.OBAtom.GetAtomicNum())
-            # - radical_atom_1.OBAtom.GetExplicitValence()
-            # > 0
-            # and pt.GetDefaultValence(radical_atom_2.OBAtom.GetAtomicNum())
-            # - radical_atom_2.OBAtom.GetExplicitValence()
-            # > 0
         ):
             """
             This code block checks if two spin atoms are bonded and if they have a valence greater than their explicit valence.
@@ -118,12 +112,6 @@ def fix_under_bonded_dipole(omol: pybel.Molecule):
                 if (
                     atom_2.GetFormalCharge()
                     == -1
-                    # and pt.GetDefaultValence(atom_1.OBAtom.GetAtomicNum())
-                    # - atom_1.OBAtom.GetExplicitValence()
-                    # > 0
-                    # and pt.GetDefaultValence(atom_2.GetAtomicNum())
-                    # - atom_2.GetExplicitValence()
-                    # > 0
                 ):
                     atom_1.OBAtom.GetBond(atom_2).SetBondOrder(
                         atom_1.OBAtom.GetBond(atom_2).GetBondOrder() + 1
@@ -184,6 +172,7 @@ def fix_dipole_type_a(mol: pybel.Molecule) -> pybel.Molecule:
                 mol.OBMol.GetBond(atom_1.idx, center_idx + 1).SetBondOrder(2)
                 mol.atoms[center_idx].OBAtom.SetFormalCharge(1)
                 atom_2.OBAtom.SetFormalCharge(-1)
+                logger.debug(f"Fix dipole {mol.atoms[center_idx].OBAtom.GetIdx()}")
             elif (
                 mol.OBMol.GetBond(atom_1.idx, center_idx + 1).GetBondOrder() == 2
                 and mol.OBMol.GetBond(atom_2.idx, center_idx + 1).GetBondOrder() == 1
@@ -191,6 +180,7 @@ def fix_dipole_type_a(mol: pybel.Molecule) -> pybel.Molecule:
                 mol.OBMol.GetBond(atom_1.idx, center_idx + 1).SetBondOrder(3)
                 mol.atoms[center_idx].OBAtom.SetFormalCharge(1)
                 atom_2.OBAtom.SetFormalCharge(-1)
+                logger.debug(f"Fix dipole {mol.atoms[center_idx].OBAtom.GetIdx()}")
             elif (
                 mol.OBMol.GetBond(atom_1.idx, center_idx + 1).GetBondOrder() == 1
                 and mol.OBMol.GetBond(atom_2.idx, center_idx + 1).GetBondOrder() == 2
@@ -198,6 +188,7 @@ def fix_dipole_type_a(mol: pybel.Molecule) -> pybel.Molecule:
                 mol.OBMol.GetBond(atom_2.idx, center_idx + 1).SetBondOrder(3)
                 mol.atoms[center_idx].OBAtom.SetFormalCharge(1)
                 atom_1.OBAtom.SetFormalCharge(-1)
+                logger.debug(f"Fix dipole {mol.atoms[center_idx].OBAtom.GetIdx()}")
 
     return mol
 
@@ -241,6 +232,7 @@ def fix_dipole_type_b(mol: pybel.Molecule) -> pybel.Molecule:
             atom_1.OBAtom.SetFormalCharge(-1)
             atom_2.OBAtom.SetFormalCharge(1)
             mol.OBMol.GetBond(atom_2.idx, atom_3.idx).SetBondOrder(3)
+            logger.debug(f"Fix dipole {atom_2.idx}")
 
     return mol
 
@@ -567,6 +559,7 @@ def fix_N_BCP(omol: pybel.Molecule):
                 if omol.atoms[idx - 1].atomicnum == 6:
                     bcp_c = idx
         omol.OBMol.DeleteBond(omol.OBMol.GetBond(bcp_n, bcp_c))
+        logger.debug(f"{DEBUG_TAG} Fix N-BCP: {bcp_n} - {bcp_c}")
 
 
 def fix_over_bonded_C(given_charge: int, omol: pybel.Molecule):
@@ -603,6 +596,9 @@ def fix_over_bonded_C(given_charge: int, omol: pybel.Molecule):
                     atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
                         atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
                     )
+                    logger.debug(
+                        f"{DEBUG_TAG} Fix over bonded C: {atom.OBAtom.GetIdx()} - {neighbour_atom.GetIdx()}"
+                    )
                     break
             for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
                 if (
@@ -616,6 +612,9 @@ def fix_over_bonded_C(given_charge: int, omol: pybel.Molecule):
                     if given_charge < 0:
                         neighbour_atom.SetFormalCharge(-1)
                         given_charge += 1
+                    logger.debug(
+                        f"{DEBUG_TAG} Fix over bonded C: {atom.OBAtom.GetIdx()} - {neighbour_atom.GetIdx()}"
+                    )
                     break
             for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
                 if (
@@ -625,6 +624,9 @@ def fix_over_bonded_C(given_charge: int, omol: pybel.Molecule):
                 ):
                     atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
                         atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
+                    )
+                    logger.debug(
+                        f"{DEBUG_TAG} Fix over bonded C: {atom.OBAtom.GetIdx()} - {neighbour_atom.GetIdx()}"
                     )
                     break
     return given_charge
@@ -655,6 +657,7 @@ def fix_convinced_possitive_N(given_charge: int, omol: pybel.Molecule):
         ):
             atom.OBAtom.SetFormalCharge(1)
             given_charge -= 1
+            logger.debug(f"{DEBUG_TAG} Fix convinced possitive N: {atom.OBAtom.GetIdx()}")
     return given_charge
 
 
@@ -690,6 +693,9 @@ def fix_fake_dipole(given_charge: int, omol: pybel.Molecule):
                         atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
                             atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
                         )
+                        logger.debug(
+                            f"{DEBUG_TAG} Fix fake dipole: {atom.OBAtom.GetIdx()} - {neighbour_atom.GetIdx()}"
+                        )
     return given_charge
 
 
@@ -718,6 +724,7 @@ def fix_CN_in_doubt(given_charge: int, omol: pybel.Molecule):
                     ):
                         CN_in_doubt += 1
                         doubt_pair.append((atom.OBAtom, neighbour_atom))
+
         if CN_in_doubt % 2 == 0 and CN_in_doubt > 0:
             for atom_1, atom_2 in doubt_pair[: CN_in_doubt // 2]:
                 atom_1.SetFormalCharge(-1)
@@ -725,10 +732,16 @@ def fix_CN_in_doubt(given_charge: int, omol: pybel.Molecule):
                     atom_1.GetBond(atom_2).GetBondOrder() - 1
                 )
                 given_charge += 1
+                logger.debug(
+                    f"{DEBUG_TAG} Fix CN in doubt: {atom_1.GetIdx()} - {atom_2.GetIdx()}"
+                )
         if CN_in_doubt == 1 and given_charge == 0:
             for atom_1, atom_2 in doubt_pair:
                 atom_1.GetBond(atom_2).SetBondOrder(
                     atom_1.GetBond(atom_2).GetBondOrder() - 1
+                )
+                logger.debug(
+                    f"{DEBUG_TAG} Fix CN in doubt: {atom_1.GetIdx()} - {atom_2.GetIdx()}"
                 )
     return given_charge
 
@@ -754,6 +767,9 @@ def fix_over_bonded_N_in_possitive(given_charge: int, omol: pybel.Molecule):
             ):
                 atom.OBAtom.SetFormalCharge(1)  # Set the formal charge of the atom to 1
                 given_charge -= 1  # Decrease the given charge by 1
+                logger.debug(
+                    f"{DEBUG_TAG} Fix over-bonded N: {atom.OBAtom.GetIdx()}"
+                )
     return given_charge
 
 
@@ -780,6 +796,9 @@ def fix_charge_on_metal(
                     atom.OBAtom.GetFormalCharge() + charge_to_be_allocated
                 )
                 charge_to_be_allocated -= charge_to_be_allocated
+                logger.debug(
+                    f"{DEBUG_TAG} Fix charge on metal: {atom.OBAtom.GetIdx()}"
+                )
     return charge_to_be_allocated
 
 
@@ -808,6 +827,9 @@ def fix_over_bonded_heteroatom(
                 if over_valence > 0:
                     atom.OBAtom.SetFormalCharge(over_valence)
                     charge_to_be_allocated -= over_valence
+                    logger.debug(
+                        f"{DEBUG_TAG} Fix over-bonded heteroatom: {atom.OBAtom.GetIdx()}"
+                    )
     return charge_to_be_allocated
 
 
@@ -856,6 +878,9 @@ def fix_unbonded_heteroatom(
                         resonance.OBMol.AddBond(atom.idx, closet_spin_atom.idx, 1)
                         atom.OBAtom.SetFormalCharge(1)
                         charge_to_be_allocated -= 1
+                        logger.debug(
+                            f"{DEBUG_TAG} Fix unbonded heteroatom: {atom.OBAtom.GetIdx()}"
+                        )
     return charge_to_be_allocated
 
 
@@ -880,7 +905,7 @@ def xyz_block_to_omol(
     if abs(given_charge) > 3:
         raise ValueError("Charge must be between -3 and 3")
 
-    logger.debug(f"charge: {given_charge}")
+    logger.debug(f"{DEBUG_TAG} charge: {given_charge}")
 
     # Use openbabel to initialize molecule without charge and spin.
     # OpenBabel can use XYZ file to recover a molecule with proper bonds.
@@ -888,7 +913,7 @@ def xyz_block_to_omol(
     # Howerver, the lack is that OpenBabel does not consider the charge and spin information.
     # Therfore, the steps following will try to fix the charge and spin information.
     omol = pybel.readstring("xyz", xyz_block)
-    logger.debug(f"omol smiles: {omol.write('smi')}")
+    logger.debug(f"{DEBUG_TAG} omol smiles: {omol.write('smi')}")
 
     # N-BCP
     fix_N_BCP(omol)
@@ -898,7 +923,7 @@ def xyz_block_to_omol(
     given_charge = fix_over_bonded_N_in_possitive(given_charge, omol)
     given_charge = fix_convinced_possitive_N(given_charge, omol)
     omol.OBMol.MakeDativeBonds()
-    clean_neighbor_radicals(omol)
+    # clean_neighbor_radicals(omol)
 
     if greed_search:
         possible_resonances = get_radical_resonances(omol)

@@ -34,6 +34,7 @@ class G16LOGParser(BaseQMFileParser):
         self._check_formats(file_path)
         super().__init__(file_path, only_extract_structure, only_last_frame)
         self._parse(charge, multiplicity)
+        self._post_parse()
 
     def _parse(self, force_charge, force_multiplicity):
         """

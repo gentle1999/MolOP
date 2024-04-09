@@ -83,6 +83,13 @@ class BaseFileParser:
                 )
         self._file_format = file_format
 
+    def _post_parse(self) -> None:
+        """
+        Post-parsing operations.
+        """
+        for block in self.__frames:
+            block.rdmol
+
     def __iter__(self):
         self.__index = 0
         return self
