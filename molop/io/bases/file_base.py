@@ -87,8 +87,7 @@ class BaseFileParser:
         """
         Post-parsing operations.
         """
-        for block in self.__frames:
-            block.rdmol
+        pass
 
     def __iter__(self):
         self.__index = 0

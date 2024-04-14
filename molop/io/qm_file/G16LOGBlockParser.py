@@ -210,6 +210,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
         if s:
             self.spin_multiplicity = float(s.group(1))
             self.spin_eigenvalue = float(s.group(2))
+            self._multiplicity = int(round(2 * self.spin_eigenvalue + 1, 0))
 
     def _parse_orbitals(self):
         orbital_start = g16logpatterns["orbital_start"].search(self.__block)
@@ -468,49 +469,48 @@ class G16LOGBlockParser(QMBaseBlockParser):
             ]
 
     def _parse_frequencies(self):
-        if "freq" in self._route_params:
-            start = g16logpatterns["freq start"].search(self.__block)
-            end = g16logpatterns["freq end"].search(self.__block)
-            if start and end:
-                block = self.__block[start.end() :]
-                self.__block = self.__block[end.start() :]
-                freqs = g16logpatterns["freq"].findall(block)
-                red_masses = g16logpatterns["freq red. masses"].findall(block)
-                frc_consts = g16logpatterns["freq frc consts"].findall(block)
-                ir_intens = g16logpatterns["freq IR Inten"].findall(block)
-                freq_modes = g16logpatterns["freq mode"].findall(block)
-                freq_modes_reindex = []
-                for i in range(0, len(freq_modes), 3 * self.__n_atom):
-                    freq_modes_reindex.append(freq_modes[i : i + 3 * self.__n_atom : 3])
-                    freq_modes_reindex.append(
-                        freq_modes[i + 1 : i + 1 + 3 * self.__n_atom : 3]
-                    )
-                    freq_modes_reindex.append(
-                        freq_modes[i + 2 : i + 2 + 3 * self.__n_atom : 3]
-                    )
+        start = g16logpatterns["freq start"].search(self.__block)
+        end = g16logpatterns["freq end"].search(self.__block)
+        if start and end:
+            block = self.__block[start.end() :]
+            self.__block = self.__block[end.start() :]
+            freqs = g16logpatterns["freq"].findall(block)
+            red_masses = g16logpatterns["freq red. masses"].findall(block)
+            frc_consts = g16logpatterns["freq frc consts"].findall(block)
+            ir_intens = g16logpatterns["freq IR Inten"].findall(block)
+            freq_modes = g16logpatterns["freq mode"].findall(block)
+            freq_modes_reindex = []
+            for i in range(0, len(freq_modes), 3 * self.__n_atom):
+                freq_modes_reindex.append(freq_modes[i : i + 3 * self.__n_atom : 3])
+                freq_modes_reindex.append(
+                    freq_modes[i + 1 : i + 1 + 3 * self.__n_atom : 3]
+                )
+                freq_modes_reindex.append(
+                    freq_modes[i + 2 : i + 2 + 3 * self.__n_atom : 3]
+                )
 
-                for freq, red_mass, frc_const, ir_inten, freq_mode in zip(
-                    chain.from_iterable(freqs),
-                    chain.from_iterable(red_masses),
-                    chain.from_iterable(frc_consts),
-                    chain.from_iterable(ir_intens),
-                    freq_modes_reindex,
-                ):
-                    self.frequencies.append(
-                        {
-                            "is imaginary": float(freq) < 0,
-                            "freq": float(freq) * atom_ureg.cm_1,
-                            "reduced masses": float(red_mass) * atom_ureg.amu,
-                            "force constants": (
-                                float(frc_const) * atom_ureg.mdyne / atom_ureg.angstrom
-                            ),
-                            "IR intensities": (
-                                float(ir_inten) * atom_ureg.kmol / atom_ureg.mol
-                            ),
-                            "normal coordinates": np.array(freq_mode, dtype=np.float32)
-                            * atom_ureg.angstrom,
-                        }
-                    )
+            for freq, red_mass, frc_const, ir_inten, freq_mode in zip(
+                chain.from_iterable(freqs),
+                chain.from_iterable(red_masses),
+                chain.from_iterable(frc_consts),
+                chain.from_iterable(ir_intens),
+                freq_modes_reindex,
+            ):
+                self.frequencies.append(
+                    {
+                        "is imaginary": float(freq) < 0,
+                        "freq": float(freq) * atom_ureg.cm_1,
+                        "reduced masses": float(red_mass) * atom_ureg.amu,
+                        "force constants": (
+                            float(frc_const) * atom_ureg.mdyne / atom_ureg.angstrom
+                        ),
+                        "IR intensities": (
+                            float(ir_inten) * atom_ureg.kmol / atom_ureg.mol
+                        ),
+                        "normal coordinates": np.array(freq_mode, dtype=np.float32)
+                        * atom_ureg.angstrom,
+                    }
+                )
 
         temperature_match = g16logpatterns["Temperature"].search(self.__block)
         if temperature_match:

@@ -196,7 +196,7 @@ class MolBlock(ABC):
             if self._bonds is None:
                 try:
                     self._omol = xyz_block_to_omol(
-                        self.to_XYZ_block(), self._charge
+                        self.to_XYZ_block(), self._charge, int(self._multiplicity) - 1
                     ).write("sdf")
                 except Exception as e:
                     raise RuntimeError(f"{self._file_path}: {e}")

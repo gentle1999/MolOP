@@ -9,7 +9,7 @@ Description: 请填写简介
 import os
 from collections import OrderedDict
 from collections.abc import MutableMapping
-from typing import Dict, Generator, List, Union
+from typing import Dict, Generator, List, Union, Sequence
 
 import pandas as pd
 from joblib import Parallel, cpu_count, delayed

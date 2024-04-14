@@ -5,6 +5,7 @@ LastEditors: TMJ
 LastEditTime: 2024-01-24 16:25:48
 Description: 请填写简介
 """
+
 import math
 import re
 from typing import Literal, List
@@ -134,7 +135,6 @@ class G16FCHKBlockParser(QMBaseBlockParser):
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
-        
 
     def _parse_thermal_energy(self):
         thermal_energy = g16fchkpatterns["thermal energy"].search(self._block)
@@ -269,6 +269,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
             self.spin_multiplicity = round(
                 math.sqrt(self.spin_eigenvalue + 0.25) - 0.5, 2
             )
+            self._multiplicity = int(round(2 * self.spin_eigenvalue + 1, 0))
 
     def _parse_dipole(self):
         matches = re.search(g16fchkpatterns["dipole"], self._block)
