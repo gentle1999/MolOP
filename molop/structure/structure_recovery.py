@@ -72,8 +72,8 @@ def clean_neighbor_radicals(
     Parameters:
         omol (pybel.Molecule): The molecule to clean.
     """
-    radical_atoms = [
-        ratom for ratom in omol.atoms if get_under_bonded_number(ratom.OBAtom) >= 1
+    radical_atoms: List[int] = [
+        ratom.idx for ratom in omol.atoms if get_under_bonded_number(ratom.OBAtom) >= 1
     ]
     deradical_num = (
         sum(get_under_bonded_number(ratom.OBAtom) for ratom in omol.atoms)
@@ -82,53 +82,82 @@ def clean_neighbor_radicals(
     )
     if len(radical_atoms) < 2:
         return
-    logger.debug(f"{DEBUG_TAG} cleaning radicals")
-    for radical_atom_1, radical_atom_2 in itertools.combinations(radical_atoms, 2):
-        logger.debug(
-            f"{DEBUG_TAG} cleaning radicals {radical_atom_1.idx} {radical_atom_2.idx}, distance: {radical_atom_1.OBAtom.GetDistance(radical_atom_2.OBAtom)}"
+    logger.debug(f"{DEBUG_TAG} cleaning radicals {radical_atoms}")
+    for radical_atom_1, radical_atom_2 in list(
+        itertools.permutations(radical_atoms, 2)
+    ):
+        logger.debug(f"{DEBUG_TAG} 1 {omol.OBMol.NumAtoms()}")
+        if deradical_num <= 1:
+            return
+        logger.debug(f"{DEBUG_TAG} 2 {omol.OBMol.NumAtoms()}")
+        now_bonding = (
+            False
+            if omol.OBMol.GetBond(radical_atom_1, radical_atom_2) is None
+            else True
         )
-        if deradical_num <= abs(given_charge) + abs(given_radical):
-            break
+        logger.debug(f"{DEBUG_TAG} 3 {omol.OBMol.NumAtoms()}")
+        distance = omol.OBMol.GetAtom(radical_atom_1).GetDistance(
+            omol.OBMol.GetAtom(radical_atom_2)
+        )
+        default_bond_length = pt.GetRcovalent(
+            omol.OBMol.GetAtom(radical_atom_1).GetAtomicNum()
+        ) + pt.GetRcovalent(omol.OBMol.GetAtom(radical_atom_2).GetAtomicNum())
+        logger.debug(
+            f"{DEBUG_TAG} cleaning radicals {pt.GetElementSymbol(omol.OBMol.GetAtom(radical_atom_1).GetAtomicNum())} "
+            + f"{radical_atom_1} and {pt.GetElementSymbol(omol.OBMol.GetAtom(radical_atom_1).GetAtomicNum())} "
+            + f"{radical_atom_2}, now bonding: {now_bonding}, distance: {distance}, default bond length: {default_bond_length}"
+        )
         if (
-            radical_atom_1.OBAtom.GetBond(radical_atom_2.OBAtom)
-            and get_under_bonded_number(radical_atom_1.OBAtom) >= 1
-            and get_under_bonded_number(radical_atom_2.OBAtom) >= 1
+            now_bonding
+            and get_under_bonded_number(omol.OBMol.GetAtom(radical_atom_1)) >= 1
+            and get_under_bonded_number(omol.OBMol.GetAtom(radical_atom_2)) >= 1
         ):  # the two atoms should be bonded
             """
             This code block checks if two radical atoms are bonded and if they have a valence greater than their explicit valence.
             If they do, it increases the bond order between them by the minimum radical value of the two atoms.
             """
-            radical_atom_1.OBAtom.GetBond(radical_atom_2.OBAtom).SetBondOrder(
-                radical_atom_1.OBAtom.GetBond(radical_atom_2.OBAtom).GetBondOrder()
+            omol.OBMol.GetBond(radical_atom_1, radical_atom_2).SetBondOrder(
+                omol.OBMol.GetBond(radical_atom_1, radical_atom_2).GetBondOrder()
                 + min(
-                    get_under_bonded_number(radical_atom_1.OBAtom),
-                    get_under_bonded_number(radical_atom_2.OBAtom),
+                    get_under_bonded_number(omol.OBMol.GetAtom(radical_atom_1)),
+                    get_under_bonded_number(omol.OBMol.GetAtom(radical_atom_2)),
                 ),
             )
             deradical_num -= 2
             logger.debug(
-                f"{DEBUG_TAG} bonding {radical_atom_1.OBAtom.GetIdx()} and {radical_atom_2.OBAtom.GetIdx()}"
+                f"{DEBUG_TAG} bonding {radical_atom_1} and {radical_atom_2}, smiles now is {omol.write('smi')}"
             )
+            continue
         if (
-            radical_atom_1.OBAtom.GetDistance(radical_atom_2.OBAtom)
-            <= 1.4
-            * (
-                pt.GetRcovalent(radical_atom_1.atomicnum)
-                + pt.GetRcovalent(radical_atom_2.atomicnum)
-            )
-            and radical_atom_1.OBAtom.GetBond(radical_atom_2.OBAtom) is None
-            and get_under_bonded_number(radical_atom_1.OBAtom) >= 1
-            and get_under_bonded_number(radical_atom_2.OBAtom) >= 1
+            distance <= 1.3 * default_bond_length
+            and not now_bonding
+            and get_under_bonded_number(omol.OBMol.GetAtom(radical_atom_1))
+            and get_under_bonded_number(omol.OBMol.GetAtom(radical_atom_2))
         ):
             """
             This code block checks if two radical atoms are within a certain distance and if they are not already bonded.
             If they are, it adds a bond between them with order 1.
             """
+            omol.OBMol.AddBond(radical_atom_1, radical_atom_2, 1)
             logger.debug(
-                f"{DEBUG_TAG} Add bonding {radical_atom_1.idx} and {radical_atom_2.idx}"
+                f"{DEBUG_TAG} Add bonding {radical_atom_1} and {radical_atom_2}, smiles now is {omol.write('smi')}"
             )
-            omol.OBMol.AddBond(radical_atom_1.idx, radical_atom_2.idx, 1)
+            logger.debug(f"{DEBUG_TAG} smiles now is {omol.OBMol.NumAtoms()}")
             deradical_num -= 2
+            continue
+        if (
+            distance <= 1.45 * default_bond_length
+            and not now_bonding
+            and get_under_bonded_number(omol.OBMol.GetAtom(radical_atom_1))
+            and get_under_bonded_number(omol.OBMol.GetAtom(radical_atom_2))
+            and omol.OBMol.GetAtom(radical_atom_1).GetAtomicNum() in HETEROATOM
+        ):
+            omol.OBMol.AddBond(radical_atom_1, radical_atom_2, 1)
+            logger.debug(
+                f"{DEBUG_TAG} Add bonding {radical_atom_1} and {radical_atom_2}, smiles now is {omol.write('smi')}"
+            )
+            deradical_num -= 2
+            continue
 
 
 def break_one_bond(
@@ -181,7 +210,7 @@ def fix_under_bonded_dipole(omol: pybel.Molecule):
                         atom_2.SetFormalCharge(0)
 
 
-def fix_dipole_type_a(mol: pybel.Molecule) -> pybel.Molecule:
+def fix_dipole_type_a(mol: pybel.Molecule):
     """
     (Type A): Dipole like `[CH2]=[O+]-[NH-]`.
 
@@ -194,11 +223,7 @@ def fix_dipole_type_a(mol: pybel.Molecule) -> pybel.Molecule:
 
     Parameters:
         mol (pybel.Molecule): The molecule to be fixed.
-
-    Returns:
-        pybel.Molecule: The fixed molecule.
     """
-
     # Get all atoms with radical 1
     radical_atoms = [
         atom for atom in mol.atoms if get_under_bonded_number(atom.OBAtom) == 1
@@ -257,10 +282,8 @@ def fix_dipole_type_a(mol: pybel.Molecule) -> pybel.Molecule:
                     f"{DEBUG_TAG} Fix dipole a {mol.atoms[center_idx].OBAtom.GetIdx()}"
                 )
 
-    return mol
 
-
-def fix_dipole_type_b(mol: pybel.Molecule) -> pybel.Molecule:
+def fix_dipole_type_b(mol: pybel.Molecule):
     """
     (Type B): Dipole like `[CH]#[N+]-[O-]`. This type only allow N (maybe P) to be the center.
 
@@ -271,9 +294,6 @@ def fix_dipole_type_b(mol: pybel.Molecule) -> pybel.Molecule:
 
     Parameters:
         mol (pybel.Molecule): The molecule to be fixed.
-
-    Returns:
-        The fixed molecule.
     """
     # Get radical 1 and radical 2 atoms
     radical_1_atoms = [
@@ -300,8 +320,6 @@ def fix_dipole_type_b(mol: pybel.Molecule) -> pybel.Molecule:
             atom_2.OBAtom.SetFormalCharge(1)
             mol.OBMol.GetBond(atom_2.idx, atom_3.idx).SetBondOrder(3)
             logger.debug(f"{DEBUG_TAG} Fix dipole b {atom_2.idx}")
-
-    return mol
 
 
 def get_one_step_resonance(omol: pybel.Molecule) -> List[pybel.Molecule]:
@@ -336,7 +354,7 @@ def get_one_step_resonance(omol: pybel.Molecule) -> List[pybel.Molecule]:
                         ).GetBondOrder()
                         + 1
                     )
-                    clean_neighbor_radicals(new_omol)
+                    # clean_neighbor_radicals(new_omol)
                     result.append(new_omol)
     return result
 
@@ -1005,12 +1023,227 @@ def fix_unbonded_heteroatom(
     return charge_to_be_allocated
 
 
+def transform_alkene(resonance: pybel.Molecule):
+    for atom in resonance.atoms:
+        if atom.atomicnum == 6:
+            if all(
+                atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 2
+                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
+            ):
+                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                    for neighbour_2_atom in ob.OBAtomAtomIter(neighbour_atom):
+                        if get_under_bonded_number(neighbour_2_atom) == 1 and all(
+                            atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 2
+                            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
+                        ):
+                            atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                                atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
+                            )
+                            neighbour_atom.GetBond(neighbour_2_atom).SetBondOrder(
+                                neighbour_2_atom.GetBond(neighbour_atom).GetBondOrder()
+                                + 1
+                            )
+
+
+def attribute_radicals_to_d_orbitals(resonance: pybel.Molecule):
+    for atom in resonance.atoms:
+        if atom.OBAtom.IsMetal():
+            for neighbour_atom in list(ob.OBAtomAtomIter(atom.OBAtom)):
+                if neighbour_atom.GetAtomicNum() in HETEROATOM:
+                    if any(
+                        get_under_bonded_number(neighbour_2_atom)
+                        for neighbour_2_atom in ob.OBAtomAtomIter(neighbour_atom)
+                        if neighbour_2_atom.GetIndex() != atom.OBAtom.GetIndex()
+                    ) and atom.OBAtom.GetBond(neighbour_atom):
+                        resonance.OBMol.DeleteBond(atom.OBAtom.GetBond(neighbour_atom))
+        if atom.atomicnum == 16:
+            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                if get_under_bonded_number(neighbour_atom) == 1:
+                    atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() + 1
+                    )
+
+
+def fix_over_bonded_N_remove_bond(
+    resonance: pybel.Molecule, charge_to_be_allocated: int
+):
+    for atom in resonance.atoms:
+        if charge_to_be_allocated <= 0:
+            break
+        if (
+            atom.atomicnum in (7,)
+            and atom.OBAtom.GetFormalCharge() == 0
+            and atom.OBAtom.GetExplicitValence() == 4
+        ):
+            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
+                if (
+                    atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() >= 2
+                    and neighbour_atom.GetFormalCharge() == 0
+                ):
+                    atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
+                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
+                    )
+                    neighbour_atom.SetFormalCharge(-1)
+                    charge_to_be_allocated -= 1
+    return charge_to_be_allocated
+
+
+def fix_under_bonded_with_negative(
+    resonance: pybel.Molecule, charge_to_be_allocated: int
+):
+    # Step 2.3.1: Try to find the heteroatom with negative charge first.
+    for atom in resonance.atoms:
+        if charge_to_be_allocated <= 0:
+            break
+        if atom.atomicnum in HETEROATOM and atom.OBAtom.GetFormalCharge() == 0:
+            under_valence = atom.OBAtom.GetExplicitValence() - pt.GetDefaultValence(
+                atom.atomicnum
+            )
+            if under_valence < 0:
+                atom.OBAtom.SetFormalCharge(under_valence)
+                charge_to_be_allocated -= abs(under_valence)
+
+            # Step 2.3.2: Try to find the heteroatom with negative charge first.
+    for atom in resonance.atoms:
+        if charge_to_be_allocated <= 0:
+            break
+        if (
+            atom.atomicnum in (6,)
+            and get_under_bonded_number(atom.OBAtom) >= 1
+            and atom.OBAtom.GetFormalCharge() == 0
+        ):
+            atom.OBAtom.SetFormalCharge(-1)
+            charge_to_be_allocated -= 1
+    for atom in resonance.atoms:
+        if charge_to_be_allocated <= 0:
+            break
+        if (
+            atom.atomicnum in (1,)
+            and get_under_bonded_number(atom.OBAtom) >= 1
+            and atom.OBAtom.GetFormalCharge() == 0
+        ):
+            atom.OBAtom.SetFormalCharge(-1)
+            charge_to_be_allocated -= 1
+    return charge_to_be_allocated
+
+
+def fix_under_bonded_with_positive(
+    resonance: pybel.Molecule, charge_to_be_allocated: int
+):
+    # Step 2.2.4: If no heteroatom (with the neighboring free radical) found, allocate the positive charge to the carbon or hydrogen atom with free radical.
+    # Explaination:
+    # In this case, OpenBabel will consider the carbon atom lack of bonds, so it will set the radical to 1.
+    # Thus, find the carbon atoms with free radical, set the charge to 1 and set the radical to 0.
+    for atom in resonance.atoms:
+        if charge_to_be_allocated <= 0:
+            break
+        if (
+            atom.atomicnum in (1, 6)
+            and get_under_bonded_number(atom.OBAtom) == 1
+            and atom.OBAtom.GetFormalCharge() == 0
+        ):
+            atom.OBAtom.SetFormalCharge(1)
+            charge_to_be_allocated -= 1
+            # allocate postive charge to the other elements
+    for atom in resonance.atoms:
+        if charge_to_be_allocated <= 0:
+            break
+        if (
+            get_under_bonded_number(atom.OBAtom) == 1
+            and atom.OBAtom.GetFormalCharge() == 0
+        ):
+            atom.OBAtom.SetFormalCharge(1)
+            charge_to_be_allocated -= 1
+    return charge_to_be_allocated
+
+
+def final_check(omol: pybel.Molecule, total_charge: int = 0, total_radical: int = 0):
+    logger.debug(f"{DEBUG_TAG} Final check, target charge {total_charge}, target radical {total_radical}")
+    charge, radical = 0, 0
+    has_metal = False
+    for atom in omol.atoms:
+        if atom.OBAtom.IsMetal():
+            has_metal = True
+        charge += atom.OBAtom.GetFormalCharge()
+        atom_radical = get_under_bonded_number(atom.OBAtom)
+        if atom_radical != 2:
+            radical += atom_radical
+        logger.debug(
+            f"{DEBUG_TAG} {atom.OBAtom.GetIdx()} {atom.OBAtom.GetFormalCharge()} {atom_radical}"
+        )
+    logger.debug(f"{DEBUG_TAG} total charge {charge}, total radical {radical}")
+    if has_metal:
+        if total_charge == charge:
+            logger.debug(f"{DEBUG_TAG} final check passed")
+            logger.debug(f"{DEBUG_TAG} {omol.write('sdf', opt={'3': True})}")
+            return True
+    else:
+        if total_charge == charge and total_radical == radical:
+            logger.debug(f"{DEBUG_TAG} final check passed")
+            logger.debug(f"{DEBUG_TAG} {omol.write('sdf', opt={'3': True})}")
+            return True
+    logger.debug(f"{DEBUG_TAG} final check failed")
+    return False
+
+
+def split_charge(omol: pybel.Molecule, given_charge: int = 0, given_radical: int = 0):
+    if (
+        given_charge == 0
+        and all(atom.OBAtom.GetFormalCharge() == 0 for atom in omol.atoms)
+        and sum(get_under_bonded_number(atom.OBAtom) for atom in omol.atoms) > 2
+    ):
+        logger.debug(f"{DEBUG_TAG} Spliting charges")
+        radical_atoms = [
+            atom for atom in omol.atoms if get_under_bonded_number(atom.OBAtom)
+        ]
+        for i in range(len(radical_atoms) // 2 - abs(given_charge)):
+            for atom in radical_atoms:
+                if atom.atomicnum == 8 and atom.OBAtom.GetFormalCharge() == 0:
+                    atom.OBAtom.SetFormalCharge(atom.OBAtom.GetFormalCharge() - 1)
+                    given_charge += 1
+                    break
+        for i in range(len(radical_atoms) // 2 - abs(given_charge)):
+            for atom in radical_atoms:
+                if atom.atomicnum == 7 and atom.OBAtom.GetFormalCharge() == 0:
+                    atom.OBAtom.SetFormalCharge(atom.OBAtom.GetFormalCharge() - 1)
+                    given_charge += 1
+                    break
+        for i in range(len(radical_atoms) // 2 - abs(given_charge)):
+            for atom in radical_atoms:
+                if atom.atomicnum == 6 and atom.OBAtom.GetFormalCharge() == 0:
+                    atom.OBAtom.SetFormalCharge(atom.OBAtom.GetFormalCharge() - 1)
+                    given_charge += 1
+                    break
+    return given_charge
+
+
+def fix_carbine_neighbor_heteroatom(omol: pybel.Molecule, given_charge: int = 0):
+    for atom in omol.atoms:
+        if get_under_bonded_number(atom.OBAtom) == 2:
+            for neighbor in ob.OBAtomAtomIter(atom.OBAtom):
+                if (
+                    neighbor.GetAtomicNum() in HETEROATOM
+                    and neighbor.GetFormalCharge() == 0
+                    and get_under_bonded_number(neighbor) == 0
+                ):
+                    logger.debug(
+                        f"{DEBUG_TAG} fixing carbine neighbor: {atom.OBAtom.GetIdx()} and {neighbor.GetIdx()}"
+                    )
+                    atom.OBAtom.GetBond(neighbor).SetBondOrder(
+                        atom.OBAtom.GetBond(neighbor).GetBondOrder() + 1
+                    )
+                    neighbor.SetFormalCharge(1)
+                    given_charge -= 1
+                    break
+    return given_charge
+
+
 def xyz_block_to_omol(
     xyz_block: str,
-    given_charge: int = 0,
-    given_radical: int = 0,
+    total_charge: int = 0,
+    total_radical: int = 0,
     greed_search=True,
-    all_resonances=False,
+    return_all_resonances=False,
 ) -> pybel.Molecule:
     """
     Convert XYZ block to pybel molecule object.
@@ -1018,16 +1251,19 @@ def xyz_block_to_omol(
 
     Parameters:
         xyz_block (str): The XYZ block to be converted.
-        given_charge (int): The given charge to be fixed.
-        greed_search (bool): Whether to use greedy search to find the best structure.
+        total_charge (int): The given charge to be fixed.
+        total_radical (int): The given radical to be fixed.
+        greed_search (bool): Whether to use greedy search the resonances to find the best structure.
+        return_all_resonances (bool): Whether to return all resonances.
 
     Returns:
         The pybel molecule object.
     """
+    given_charge = total_charge
     if abs(given_charge) > 3:
         raise ValueError("Charge must be between -3 and 3")
 
-    logger.debug(f"{DEBUG_TAG} charge: {given_charge}, radicals_num: {given_radical}")
+    logger.debug(f"{DEBUG_TAG} charge: {given_charge}, radicals_num: {total_radical}")
 
     # Use openbabel to initialize molecule without charge and radical.
     # OpenBabel can use XYZ file to recover a molecule with proper bonds.
@@ -1045,9 +1281,20 @@ def xyz_block_to_omol(
     given_charge = fix_CN_in_doubt(given_charge, omol)
     given_charge = fix_over_bonded_N_in_possitive(given_charge, omol)
     given_charge = fix_convinced_possitive_N(given_charge, omol)
-    break_one_bond(omol, given_charge, given_radical)
-    clean_neighbor_radicals(omol, given_charge, given_radical)
+    given_charge = fix_carbine_neighbor_heteroatom(omol, given_charge)
+    break_one_bond(omol, given_charge, total_radical)
+    clean_neighbor_radicals(omol, given_charge, total_radical)
+    logger.debug(f"{omol.write('smi')}")
+    given_charge = fix_over_bonded_N_in_possitive(given_charge, omol)
+    given_charge = fix_convinced_possitive_N(given_charge, omol)
+
+    if final_check(omol, given_charge, total_radical):
+        return omol
+    given_charge = split_charge(omol, given_charge, total_radical)
     omol.OBMol.MakeDativeBonds()
+
+    if final_check(omol, given_charge, total_radical):
+        return omol
 
     if greed_search:
         possible_resonances = get_radical_resonances(omol)
@@ -1063,15 +1310,15 @@ def xyz_block_to_omol(
         if time_point - time_start > molopconfig.max_structure_recovery_time:
             break
         charge = given_charge
-        clean_neighbor_radicals(resonance, given_charge, given_radical)
+        clean_neighbor_radicals(resonance, given_charge, total_radical)
         logger.debug(f"{DEBUG_TAG} cleaned resonance smiles: {resonance.write('smi')}")
 
-        if charge >= 0:
-            resonance = fix_dipole_type_a(resonance)
-            resonance = fix_dipole_type_b(resonance)
+        if charge == 0:
+            fix_dipole_type_a(resonance)
+            fix_dipole_type_b(resonance)
 
         charge_to_be_allocated = abs(charge)
-        clean_neighbor_radicals(resonance, given_charge, given_radical)
+        clean_neighbor_radicals(resonance, given_charge, total_radical)
         charge_to_be_allocated = fix_charge_on_metal(
             resonance, charge, charge_to_be_allocated
         )
@@ -1083,140 +1330,35 @@ def xyz_block_to_omol(
         )
 
         if charge > 0:
-            # Step 2.2.4: If no heteroatom (with the neighboring free radical) found, allocate the positive charge to the carbon or hydrogen atom with free radical.
-            # Explaination:
-            # In this case, OpenBabel will consider the carbon atom lack of bonds, so it will set the radical to 1.
-            # Thus, find the carbon atoms with free radical, set the charge to 1 and set the radical to 0.
-            for atom in resonance.atoms:
-                if charge_to_be_allocated <= 0:
-                    break
-                if (
-                    atom.atomicnum in (1, 6)
-                    and get_under_bonded_number(atom.OBAtom) == 1
-                    and atom.OBAtom.GetFormalCharge() == 0
-                ):
-                    atom.OBAtom.SetFormalCharge(1)
-                    charge_to_be_allocated -= 1
-            # allocate postive charge to the other elements
-            for atom in resonance.atoms:
-                if charge_to_be_allocated <= 0:
-                    break
-                if (
-                    get_under_bonded_number(atom.OBAtom) == 1
-                    and atom.OBAtom.GetFormalCharge() == 0
-                ):
-                    atom.OBAtom.SetFormalCharge(1)
-                    charge_to_be_allocated -= 1
-            
+            charge_to_be_allocated = fix_under_bonded_with_positive(
+                resonance, charge_to_be_allocated
+            )
 
         fix_under_bonded_dipole(resonance)
-        clean_neighbor_radicals(resonance, given_charge, given_radical)
+        clean_neighbor_radicals(resonance, given_charge, total_radical)
         if charge < 0:
-            # Step 2.3.1: Try to find the heteroatom with negative charge first.
-            for atom in resonance.atoms:
-                if charge_to_be_allocated <= 0:
-                    break
-                if atom.atomicnum in HETEROATOM and atom.OBAtom.GetFormalCharge() == 0:
-                    under_valence = (
-                        atom.OBAtom.GetExplicitValence()
-                        - pt.GetDefaultValence(atom.atomicnum)
-                    )
-                    if under_valence < 0:
-                        atom.OBAtom.SetFormalCharge(under_valence)
-                        charge_to_be_allocated -= abs(under_valence)
+            charge_to_be_allocated = fix_under_bonded_with_negative(
+                resonance, charge_to_be_allocated
+            )
+            charge_to_be_allocated = fix_over_bonded_N_remove_bond(
+                resonance, charge_to_be_allocated
+            )
 
-            # Step 2.3.2: Try to find the heteroatom with negative charge first.
-            for atom in resonance.atoms:
-                if charge_to_be_allocated <= 0:
-                    break
-                if (
-                    atom.atomicnum in (6,)
-                    and get_under_bonded_number(atom.OBAtom) >= 1
-                    and atom.OBAtom.GetFormalCharge() == 0
-                ):
-                    atom.OBAtom.SetFormalCharge(-1)
-                    charge_to_be_allocated -= 1
-            for atom in resonance.atoms:
-                if charge_to_be_allocated <= 0:
-                    break
-                if (
-                    atom.atomicnum in (1,)
-                    and get_under_bonded_number(atom.OBAtom) >= 1
-                    and atom.OBAtom.GetFormalCharge() == 0
-                ):
-                    atom.OBAtom.SetFormalCharge(-1)
-                    charge_to_be_allocated -= 1
-
-            for atom in resonance.atoms:
-                if charge_to_be_allocated <= 0:
-                    break
-                if (
-                    atom.atomicnum in (7,)
-                    and atom.OBAtom.GetFormalCharge() == 0
-                    and atom.OBAtom.GetExplicitValence() == 4
-                ):
-                    for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
-                        if (
-                            atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() >= 2
-                            and neighbour_atom.GetFormalCharge() == 0
-                        ):
-                            atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
-                                atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
-                            )
-                            neighbour_atom.SetFormalCharge(-1)
-                            charge_to_be_allocated -= 1
-
-        for atom in resonance.atoms:
-            if atom.OBAtom.IsMetal():
-                for neighbour_atom in list(ob.OBAtomAtomIter(atom.OBAtom)):
-                    if neighbour_atom.GetAtomicNum() in HETEROATOM:
-                        if any(
-                            get_under_bonded_number(neighbour_2_atom)
-                            for neighbour_2_atom in ob.OBAtomAtomIter(neighbour_atom)
-                            if neighbour_2_atom.GetIndex() != atom.OBAtom.GetIndex()
-                        ) and atom.OBAtom.GetBond(neighbour_atom):
-                            resonance.OBMol.DeleteBond(
-                                atom.OBAtom.GetBond(neighbour_atom)
-                            )
-            if atom.atomicnum == 16:
-                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
-                    if get_under_bonded_number(neighbour_atom) == 1:
-                        atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
-                            atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() + 1
-                        )
+        attribute_radicals_to_d_orbitals(resonance)
         fix_under_bonded_dipole(resonance)
-        clean_neighbor_radicals(resonance, given_charge, given_radical)
-        for atom in resonance.atoms:
-            if atom.atomicnum == 6:
-                if all(
-                    atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 2
-                    for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
-                ):
-                    for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
-                        for neighbour_2_atom in ob.OBAtomAtomIter(neighbour_atom):
-                            if get_under_bonded_number(neighbour_2_atom) == 1 and all(
-                                atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 2
-                                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
-                            ):
-                                atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
-                                    atom.OBAtom.GetBond(neighbour_atom).GetBondOrder()
-                                    - 1
-                                )
-                                neighbour_atom.GetBond(neighbour_2_atom).SetBondOrder(
-                                    neighbour_2_atom.GetBond(
-                                        neighbour_atom
-                                    ).GetBondOrder()
-                                    + 1
-                                )
+        clean_neighbor_radicals(resonance, given_charge, total_radical)
+        transform_alkene(resonance)
         resonance.OBMol.MakeDativeBonds()
-        if charge_to_be_allocated == 0:
+        if charge_to_be_allocated == 0 and final_check(
+            resonance, total_charge, total_radical
+        ):
             recovered_resonances.append(
-                (clean_resonances(resonance), charge_to_be_allocated, given_radical)
+                (clean_resonances(resonance), charge_to_be_allocated, total_radical)
             )
 
     if len(recovered_resonances) == 0:
         raise ValueError("No legal molecule resonance found")
-    if all_resonances:
+    if return_all_resonances:
         return [item[0] for item in recovered_resonances]
 
     recovered_resonances.sort(key=omol_score)

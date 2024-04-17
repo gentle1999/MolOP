@@ -26,7 +26,7 @@ from molop.io.qm_file.xtbout_parser import XTBOUTParser
 from molop.io.types import PARSERTYPES
 from molop.logger.logger import logger
 
-parsers:Dict[str, PARSERTYPES] = {
+parsers: Dict[str, PARSERTYPES] = {
     ".gjf": (GJFParser,),
     ".gau": (GJFParser,),
     ".com": (GJFParser,),
@@ -140,9 +140,12 @@ class FileParserBatch(MutableMapping):
         )
         self.__parsers: Dict[str, PARSERTYPES] = OrderedDict()
 
-    def __getitem__(self, key: Union[int, str]) -> PARSERTYPES:
+    def __getitem__(self, key: Union[int, str, slice]) -> PARSERTYPES:
         if isinstance(key, int):
             return list(self.__parsers.values())[key]
+        if isinstance(key, slice):
+            slicedkeys = list(self.__parsers.values())[key]
+            return self.__new_batch([self.__parsers[k] for k in slicedkeys])
         else:
             return self.__parsers[key]
 
@@ -641,3 +644,52 @@ class FileParserBatch(MutableMapping):
             )
             for parser in self
         ]
+
+    def recover_structures(self) -> List[str]:
+        """
+        Recover the structures of the QM parsers.
+        """
+        total_smiles_list = []
+        if self.__n_jobs > 1 and len(self) > self.__n_jobs:
+            if molopconfig.show_progress_bar:
+                for smiles_list in tqdm(
+                    Parallel(
+                        return_as="generator",
+                        n_jobs=self.__n_jobs,
+                        pre_dispatch="1.5*n_jobs",
+                    )(delayed(parser.recover_structures)() for parser in self),
+                    total=len(self),
+                    desc=f"MolOP structure recovery with {self.__n_jobs} jobs",
+                ):
+                    total_smiles_list.extend(smiles_list)
+            else:
+                for smiles_list in Parallel(
+                    return_as="generator",
+                    n_jobs=self.__n_jobs,
+                    pre_dispatch="1.5*n_jobs",
+                )(delayed(parser.recover_structures)() for parser in self):
+                    total_smiles_list.extend(smiles_list)
+        else:
+            if molopconfig.show_progress_bar:
+                for parser in tqdm(
+                    self,
+                    total=len(self),
+                    desc=f"MolOP structure recovery with {self.__n_jobs} jobs",
+                ):
+                    total_smiles_list.extend(parser.recover_structures())
+            else:
+                for parser in self:
+                    total_smiles_list.extend(parser.recover_structures())
+        return total_smiles_list
+
+    @property
+    def n_jobs(self):
+        return self.__n_jobs
+
+    @n_jobs.setter
+    def n_jobs(self, n_jobs):
+        self.__n_jobs = (
+            min(n_jobs, cpu_count(), molopconfig.max_jobs)
+            if n_jobs > 0
+            else min(cpu_count(), molopconfig.max_jobs)
+        )
