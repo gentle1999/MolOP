@@ -9,19 +9,18 @@ import os
 from typing import List, Tuple, Union
 import pandas as pd
 
+from molop.unit import atom_ureg
 from molop.io.bases.molblock_base import BaseBlockParser
 from molop.io.coords_file.GJFBlockParser import GJFBlockParser
 from molop.io.coords_file.SDFBlockParser import SDFBlockParser
 from molop.io.coords_file.XYZBlockParser import XYZBlockParser
 from molop.io.qm_file.G16FCHKBlockParser import G16FCHKBlockParser
-from molop.io.qm_file.G16IRCBlockParser import G16IRCBlockParser
 from molop.io.qm_file.G16LOGBlockParser import G16LOGBlockParser
 from molop.io.qm_file.XTBOUTBlockParser import XTBOUTBlockParser
 
 BLOCKTYPES = Union[
     BaseBlockParser,
     G16LOGBlockParser,
-    G16IRCBlockParser,
     G16FCHKBlockParser,
     XTBOUTBlockParser,
     GJFBlockParser,
@@ -30,7 +29,6 @@ BLOCKTYPES = Union[
 ]
 QMBLOCKTYPES = Union[
     G16LOGBlockParser,
-    G16IRCBlockParser,
     G16FCHKBlockParser,
     XTBOUTBlockParser,
 ]
@@ -85,6 +83,12 @@ class BaseFileParser:
                 )
         self._file_format = file_format
 
+    def _post_parse(self) -> None:
+        """
+        Post-parsing operations.
+        """
+        pass
+
     def __iter__(self):
         self.__index = 0
         return self
@@ -111,7 +115,7 @@ class BaseFileParser:
         return hash(str(self))
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({str(self)})"
+        return f"{str(self)}(frame num: {len(self)})"
 
     @property
     def file_path(self) -> str:
@@ -186,6 +190,7 @@ class BaseFileParser:
         frame._frameID = len(self.__frames)
         if frame._frameID > 0:
             self.__frames[frame._frameID - 1]._next_block = frame
+            frame._prev_block = self.__frames[frame._frameID - 1]
         self.__frames.append(frame)
 
     def to_XYZ_block(self) -> str:
@@ -354,17 +359,6 @@ class BaseFileParser:
         """
         return self.__frames[frameID].to_chemdraw(file_path, keep3D=keep3D)
 
-    def summary(self):
-        """
-        Print a summary of the object.
-        """
-        print(
-            f"file path: {self._file_path}\n"
-            + f"frame num: {len(self)}\n"
-            + f"first SMILES: {self[0].to_SMILES()}\n"
-            + f"last SMILES: {self[-1].to_SMILES()}\n"
-        )
-
     def geometry_analysis_df(
         self, key_atoms: List[List[int]], precision: int = 1, one_start=False
     ) -> pd.DataFrame:
@@ -516,6 +510,15 @@ class BaseFileParser:
         """
         return self.__frames[frameID].standard_orient(anchor_list)
 
+    def to_summary_df(self) -> pd.DataFrame:
+        """
+        Returns:
+            A pandas DataFrame containing the summary information of the parser.
+        """
+        return pd.concat(
+            [frame.to_summary_series() for frame in self.__frames], axis=1
+        ).T
+
 
 class BaseQMFileParser(BaseFileParser):
     """
@@ -532,10 +535,8 @@ class BaseQMFileParser(BaseFileParser):
             The version of the QM software.
     """
 
-    _parameter_comment: str
     _only_extract_structure: bool
     _only_last_frame: bool
-    _version: str
 
     def __init__(
         self,
@@ -544,27 +545,24 @@ class BaseQMFileParser(BaseFileParser):
         only_last_frame=False,
     ) -> None:
         super().__init__(file_path)
-        self._parameter_comment: str = None
+        self.parameter_comment: str = None
+        self.basis: str = None
+        self.functional: str = None
+        self.temperature: float = 298.15
+
+        self.solvent_model: str = None
+        self.solvent: str = None
+
         self._only_extract_structure: bool = only_extract_structure
         self._only_last_frame = only_last_frame
-        self._version = None
+        self.version: str = None
 
-    @property
-    def parameter_comment(self) -> str:
-        """
-        Get the parameter comment for the object.
-
-        Returns:
-            str: The parameter comment for the object.
-        """
-        return self._parameter_comment
-
-    @property
-    def version(self) -> str:
-        """
-        Get the version of the object.
-
-        Returns:
-            str: The version of the object.
-        """
-        return self._version
+    def __repr__(self) -> str:
+        return (
+            f"{str(self)}\n"
+            + f"functional: {self.functional}\n"
+            + f"basis: {self.basis}\n"
+            + f"solvent_model: {self.solvent_model}\n"
+            + f"solvent: {self.solvent}\n"
+            + f"frame num: {len(self)}"
+        )

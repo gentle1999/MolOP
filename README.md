@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-03-06 16:19:13
+ * @LastEditTime: 2024-03-20 10:04:46
  * @Description: 请填写简介
 -->
 # MolOP
@@ -39,23 +39,28 @@ See the [Tutorial Notebook](tutorial/get_start.ipynb) for more details.
 
 All teat cases shown in the [test_cases](tutorial/test_cases.ipynb) file.
 
-## Installation for Users
+## Installation
 
+This package is actively developing, and this time is too early to be published to pypi. So you can install by the following.
+
+### In ZJU intranet
+You can use our self-host repository.
 ```bash
 pip install --extra-index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop --upgrade
 ```
 
 For additional descriptor calculation, you need to install the requirements below:
-
 ```bash
 pip install --extra-index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop[full] --upgrade
 ```
+
+
 
 ## Installation for Developers
 
 ```bash
 # clone the repository
-git clone http://10.72.201.58:13000/tmj/MolOP.git
+git clone https://github.com/gentle1999/MolOP.git
 cd MolOP
 # create a new environment (conda is not necessary)
 conda create -n molop python=3.8 # The lowest python version is 3.8
@@ -64,7 +69,7 @@ conda activate molop
 pip install poetry
 pip install .[dev]
 ```
-## Online Documentation
+## Online Documentation (only avialable in ZJU intranet now) 
 Visit [MolOP Documentation](https://molop-gentle-7355819aa2dbcc7edc9420595fa823e6ffaebc1a874271edbf.pages.zjusct.io/).
 
 ## Start documentation server

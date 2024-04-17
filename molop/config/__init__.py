@@ -1,14 +1,17 @@
 '''
 Author: TMJ
-Date: 2024-01-31 21:57:38
+Date: 2024-02-14 14:40:02
 LastEditors: TMJ
-LastEditTime: 2024-02-19 21:17:36
+LastEditTime: 2024-04-12 21:49:38
 Description: 请填写简介
 '''
-from molop.logger.logger import logger
 import logging
+
 from openbabel import pybel
 from rdkit import RDLogger
+from rdkit.Chem import AllChem
+
+from molop.logger.logger import logger
 
 
 class MolOPConfig:
@@ -22,6 +25,11 @@ class MolOPConfig:
         # ob_log_handler.SetOutputLevel(0)
         pybel.ob.obErrorLog.StopLogging()
         self.max_jobs = 16
+        self.morgan_fpgen = AllChem.GetMorganGenerator(radius=3, fpSize=2048, includeChirality=True)
+        self.atompair_fpgen = AllChem.GetAtomPairGenerator(fpSize=2048, includeChirality=True)
+        self.rdkit_fpgen = AllChem.GetRDKitFPGenerator(fpSize=2048)
+        self.topological_torsion_fpgen = AllChem.GetTopologicalTorsionGenerator(fpSize=2048)
+        self.max_structure_recovery_time = 10
 
     def quiet(self):
         self.show_progress_bar = False

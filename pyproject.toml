@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "molop"
-version = "0.1.27.2"
+version = "0.1.29.2"
 description = "Molcule OPerator"
 authors = ["tmj <mj_t@zju.edu.cn>"]
 license = "MIT"
@@ -21,7 +21,6 @@ rdkit = ">=2023.9.4"
 openbabel-wheel = "~3.1.1"
 numpy = ">=1.24.2"
 pandas = ">=2.0.3"
-scipy = ">=1.10.1"
 tqdm = ">=4.66.1"
 pint = ">=0.21.1"
 joblib = ">=1.3.2"
@@ -42,11 +41,20 @@ pytest = { version = ">=8.0.0", optional = true }
 jupyter_contrib_nbextensions = { version = ">=0.7.0", optional = true }
 notebook = { version = "~6.4.12", optional = true }
 nbconvert = { version = ">=7.14.2", optional = true }
+pymcubes = "^0.1.4"
 
 [tool.poetry.extras]
 spatial = ["trimesh", "matplotlib", "scikit-image", "scikit-learn"]
 desc = ["mordred", "dscribe", "ase"]
-full = ["mordred", "dscribe", "ase", "trimesh", "matplotlib"]
+full = [
+    "mordred",
+    "dscribe",
+    "ase",
+    "trimesh",
+    "matplotlib",
+    "scikit-image",
+    "scikit-learn",
+]
 dev = [
     "trimesh",
     "scikit-image",

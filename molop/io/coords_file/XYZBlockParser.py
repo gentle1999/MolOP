@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-02-29 12:21:13
+LastEditTime: 2024-03-31 16:05:02
 Description: 请填写简介
 """
 import re
@@ -36,12 +36,12 @@ class XYZBlockParser(BaseBlockParser):
         """
         Parse the block.
         """
-        lines = self._block.split("\n")
+        lines = self._block.splitlines()
         num_atoms = int(lines[0])
-        cm = re.findall(r"charge\s+([\-0-9]+)\s+multiplicity\s+([\-0-9]+)\s+", lines[1])
-        if len(cm) == 1:
-            self._charge = int(cm[0][0])
-            self._multiplicity = int(cm[0][1])
+        cm = re.search(r"charge\s*([\s-]\d+)\s*multiplicity\s*([\s-]\d+)", self._block)
+        if cm:
+            self._charge = int(cm.group(1))
+            self._multiplicity = int(cm.group(2))
         temp_coords = []
         for line in lines[2 : 2 + num_atoms]:
             if re.search(r"[A-Za-z]+\s+[\d\.\-]+\s+[\d\.\-]+\s+[\d\.\-]+", line):

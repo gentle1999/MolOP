@@ -10,6 +10,7 @@ import fire
 
 from molop import AutoParser
 from molop.io import FileParserBatch
+from molop.config import molopconfig
 
 
 class MolOPCLI:
@@ -45,6 +46,7 @@ class MolOPCLI:
         file_path: str,
         charge=None,
         multiplicity=None,
+        n_jobs=-1,
         only_extract_structure=False,
         only_last_frame=False,
     ):
@@ -67,6 +69,7 @@ class MolOPCLI:
             file_path,
             charge,
             multiplicity,
+            n_jobs=n_jobs,
             only_extract_structure=only_extract_structure,
             only_last_frame=only_last_frame,
         )
@@ -191,6 +194,13 @@ class MolOPCLI:
         End the command chain, stop printing help comments.
         """
         self._file_batch = None
+
+    def quiet(self):
+        """
+        Quiet the command chain, stop printing logs.
+        """
+        molopconfig.quiet()
+        return self
 
 
 def app():
