@@ -1095,20 +1095,20 @@ class QMBaseBlockParser(BaseBlockParser):
                 * ratio
             )
 
-            # Convert extreme coordinates to openbabel molecule object
-            omol = xyz_block_to_omol(
-                f"{len(self.atoms)}\n"
-                + f"charge {self.charge} multiplicity {self.multiplicity}\n"
-                + "\n".join(
-                    [
-                        f"{atom:10s}{x:10.5f}{y:10.5f}{z:10.5f}"
-                        for atom, x, y, z in zip(self.atoms, *zip(*extreme_coords))
-                    ]
-                ),
-                given_charge=self.charge,
-            )
-
             try:
+                # Convert extreme coordinates to openbabel molecule object
+                omol = xyz_block_to_omol(
+                    f"{len(self.atoms)}\n"
+                    + f"charge {self.charge} multiplicity {self.multiplicity}\n"
+                    + "\n".join(
+                        [
+                            f"{atom:10s}{x:10.5f}{y:10.5f}{z:10.5f}"
+                            for atom, x, y, z in zip(self.atoms, *zip(*extreme_coords))
+                        ]
+                    ),
+                    total_charge=self.charge,
+                    total_radical=self.multiplicity - 1,
+                )
                 # Rebuild parser using the openbabel molecule object
                 block_parser = self.rebuild_parser(
                     Chem.MolFromMolBlock(omol.write("sdf"), removeHs=False),
@@ -1158,7 +1158,7 @@ class QMBaseBlockParser(BaseBlockParser):
 
     def __repr__(self) -> str:
         return (
-            f"{self.__class__.__name__}({str(self)})\n"
+            f"{self.__class__.__name__}: {str(self)}\n"
             + f"functional: {self.functional}\n"
             + f"basis: {self.basis}\n"
             + f"solvent_model: {self.solvent_model}\n"

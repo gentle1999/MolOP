@@ -5,11 +5,14 @@ LastEditors: TMJ
 LastEditTime: 2024-02-15 18:13:15
 Description: 请填写简介
 """
+
 import os
 from typing import List, Tuple, Union
-import pandas as pd
 
-from molop.unit import atom_ureg
+import pandas as pd
+from joblib import Parallel, cpu_count, delayed
+
+from molop.config import molopconfig
 from molop.io.bases.molblock_base import BaseBlockParser
 from molop.io.coords_file.GJFBlockParser import GJFBlockParser
 from molop.io.coords_file.SDFBlockParser import SDFBlockParser
@@ -17,6 +20,7 @@ from molop.io.coords_file.XYZBlockParser import XYZBlockParser
 from molop.io.qm_file.G16FCHKBlockParser import G16FCHKBlockParser
 from molop.io.qm_file.G16LOGBlockParser import G16LOGBlockParser
 from molop.io.qm_file.XTBOUTBlockParser import XTBOUTBlockParser
+from molop.unit import atom_ureg
 
 BLOCKTYPES = Union[
     BaseBlockParser,
@@ -515,9 +519,13 @@ class BaseFileParser:
         Returns:
             A pandas DataFrame containing the summary information of the parser.
         """
+        self.recover_structures()
         return pd.concat(
             [frame.to_summary_series() for frame in self.__frames], axis=1
         ).T
+
+    def recover_structures(self):
+        return [frame.to_standard_SMILES() for frame in self.frames]
 
 
 class BaseQMFileParser(BaseFileParser):
