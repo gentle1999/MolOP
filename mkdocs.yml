@@ -45,10 +45,13 @@ plugins:
                 - 结构复原案例: structure_recovery_cases.md
                 - 支持的输入格式: supporting_input_file_formats.md
                 - 支持的输出格式: supporting_output_file_formats.md
+                - 量化解析器基准测试: qc_parser_benchmark.md
+                - 结构复原基准测试: structure_recover_benchmark.md
             - 从例子学习:
                 - 读取文件并提取信息: read_file_and_extract_info.md
                 - 转换为GJF格式: transform_in_gjf.md
                 - 命令行接口: command_line_interface.md
+                - 空间特征: spatial_features.md
             - API: 
               - io:
                 - bases:
