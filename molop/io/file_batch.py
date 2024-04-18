@@ -144,7 +144,7 @@ class FileParserBatch(MutableMapping):
         if isinstance(key, int):
             return list(self.__parsers.values())[key]
         if isinstance(key, slice):
-            slicedkeys = list(self.__parsers.values())[key]
+            slicedkeys = list(self.__parsers.keys())[key]
             return self.__new_batch([self.__parsers[k] for k in slicedkeys])
         else:
             return self.__parsers[key]

@@ -75,17 +75,37 @@ class G16LOGBlockParser(QMBaseBlockParser):
         return self._dieze_tag
 
     def _parse_coords(self):
+        self.input_coords = np.array([]) * atom_ureg.angstrom
+        self.standard_coords = np.array([]) * atom_ureg.angstrom
         corrds_end = g16logpatterns["coords_end"].search(self.__block)
         if corrds_end:
             block = self.__block[: corrds_end.end()]
-            coords = g16logpatterns["coords"].findall(
-                block,
-            )[-self.__n_atom :]
-            temp_coords = []
-            for atom_num, x, y, z in coords:
-                self._atoms.append(int(atom_num))
-                temp_coords.append((float(x), float(y), float(z)))
-            self._coords = np.array(temp_coords, np.float32) * atom_ureg.angstrom
+            input_coords = g16logpatterns["input_coords_start"].search(block)
+            if input_coords:
+                coords = g16logpatterns["coords"].findall(
+                    block,
+                )[: self.__n_atom]
+                atoms = []
+                temp_coords = []
+                for atom_num, x, y, z in coords:
+                    atoms.append(int(atom_num))
+                    temp_coords.append((float(x), float(y), float(z)))
+                self.input_coords = np.array(temp_coords) * atom_ureg.angstrom
+                self._atoms = atoms
+                self._coords = self.input_coords
+            standard_coords = g16logpatterns["standard_coords_start"].search(block)
+            if standard_coords:
+                coords = g16logpatterns["coords"].findall(
+                    block,
+                )[-self.__n_atom :]
+                atoms = []
+                temp_coords = []
+                for atom_num, x, y, z in coords:
+                    atoms.append(int(atom_num))
+                    temp_coords.append((float(x), float(y), float(z)))
+                self.standard_coords = np.array(temp_coords) * atom_ureg.angstrom
+                self._atoms = atoms
+                self._coords = self.standard_coords
 
     def _parse(self):
         self._parse_rotation_consts()
@@ -600,12 +620,22 @@ class G16LOGBlockParser(QMBaseBlockParser):
             thermal_match = g16logpatterns["tail_thermal_match"].findall(tail)
             for e, v in thermal_match:
                 if "ZeroPoint" in e:
-                    self.sum_energy["zero-point correction"] = float(v) * atom_ureg.hartree / atom_ureg.particle
+                    self.sum_energy["zero-point correction"] = (
+                        float(v) * atom_ureg.hartree / atom_ureg.particle
+                    )
                 if "Thermal" in e:
-                    self.sum_energy["TCE"] = float(v) * atom_ureg.hartree / atom_ureg.particle
+                    self.sum_energy["TCE"] = (
+                        float(v) * atom_ureg.hartree / atom_ureg.particle
+                    )
                 if "ETot" in e:
-                    self.sum_energy["E sum"] = float(v) * atom_ureg.hartree / atom_ureg.particle
+                    self.sum_energy["E sum"] = (
+                        float(v) * atom_ureg.hartree / atom_ureg.particle
+                    )
                 if "HTot" in e:
-                    self.sum_energy["H sum"] = float(v) * atom_ureg.hartree / atom_ureg.particle
+                    self.sum_energy["H sum"] = (
+                        float(v) * atom_ureg.hartree / atom_ureg.particle
+                    )
                 if "GTot" in e:
-                    self.sum_energy["G sum"] = float(v) * atom_ureg.hartree / atom_ureg.particle
+                    self.sum_energy["G sum"] = (
+                        float(v) * atom_ureg.hartree / atom_ureg.particle
+                    )
