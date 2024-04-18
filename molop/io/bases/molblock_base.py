@@ -1111,7 +1111,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 )
                 # Rebuild parser using the openbabel molecule object
                 block_parser = self.rebuild_parser(
-                    Chem.MolFromMolBlock(omol.write("sdf"), removeHs=False),
+                    Chem.MolFromMol2Block(omol.write("mol2"), removeHs=False),
                     rebuild_type="reindex",
                 )
             except:

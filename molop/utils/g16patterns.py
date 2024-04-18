@@ -141,7 +141,8 @@ def shell_to_orbitals(shell_type, offset):
 
 g16logpatterns: Dict[str, re.Pattern] = {
     "n atoms": re.compile(r"NAtoms=\s*(\d+)"),
-    "coords_start": re.compile(r"Standard orientation:"),
+    "input_coords_start": re.compile(r"Input orientation:"),
+    "standard_coords_start": re.compile(r"Standard orientation:"),
     "coords_end": re.compile(
         r"(Basis read|Standard basis|Rotational constants \(GHZ\)|Symmetry turned off)"
     ),

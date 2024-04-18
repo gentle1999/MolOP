@@ -197,15 +197,15 @@ class MolBlock(ABC):
                 try:
                     self._omol = xyz_block_to_omol(
                         self.to_XYZ_block(), self._charge, int(self._multiplicity) - 1
-                    ).write("sdf", opt={"3": True})
+                    ).write("mol2")
                 except Exception as e:
                     raise RuntimeError(f"{self._file_path}: {e}")
             else:
                 assert (
                     self._formal_charges and self._formal_spins
                 ), "If bonds given, formal charges and spins must be provided."
-                self._omol = self.to_SDF_block()
-        return pybel.readstring("sdf", self._omol, opt={"3": True})
+                self._omol = self.to_Mol2_block()
+        return pybel.readstring("mol2", self._omol)
 
     @property
     def rdmol(self) -> Union[Chem.rdchem.Mol, Chem.rdchem.RWMol]:
@@ -241,13 +241,18 @@ class MolBlock(ABC):
                             f"{self._file_path}: MolOP structure recovery failed. {e}"
                         )
                         return None
-                    omol_sdf = omol.write("sdf", opt={"3": True})
-                    self._rdmol = Chem.MolFromMolBlock(omol_sdf, removeHs=False)
+                    self._rdmol = Chem.MolFromMol2Block(
+                        omol.write("mol2"), removeHs=False
+                    )
                     if self._rdmol is None:
-                        logger.error(
-                            f"{self._file_path}: MolOP structure recovery failed."
+                        self._rdmol = Chem.MolFromMolBlock(
+                            omol.write("sdf"), removeHs=False
                         )
-                        return None
+                        if self._rdmol is None:
+                            logger.error(
+                                f"{self._file_path}: MolOP structure recovery failed."
+                            )
+                            return None
                     self.__get_topology()
             else:
                 assert (
@@ -321,6 +326,15 @@ class MolBlock(ABC):
             The SDF block.
         """
         return Chem.MolToMolBlock(self.rdmol)
+
+    def to_Mol2_block(self) -> str:
+        """
+        Get the SDF block.
+
+        Returns:
+            The SDF block.
+        """
+        return Chem.MolToMol2Block(self.rdmol)
 
     def to_SMILES(self) -> str:
         """
