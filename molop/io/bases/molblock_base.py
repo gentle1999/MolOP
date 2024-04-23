@@ -22,13 +22,12 @@ from molop.logger.logger import logger
 from molop.structure.geometry import standard_orient
 from molop.structure.structure import (
     attempt_replacement,
-    check_crowding,
     get_bond_pairs,
     get_formal_charges,
     get_formal_spins,
     reset_atom_index,
 )
-from molop.structure.structure_recovery import xyz_block_to_omol
+from molop.structure.structure_recovery import xyz_block_to_rdmol
 from molop.unit import atom_ureg
 from molop.utils.g16patterns import link0_parser
 from molop.utils.types import arrayN, arrayNx3
@@ -332,6 +331,7 @@ class BaseBlockParser(MolBlock):
             "total_multiplicity": self.multiplicity,
             "atoms": [Chem.Atom(atom).GetAtomicNum() for atom in self.atoms],
             "coords": self.dimensionless_coords.tolist(),
+            "standard_coords": self.dimensionless_standard_coords.tolist(),
             "bonds": self.bonds,
             "formal_charges": self.formal_charges,
             "formal_spins": self.formal_spins,
@@ -346,14 +346,14 @@ class BaseBlockParser(MolBlock):
 
     def rebuild_parser(
         self,
-        new_mol: Union[Chem.rdchem.Mol, Chem.rdchem.RWMol],
+        new_mol: Chem.rdchem.Mol,
         rebuild_type=Literal["mod", "reindex", "transform"],
     ) -> "BaseBlockParser":
         """
         Create a new parser with the given molecule.
 
         Parameters:
-            new_mol Union[Chem.rdchem.Mol, Chem.rdchem.RWMol]:
+            new_mol Chem.rdchem.Mol:
                 The new molecule.
             rebuild_type Literal["mod", "reindex", "transform"]:
                 The tag of the new parser.
@@ -479,6 +479,12 @@ class BaseBlockParser(MolBlock):
 
         Returns:
             False
+        """
+        return False
+
+    def is_optimized(self) -> bool:
+        """
+        Check if the molecule is optimized.
         """
         return False
 
@@ -1058,6 +1064,8 @@ class QMBaseBlockParser(BaseBlockParser):
                 ).tolist(),
                 "freqs": self.dimensionless_frequencies,
                 "is_TS": self.is_TS(),
+                "is_optimized": self.is_optimized(),
+                "is_error": self.is_error(),
                 "spin_eginvalue": self.spin_eigenvalue,
                 "spin_multiplicity": self.spin_multiplicity,
                 "dipole": self._flatten(self.dimensionless_dipole).tolist(),
@@ -1087,17 +1095,17 @@ class QMBaseBlockParser(BaseBlockParser):
         block_parsers = []  # Initialize a list of base block parsers
 
         # Iterate over a list of ratios
-        for ratio in (-2.5, -2.25, -2, -1.5, -1, 1, 1.5, 2, 2.25, 2.5):
+        for ratio in (-1.75, -1.5, -1.25, -1, 1, 1.25, 1.5, 1.75):
             # Calculate extreme coordinates based on current ratio
             extreme_coords = (
-                self.rdmol.GetConformer().GetPositions()
+                self.dimensionless_coords
                 - self.dimensionless_imaginary_frequencies[0]["normal coordinates"]
                 * ratio
             )
 
             try:
                 # Convert extreme coordinates to openbabel molecule object
-                omol = xyz_block_to_omol(
+                rdmol = xyz_block_to_rdmol(
                     f"{len(self.atoms)}\n"
                     + f"charge {self.charge} multiplicity {self.multiplicity}\n"
                     + "\n".join(
@@ -1110,16 +1118,15 @@ class QMBaseBlockParser(BaseBlockParser):
                     total_radical=self.multiplicity - 1,
                 )
                 # Rebuild parser using the openbabel molecule object
-                block_parser = self.rebuild_parser(
-                    Chem.MolFromMol2Block(omol.write("mol2"), removeHs=False),
-                    rebuild_type="reindex",
+                block_parser = self.rebuild_parser(rdmol, rebuild_type="reindex")
+            except Exception as e:
+                logger.warning(
+                    f"Failed to rebuild for {self.to_SMILES()} with error {e}"
                 )
-            except:
                 continue
 
             # Check if the molecule satisfies crowding conditions and append it to the list
-            if check_crowding(block_parser.rdmol):
-                block_parsers.append(block_parser)
+            block_parsers.append(block_parser)
 
         return block_parsers
 
@@ -1186,6 +1193,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 "solvent": self.solvent,
                 "temperature": self.temperature,
                 "status": str(self.status),
+                "is_optimized": self.is_optimized(),
                 "ZPE": self.dimensionless_sum_energy["zero-point correction"],
                 "TCE": self.dimensionless_sum_energy["TCE"],
                 "TCH": self.dimensionless_sum_energy["TCH"],

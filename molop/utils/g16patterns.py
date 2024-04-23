@@ -66,11 +66,11 @@ def parameter_comment_parser(
                     pars = {}
                     for par in m.group(3).split(","):
                         p = par.split("=")
-                        pars[p[0]] = None if len(p) == 1 else p[1]
-                    route_params[m.group(1)] = pars
+                        pars[p[0]] = None if len(p) == 1 else p[1].lower()
+                    route_params[m.group(1).lower()] = pars
                 else:
                     d = tok.strip("#").split("=")
-                    route_params[d[0]] = None if len(d) == 1 else d[1]
+                    route_params[d[0]] = None if len(d) == 1 else d[1].lower()
 
     return route_params, dieze_tag
 

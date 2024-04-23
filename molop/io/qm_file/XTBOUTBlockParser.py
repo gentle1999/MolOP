@@ -134,6 +134,11 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         else:
             return True
 
+    def is_optimized(self) -> bool:
+        if "geometric_optimization" in self.status:
+            return self.status["geometric_optimization"]
+        return False
+
     def _parse_energy(self):
         lines = self._block.splitlines()
         for line in reversed(lines):

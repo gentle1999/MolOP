@@ -12,6 +12,7 @@ from typing import Literal, List
 
 import numpy as np
 
+from molop.config import molopconfig
 from molop.io.bases.molblock_base import QMBaseBlockParser
 from molop.logger.logger import logger
 from molop.unit import atom_ureg
@@ -269,7 +270,8 @@ class G16FCHKBlockParser(QMBaseBlockParser):
             self.spin_multiplicity = round(
                 math.sqrt(self.spin_eigenvalue + 0.25) - 0.5, 2
             )
-            self._multiplicity = int(round(2 * self.spin_eigenvalue + 1, 0))
+            if molopconfig.allow_spin_change:
+                self._multiplicity = int(round(2 * self.spin_eigenvalue + 1, 0))
 
     def _parse_dipole(self):
         matches = re.search(g16fchkpatterns["dipole"], self._block)
@@ -292,6 +294,12 @@ class G16FCHKBlockParser(QMBaseBlockParser):
             return self.status["Job Status"] == False
         else:
             return True
+        
+    def is_optimized(self) -> bool:
+        if "opt" in self.route_params and not self.is_error():
+            return True
+        else:
+            return False
 
     def _parse_block(
         self, start_tag: str, item_map: str, end_tag: str = None
