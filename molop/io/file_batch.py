@@ -133,11 +133,7 @@ class FileParserBatch(MutableMapping):
         self,
         n_jobs: int = -1,
     ) -> None:
-        self.__n_jobs = (
-            min(n_jobs, cpu_count(), molopconfig.max_jobs)
-            if n_jobs > 0
-            else min(cpu_count(), molopconfig.max_jobs)
-        )
+        self.__n_jobs = self._set_n_jobs(n_jobs)
         self.__parsers: Dict[str, PARSERTYPES] = OrderedDict()
 
     def __getitem__(self, key: Union[int, str, slice]) -> PARSERTYPES:
@@ -270,6 +266,10 @@ class FileParserBatch(MutableMapping):
 
     def add_file_parsers(self, file_parsers: List[PARSERTYPES]) -> None:
         for parser in file_parsers:
+            if not isinstance(parser, BaseFileParser):
+                raise TypeError(
+                    f"file_parsers should be a list of BaseFileParser, got {type(parser)}"
+                )
             if parser.file_path not in self.__parsers:
                 self[parser.file_path] = parser
             else:
@@ -390,12 +390,9 @@ class FileParserBatch(MutableMapping):
                         replace_all=replace_all,
                         attempt_num=attempt_num,
                     )
-                    new_parsers.append(
-                        SDFBlockParser(
-                            temp_parser.to_SDF_block(),
-                            os.path.splitext(temp_parser._file_path)[0] + ".sdf",
-                        )
-                    )
+                    temp_file_path = temp_parser.to_SDF_file()
+                    new_parsers.append(SDFParser(temp_file_path, only_last_frame=True))
+                    os.remove(temp_file_path)
                 except:
                     logger.error(
                         f"Failed to replace substituent from {query_smi} to {replacement_smi} in {parser.file_path}, {parser.file_name}"
@@ -410,12 +407,9 @@ class FileParserBatch(MutableMapping):
                         replace_all=replace_all,
                         attempt_num=attempt_num,
                     )
-                    new_parsers.append(
-                        SDFBlockParser(
-                            temp_parser.to_SDF_block(),
-                            os.path.splitext(temp_parser._file_path)[0] + ".sdf",
-                        )
-                    )
+                    temp_file_path = temp_parser.to_SDF_file()
+                    new_parsers.append(SDFParser(temp_file_path, only_last_frame=True))
+                    os.remove(temp_file_path)
                 except:
                     logger.error(
                         f"Failed to replace substituent from {query_smi} to {replacement_smi} in {parser.file_path}, {parser.file_name}"
@@ -436,7 +430,7 @@ class FileParserBatch(MutableMapping):
         if molopconfig.show_progress_bar:
             for parser in tqdm(self):
                 try:
-                    temp_parser = parser[-1].reset_atom_index(
+                    temp_parser = parser[frameID].reset_atom_index(
                         mapping_smarts=mapping_smarts
                     )
                     temp_file_path = temp_parser.to_SDF_file()
@@ -449,7 +443,7 @@ class FileParserBatch(MutableMapping):
         else:
             for parser in self:
                 try:
-                    temp_parser = parser[-1].reset_atom_index(
+                    temp_parser = parser[frameID].reset_atom_index(
                         mapping_smarts=mapping_smarts
                     )
                     temp_file_path = temp_parser.to_SDF_file()
@@ -645,21 +639,22 @@ class FileParserBatch(MutableMapping):
             for parser in self
         ]
 
-    def recover_structures(self) -> List[str]:
+    def recover_structures(self, n_jobs: int = -1) -> List[str]:
         """
         Recover the structures of the QM parsers.
         """
+        _n_jobs = self._set_n_jobs(n_jobs)
         total_smiles_list = []
-        if self.__n_jobs > 1 and len(self) > self.__n_jobs:
+        if _n_jobs > 1 and len(self) > _n_jobs:
             if molopconfig.show_progress_bar:
                 for smiles_list in tqdm(
                     Parallel(
                         return_as="generator",
-                        n_jobs=self.__n_jobs,
+                        n_jobs=_n_jobs,
                         pre_dispatch="1.5*n_jobs",
                     )(delayed(parser.recover_structures)() for parser in self),
                     total=len(self),
-                    desc=f"MolOP structure recovery with {self.__n_jobs} jobs",
+                    desc=f"MolOP structure recovery with {_n_jobs} jobs",
                 ):
                     total_smiles_list.extend(smiles_list)
             else:
@@ -674,7 +669,7 @@ class FileParserBatch(MutableMapping):
                 for parser in tqdm(
                     self,
                     total=len(self),
-                    desc=f"MolOP structure recovery with {self.__n_jobs} jobs",
+                    desc=f"MolOP structure recovery with single jobs",
                 ):
                     total_smiles_list.extend(parser.recover_structures())
             else:
@@ -687,8 +682,11 @@ class FileParserBatch(MutableMapping):
         return self.__n_jobs
 
     @n_jobs.setter
-    def n_jobs(self, n_jobs):
-        self.__n_jobs = (
+    def n_jobs(self, n_jobs: int):
+        self.__n_jobs = self._set_n_jobs(n_jobs)
+
+    def _set_n_jobs(self, n_jobs: int):
+        return (
             min(n_jobs, cpu_count(), molopconfig.max_jobs)
             if n_jobs > 0
             else min(cpu_count(), molopconfig.max_jobs)

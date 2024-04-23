@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-14 14:40:02
 LastEditors: TMJ
-LastEditTime: 2024-04-12 21:49:38
+LastEditTime: 2024-04-19 15:30:05
 Description: 请填写简介
 '''
 import logging
@@ -30,6 +30,7 @@ class MolOPConfig:
         self.rdkit_fpgen = AllChem.GetRDKitFPGenerator(fpSize=2048)
         self.topological_torsion_fpgen = AllChem.GetTopologicalTorsionGenerator(fpSize=2048)
         self.max_structure_recovery_time = 10
+        self.allow_spin_change = False
 
     def quiet(self):
         self.show_progress_bar = False

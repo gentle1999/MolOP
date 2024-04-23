@@ -4,6 +4,7 @@ from typing import Literal
 
 import numpy as np
 
+from molop.config import molopconfig
 from molop.io.bases.molblock_base import QMBaseBlockParser
 from molop.logger.logger import logger
 from molop.unit import atom_ureg
@@ -75,8 +76,6 @@ class G16LOGBlockParser(QMBaseBlockParser):
         return self._dieze_tag
 
     def _parse_coords(self):
-        self.input_coords = np.array([]) * atom_ureg.angstrom
-        self.standard_coords = np.array([]) * atom_ureg.angstrom
         corrds_end = g16logpatterns["coords_end"].search(self.__block)
         if corrds_end:
             block = self.__block[: corrds_end.end()]
@@ -90,9 +89,8 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 for atom_num, x, y, z in coords:
                     atoms.append(int(atom_num))
                     temp_coords.append((float(x), float(y), float(z)))
-                self.input_coords = np.array(temp_coords) * atom_ureg.angstrom
+                self._coords = np.array(temp_coords) * atom_ureg.angstrom
                 self._atoms = atoms
-                self._coords = self.input_coords
             standard_coords = g16logpatterns["standard_coords_start"].search(block)
             if standard_coords:
                 coords = g16logpatterns["coords"].findall(
@@ -103,9 +101,8 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 for atom_num, x, y, z in coords:
                     atoms.append(int(atom_num))
                     temp_coords.append((float(x), float(y), float(z)))
-                self.standard_coords = np.array(temp_coords) * atom_ureg.angstrom
+                self._standard_coords = np.array(temp_coords) * atom_ureg.angstrom
                 self._atoms = atoms
-                self._coords = self.standard_coords
 
     def _parse(self):
         self._parse_rotation_consts()
@@ -230,7 +227,8 @@ class G16LOGBlockParser(QMBaseBlockParser):
         if s:
             self.spin_multiplicity = float(s.group(1))
             self.spin_eigenvalue = float(s.group(2))
-            self._multiplicity = int(round(2 * self.spin_eigenvalue + 1, 0))
+            if molopconfig.allow_spin_change:
+                self._multiplicity = int(round(2 * self.spin_eigenvalue + 1, 0))
 
     def _parse_orbitals(self):
         orbital_start = g16logpatterns["orbital_start"].search(self.__block)
@@ -598,6 +596,16 @@ class G16LOGBlockParser(QMBaseBlockParser):
         if "SCF Done" in self.status and self.status["SCF Done"] == False:
             return True
         return False
+
+    def is_optimized(self) -> bool:
+        if (
+            "opt" in self.route_params
+            and "termination" in self.status
+            and self.status["termination"] == "Normal"
+        ):
+            return True
+        else:
+            return False
 
     def _parse_tail(self):
         start = g16logpatterns["tail_start"].search(self.__block)

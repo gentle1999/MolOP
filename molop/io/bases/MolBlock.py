@@ -18,7 +18,7 @@ from molop.structure.structure import (
     get_formal_spins,
 )
 from molop.utils.types import arrayNx3, arrayN, RdMol, RWMol
-from molop.structure.structure_recovery import xyz_block_to_omol
+from molop.structure.structure_recovery import xyz_block_to_omol, omol_to_rdmol
 from molop.unit import atom_ureg
 
 
@@ -43,12 +43,13 @@ class MolBlock(ABC):
             **Predicted**: Save the formal spins. Consistent with the atomic order.
         _omol str:
             **Predicted**: Save the sdf from openbabel.
-        _rdmol Union[Chem.rdchem.RWMol, Chem.rdchem.Mol]:
+        _rdmol Chem.rdchem.Mol:
             **Predicted**: Save the rdkit molecule object.
     """
 
     _atoms: Union[List[str], List[int]]
     _coords: PlainQuantity
+    _standard_coords: PlainQuantity
     _charge: int
     _multiplicity: int
     _bonds: List[Tuple[int, int, int]]
@@ -60,6 +61,7 @@ class MolBlock(ABC):
     def __init__(self):
         self._atoms: Union[List[str], List[int]] = []
         self._coords: PlainQuantity = np.array([[]]) * atom_ureg.angstrom
+        self._standard_coords: PlainQuantity = np.array([[]]) * atom_ureg.angstrom
         self._charge: int = 0
         self._multiplicity: int = 1
         self._bonds: List[Tuple[int, int, int]] = None
@@ -106,7 +108,10 @@ class MolBlock(ABC):
         Returns:
             A matrix of coordinates with unit. Default unit is angstrom.
         """
-        return self._coords
+        if self._coords.m.size != 0:
+            return self._coords
+        else:
+            return self._standard_coords
 
     @property
     def dimensionless_coords(self) -> arrayNx3[np.float32]:
@@ -120,6 +125,26 @@ class MolBlock(ABC):
             A `np.ndarray` of dimensionless coordinates
         """
         return self.coords.to("angstrom").m.astype(np.float32)
+
+    @property
+    def standard_coords(self) -> PlainQuantity:
+        """
+        Get the standard coordinates.
+        """
+        return self._standard_coords
+    
+    @property
+    def dimensionless_standard_coords(self) -> np.ndarray:
+        """
+        Get the standard coordinates.
+
+        Units will be tranformed:
+            - `angstrom`
+
+        Returns:
+            A `np.ndarray` of dimensionless coordinates
+        """
+        return self.standard_coords.to("angstrom").m.astype(np.float32)
 
     @property
     def charge(self) -> int:
@@ -197,18 +222,18 @@ class MolBlock(ABC):
                 try:
                     self._omol = xyz_block_to_omol(
                         self.to_XYZ_block(), self._charge, int(self._multiplicity) - 1
-                    ).write("mol2")
+                    ).write("cml")
                 except Exception as e:
                     raise RuntimeError(f"{self._file_path}: {e}")
             else:
                 assert (
                     self._formal_charges and self._formal_spins
                 ), "If bonds given, formal charges and spins must be provided."
-                self._omol = self.to_Mol2_block()
-        return pybel.readstring("mol2", self._omol)
+                self._omol = self.to_CML_block()
+        return pybel.readstring("cml", self._omol)
 
     @property
-    def rdmol(self) -> Union[Chem.rdchem.Mol, Chem.rdchem.RWMol]:
+    def rdmol(self) -> Chem.rdchem.Mol:
         """
         Get the rdkit molecule object.
 
@@ -241,19 +266,17 @@ class MolBlock(ABC):
                             f"{self._file_path}: MolOP structure recovery failed. {e}"
                         )
                         return None
-                    self._rdmol = Chem.MolFromMol2Block(
-                        omol.write("mol2"), removeHs=False
-                    )
-                    if self._rdmol is None:
-                        self._rdmol = Chem.MolFromMolBlock(
-                            omol.write("sdf"), removeHs=False
+
+                    try:
+                        self._rdmol = omol_to_rdmol(
+                            omol, self._charge, self._multiplicity - 1
                         )
-                        if self._rdmol is None:
-                            logger.error(
-                                f"{self._file_path}: MolOP structure recovery failed."
-                            )
-                            return None
-                    self.__get_topology()
+                    except Exception as e:
+                        logger.error(
+                            f"{self._file_path}: RDKit structure recovery failed. {e}"
+                        )
+                    finally:
+                        return self._rdmol
             else:
                 assert (
                     self._formal_charges and self._formal_spins
@@ -266,7 +289,7 @@ class MolBlock(ABC):
                 ):
                     atom.SetFormalCharge(charge)
                     atom.SetNumRadicalElectrons(spin)
-                self._rdmol = rwmol
+                self._rdmol = rwmol.GetMol()
 
         return self._rdmol
 
@@ -327,14 +350,14 @@ class MolBlock(ABC):
         """
         return Chem.MolToMolBlock(self.rdmol)
 
-    def to_Mol2_block(self) -> str:
+    def to_CML_block(self) -> str:
         """
-        Get the SDF block.
+        Get the CML block.
 
         Returns:
-            The SDF block.
+            The CML block.
         """
-        return Chem.MolToMol2Block(self.rdmol)
+        return Chem.MolToMrvBlock(self.rdmol)
 
     def to_SMILES(self) -> str:
         """
