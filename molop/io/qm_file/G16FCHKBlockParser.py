@@ -266,12 +266,12 @@ class G16FCHKBlockParser(QMBaseBlockParser):
     def _parse_spin(self):
         matches = g16fchkpatterns["spin"].search(self._block)
         if matches:
-            self.spin_eigenvalue = round(float(matches.group(1)), 2)
-            self.spin_multiplicity = round(
-                math.sqrt(self.spin_eigenvalue + 0.25) - 0.5, 2
+            self.spin_square = round(float(matches.group(1)), 2)
+            self.spin_quantum_number = round(
+                math.sqrt(self.spin_square + 0.25) - 0.5, 2
             )
             if molopconfig.allow_spin_change:
-                self._multiplicity = int(round(2 * self.spin_eigenvalue + 1, 0))
+                self._multiplicity = int(round(2 * self.spin_quantum_number + 1, 0))
 
     def _parse_dipole(self):
         matches = re.search(g16fchkpatterns["dipole"], self._block)
