@@ -1461,10 +1461,14 @@ def xyz_block_to_omol(
     return final_omol
 
 
-def rdmol_check(rdmol: Chem.rdchem.Mol, total_charge=0, total_radical=0):
+def rdmol_check(
+    rdmol: Chem.rdchem.Mol, total_atom_num, total_charge=0, total_radical=0
+):
     charge = 0
     radical = 0
     has_metal = False
+    if rdmol.GetNumAtoms() != total_atom_num:
+        return False
     for atom in rdmol.GetAtoms():
         charge += atom.GetFormalCharge()
         if atom.GetNumRadicalElectrons() != 2:
@@ -1480,17 +1484,23 @@ def rdmol_check(rdmol: Chem.rdchem.Mol, total_charge=0, total_radical=0):
 def omol_to_rdmol(
     omol: pybel.Molecule, total_charge=0, total_radical=0
 ) -> Chem.rdchem.Mol:
+    total_atom_num = omol.OBMol.NumAtoms()
     rdmol = Chem.MolFromMol2Block(omol.write("mol2"), removeHs=False)
-    if rdmol is not None and rdmol_check(rdmol, total_charge, total_radical):
-        return rdmol
+    if rdmol is not None:
+        rdmol = Chem.AddHs(rdmol)
+        if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
+            return rdmol
     rdmols = Chem.MolsFromCDXML(omol.write("cdxml"), removeHs=False)
-    if len(rdmols) > 0 and rdmol_check(rdmols[0], total_charge, total_radical):
-        rdmol = rdmols[0]
-        rdmol.ClearProp("CDXML_FRAG_ID")
-        return rdmol
+    if len(rdmols) > 0:
+        rdmol = Chem.AddHs(rdmols[0])
+        if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
+            rdmol.ClearProp("CDXML_FRAG_ID")
+            return rdmol
     rdmol = Chem.MolFromMolBlock(omol.write("sdf"), removeHs=False)
-    if rdmol is not None and rdmol_check(rdmol, total_charge, total_radical):
-        return rdmol
+    if rdmol is not None:
+        rdmol = Chem.AddHs(rdmol)
+        if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
+            return rdmol
     raise ValueError("Failed to convert omol to rdmol")
 
 

@@ -64,7 +64,7 @@ def get_formal_charges(mol: RdMol) -> List[int]:
     return [atom.GetFormalCharge() for atom in mol.GetAtoms()]
 
 
-def get_formal_spins(mol: RdMol) -> List[int]:
+def get_formal_num_radicals(mol: RdMol) -> List[int]:
     """
     Get formal spin of mol.
     """

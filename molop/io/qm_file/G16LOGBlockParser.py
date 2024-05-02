@@ -225,10 +225,10 @@ class G16LOGBlockParser(QMBaseBlockParser):
     def _parse_spins(self):
         s = g16logpatterns["spins"].search(self.__block)
         if s:
-            self.spin_multiplicity = float(s.group(1))
-            self.spin_eigenvalue = float(s.group(2))
+            self.spin_square = float(s.group(1))
+            self.spin_quantum_number = float(s.group(2))
             if molopconfig.allow_spin_change:
-                self._multiplicity = int(round(2 * self.spin_eigenvalue + 1, 0))
+                self._multiplicity = int(round(2 * self.spin_quantum_number + 1, 0))
 
     def _parse_orbitals(self):
         orbital_start = g16logpatterns["orbital_start"].search(self.__block)

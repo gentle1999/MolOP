@@ -24,7 +24,7 @@ from molop.structure.structure import (
     attempt_replacement,
     get_bond_pairs,
     get_formal_charges,
-    get_formal_spins,
+    get_formal_num_radicals,
     reset_atom_index,
 )
 from molop.structure.structure_recovery import xyz_block_to_rdmol
@@ -319,12 +319,14 @@ class BaseBlockParser(MolBlock):
             - coords: List[Tuple[float, float, float]]
             - bonds: List[Tuple[int, int, int]]
             - formal_charges: List[int]
-            - formal_spins: List[int]
+            - formal_num_radicals: List[int]
 
         Returns:
             The information of the block as a dict.
         """
         return {
+            "filename": self.file_name,
+            "frame_id": self._frameID,
             "smiles": self.to_standard_SMILES(),
             "atom_number": len(self),
             "total_charge": self.charge,
@@ -334,7 +336,7 @@ class BaseBlockParser(MolBlock):
             "standard_coords": self.dimensionless_standard_coords.tolist(),
             "bonds": self.bonds,
             "formal_charges": self.formal_charges,
-            "formal_spins": self.formal_spins,
+            "formal_num_radicals": self.formal_num_radicals,
         }
 
     @staticmethod
@@ -371,7 +373,7 @@ class BaseBlockParser(MolBlock):
         new_parser._multiplicity = self.multiplicity
         new_parser._bonds = get_bond_pairs(new_mol)
         new_parser._formal_charges = get_formal_charges(new_mol)
-        new_parser._formal_spins = get_formal_spins(new_mol)
+        new_parser._formal_num_radicals = get_formal_num_radicals(new_mol)
         return new_parser
 
     def replace_substituent(
@@ -595,8 +597,8 @@ class QMBaseBlockParser(BaseBlockParser):
         self.mp3_energy: PlainQuantity = None
         self.mp4_energy: PlainQuantity = None
         self.ccsd_energy: PlainQuantity = None
-        self.spin_multiplicity: float = None
-        self.spin_eigenvalue: float = None
+        self.spin_square: float = None
+        self.spin_quantum_number: float = None
         self.alpha_FMO_orbits: PlainQuantity = (
             np.array([]) * atom_ureg.hartree / atom_ureg.particle
         )
@@ -1017,7 +1019,7 @@ class QMBaseBlockParser(BaseBlockParser):
             (a, b, c, d.to("hartree/particle").m) for a, b, c, d in self.nbo_bond_order
         ]
 
-    def to_dict(self):
+    def to_dict(self) -> Dict[str, Any]:
         return {
             **super().to_dict(),
             **{
@@ -1028,6 +1030,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 "solvent_model": self.solvent_model,
                 "solvent": self.solvent,
                 "temperature": self.temperature,
+                "keywords": self.parameter_comment,
                 "mulliken_charge": self.mulliken_charges,
                 "spin_densities": self.mulliken_spin_densities,
                 "gradients": self.dimensionless_gradients.tolist(),
@@ -1066,8 +1069,8 @@ class QMBaseBlockParser(BaseBlockParser):
                 "is_TS": self.is_TS(),
                 "is_optimized": self.is_optimized(),
                 "is_error": self.is_error(),
-                "spin_eginvalue": self.spin_eigenvalue,
-                "spin_multiplicity": self.spin_multiplicity,
+                "spin_quantum_number": self.spin_quantum_number,
+                "spin_square": self.spin_square,
                 "dipole": self._flatten(self.dimensionless_dipole).tolist(),
                 "quadrupole": self._flatten(self.dimensionless_quadrupole).tolist(),
                 "octapole": self._flatten(self.dimensionless_octapole).tolist(),
@@ -1210,7 +1213,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 "first freq tag": self.first_freq(dimensionless=True)["is imaginary"],
                 "second freq": self.second_freq(dimensionless=True)["freq"],
                 "second freq tag": self.second_freq(dimensionless=True)["is imaginary"],
-                "S**2": self.spin_eigenvalue,
-                "S": self.spin_multiplicity,
+                "S": self.spin_quantum_number,
+                "S**2": self.spin_square,
             }
         )

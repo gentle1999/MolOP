@@ -12,7 +12,7 @@ from molop.io.bases.molblock_base import BaseBlockParser
 from molop.structure.structure import (
     get_bond_pairs,
     get_formal_charges,
-    get_formal_spins,
+    get_formal_num_radicals,
 )
 from molop.unit import atom_ureg
 from molop.utils import is_metal
@@ -36,9 +36,9 @@ class SDFBlockParser(BaseBlockParser):
         self._coords = self._rdmol.GetConformer().GetPositions() * atom_ureg.angstrom
         self._bonds = get_bond_pairs(self._rdmol)
         self._formal_charges = get_formal_charges(self._rdmol)
-        self._formal_spins = get_formal_spins(self._rdmol)
+        self._formal_num_radicals = get_formal_num_radicals(self._rdmol)
         self._charge = sum(self._formal_charges)
         if any(is_metal(atom) for atom in self._atoms):
             self._multiplicity = 3
         else:
-            self._multiplicity = sum(self._formal_spins) + 1
+            self._multiplicity = sum(self._formal_num_radicals) + 1

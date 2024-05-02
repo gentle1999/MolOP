@@ -15,9 +15,10 @@ from molop.structure.geometry import get_geometry_info
 from molop.structure.structure import (
     get_bond_pairs,
     get_formal_charges,
-    get_formal_spins,
+    get_formal_num_radicals,
+    bond_list,
 )
-from molop.utils.types import arrayNx3, arrayN, RdMol, RWMol
+from molop.utils.types import arrayNx3, RdMol
 from molop.structure.structure_recovery import xyz_block_to_omol, omol_to_rdmol
 from molop.unit import atom_ureg
 
@@ -39,7 +40,7 @@ class MolBlock(ABC):
             **Predicted**: Save the bonds. The elements are: atom1 index, atom2 index, bond order(follow rdkit bond order `Chem.rdchem.BondType`).
         _formal_charges List[int]:
             **Predicted**: Save the formal charges. Consistent with the atomic order.
-        _formal_spins List[int]:
+        _formal_num_radicals List[int]:
             **Predicted**: Save the formal spins. Consistent with the atomic order.
         _omol str:
             **Predicted**: Save the sdf from openbabel.
@@ -54,9 +55,9 @@ class MolBlock(ABC):
     _multiplicity: int
     _bonds: List[Tuple[int, int, int]]
     _formal_charges: List[int]
-    _formal_spins: List[int]
+    _formal_num_radicals: List[int]
     _omol: str
-    _rdmol: Union[Chem.rdchem.RWMol, Chem.rdchem.Mol]
+    _rdmol: Chem.rdchem.Mol
 
     def __init__(self):
         self._atoms: Union[List[str], List[int]] = []
@@ -66,9 +67,9 @@ class MolBlock(ABC):
         self._multiplicity: int = 1
         self._bonds: List[Tuple[int, int, int]] = None
         self._formal_charges: List[int] = None
-        self._formal_spins: List[int] = None
+        self._formal_num_radicals: List[int] = None
         self._omol: pybel.Molecule = None
-        self._rdmol: Union[RdMol, RWMol] = None
+        self._rdmol: RdMol = None
 
     @property
     def atoms(self) -> List[str]:
@@ -132,7 +133,7 @@ class MolBlock(ABC):
         Get the standard coordinates.
         """
         return self._standard_coords
-    
+
     @property
     def dimensionless_standard_coords(self) -> np.ndarray:
         """
@@ -171,7 +172,7 @@ class MolBlock(ABC):
             return
         self._bonds = get_bond_pairs(self.rdmol)
         self._formal_charges = get_formal_charges(self.rdmol)
-        self._formal_spins = get_formal_spins(self.rdmol)
+        self._formal_num_radicals = get_formal_num_radicals(self.rdmol)
 
     @property
     def bonds(self) -> List[Tuple[int, int, int]]:
@@ -198,16 +199,16 @@ class MolBlock(ABC):
         return self._formal_charges
 
     @property
-    def formal_spins(self) -> List[int]:
+    def formal_num_radicals(self) -> List[int]:
         """
         Get the formal spins.
 
         Returns:
             A list of formal spins. Consistent with the atomic order.
         """
-        if self._formal_spins is None:
+        if self._formal_num_radicals is None:
             self.__get_topology()
-        return self._formal_spins
+        return self._formal_num_radicals
 
     @property
     def omol(self) -> pybel.Molecule:
@@ -227,7 +228,7 @@ class MolBlock(ABC):
                     raise RuntimeError(f"{self._file_path}: {e}")
             else:
                 assert (
-                    self._formal_charges and self._formal_spins
+                    self._formal_charges and self._formal_num_radicals
                 ), "If bonds given, formal charges and spins must be provided."
                 self._omol = self.to_CML_block()
         return pybel.readstring("cml", self._omol)
@@ -279,13 +280,13 @@ class MolBlock(ABC):
                         return self._rdmol
             else:
                 assert (
-                    self._formal_charges and self._formal_spins
+                    self._formal_charges and self._formal_num_radicals
                 ), "If bonds given, formal charges and spins must be provided."
                 rwmol = Chem.RWMol(Chem.MolFromXYZBlock(self.to_XYZ_block()))
                 for bond in self._bonds:
-                    rwmol.AddBond(bond[0], bond[1], bond[2])
+                    rwmol.AddBond(bond[0], bond[1], bond_list[bond[2]])
                 for atom, charge, spin in zip(
-                    rwmol.GetAtoms(), self._formal_charges, self._formal_spins
+                    rwmol.GetAtoms(), self._formal_charges, self._formal_num_radicals
                 ):
                     atom.SetFormalCharge(charge)
                     atom.SetNumRadicalElectrons(spin)
