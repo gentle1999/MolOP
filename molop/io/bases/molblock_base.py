@@ -555,14 +555,14 @@ class QMBaseBlockParser(BaseBlockParser):
                 - gap: PlainQuantity
                 - homo: PlainQuantity
                 - lumo: PlainQuantity
-        _sum_energy Dict[str, PlainQuantity]:
+        _thermal_energy Dict[str, PlainQuantity]:
             The sum energy of the molecule. The energy dict has the following keys:
 
-                - zero-point sum: PlainQuantity
-                - E sum: PlainQuantity
-                - H sum: PlainQuantity
-                - G sum: PlainQuantity
-                - zero-point correction: PlainQuantity
+                - U_0: PlainQuantity
+                - U_T: PlainQuantity
+                - H_T: PlainQuantity
+                - G_T: PlainQuantity
+                - zpve: PlainQuantity
                 - TCE: PlainQuantity
                 - TCH: PlainQuantity
                 - TCG: PlainQuantity
@@ -591,6 +591,9 @@ class QMBaseBlockParser(BaseBlockParser):
         self.solvent_eps_inf: float = None
 
         # Molecule properties
+        self.gradients: PlainQuantity = (
+            np.array([[]]) * atom_ureg.hartree / atom_ureg.bohr
+        )
         self._total_energy: PlainQuantity = None
         self.scf_energy: PlainQuantity = None
         self.mp2_energy: PlainQuantity = None
@@ -615,10 +618,13 @@ class QMBaseBlockParser(BaseBlockParser):
             "homo": None,
             "lumo": None,
         }
+        self.electronic_spatial_extent: PlainQuantity = None
         self.mulliken_charges: List[float] = []
         self.mulliken_spin_densities: List[float] = []
         self.apt_charges: List[float] = []
         self.lowdin_charges: List[float] = []
+        self.rotation_constants: PlainQuantity = np.array([]) * atom_ureg.Ghertz
+        self.isotropic_polarizability: PlainQuantity = None
         self.dipole: PlainQuantity = np.array([]) * atom_ureg.debye
         self.quadrupole: PlainQuantity = (
             np.array([]) * atom_ureg.debye * atom_ureg.angstrom
@@ -636,16 +642,18 @@ class QMBaseBlockParser(BaseBlockParser):
         self.hirshfeld_charges: List[float] = []
         self.hirshfeld_spins: List[float] = []
         self.hirshfeld_q_cm5: List[float] = []
-        self.sum_energy = {
-            "zero-point sum": None,
-            "E sum": None,
-            "H sum": None,
-            "G sum": None,
-            "zero-point correction": None,
+        self.thermal_energy = {
+            "U_0": None,
+            "U_T": None,
+            "H_T": None,
+            "G_T": None,
+            "zpve": None,
             "TCE": None,
             "TCH": None,
             "TCG": None,
         }
+        self.capacity: PlainQuantity = None
+        self.entropy: PlainQuantity = None
         self.frequencies: List[
             Dict[
                 Literal[
@@ -663,15 +671,44 @@ class QMBaseBlockParser(BaseBlockParser):
             ],
         ] = []
         self._dimensionless_frequencies = []
-        self.gradients: PlainQuantity = (
-            np.array([[]]) * atom_ureg.hartree / atom_ureg.bohr
-        )
         self.wiberg_bond_order: np.ndarray[np.float32] = np.array([[]])
         self.mo_bond_order: np.ndarray[np.float32] = np.array([[]])
         self.atom_atom_overlap_bond_order: np.ndarray[np.float32] = np.array([[]])
         self.nbo_bond_order: List[Tuple[int, int, int, PlainQuantity]] = []
         self.nbo_charges: List[float] = []
         self.status = {}
+
+    @property
+    def dimensionless_electronic_spatial_extent(self) -> float:
+        if self.electronic_spatial_extent is None:
+            return None
+        else:
+            return self.electronic_spatial_extent.to("bohr^2").m
+
+    @property
+    def demensionless_isotropic_polarizability(self) -> float:
+        if self.isotropic_polarizability is None:
+            return None
+        else:
+            return self.isotropic_polarizability.to("bohr^3").m
+
+    @property
+    def dimensionless_rotation_constants(self) -> arrayN[np.float32]:
+        return self.rotation_constants.to("Ghertz").m
+
+    @property
+    def dimensionless_entropy(self) -> float:
+        if self.entropy is None:
+            return None
+        else:
+            return self.entropy.to("cal/mol/K").m
+
+    @property
+    def dimensionless_capacity(self) -> float:
+        if self.capacity is None:
+            return None
+        else:
+            return self.capacity.to("cal/mol/K").m
 
     @property
     def total_energy(self) -> PlainQuantity:
@@ -947,15 +984,15 @@ class QMBaseBlockParser(BaseBlockParser):
         }
 
     @property
-    def dimensionless_sum_energy(
+    def dimensionless_thermal_energy(
         self,
     ) -> Dict[
         Literal[
-            "zero-point sum",
-            "E sum",
-            "H sum",
-            "G sum",
-            "zero-point correction",
+            "U_0",
+            "U_T",
+            "H_T",
+            "G_T",
+            "zpve",
             "TCE",
             "TCH",
             "TCG",
@@ -973,7 +1010,7 @@ class QMBaseBlockParser(BaseBlockParser):
         """
         return {
             key: value.to("hartree/particle").m if value is not None else None
-            for key, value in self.sum_energy.items()
+            for key, value in self.thermal_energy.items()
         }
 
     @property
@@ -1035,16 +1072,18 @@ class QMBaseBlockParser(BaseBlockParser):
                 "spin_densities": self.mulliken_spin_densities,
                 "gradients": self.dimensionless_gradients.tolist(),
                 "single_point_energy": self.dimensionless_total_energy,
-                "zero_point_correction": self.dimensionless_sum_energy[
-                    "zero-point correction"
+                "zpve": self.dimensionless_thermal_energy["zpve"],
+                "energy_correction": self.dimensionless_thermal_energy["TCE"],
+                "enthalpy_correction": self.dimensionless_thermal_energy["TCH"],
+                "gibbs_free_energy_correction": self.dimensionless_thermal_energy[
+                    "TCG"
                 ],
-                "energy_correction": self.dimensionless_sum_energy["TCE"],
-                "enthalpy_correction": self.dimensionless_sum_energy["TCH"],
-                "gibbs_free_energy_correction": self.dimensionless_sum_energy["TCG"],
-                "zero_point_sum": self.dimensionless_sum_energy["zero-point sum"],
-                "thermal_energy_sum": self.dimensionless_sum_energy["E sum"],
-                "thermal_enthalpy_sum": self.dimensionless_sum_energy["H sum"],
-                "thermal_free_energy_sum": self.dimensionless_sum_energy["G sum"],
+                "U_0": self.dimensionless_thermal_energy["U_0"],
+                "U_T": self.dimensionless_thermal_energy["U_T"],
+                "H_T": self.dimensionless_thermal_energy["H_T"],
+                "G_T": self.dimensionless_thermal_energy["G_T"],
+                "S": self.dimensionless_entropy,
+                "Cv": self.dimensionless_capacity,
                 "alpha_orbital_energies": self._flatten(
                     self.dimensionless_alpha_FMO_orbits
                 ).tolist(),
@@ -1065,12 +1104,16 @@ class QMBaseBlockParser(BaseBlockParser):
                 "second_vibration_mode": self._flatten(
                     self.second_freq(dimensionless=True)["normal coordinates"]
                 ).tolist(),
-                "freqs": self.dimensionless_frequencies,
+                "freqs": [freq["freq"] for freq in self.frequencies],
+                "frequence_analysis": self.dimensionless_frequencies,
                 "is_TS": self.is_TS(),
                 "is_optimized": self.is_optimized(),
                 "is_error": self.is_error(),
                 "spin_quantum_number": self.spin_quantum_number,
                 "spin_square": self.spin_square,
+                "rotation_consts": self.dimensionless_rotation_constants.tolist(),
+                "isotropic_polarizability": self.demensionless_isotropic_polarizability,
+                "electronic_spatial_extent": self.dimensionless_electronic_spatial_extent,
                 "dipole": self._flatten(self.dimensionless_dipole).tolist(),
                 "quadrupole": self._flatten(self.dimensionless_quadrupole).tolist(),
                 "octapole": self._flatten(self.dimensionless_octapole).tolist(),
@@ -1197,15 +1240,17 @@ class QMBaseBlockParser(BaseBlockParser):
                 "temperature": self.temperature,
                 "status": str(self.status),
                 "is_optimized": self.is_optimized(),
-                "ZPE": self.dimensionless_sum_energy["zero-point correction"],
-                "TCE": self.dimensionless_sum_energy["TCE"],
-                "TCH": self.dimensionless_sum_energy["TCH"],
-                "TCG": self.dimensionless_sum_energy["TCG"],
-                "ZPE-Gas": self.dimensionless_sum_energy["zero-point sum"],
-                "E-Gas": self.dimensionless_sum_energy["E sum"],
-                "H-Gas": self.dimensionless_sum_energy["H sum"],
-                "G-Gas": self.dimensionless_sum_energy["G sum"],
                 "sp": self.dimensionless_total_energy,
+                "ZPE": self.dimensionless_thermal_energy["zpve"],
+                "TCE": self.dimensionless_thermal_energy["TCE"],
+                "TCH": self.dimensionless_thermal_energy["TCH"],
+                "TCG": self.dimensionless_thermal_energy["TCG"],
+                "U_0": self.dimensionless_thermal_energy["U_0"],
+                "U_T": self.dimensionless_thermal_energy["U_T"],
+                "H_T": self.dimensionless_thermal_energy["H_T"],
+                "G_T": self.dimensionless_thermal_energy["G_T"],
+                "Cv": self.dimensionless_capacity,
+                "entropy": self.dimensionless_entropy,
                 "HOMO": self.dimensionless_alpha_energy["homo"],
                 "LUMO": self.dimensionless_alpha_energy["lumo"],
                 "GAP": self.dimensionless_alpha_energy["gap"],
@@ -1215,5 +1260,8 @@ class QMBaseBlockParser(BaseBlockParser):
                 "second freq tag": self.second_freq(dimensionless=True)["is imaginary"],
                 "S": self.spin_quantum_number,
                 "S**2": self.spin_square,
+                "rotational_constants": self.dimensionless_rotation_constants,
+                "electronic_spatial_extent": self.dimensionless_electronic_spatial_extent,
+                "isotropic_polarizability": self.demensionless_isotropic_polarizability,
             }
         )

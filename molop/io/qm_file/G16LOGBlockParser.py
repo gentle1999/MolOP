@@ -109,6 +109,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
         self._parse_functional_basis()
         self._parse_solvent()
         self._parse_energy()
+        self._parse_isotropic_polarizability()
         self._parse_spins()
         self._parse_orbitals()
         self._parse_mulliken_charges()
@@ -126,21 +127,22 @@ class G16LOGBlockParser(QMBaseBlockParser):
         self._parse_nbo_charges()
         self._parse_nbo_bond_order()
         self._parse_frequencies()
-        self._parse_sum_energy()
+        self._parse_thermal_energy()
         self._parse_gradient()
         self._parse_state()
         self._parse_tail()
 
     def _parse_rotation_consts(self):
-        rotation_consts = g16logpatterns["rotation_consts"].search(
-            self.__block,
-        )
-        if rotation_consts:
-            self._rotation_consts = (
-                np.array([float(x) for x in rotation_consts.groups()]) * atom_ureg.GHz
-            )
-        else:
-            self._rotation_consts = np.array([]) * atom_ureg.GHz
+        rotational_matches = g16logpatterns["rotation_consts"].search(self.__block)
+        if rotational_matches:
+            rots = []
+            for i in range(1, 4):
+                try:
+                    temp_rot = float(rotational_matches.group(i))
+                except:
+                    temp_rot = 0
+                rots.append(temp_rot)
+            self.rotation_constants = np.array(rots) * atom_ureg.Ghertz
 
     def _parse_functional_basis(self):
         functional_match = g16logpatterns["functional"].search(self.__block)
@@ -222,6 +224,16 @@ class G16LOGBlockParser(QMBaseBlockParser):
             )
             self.functional = "ccsd(t)"
 
+    def _parse_isotropic_polarizability(self):
+        isotropic_polarizability = g16logpatterns["isotropic_polarizability"].search(
+            self.__block
+        )
+        if isotropic_polarizability:
+            self.isotropic_polarizability = (
+                round(float(isotropic_polarizability.group(1)), 6)
+                * atom_ureg.bohr**3
+            )
+
     def _parse_spins(self):
         s = g16logpatterns["spins"].search(self.__block)
         if s:
@@ -297,6 +309,11 @@ class G16LOGBlockParser(QMBaseBlockParser):
                     * atom_ureg.hartree
                     / atom_ureg.particle
                 )
+        ese_match = g16logpatterns["electronic_spatial_extent"].search(self.__block)
+        if ese_match:
+            self.electronic_spatial_extent = (
+                round(float(ese_match.group(1)), 6) * atom_ureg.bohr * atom_ureg.bohr
+            )
 
     def _parse_mulliken_charges(self):
         mulliken_start = g16logpatterns["mulliken start"].search(self.__block)
@@ -547,13 +564,13 @@ class G16LOGBlockParser(QMBaseBlockParser):
         if matches:
             self.status["failure reason"] = matches[0]
 
-    def _parse_sum_energy(self):
+    def _parse_thermal_energy(self):
         mappings = {
-            "zero-point Energies": "zero-point sum",
-            "thermal Energies": "E sum",
-            "thermal Enthalpies": "H sum",
-            "thermal Free Energies": "G sum",
-            ("Zero-point", ""): "zero-point correction",
+            "zero-point Energies": "U_0",
+            "thermal Energies": "U_T",
+            "thermal Enthalpies": "H_T",
+            "thermal Free Energies": "G_T",
+            ("Zero-point", ""): "zpve",
             ("Thermal", " to Energy"): "TCE",
             ("Thermal", " to Enthalpy"): "TCH",
             ("Thermal", " to Gibbs Free Energy"): "TCG",
@@ -561,15 +578,33 @@ class G16LOGBlockParser(QMBaseBlockParser):
         matches = g16logpatterns["sum energies"].findall(self.__block)
         if matches:
             for tag, val in matches:
-                self.sum_energy[mappings[tag]] = round(
+                self.thermal_energy[mappings[tag]] = round(
                     float(val) * atom_ureg.hartree / atom_ureg.particle, 6
                 )
         matches = g16logpatterns["corrections"].findall(self.__block)
         if matches:
             for tag1, tag2, val in matches:
-                self.sum_energy[mappings[(tag1, tag2)]] = round(
+                self.thermal_energy[mappings[(tag1, tag2)]] = round(
                     float(val) * atom_ureg.hartree / atom_ureg.particle, 6
                 )
+        thermal_Cv_S_matches = g16logpatterns["thermal_Cv_S_start"].search(self.__block)
+        if thermal_Cv_S_matches:
+            block = self.__block[thermal_Cv_S_matches.end() :]
+            for line in block.splitlines():
+                if "Total" in line:
+                    self.capacity = (
+                        float(line.split()[-2])
+                        * atom_ureg.calorie
+                        / atom_ureg.mol
+                        / atom_ureg.kelvin
+                    )
+                    self.entropy = (
+                        float(line.split()[-1])
+                        * atom_ureg.calorie
+                        / atom_ureg.mol
+                        / atom_ureg.kelvin
+                    )
+                    break
 
     def _parse_gradient(self):
         start = g16logpatterns["gradients start"].search(self.__block)
@@ -628,22 +663,22 @@ class G16LOGBlockParser(QMBaseBlockParser):
             thermal_match = g16logpatterns["tail_thermal_match"].findall(tail)
             for e, v in thermal_match:
                 if "ZeroPoint" in e:
-                    self.sum_energy["zero-point correction"] = (
+                    self.thermal_energy["zpve"] = (
                         float(v) * atom_ureg.hartree / atom_ureg.particle
                     )
                 if "Thermal" in e:
-                    self.sum_energy["TCE"] = (
+                    self.thermal_energy["TCE"] = (
                         float(v) * atom_ureg.hartree / atom_ureg.particle
                     )
                 if "ETot" in e:
-                    self.sum_energy["E sum"] = (
+                    self.thermal_energy["U_T"] = (
                         float(v) * atom_ureg.hartree / atom_ureg.particle
                     )
                 if "HTot" in e:
-                    self.sum_energy["H sum"] = (
+                    self.thermal_energy["H_T"] = (
                         float(v) * atom_ureg.hartree / atom_ureg.particle
                     )
                 if "GTot" in e:
-                    self.sum_energy["G sum"] = (
+                    self.thermal_energy["G_T"] = (
                         float(v) * atom_ureg.hartree / atom_ureg.particle
                     )

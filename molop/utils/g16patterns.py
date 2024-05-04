@@ -273,7 +273,17 @@ g16logpatterns: Dict[str, re.Pattern] = {
     ),
     "tail_end": re.compile(r"\\@"),
     "tail_match": re.compile(r"(HF|MP2|MP3|MP4[SDTQ]*|CCSD[\(\)T]*)=([\s-]\d+.\d+)"),
-    "tail_thermal_match": re.compile(r"(ZeroPoint|Thermal|ETot|HTot|GTot)=([\s-]\d+.\d+)")
+    "tail_thermal_match": re.compile(
+        r"(ZeroPoint|Thermal|ETot|HTot|GTot)=([\s-]\d+.\d+)"
+    ),
+    "ratation_consts": re.compile(
+        r"Rotational constants \(GHZ\):\s*(\d+.\d+|\*+)\s*(\d+.\d+|\*+)\s*(\d+.\d+|\*+)"
+    ),
+    "thermal_Cv_S_start": re.compile(r"E \(Thermal\)\s*CV\s*S"),
+    "electronic_spatial_extent": re.compile(
+        r"Electronic spatial extent \(au\):  <R\*\*2>=\s*(\d+.\d+)"
+    ),
+    "isotropic_polarizability": re.compile(r"(\d+.\d+)\s*Bohr\*\*3."),
 }
 
 

@@ -56,6 +56,7 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         self.wiberg_bond_order = self._parse_bond_order()
         self._parse_dipole()
         self._parse_thermo()
+        self._parse_rotation()
 
     def _parse_coords(self):
         coords_match = xtboutpatterns["coords_start"].search(self._block)
@@ -227,31 +228,67 @@ class XTBOUTBlockParser(QMBaseBlockParser):
     def _parse_thermo(self):
         zpc = xtboutpatterns["zp correct"].search(self._block)
         if zpc:
-            self.sum_energy["zero-point correction"] = (
+            self.thermal_energy["zpve"] = (
                 float(zpc.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )
         hc = xtboutpatterns["H correct"].search(self._block)
         if hc:
-            self.sum_energy["TCH"] = (
+            self.thermal_energy["TCH"] = (
                 float(hc.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )
         gc = xtboutpatterns["G correct"].search(self._block)
         if gc:
-            self.sum_energy["TCG"] = (
+            self.thermal_energy["TCG"] = (
                 float(gc.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )
         se = xtboutpatterns["sum E"].search(self._block)
         if se:
-            self.sum_energy["zero-point sum"] = (
+            self.thermal_energy["U_0"] = (
                 float(se.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )
         sh = xtboutpatterns["sum H"].search(self._block)
         if sh:
-            self.sum_energy["H sum"] = (
+            self.thermal_energy["H_T"] = (
                 float(sh.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )
         sg = xtboutpatterns["sum G"].search(self._block)
         if sg:
-            self.sum_energy["G sum"] = (
+            self.thermal_energy["G_T"] = (
                 float(sg.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )
+        thermal_Cv_S_match = xtboutpatterns["thermal_Cv_S_start"].search(self._block)
+        if thermal_Cv_S_match:
+            block = self._block[thermal_Cv_S_match.end() :]
+            for line in block.splitlines():
+                if "TOT" in line:
+                    self.capacity = (
+                        float(line.split()[-3])
+                        * atom_ureg.calorie
+                        / atom_ureg.mol
+                        / atom_ureg.kelvin
+                    )
+                    self.entropy = (
+                        float(line.split()[-2])
+                        * atom_ureg.calorie
+                        / atom_ureg.mol
+                        / atom_ureg.kelvin
+                    )
+                    break
+
+
+    def _parse_rotation(self):
+        rot = xtboutpatterns["rotation_consts"].search(self._block)
+        if rot:
+            rots = []
+            for i in range(1, 4):
+                try:
+                    temp_rot = float(rot.group(i))
+                except:
+                    temp_rot = 0
+                rots.append(temp_rot)
+            self.rotation_constants = (
+                np.array(rots) * atom_ureg.cm_1 * 299792458 * atom_ureg.m / atom_ureg.s
+            ).to("Ghertz")
+
+    def _parse_freqs(self):
+        pass

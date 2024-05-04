@@ -1,10 +1,11 @@
-'''
+"""
 Author: TMJ
 Date: 2024-03-23 21:07:37
 LastEditors: TMJ
-LastEditTime: 2024-03-25 23:14:49
+LastEditTime: 2024-05-03 22:29:50
 Description: 请填写简介
-'''
+"""
+
 import re
 from typing import Dict, Tuple
 
@@ -53,4 +54,12 @@ xtboutpatterns: Dict[str, re.Pattern] = {
     "sum H": re.compile(r"TOTAL ENTHALPY\s+([\-\+0-9.]+)"),
     "sum G": re.compile(r"TOTAL FREE ENERGY\s+([\-\+0-9.]+)"),
     "sum E": re.compile(r"TOTAL ENERGY\s+([\-\+0-9.]+)"),
+    "thermal_Cv_S_start": re.compile(r"heat capacity  entropy"),
+    "rotation_consts": re.compile(
+        r"rotational constants/cm⁻¹ :\s*(\d+.\d+E[+-]\d+)\s*(\d+.\d+E[+-]\d+)\s*(\d+.\d+E[+-]\d+)"
+    ),
+    "freq_start": re.compile(r"projected vibrational frequencies \(cm⁻¹\)\n"),
+    "reduced_masses_start": re.compile(r"reduced masses \(amu\)\n"),
+    "ir_start": re.compile(r"IR intensities \(km·mol⁻¹\)\n"),
+    "raman_start": re.compile(r"Raman intensities \(amu\)\n"),
 }
