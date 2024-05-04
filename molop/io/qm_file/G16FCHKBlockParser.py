@@ -140,21 +140,21 @@ class G16FCHKBlockParser(QMBaseBlockParser):
     def _parse_thermal_energy(self):
         thermal_energy = g16fchkpatterns["thermal energy"].search(self._block)
         if thermal_energy:
-            self.sum_energy["E sum"] = (
+            self.thermal_energy["U_T"] = (
                 round(float(thermal_energy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
         thermal_enthalpy = g16fchkpatterns["thermal enthalpy"].search(self._block)
         if thermal_enthalpy:
-            self.sum_energy["H sum"] = (
+            self.thermal_energy["H_T"] = (
                 round(float(thermal_enthalpy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
         thermal_free_energy = g16fchkpatterns["thermal free energy"].search(self._block)
         if thermal_enthalpy:
-            self.sum_energy["G sum"] = (
+            self.thermal_energy["G_T"] = (
                 round(float(thermal_free_energy.group(1)), 6)
                 * atom_ureg.hartree
                 / atom_ureg.particle
