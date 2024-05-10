@@ -626,6 +626,8 @@ class G16LOGBlockParser(QMBaseBlockParser):
         """
         Check if the current frame is an error frame
         """
+        if self.total_energy is None:
+            return True
         if "termination" in self.status and self.status["termination"] == "Error":
             return True
         if "SCF Done" in self.status and self.status["SCF Done"] == False:
