@@ -290,6 +290,8 @@ class G16FCHKBlockParser(QMBaseBlockParser):
             self.status["Job Status"] = False
 
     def is_error(self) -> bool:
+        if self.total_energy is None:
+            return True
         if "Job Status" in self.status:
             return self.status["Job Status"] == False
         else:

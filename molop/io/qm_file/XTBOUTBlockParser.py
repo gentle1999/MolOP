@@ -130,6 +130,8 @@ class XTBOUTBlockParser(QMBaseBlockParser):
             self.status["geometric_optimization"] = False
 
     def is_error(self) -> bool:
+        if self.total_energy is None:
+            return True
         if "geometric_optimization" in self.status:
             return self.status["geometric_optimization"] == False
         else:

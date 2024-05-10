@@ -1091,7 +1091,7 @@ class QMBaseBlockParser(BaseBlockParser):
                     self.dimensionless_beta_FMO_orbits
                 ).tolist(),
                 "alpha_homo": self.dimensionless_alpha_energy["homo"],
-                "alpha_lumo": self.dimensionless_alpha_energy["homo"],
+                "alpha_lumo": self.dimensionless_alpha_energy["lumo"],
                 "alpha_gap": self.dimensionless_alpha_energy["gap"],
                 "beta_homo": self.dimensionless_beta_energy["homo"],
                 "beta_lumo": self.dimensionless_beta_energy["lumo"],
@@ -1104,7 +1104,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 "second_vibration_mode": self._flatten(
                     self.second_freq(dimensionless=True)["normal coordinates"]
                 ).tolist(),
-                "freqs": [freq["freq"] for freq in self.frequencies],
+                "freqs": [freq["freq"] for freq in self.dimensionless_frequencies],
                 "frequence_analysis": self.dimensionless_frequencies,
                 "is_TS": self.is_TS(),
                 "is_optimized": self.is_optimized(),
@@ -1265,3 +1265,11 @@ class QMBaseBlockParser(BaseBlockParser):
                 "isotropic_polarizability": self.demensionless_isotropic_polarizability,
             }
         )
+
+    def is_error(self) -> bool:
+        """
+        Abstrcact method to check if the current frame is an error. The details are implemented in the derived classes.
+        """
+        if self.total_energy is None:
+            return True
+        return False
