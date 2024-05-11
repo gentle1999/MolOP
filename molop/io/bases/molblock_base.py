@@ -1096,15 +1096,20 @@ class QMBaseBlockParser(BaseBlockParser):
                 "beta_homo": self.dimensionless_beta_energy["homo"],
                 "beta_lumo": self.dimensionless_beta_energy["lumo"],
                 "beta_gap": self.dimensionless_beta_energy["gap"],
-                "first_frequency": self.first_freq(dimensionless=True)["freq"],
-                "first_vibration_mode": self._flatten(
-                    self.first_freq(dimensionless=True)["normal coordinates"]
-                ).tolist(),
-                "second_frequency": self.second_freq(dimensionless=True)["freq"],
-                "second_vibration_mode": self._flatten(
-                    self.second_freq(dimensionless=True)["normal coordinates"]
-                ).tolist(),
                 "freqs": [freq["freq"] for freq in self.dimensionless_frequencies],
+                "IR_intensities": [
+                    freq["IR intensities"] for freq in self.dimensionless_frequencies
+                ],
+                "IR_intensities": [
+                    freq["reduced masses"] for freq in self.dimensionless_frequencies
+                ],
+                "force_constants": [
+                    freq["force constants"] for freq in self.dimensionless_frequencies
+                ],
+                "vibration_mode": [
+                    self._flatten(freq["normal coordinates"]).tolist()
+                    for freq in self.dimensionless_frequencies
+                ],
                 "frequence_analysis": self.dimensionless_frequencies,
                 "is_TS": self.is_TS(),
                 "is_optimized": self.is_optimized(),

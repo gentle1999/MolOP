@@ -170,7 +170,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
                 self.solvent_model = "IEFPCM"
             elif solvent_model == "C-PCM":
                 self.solvent_model = "C-PCM"
-            elif solvent_atom_radii == "SMD-Coulomb":
+            if solvent_atom_radii == "SMD-Coulomb":
                 self.solvent_model = "SMD-IEFPCM"
             else:
                 self.solvent_model = solvent_model
