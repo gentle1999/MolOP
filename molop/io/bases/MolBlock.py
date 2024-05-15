@@ -22,6 +22,8 @@ from molop.utils.types import arrayNx3, RdMol
 from molop.structure.structure_recovery import xyz_block_to_omol, omol_to_rdmol
 from molop.unit import atom_ureg
 
+pt = Chem.GetPeriodicTable()
+
 
 class MolBlock(ABC):
     """
@@ -100,6 +102,19 @@ class MolBlock(ABC):
             A list of element symbols dropped duplicates.
         """
         return list(set(self.atoms))
+
+    @property
+    def formula(self) -> str:
+        """
+        Get the formula.
+        """
+        return "".join(
+            [
+                f"{pt.GetElementSymbol(i)}{self.atoms.count(pt.GetElementSymbol(i))}"
+                for i in range(1, 119)
+                if self.atoms.count(pt.GetElementSymbol(i)) != 0
+            ]
+        )
 
     @property
     def coords(self) -> PlainQuantity:
