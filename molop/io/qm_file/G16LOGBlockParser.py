@@ -616,7 +616,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
             temp_gradients = [
                 (float(fx), float(fy), float(fz)) for fx, fy, fz in gradients
             ]
-            self.gradients = (
+            self.forces = (
                 np.array(temp_gradients, np.float32)
                 * atom_ureg.hartree
                 / atom_ureg.bohr

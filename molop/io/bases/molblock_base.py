@@ -528,8 +528,8 @@ class QMBaseBlockParser(BaseBlockParser):
             The spin multiplicity of the molecule.
         _spin_eigenvalue float:
             The spin eigenvalue of the molecule. spin egigenvalue = sqrt(spin multiplicity * (spin multiplicity + 1)).
-        _gradients PlainQuantity:
-            The gradients (forces) of the molecule.
+        _forces PlainQuantity:
+            The forces of the molecule.
         _frequencies List[Dict[str, Union[bool, PlainQuantity]]]:
             The frequencies of the molecule. The frequency dict has the following keys:
 
@@ -591,7 +591,7 @@ class QMBaseBlockParser(BaseBlockParser):
         self.solvent_eps_inf: float = None
 
         # Molecule properties
-        self.gradients: PlainQuantity = (
+        self.forces: PlainQuantity = (
             np.array([[]]) * atom_ureg.hartree / atom_ureg.bohr
         )
         self._total_energy: PlainQuantity = None
@@ -762,19 +762,19 @@ class QMBaseBlockParser(BaseBlockParser):
         return self.scf_energy.to("hartree/particle").m
 
     @property
-    def dimensionless_gradients(
+    def dimensionless_forces(
         self,
     ) -> arrayNx3[np.float32]:
         """
-        Get the dimensionless gradients of the molecule.
+        Get the dimensionless forces of the molecule.
 
         Unit will be transformed:
             - `hartree/bohr`
 
         Returns:
-            The dimensionless gradients of the molecule.
+            The dimensionless forces of the molecule.
         """
-        return self.gradients.to("hartree/bohr").m
+        return self.forces.to("hartree/bohr").m
 
     # @property
     # def hessian(self) -> List[float]:
@@ -1070,7 +1070,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 "keywords": self.parameter_comment,
                 "mulliken_charge": self.mulliken_charges,
                 "spin_densities": self.mulliken_spin_densities,
-                "gradients": self.dimensionless_gradients.tolist(),
+                "forces": self.dimensionless_forces.tolist(),
                 "single_point_energy": self.dimensionless_total_energy,
                 "zpve": self.dimensionless_thermal_energy["zpve"],
                 "energy_correction": self.dimensionless_thermal_energy["TCE"],
@@ -1100,7 +1100,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 "IR_intensities": [
                     freq["IR intensities"] for freq in self.dimensionless_frequencies
                 ],
-                "IR_intensities": [
+                "reduced_masses": [
                     freq["reduced masses"] for freq in self.dimensionless_frequencies
                 ],
                 "force_constants": [

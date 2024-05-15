@@ -222,7 +222,7 @@ class G16FCHKBlockParser(QMBaseBlockParser):
         gradients = self._parse_block("gradient_start", "float_digits", "gradient_end")
         if len(gradients) > 0:
             gradients = list(map(float, gradients))
-        self.gradients = (
+        self.forces = (
             np.array(gradients).reshape(-1, 3) * atom_ureg.hartree / atom_ureg.bohr
         )
 
