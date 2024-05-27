@@ -1,5 +1,7 @@
 import re
+import os
 from typing import Literal
+from openbabel import pybel
 
 import numpy as np
 from packaging.version import Version
@@ -51,36 +53,86 @@ class XTBOUTBlockParser(QMBaseBlockParser):
     def _parse(self):
         self._parse_state()
         self._parse_energy()
-        self._parse_mulliken_charges()
+        self._parse_charges()
         self._parse_orbitals()
-        self.wiberg_bond_order = self._parse_bond_order()
+        self._parse_bond_order()
         self._parse_dipole()
         self._parse_thermo()
         self._parse_rotation()
+        self._parse_vipea()
+        self._parse_gei()
+        self._parse_fukui_index()
+
+    def _parse_coords_attached(self):
+        attached_coords_path = re.search(xtboutpatterns["attached_coords"], self._block)
+        if attached_coords_path:
+            coords_path = attached_coords_path.group(1)
+            base_path = os.path.basename(coords_path)
+            coords_type = coords_path.split(".")[-1]
+            attach_path = None
+
+            for file_path in [
+                os.path.join(self.file_dir_path, base_path),
+                os.path.join(self.file_dir_path, coords_path),
+                os.path.join(self.file_dir_path, f"{self.pure_filename}.{coords_type}"),
+            ]:
+                if os.path.exists(file_path):
+                    attach_path = file_path
+                    break
+
+            if attach_path is None:
+                logger.error(
+                    f"No attached coordinates found. Check your path if space in it. {coords_path}"
+                )
+                return False
+
+            ofile = pybel.readfile(coords_type, attach_path)
+            omol = next(ofile)
+            self._coords = (
+                np.array([atom.coords for atom in omol.atoms]) * atom_ureg.angstrom
+            )
+            self._atoms = [atom.atomicnum for atom in omol.atoms]
+        else:
+            logger.error(
+                "No attached coordinates found. Check your path if space in it."
+            )
+            return False
+
+        return True
 
     def _parse_coords(self):
         coords_match = xtboutpatterns["coords_start"].search(self._block)
         if not coords_match:
-            logger.error(
-                "No coordinates found. If you are using `--hess`, use `--ohess` instead. See https://xtb-docs.readthedocs.io/en/latest/hessian.html for more details."
-            )
-            raise RuntimeError("No coordinates found.")
-        coords_type_match = xtboutpatterns["coords_type"].search(self._block)
-        if coords_type_match:
-            coords_type = coords_type_match.group(1)
-        coords_end = re.search(xtboutpatterns["coords_end"], self._block)
-        coords_block = self._block[coords_match.start() : coords_end.end()]
-        if coords_type == "xyz":
-            if self.version is None:
-                version = Version("0.0.0")
-            else:
-                version = Version(self.version.split()[1])
-            if version <= Version("6.2.2"):
-                self._parse_coords_old(coords_block)
-            else:
-                self._parse_coords_new(coords_block)
+            if not self._parse_coords_attached():
+                if "--hess" in self.parameter_comment:
+                    logger.error(
+                        "No coordinates found. If you are using `--hess`, use `--ohess` instead. See https://xtb-docs.readthedocs.io/en/latest/hessian.html for more details."
+                    )
+                raise RuntimeError("No coordinates found.")
         else:
-            raise ValueError(f"unsupported coords type: {coords_type}")
+            coords_type_match = xtboutpatterns["coords_type"].search(self._block)
+            if coords_type_match:
+                coords_type = coords_type_match.group(1)
+            coords_end = re.search(xtboutpatterns["coords_end"], self._block)
+            coords_block = self._block[coords_match.start() : coords_end.end()]
+            if coords_type == "xyz":
+                if self.version is None:
+                    version = Version("0.0.0")
+                else:
+                    version = Version(self.version.split()[1])
+                if version <= Version("6.2.2"):
+                    self._parse_coords_old(coords_block)
+                else:
+                    self._parse_coords_new(coords_block)
+            else:
+                omol = pybel.readstring(
+                    coords_type, "\n".join(coords_block.split("\n")[2:])
+                )
+                self._coords = (
+                    np.array([atom.coords for atom in omol.atoms]) * atom_ureg.angstrom
+                )
+                self._atoms = [atom.atomicnum for atom in omol.atoms]
+
         self.__n_atom = len(self.atoms)
 
     def _parse_coords_old(self, block: str):
@@ -124,12 +176,19 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         self._coords = np.array(temp_coords) * atom_ureg.angstrom
 
     def _parse_state(self):
-        if re.search(xtboutpatterns["state"], self._block):
-            self.status["geometric_optimization"] = True
+        if "opt" in self.parameter_comment:
+            if xtboutpatterns["geometric_optimization_state"].search(self._block):
+                self.status["geometric_optimization"] = True
+            else:
+                self.status["geometric_optimization"] = False
+        if xtboutpatterns["success_tag"].search(self._block):
+            self.status["finished run"] = True
         else:
-            self.status["geometric_optimization"] = False
+            self.status["finished run"] = False
 
     def is_error(self) -> bool:
+        if not self.status["finished run"]:
+            return True
         if self.total_energy is None:
             return True
         if "geometric_optimization" in self.status:
@@ -143,55 +202,88 @@ class XTBOUTBlockParser(QMBaseBlockParser):
         return False
 
     def _parse_energy(self):
-        lines = self._block.splitlines()
-        for line in reversed(lines):
-            if "total E" in line:
-                self.scf_energy = (
-                    round(float(line.split()[-1]), 6)
-                    * atom_ureg.hartree
-                    / atom_ureg.particle
-                )
-                return
-            if "TOTAL ENERGY" in line:
-                self._total_energy = (
-                    round(float(line.split()[-3]), 6)
-                    * atom_ureg.hartree
-                    / atom_ureg.particle
-                )
-                return
-        raise ValueError("Energy not found")
+        block = self._block
+        e_match = xtboutpatterns["total_energy"].search(block)
+        while e_match:
+            self._total_energy = (
+                round(float(e_match.group(1)), 6)
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
+            block = block[e_match.end() :]
+            e_match = xtboutpatterns["total_energy"].search(block)
+        block = self._block
+        e_match = xtboutpatterns["total_E"].search(block)
+        while e_match:
+            self.scf_energy = (
+                round(float(e_match.group(2)), 6)
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
+            block = block[e_match.end() :]
+            e_match = xtboutpatterns["total_E"].search(block)
 
-    def _parse_mulliken_charges(self):
-        lines = self._block.splitlines()
-        charges_sect = False
-        charges = []
-        for line in lines:
-            if "Mol." in line:
-                charges_sect = False
-            if charges_sect and len(line.split()) == 7:
-                charges.append(float(line.split()[4]))
-            if "covCN" in line:
-                charges_sect = True
-        self.mulliken_charges = charges
+    def _parse_charges(self):
+        self.cm5_charges = []
+        charges_match = xtboutpatterns["gfn1_charges_start"].search(self._block)
+        if charges_match:
+            mulliken_charges = []
+            cm5_charges = []
+            for row in self._block[charges_match.end() :].splitlines()[: self.__n_atom]:
+                mulliken_charges.append(float(row.split()[1]))
+                cm5_charges.append(float(row.split()[2]))
+            self.mulliken_charges = mulliken_charges
+            self.cm5_charges = cm5_charges
+        charges_match = xtboutpatterns["gfn2_charges_start"].search(self._block)
+        if charges_match:
+            mulliken_charges = []
+            for row in self._block[charges_match.end() :].splitlines()[: self.__n_atom]:
+                mulliken_charges.append(float(row.split()[4]))
+            self.mulliken_charges = mulliken_charges
 
     def _parse_orbitals(self):
-        if not re.search(xtboutpatterns["homo"], self._block):
-            return
-        self.alpha_energy["homo"] = (
-            round(float(re.findall(xtboutpatterns["homo"], self._block)[-1]), 6)
-            * atom_ureg.eV
-            / atom_ureg.particle
-        ).to("hartree/particle")
-        self.alpha_energy["lumo"] = (
-            round(float(re.findall(xtboutpatterns["lumo"], self._block)[-1]), 6)
-            * atom_ureg.eV
-            / atom_ureg.particle
-        ).to("hartree/particle")
-        self.alpha_energy["gap"] = (
-            round((self.alpha_energy["lumo"] - self.alpha_energy["homo"]).m, 6)
-            * atom_ureg.eV
-            / atom_ureg.particle
+        orbitals_start = xtboutpatterns["orbitals_start"].search(self._block)
+        orbitals_end = xtboutpatterns["orbitals_end"].search(
+            self._block[orbitals_start.end() :]
         )
+        if orbitals_start and orbitals_end:
+            block = self._block[
+                orbitals_start.end() : orbitals_start.end() + orbitals_end.start()
+            ]
+            orbitals = []
+            orbital_match = xtboutpatterns["orbitals_match"].search(block)
+            while orbital_match:
+                idx, occ, energy_Eh, energr_eV, tag = orbital_match.groups()
+                if idx == "...":
+                    block = block[orbital_match.end() :]
+                    orbital_match = xtboutpatterns["orbitals_match"].search(block)
+                    continue
+                if int(idx) > len(orbitals) + 1:
+                    for i in range(int(idx) - 1 - len(orbitals)):
+                        orbitals.append(float("-inf"))
+                orbitals.append(float(energy_Eh))
+                if tag == "(HOMO)":
+                    self.alpha_energy["homo"] = (
+                        round(float(energy_Eh), 6)
+                        * atom_ureg.hartree
+                        / atom_ureg.particle
+                    )
+                if tag == "(LUMO)":
+                    self.alpha_energy["lumo"] = (
+                        round(float(energy_Eh), 6)
+                        * atom_ureg.hartree
+                        / atom_ureg.particle
+                    )
+                block = block[orbital_match.end() :]
+                orbital_match = xtboutpatterns["orbitals_match"].search(block)
+            self.alpha_energy["gap"] = (
+                round((self.alpha_energy["lumo"] - self.alpha_energy["homo"]).m, 6)
+                * atom_ureg.hartree
+                / atom_ureg.particle
+            )
+            self.alpha_FMO_orbits = (
+                np.array(orbitals) * atom_ureg.hartree / atom_ureg.particle
+            )
 
     def _parse_bond_order(self):
         start_matches = xtboutpatterns[f"wiberg_start"].search(self._block)
@@ -214,8 +306,7 @@ class XTBOUTBlockParser(QMBaseBlockParser):
                 for i, v in zip(bond, value):
                     result[idx][i] = v
                     result[i][idx] = v
-            return result
-        return None
+            self.wiberg_bond_order = result
 
     def _parse_dipole(self):
         dipole_start = xtboutpatterns["dipole_start"].search(self._block)
@@ -277,7 +368,6 @@ class XTBOUTBlockParser(QMBaseBlockParser):
                     )
                     break
 
-
     def _parse_rotation(self):
         rot = xtboutpatterns["rotation_consts"].search(self._block)
         if rot:
@@ -294,3 +384,29 @@ class XTBOUTBlockParser(QMBaseBlockParser):
 
     def _parse_freqs(self):
         pass
+
+    def _parse_vipea(self):
+        self.vip, self.vea = None, None
+        vip_match = xtboutpatterns["VIP"].search(self._block)
+        if vip_match:
+            self.vip = float(vip_match.group(1)) * atom_ureg.eV / atom_ureg.particle
+        vea_match = xtboutpatterns["VEA"].search(self._block)
+        if vea_match:
+            self.vea = float(vea_match.group(1)) * atom_ureg.eV / atom_ureg.particle
+
+    def _parse_gei(self):
+        self.gei = None
+        gei_match = xtboutpatterns["GEI"].search(self._block)
+        if gei_match:
+            self.gei = float(gei_match.group(1)) * atom_ureg.eV / atom_ureg.particle
+
+    def _parse_fukui_index(self):
+        fukui_match = xtboutpatterns["fukui_start"].search(self._block)
+        self.fukui_plus = []
+        self.fukui_minus = []
+        self.fukui_zero = []
+        if fukui_match:
+            for row in self._block[fukui_match.end() :].splitlines()[: self.__n_atom]:
+                self.fukui_plus.append(float(row.split()[1]))
+                self.fukui_minus.append(float(row.split()[2]))
+                self.fukui_zero.append(float(row.split()[3]))

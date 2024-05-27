@@ -188,11 +188,11 @@ class MoleculeMeshLayer:
             )
         return self.__cutoff, self.__epsilon, self.__sigma
 
-    def electric_potential(self, charge: Literal["mulliken", "nbo"] = "mulliken"):
+    def electric_potential(self, charge: Literal["mulliken", "npa"] = "mulliken"):
         if self._mesh is None:
             raise ValueError("The mesh has not been built yet.")
-        if charge == "nbo":
-            if self._block.nbo_charges is None:
+        if charge == "npa":
+            if self._block.npa_charges is None:
                 logger.warning(
                     "The NBO charges are not available, try Mulliken charges instead"
                 )

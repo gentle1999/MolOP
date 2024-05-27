@@ -44,8 +44,8 @@ class XYZBlockParser(BaseBlockParser):
             self._multiplicity = int(cm.group(2))
         temp_coords = []
         for line in lines[2 : 2 + num_atoms]:
-            if re.search(r"[A-Za-z]+\s+[\d\.\-]+\s+[\d\.\-]+\s+[\d\.\-]+", line):
-                atom, x, y, z = line.split()
-                self._atoms.append(atom)
-                temp_coords.append((float(x), float(y), float(z)))
+            matches =  re.search(r"([A-Za-z]+)\s*([\d\.\-]+)\s+([\d\.\-]+)\s+([\d\.\-]+)", line)
+            atom, x, y, z = matches.groups()
+            self._atoms.append(atom)
+            temp_coords.append((float(x), float(y), float(z)))
         self._coords = np.array(temp_coords) * atom_ureg.angstrom

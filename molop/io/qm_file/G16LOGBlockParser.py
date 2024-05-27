@@ -124,7 +124,7 @@ class G16LOGBlockParser(QMBaseBlockParser):
         self.wiberg_bond_order = self._parse_bond_order("wiberg")
         self.atom_atom_overlap_bond_order = self._parse_bond_order("atom_atom_overlap")
         self.mo_bond_order = self._parse_bond_order("mo")
-        self._parse_nbo_charges()
+        self._parse_npa_charges()
         self._parse_nbo_bond_order()
         self._parse_frequencies()
         self._parse_thermal_energy()
@@ -458,15 +458,15 @@ class G16LOGBlockParser(QMBaseBlockParser):
             return np.concatenate(blks, axis=1)
         return np.array([[]])
 
-    def _parse_nbo_charges(self):
-        start_matches = g16logpatterns[f"nbo charge start"].search(self.__block)
-        end_matches = g16logpatterns[f"nbo charge end"].search(self.__block)
+    def _parse_npa_charges(self):
+        start_matches = g16logpatterns[f"npa charge start"].search(self.__block)
+        end_matches = g16logpatterns[f"npa charge end"].search(self.__block)
         if start_matches and end_matches:
             temp_block = self.__block[start_matches.start() : end_matches.end()]
             charges = list(
-                map(float, g16logpatterns["nbo charge match"].findall(temp_block))
+                map(float, g16logpatterns["npa charge match"].findall(temp_block))
             )
-            self.nbo_charges = charges
+            self.npa_charges = charges
 
     def _parse_nbo_bond_order(self):
         start_matches = g16logpatterns[f"nbo summary start"].search(self.__block)

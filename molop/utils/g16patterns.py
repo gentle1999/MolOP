@@ -260,16 +260,16 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "mo_start": re.compile(r"MO bond order"),
     "mo_end": re.compile(r"MO atomic valencies"),
     "digit": re.compile(r"[\s-]\d+.\d+"),
-    "nbo charge start": re.compile(r"Summary of Natural Population Analysis:"),
-    "nbo charge end": re.compile(r"=\n\s+\* Total \*"),
-    "nbo charge match": re.compile(r"[A-Za-z]+\s+\d+\s+([-\d.]+)"),
+    "npa charge start": re.compile(r"Summary of Natural Population Analysis:"),
+    "npa charge end": re.compile(r"=\n\s+\* Total \*"),
+    "npa charge match": re.compile(r"[A-Za-z]+\s+\d+\s+([-\d.]+)"),
     "nbo summary start": re.compile(r"Natural Bond Orbitals \(Summary\):"),
     "nbo summary end": re.compile(r"-\n\s+Total Lewis"),
     "nbo summary match": re.compile(
         r"BD\s+\(\s+\d\)\s+[A-Za-z]+\s+(\d+)\s+-[\sA-Za-z]+\s+(\d+)\s+(\d+.\d+)\s+([-\d.]+)"
     ),
     "tail_start": re.compile(
-        r"(Unable to Open any file for archive entry.|Test job not archived.)"
+        r"(Unable to Open any file for archive entry.|Test job not archived.|1\\1\\GINC|1\|1\|GINC)"
     ),
     "tail_end": re.compile(r"\\@"),
     "tail_match": re.compile(r"(HF|MP2|MP3|MP4[SDTQ]*|CCSD[\(\)T]*)=([\s-]\d+.\d+)"),

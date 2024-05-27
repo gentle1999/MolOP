@@ -93,6 +93,10 @@ class BaseBlockParser(MolBlock):
     @property
     def pure_filename(self) -> str:
         return os.path.splitext(self.file_name)[0]
+    
+    @property
+    def file_dir_path(self) -> str:
+        return os.path.dirname(self._file_path)
 
     @property
     def file_format(self) -> str:
@@ -383,6 +387,8 @@ class BaseBlockParser(MolBlock):
         bind_idx: int = None,
         replace_all=False,
         attempt_num: int = 10,
+        crowding_threshold: float = 0.75,
+        randomSeed: int = 114514,
     ) -> "BaseBlockParser":
         """
         Replace the substituent with the given SMARTS. The substituent is defined by the query_smi, and the new substituent is defined by the replacement_smi.
@@ -400,6 +406,8 @@ class BaseBlockParser(MolBlock):
                 If True, replace all the substituent queried in the original molecule.
             attempt_num int:
                 Max attempt times to replace the substituent. Each time a new substituent conformation will be used for substitution.
+            crowding_threshold float:
+                The threshold of crowding. If the new substituent is too crowded `d(a-b) > threshold * (R(a)+R(b))`, the substitution will be rejected.
         Returns:
             The new parser.
         """
@@ -410,6 +418,8 @@ class BaseBlockParser(MolBlock):
             bind_idx=bind_idx,
             replace_all=replace_all,
             attempt_num=attempt_num,
+            crowding_threshold=crowding_threshold,
+            randomSeed=randomSeed,
         )
         return self.rebuild_parser(new_mol, rebuild_type="mod")
 
@@ -675,7 +685,7 @@ class QMBaseBlockParser(BaseBlockParser):
         self.mo_bond_order: np.ndarray[np.float32] = np.array([[]])
         self.atom_atom_overlap_bond_order: np.ndarray[np.float32] = np.array([[]])
         self.nbo_bond_order: List[Tuple[int, int, int, PlainQuantity]] = []
-        self.nbo_charges: List[float] = []
+        self.npa_charges: List[float] = []
         self.status = {}
 
     @property
@@ -1127,7 +1137,7 @@ class QMBaseBlockParser(BaseBlockParser):
                 "wiberg_bond_order": self.wiberg_bond_order.tolist(),
                 "mo_bond_order": self.mo_bond_order.tolist(),
                 "atom_atom_overlap_bond_order": self.atom_atom_overlap_bond_order.tolist(),
-                "nbo_charges": self.nbo_charges,
+                "npa_charges": self.npa_charges,
                 "lowdin_charges": self.lowdin_charges,
                 "hirshfeld_charges": self.hirshfeld_charges,
             },
