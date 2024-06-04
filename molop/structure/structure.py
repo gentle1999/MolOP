@@ -3,14 +3,14 @@ Including functions related to the structure of molecules
 """
 
 import itertools
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import numpy as np
 from rdkit import Chem, RDLogger
 from rdkit.Chem import AllChem, rdMolTransforms
 
-from ..utils.types import RdMol
-from . import geometry
+from molop.structure import geometry
+from molop.utils.types import RdMol
 
 RDLogger.DisableLog("rdApp.*")
 
@@ -120,45 +120,64 @@ def get_under_bonded_number(atom: Chem.Atom) -> int:
 
 
 def replace_mol(
-    mol: Chem.rdchem.Mol,
-    query_smi: str,
-    replacement_smi: str,
+    mol,
+    replacement_mol: RdMol,
+    query_mol: Union[RdMol, None] = None,
     bind_idx: int = None,
     threshold=0.75,
+    angle_split=10,
     randomSeed=114514,
-) -> Chem.rdchem.Mol:
+    start_idx: int = None,
+    end_idx: int = None,
+):
     """
-    Replace the query_smi with replacement_smi in mol.
+    Replace the query_mol with replacement_mol in mol.
     """
-    query = Chem.MolFromSmarts(query_smi)
-    replacement = Chem.MolFromSmiles(replacement_smi)
-    if get_under_bonded_number(replacement.GetAtomWithIdx(0)) != 1:
+    if get_under_bonded_number(replacement_mol.GetAtomWithIdx(0)) != 1:
         raise ValueError("Replacement atom should be one bond left")
-    queried_idx_list = mol.GetSubstructMatches(query)
-    if len(queried_idx_list) == 0:
-        raise ValueError("No substruct match found.")
-    if bind_idx:
-        for queried_idx in queried_idx_list:
-            if queried_idx[0] == bind_idx:
-                unique_queried_idx = queried_idx
-                break
-        else:
-            raise ValueError(f"No substruct mapping to bind_idx {bind_idx}.")
-    else:
-        unique_queried_idx = queried_idx_list[0]
-    for atom in mol.GetAtomWithIdx(unique_queried_idx[0]).GetNeighbors():
+    if start_idx and end_idx:
         if (
-            atom.GetIdx() not in mol.GetSubstructMatch(Chem.MolFromSmarts(query_smi))
-            and mol.GetBondBetweenAtoms(
-                atom.GetIdx(), unique_queried_idx[0]
-            ).GetBondType()
+            mol.GetBondBetweenAtoms(start_idx, end_idx)
+            and mol.GetBondBetweenAtoms(start_idx, end_idx).GetBondType()
             == Chem.BondType.SINGLE
+            and not mol.GetBondBetweenAtoms(start_idx, end_idx).IsInRing()
         ):
-            start = atom.GetIdx()
-            end = unique_queried_idx[0]
-            break
+            end = end_idx
+            start = start_idx
+        else:
+            raise ValueError("start_idx and end_idx should be bonded with single but not in a ring.")
     else:
-        raise ValueError("Bond between skeleton and replacement is not single.")
+        if query_mol is None:
+            raise ValueError("start_idx and end_idx should be provided.")
+        else:
+            query_mol_ = Chem.MolFromSmarts(Chem.MolToSmarts(query_mol))
+            queried_idx_list = mol.GetSubstructMatches(query_mol_)
+            # print(queried_idx_list)
+            if len(queried_idx_list) == 0:
+                raise ValueError("No substruct match found.")
+            if bind_idx:
+                for queried_idx in queried_idx_list:
+                    if bind_idx == queried_idx[0]:
+                        unique_queried_idx = queried_idx
+                        break
+                else:
+                    raise ValueError(f"No substruct mapping to bind_idx {bind_idx}.")
+            else:
+                unique_queried_idx = queried_idx_list[0]
+            # print(unique_queried_idx)
+            for atom in mol.GetAtomWithIdx(unique_queried_idx[0]).GetNeighbors():
+                if (
+                    atom.GetIdx() not in mol.GetSubstructMatch(query_mol_)
+                    and mol.GetBondBetweenAtoms(
+                        atom.GetIdx(), unique_queried_idx[0]
+                    ).GetBondType()
+                    == Chem.BondType.SINGLE
+                ):
+                    start = atom.GetIdx()
+                    end = unique_queried_idx[0]
+                    break
+            else:
+                raise ValueError("Bond between skeleton and replacement is not single.")
     # start: the idx of atom that bind to the substruct to be replaced
     # end: the idx of atom in substruct to be replaced, and bind to the main structure
 
@@ -169,7 +188,7 @@ def replace_mol(
         start,
         end,
         pt.GetRcovalent(origin_mol.GetAtomWithIdx(start).GetAtomicNum())
-        + pt.GetRcovalent(replacement.GetAtomWithIdx(0).GetAtomicNum()),
+        + pt.GetRcovalent(replacement_mol.GetAtomWithIdx(0).GetAtomicNum()),
     )
     # build skeleton with queried substruct removed
     # considering the original mol may have been split into frags
@@ -186,14 +205,13 @@ def replace_mol(
         skeleton = Chem.CombineMols(skeleton, frag)
 
     # build replacement conformer
-    replacement = Chem.AddHs(replacement)
+    replacement = Chem.AddHs(replacement_mol, addCoords=True)
     replacement.GetAtomWithIdx(0).SetNumRadicalElectrons(0)
     rr = fix_geometry(
         replacement,
         bind_type=mol.GetAtomWithIdx(start).GetAtomicNum(),
         randomSeed=randomSeed,
     )
-
     # combine skeleton and replacement
     new_mol = Chem.CombineMols(rr, skeleton)
     # find the new index mapping of start and end (end in the replacement now)
@@ -225,9 +243,8 @@ def replace_mol(
             first_atom_idx = first_atom.GetIdx()
             break
     Chem.SanitizeMol(rmol)
-    best_angle = 0
-    best_crowding_score = 0
-    for angle in np.linspace(0, 2 * np.pi, 10):
+    best_angle, best_crowding_score = 0, 0
+    for angle in np.linspace(0, 2 * np.pi, angle_split):
         rdMolTransforms.SetDihedralRad(
             rmol.GetConformer(),
             first_atom_idx,
@@ -236,7 +253,7 @@ def replace_mol(
             forth_atom_idx,
             angle,
         )
-        crowding_score = get_crowding_socre(rmol)
+        crowding_score = get_crowding_socre(rmol, threshold=threshold)
         if crowding_score > best_crowding_score:
             best_angle = angle
             best_crowding_score = crowding_score
@@ -269,6 +286,8 @@ def replace_mol(
 def check_crowding(mol, threshold=0.6):
     distances = Chem.Get3DDistanceMatrix(mol)
     for start_atom, end_atom in itertools.combinations(mol.GetAtoms(), 2):
+        if mol.GetBondBetweenAtoms(start_atom.GetIdx(), end_atom.GetIdx()):
+            continue
         if distances[start_atom.GetIdx()][end_atom.GetIdx()] < threshold * (
             pt.GetRcovalent(start_atom.GetAtomicNum())
             + pt.GetRcovalent(end_atom.GetAtomicNum())
@@ -277,78 +296,108 @@ def check_crowding(mol, threshold=0.6):
     return True
 
 
-def get_crowding_socre(mol):
+def get_crowding_socre(mol, threshold: float):
     score = 0
     distances = Chem.Get3DDistanceMatrix(mol)
     for start_atom, end_atom in itertools.combinations(mol.GetAtoms(), 2):
+        if mol.GetBondBetweenAtoms(start_atom.GetIdx(), end_atom.GetIdx()):
+            continue
         ideal_distance = pt.GetRcovalent(start_atom.GetAtomicNum()) + pt.GetRcovalent(
             end_atom.GetAtomicNum()
         )
         distance = distances[start_atom.GetIdx()][end_atom.GetIdx()]
-        score += np.exp(-ideal_distance / distance)
+        if distance < threshold * ideal_distance:
+            return -float("inf")
+        score += np.log(distance / ideal_distance)
     return score
 
 
 def attempt_replacement(
     mol,
-    query_smi: str,
-    replacement_smi: str,
+    query: Union[str, RdMol],
+    replacement: Union[str, RdMol] = None,
     bind_idx: int = None,
     replace_all=False,
     attempt_num=10,
     crowding_threshold=0.75,
+    angle_split=10,
     randomSeed=114514,
+    start_idx: int = None,
+    end_idx: int = None,
 ):
     random_seeds = list(range(1, attempt_num + 1))
     np.random.RandomState(randomSeed).shuffle(random_seeds)
 
-    query = Chem.MolFromSmarts(query_smi)
+    if isinstance(query, str):
+        query_mol = Chem.MolFromSmarts(query)
+    elif isinstance(query, (RdMol, Chem.RWMol)):
+        query_mol = Chem.MolFromSmarts(Chem.MolToSmarts(query))
+    if isinstance(replacement, str):
+        replacement_mol = Chem.MolFromSmiles(replacement)
+    elif isinstance(replacement, (RdMol, Chem.RWMol)):
+        replacement_mol = replacement
+
     for random_seed in random_seeds:
         if replace_all:
-            match_num = len(mol.GetSubstructMatches(query))
-            if len(mol.GetSubstructMatches(query)) > match_num:
+            if replacement_mol.HasSubstructMatch(query_mol):
                 raise RuntimeError(
-                    f"Endless loop: {replacement_smi} contains {query_smi}"
+                    f"Endless loop: replacement '{Chem.MolToSmiles(replacement_mol)}' contains query '{Chem.MolToSmiles(query_mol)}'"
                 )
+
             new_mol = replace_mol(
-                mol,
-                query_smi,
-                replacement_smi,
+                mol=mol,
+                query_mol=query_mol,
+                replacement_mol=replacement_mol,
                 bind_idx=None,
                 threshold=crowding_threshold,
+                angle_split=angle_split,
                 randomSeed=random_seed,
             )
-            while new_mol.GetSubstructMatches(query):
+            while new_mol.HasSubstructMatch(query_mol):
+                # print(new_mol.GetSubstructMatches(query_mol))
                 new_mol = replace_mol(
-                    new_mol,
-                    query_smi,
-                    replacement_smi,
+                    mol=new_mol,
+                    query_mol=query_mol,
+                    replacement_mol=replacement_mol,
                     bind_idx=None,
                     threshold=crowding_threshold,
+                    angle_split=angle_split,
                     randomSeed=random_seed,
                 )
         else:
             new_mol = replace_mol(
-                mol,
-                query_smi,
-                replacement_smi,
+                mol=mol,
+                query_mol=query_mol,
+                replacement_mol=replacement_mol,
                 bind_idx=bind_idx,
                 threshold=crowding_threshold,
+                angle_split=angle_split,
                 randomSeed=random_seed,
+                start_idx=start_idx,
+                end_idx=end_idx,
             )
         if check_crowding(new_mol, threshold=crowding_threshold):
             return new_mol
     else:
-        raise RuntimeError(f"replacement {replacement_smi} is too big")
+        raise RuntimeError(
+            f"replacement '{Chem.MolToSmiles(replacement_mol)}' is too big in threshold {crowding_threshold}, try smaller threshold"
+        )
 
 
-def fix_geometry(replacement, bind_type: int, randomSeed=114514):
+def fix_geometry(replacement: RdMol, bind_type: int, randomSeed=114514):
     r = Chem.RWMol(replacement)
     idx = r.AddAtom(Chem.Atom("At"))
     r.AddBond(0, idx, Chem.BondType.SINGLE)
     r.UpdatePropertyCache()
     Chem.SanitizeMol(r)
-    AllChem.EmbedMolecule(r, randomSeed=randomSeed)
+    if replacement.GetNumConformers() == 0:
+        AllChem.EmbedMolecule(r, randomSeed=randomSeed)
+    else:
+        cmap = {
+            atom_idx: replacement.GetConformer().GetAtomPosition(atom_idx)
+            for atom_idx in range(replacement.GetNumAtoms())
+        }
+        AllChem.EmbedMolecule(r, randomSeed=randomSeed, coordMap=cmap)
     geometry.standard_orient(r, [idx, 0])
     rdMolTransforms.SetBondLength(
         r.GetConformer(),

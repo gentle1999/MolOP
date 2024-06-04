@@ -30,7 +30,7 @@ from molop.structure.structure import (
 from molop.structure.structure_recovery import xyz_block_to_rdmol
 from molop.unit import atom_ureg
 from molop.utils.g16patterns import link0_parser
-from molop.utils.types import arrayN, arrayNx3
+from molop.utils.types import RdMol, arrayN, arrayNx3
 
 
 class BaseBlockParser(MolBlock):
@@ -93,7 +93,7 @@ class BaseBlockParser(MolBlock):
     @property
     def pure_filename(self) -> str:
         return os.path.splitext(self.file_name)[0]
-    
+
     @property
     def file_dir_path(self) -> str:
         return os.path.dirname(self._file_path)
@@ -382,25 +382,28 @@ class BaseBlockParser(MolBlock):
 
     def replace_substituent(
         self,
-        query_smi: str,
-        replacement_smi: str,
+        query: Union[str, RdMol],
+        replacement: Union[str, RdMol] = None,
         bind_idx: int = None,
         replace_all=False,
-        attempt_num: int = 10,
-        crowding_threshold: float = 0.75,
-        randomSeed: int = 114514,
+        attempt_num=10,
+        crowding_threshold=0.75,
+        angle_split=10,
+        randomSeed=114514,
+        start_idx: int = None,
+        end_idx: int = None,
     ) -> "BaseBlockParser":
         """
         Replace the substituent with the given SMARTS. The substituent is defined by the query_smi, and the new substituent is defined by the replacement_smi.
 
         Parameters:
-            query_smi str:
-                The SMARTS to query the substituent in the original molecule.
-            replacement_smi str:
-                The SMARTS of new substituent. The bind atom is the first atom of the replacement_smi.
+            query str | RdMol:
+                The SMARTS or Mol object to query the substituent in the original molecule.
+            replacement str | RdMol:
+                The SMARTS or Mol object of new substituent.
             bind_idx int:
                 The index of the atom to bind the new substituent. The default is None, which means to replace the first legal atom in original molecule.
-                If specified, try to replace the atom. User should meke sure the atom is legal.
+                If specified, try to replace the legal substruct where the atom in it. User should meke sure the atom is legal.
                 Detail example in (Repalce Substituent)[Repalce Substituent]
             replace_all bool:
                 If True, replace all the substituent queried in the original molecule.
@@ -408,18 +411,29 @@ class BaseBlockParser(MolBlock):
                 Max attempt times to replace the substituent. Each time a new substituent conformation will be used for substitution.
             crowding_threshold float:
                 The threshold of crowding. If the new substituent is too crowded `d(a-b) > threshold * (R(a)+R(b))`, the substitution will be rejected.
+            angle_split int:
+                Decide how many equal parts of 360° you want to divide. The larger the number the finer the rotation will be attempted.
+            randomSeed int:
+                The random seed.
+            start_idx int:
+                If both `start_idx` and `end_idx` are specified, simply ignore the `query`, break the key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
+            end_idx int:
+                If both `start_idx` and `end_idx` are specified, simply ignore the `query`, break the key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
         Returns:
             The new parser.
         """
         new_mol = attempt_replacement(
             self.rdmol,
-            query_smi=query_smi,
-            replacement_smi=replacement_smi,
+            query=query,
+            replacement=replacement,
             bind_idx=bind_idx,
             replace_all=replace_all,
             attempt_num=attempt_num,
             crowding_threshold=crowding_threshold,
+            angle_split=angle_split,
             randomSeed=randomSeed,
+            start_idx=start_idx,
+            end_idx=end_idx,
         )
         return self.rebuild_parser(new_mol, rebuild_type="mod")
 
@@ -601,9 +615,7 @@ class QMBaseBlockParser(BaseBlockParser):
         self.solvent_eps_inf: float = None
 
         # Molecule properties
-        self.forces: PlainQuantity = (
-            np.array([[]]) * atom_ureg.hartree / atom_ureg.bohr
-        )
+        self.forces: PlainQuantity = np.array([[]]) * atom_ureg.hartree / atom_ureg.bohr
         self._total_energy: PlainQuantity = None
         self.scf_energy: PlainQuantity = None
         self.mp2_energy: PlainQuantity = None
