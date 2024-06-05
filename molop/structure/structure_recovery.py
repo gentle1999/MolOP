@@ -495,7 +495,7 @@ def clean_resonances_3(omol: pybel.Molecule) -> pybel.Molecule:
 
 def clean_resonances_4(omol: pybel.Molecule) -> pybel.Molecule:
     """
-    `[#8]=[#6]-[#6-,#7-]>>[#8-]-[#6]=[#6,#7]`
+    `[#8,#16]=[#6]-[#6-,#7-]>>[#8-,#16-]-[#6]=[#6,#7]`
 
     Parameters:
         omol (pybel.Molecule): The input molecule object
@@ -503,7 +503,7 @@ def clean_resonances_4(omol: pybel.Molecule) -> pybel.Molecule:
     Returns:
         The cleaned molecule.
     """
-    smarts = pybel.Smarts("[#8+0]=[#6+0]-[#6-,#7-]")
+    smarts = pybel.Smarts("[#8+0,#16+0]=[#6+0]-[#6-,#7-]")
     res = smarts.findall(omol)
     while len(res):
         logger.debug(f"Cleaning resonance 4: {res}")
