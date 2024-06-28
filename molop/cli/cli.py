@@ -44,8 +44,8 @@ class MolOPCLI:
     def read(
         self,
         file_path: str,
-        charge=None,
-        multiplicity=None,
+        charge=0,
+        multiplicity=1,
         n_jobs=-1,
         only_extract_structure=False,
         only_last_frame=False,

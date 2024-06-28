@@ -151,7 +151,7 @@ g16logpatterns: Dict[str, re.Pattern] = {
     ),
     "link0": re.compile(r"\%[a-zA-Z]+=[^\s]+"),
     "scrf_patt": re.compile(r"^([sS][cC][rR][fF])\s*=\s*(.+)"),
-    "multi_params_patt": re.compile(r"([A-z\d]+)([\s=]+)*\(([a-zA-Z\d,=\-\(\)]+)\)"),
+    "multi_params_patt": re.compile(r"([A-z\d\+\-]+)([\s=]+)*\(([a-zA-Z\d,=\-\(\)]+)\)"),
     "rotation_consts": re.compile(
         r"Rotational constants \(GHZ\):\s*(\d+.\d+)\s*(\d+.\d+)\s*(\d+.\d+)"
     ),
@@ -236,11 +236,11 @@ g16logpatterns: Dict[str, re.Pattern] = {
     ),
     "freq end": re.compile(r"- Thermochemistry -"),
     "Temperature": re.compile(r"Temperature\s+(\d+.\d+)"),
-    "gradients start": re.compile(r"Center\s+Atomic\s+Forces\s+\(Hartrees/Bohr\)"),
-    "gradients match": re.compile(
+    "forces start": re.compile(r"Center\s+Atomic\s+Forces\s+\(Hartrees/Bohr\)"),
+    "forces match": re.compile(
         r"\s+\d+\s+\d+\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)"
     ),
-    "gradients end": re.compile(r"Cartesian\s+Forces:\s+Max.*RMS.*"),
+    "forces end": re.compile(r"Cartesian\s+Forces:\s+Max.*RMS.*"),
     "opt stat": re.compile(
         r"(Maximum\s+Force|RMS\s+Force|Maximum\s+Displacement|RMS\s+Displacement)\s+[\d.]+\s+[\d.]+\s+(NO|YES)"
     ),
@@ -269,7 +269,7 @@ g16logpatterns: Dict[str, re.Pattern] = {
         r"BD\s+\(\s+\d\)\s+[A-Za-z]+\s+(\d+)\s+-[\sA-Za-z]+\s+(\d+)\s+(\d+.\d+)\s+([-\d.]+)"
     ),
     "tail_start": re.compile(
-        r"(Unable to Open any file for archive entry.|Test job not archived.|1\\1\\GINC|1\|1\|GINC)"
+        r"(1\\1\\GINC|1\|1\|GINC)"
     ),
     "tail_end": re.compile(r"\\@"),
     "tail_match": re.compile(r"(HF|MP2|MP3|MP4[SDTQ]*|CCSD[\(\)T]*)=([\s-]\d+.\d+)"),
@@ -283,7 +283,8 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "electronic_spatial_extent": re.compile(
         r"Electronic spatial extent \(au\):  <R\*\*2>=\s*(\d+.\d+)"
     ),
-    "isotropic_polarizability": re.compile(r"(\d+.\d+)\s*Bohr\*\*3."),
+    "isotropic_polarizability": re.compile(r"Isotropic polarizability for W=\s*\d+.\d+\s*(\d+.\d+)\s*Bohr\*\*3"),
+    "polarizability": re.compile(r"Exact\s*polarizability:\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)")
 }
 
 
@@ -323,9 +324,16 @@ g16fchkpatterns: Dict[str, re.Pattern] = {
     "vib_e2_start": re.compile(r"Vib-E2\s*[ICRU]\s*N=\s*(\d+)"),
     "vib_mode_start": re.compile(r"Vib-Modes\s*[ICRU]\s*N=\s*(\d+)"),
     "vib_mode_end": re.compile(r"ClPar MaxAn"),
-    "dipole": re.compile(
-        r"Dipole Moment\s+[ICRU]\s+N=\s+\d+\n\s+([-\d.E]+)\s+([-\d.E]+)\s+([-\d.E]+)"
+    "dipole_start": re.compile(
+        r"Dipole Moment\s+[ICRU]\s+N=\s*(\d+)\n\s+([-\d.E]+)\s+([-\d.E]+)\s+([-\d.E]+)"
     ),
+    "polarizability_start": re.compile(r"Polarizability\s*[ICRU]\s*N=\s*(\d+)"),
+    "quadrupole_start": re.compile(r"Quadrupole Moment\s*[ICRU]\s*N=\s*(\d+)"),
     "int_digits": re.compile(r"\d+"),
     "float_digits": re.compile(r"[\s-]\d+.\d+E[+-]\d+"),
 }
+
+
+semi_empirical_methods = (
+    "am1", "pm3", "pm6", "pm7", "pddg", "indo", "cndo", "pm3mm"
+)

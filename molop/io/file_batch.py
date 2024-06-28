@@ -9,48 +9,54 @@ Description: 请填写简介
 import os
 from collections import OrderedDict
 from collections.abc import MutableMapping
-from typing import Dict, Generator, List, Union, Sequence
+from typing import Dict, Generator, List, Sequence, Union
 
 import pandas as pd
 from joblib import Parallel, cpu_count, delayed
 from tqdm import tqdm
 
 from molop.config import molopconfig
-from molop.io.bases.file_base import BaseBlockParser, BaseFileParser
-from molop.io.coords_file.gjf_parser import GJFParser
-from molop.io.coords_file.sdf_parser import SDFBlockParser, SDFParser
-from molop.io.coords_file.xyz_parser import XYZParser
-from molop.io.qm_file.g16fchk_parser import G16FCHKParser
-from molop.io.qm_file.g16log_parser import G16LOGParser
-from molop.io.qm_file.xtbout_parser import XTBOUTParser
-from molop.io.types import PARSERTYPES
+from molop.io.bases.BaseMolFileParser import BaseMolFileParser, BaseQMMolFileParser
+from molop.io.coords_file.GJFFileParser import GJFFileParser
+from molop.io.coords_file.SDFFileParser import SDFFileParser, SDFFrameParser
+from molop.io.coords_file.XYZFileParser import XYZFileParser
+from molop.io.qm_file.G16FchkFileParser import G16FchkFileParser
+from molop.io.qm_file.G16LogFileParser import G16LogFileParser
+from molop.io.qm_file.XTBFileParser import XTBFileParser
+from molop.io.types import (
+    PARSERTYPES,
+    MolFileParserType,
+    MolFrameType,
+    QMMolFileParserType,
+    QMMolFrameType,
+)
 from molop.logger.logger import logger
 
 parsers: Dict[str, PARSERTYPES] = {
-    ".gjf": (GJFParser,),
-    ".gau": (GJFParser,),
-    ".com": (GJFParser,),
-    ".gjc": (GJFParser,),
-    ".log": (G16LOGParser,),
-    ".g16": (G16LOGParser,),
-    ".gal": (G16LOGParser,),
-    ".xyz": (XYZParser,),
-    ".sdf": (SDFParser,),
-    ".mol": (SDFParser,),
-    ".out": (G16LOGParser, XTBOUTParser),
-    ".irc": (G16LOGParser,),
-    ".fchk": (G16FCHKParser,),
-    ".fck": (G16FCHKParser,),
-    ".fch": (G16FCHKParser,),
+    ".gjf": (GJFFileParser,),
+    ".gau": (GJFFileParser,),
+    ".com": (GJFFileParser,),
+    ".gjc": (GJFFileParser,),
+    ".log": (G16LogFileParser,),
+    ".g16": (G16LogFileParser,),
+    ".gal": (G16LogFileParser,),
+    ".xyz": (XYZFileParser,),
+    ".sdf": (SDFFileParser,),
+    ".mol": (SDFFileParser,),
+    ".out": (G16LogFileParser, XTBFileParser),
+    ".irc": (G16LogFileParser,),
+    ".fchk": (G16FchkFileParser,),
+    ".fck": (G16FchkFileParser,),
+    ".fch": (G16FchkFileParser,),
 }
 
-qm_parsers = (G16LOGParser, G16FCHKParser, XTBOUTParser)
+qm_parsers = (G16LogFileParser, G16FchkFileParser, XTBFileParser)
 
 
 def singlefile_parser(
     file_path: str,
-    charge=None,
-    multiplicity=None,
+    charge=0,
+    multiplicity=1,
     only_extract_structure=False,
     only_last_frame=False,
 ) -> PARSERTYPES:
@@ -90,27 +96,28 @@ def singlefile_parser(
             try:
                 # Instantiate and return specific parser classes with their respective arguments
                 if parser in qm_parsers:
-                    p = parser(
-                        file_path,
+                    return parser(
+                        file_path=file_path,
                         charge=charge,
                         multiplicity=multiplicity,
                         only_extract_structure=only_extract_structure,
                         only_last_frame=only_last_frame,
                     )
-                    return p
-                elif parser in (GJFParser,):
-                    return parser(file_path, charge=charge, multiplicity=multiplicity)
-                elif parser in (XYZParser,):
+                elif parser in (GJFFileParser,):
                     return parser(
-                        file_path,
+                        file_path=file_path, charge=charge, multiplicity=multiplicity
+                    )
+                elif parser in (XYZFileParser,):
+                    return parser(
+                        file_path=file_path,
                         charge=charge,
                         multiplicity=multiplicity,
                         only_last_frame=only_last_frame,
                     )
-                elif parser in (SDFParser,):
-                    return parser(file_path, only_last_frame=only_last_frame)
+                elif parser in (SDFFileParser,):
+                    return parser(file_path=file_path, only_last_frame=only_last_frame)
                 else:
-                    return parser(file_path)
+                    return parser(file_path=file_path)
             except Exception as e:
                 if idx == len(parsers[file_format]) - 1:
                     logger.error(
@@ -170,8 +177,8 @@ class FileParserBatch(MutableMapping):
     def add_files(
         self,
         files: List[str],
-        charge=None,
-        multiplicity=None,
+        charge=0,
+        multiplicity=1,
         only_extract_structure=False,
         only_last_frame=False,
     ):
@@ -201,7 +208,7 @@ class FileParserBatch(MutableMapping):
             if molopconfig.show_progress_bar:
                 self.__parsers.update(
                     {
-                        parser._file_path: parser
+                        parser.file_path: parser
                         for parser in tqdm(
                             Parallel(
                                 return_as="generator",
@@ -220,7 +227,7 @@ class FileParserBatch(MutableMapping):
             else:
                 self.__parsers.update(
                     {
-                        parser._file_path: parser
+                        parser.file_path: parser
                         for parser in Parallel(
                             return_as="generator",
                             n_jobs=self.__n_jobs,
@@ -236,7 +243,7 @@ class FileParserBatch(MutableMapping):
             if molopconfig.show_progress_bar:
                 self.__parsers.update(
                     {
-                        parser._file_path: parser
+                        parser.file_path: parser
                         for parser in tqdm(
                             (
                                 singlefile_parser(**arguments)
@@ -251,7 +258,7 @@ class FileParserBatch(MutableMapping):
             else:
                 self.__parsers.update(
                     {
-                        parser._file_path: parser
+                        parser.file_path: parser
                         for parser in (
                             singlefile_parser(**arguments)
                             for arguments in arguments_list
@@ -266,7 +273,7 @@ class FileParserBatch(MutableMapping):
 
     def add_file_parsers(self, file_parsers: List[PARSERTYPES]) -> None:
         for parser in file_parsers:
-            if not isinstance(parser, BaseFileParser):
+            if not isinstance(parser, BaseMolFileParser):
                 raise TypeError(
                     f"file_parsers should be a list of BaseFileParser, got {type(parser)}"
                 )
@@ -356,6 +363,9 @@ class FileParserBatch(MutableMapping):
         bind_idx: int = None,
         replace_all: bool = False,
         attempt_num: int = 10,
+        crowding_threshold: float = 0.75,
+        angle_split: int = 10,
+        randomSeed: int = 114514,
         frameID=-1,
     ) -> "FileParserBatch":
         """
@@ -384,14 +394,19 @@ class FileParserBatch(MutableMapping):
             for parser in tqdm(self):
                 try:
                     temp_parser = parser[frameID].replace_substituent(
-                        query_smi=query_smi,
-                        replacement_smi=replacement_smi,
+                        query=query_smi,
+                        replacement=replacement_smi,
                         bind_idx=bind_idx,
                         replace_all=replace_all,
                         attempt_num=attempt_num,
+                        crowding_threshold=crowding_threshold,
+                        angle_split=angle_split,
+                        randomSeed=randomSeed,
                     )
                     temp_file_path = temp_parser.to_SDF_file()
-                    new_parsers.append(SDFParser(temp_file_path, only_last_frame=True))
+                    new_parsers.append(
+                        SDFFileParser(file_path=temp_file_path, only_last_frame=True)
+                    )
                     os.remove(temp_file_path)
                 except:
                     logger.error(
@@ -401,14 +416,19 @@ class FileParserBatch(MutableMapping):
             for parser in self:
                 try:
                     temp_parser = parser[frameID].replace_substituent(
-                        query_smi=query_smi,
-                        replacement_smi=replacement_smi,
+                        query=query_smi,
+                        replacement=replacement_smi,
                         bind_idx=bind_idx,
                         replace_all=replace_all,
                         attempt_num=attempt_num,
+                        crowding_threshold=crowding_threshold,
+                        angle_split=angle_split,
+                        randomSeed=randomSeed,
                     )
                     temp_file_path = temp_parser.to_SDF_file()
-                    new_parsers.append(SDFParser(temp_file_path, only_last_frame=True))
+                    new_parsers.append(
+                        SDFFileParser(file_path=temp_file_path, only_last_frame=True)
+                    )
                     os.remove(temp_file_path)
                 except:
                     logger.error(
@@ -434,7 +454,9 @@ class FileParserBatch(MutableMapping):
                         mapping_smarts=mapping_smarts
                     )
                     temp_file_path = temp_parser.to_SDF_file()
-                    new_parsers.append(SDFParser(temp_file_path, only_last_frame=True))
+                    new_parsers.append(
+                        SDFFileParser(file_path=temp_file_path, only_last_frame=True)
+                    )
                     os.remove(temp_file_path)
                 except Exception as e:
                     logger.error(
@@ -447,7 +469,9 @@ class FileParserBatch(MutableMapping):
                         mapping_smarts=mapping_smarts
                     )
                     temp_file_path = temp_parser.to_SDF_file()
-                    new_parsers.append(SDFParser(temp_file_path, only_last_frame=True))
+                    new_parsers.append(
+                        SDFFileParser(file_path=temp_file_path, only_last_frame=True)
+                    )
                     os.remove(temp_file_path)
                 except Exception as e:
                     logger.error(
@@ -492,7 +516,9 @@ class FileParserBatch(MutableMapping):
                 try:
                     temp_parser = parser[frameID].standard_orient(anchor_list)
                     temp_file_path = temp_parser.to_SDF_file()
-                    new_parsers.append(SDFParser(temp_file_path, only_last_frame=True))
+                    new_parsers.append(
+                        SDFFileParser(file_path=temp_file_path, only_last_frame=True)
+                    )
                     os.remove(temp_file_path)
                 except Exception as e:
                     logger.error(
@@ -503,7 +529,9 @@ class FileParserBatch(MutableMapping):
                 try:
                     temp_parser = parser[frameID].standard_orient(anchor_list)
                     temp_file_path = temp_parser.to_SDF_file()
-                    new_parsers.append(SDFParser(temp_file_path, only_last_frame=True))
+                    new_parsers.append(
+                        SDFFileParser(file_path=temp_file_path, only_last_frame=True)
+                    )
                     os.remove(temp_file_path)
                 except Exception as e:
                     logger.error(
@@ -527,7 +555,7 @@ class FileParserBatch(MutableMapping):
             [
                 parser
                 for parser in self
-                if parser.__class__ in qm_parsers and parser[-1].is_TS()
+                if parser.__class__ in qm_parsers and parser[-1].is_TS
             ]
         )
 
@@ -542,7 +570,7 @@ class FileParserBatch(MutableMapping):
             [
                 parser
                 for parser in self
-                if parser.__class__ in qm_parsers and parser[-1].is_error()
+                if parser.__class__ in qm_parsers and parser[-1].is_error
             ]
         )
 
@@ -557,7 +585,7 @@ class FileParserBatch(MutableMapping):
             [
                 parser
                 for parser in self
-                if parser.__class__ in qm_parsers and not parser[-1].is_error()
+                if parser.__class__ in qm_parsers and not parser[-1].is_error
             ]
         )
 
@@ -575,7 +603,7 @@ class FileParserBatch(MutableMapping):
         if not format.startswith("."):
             format = "." + format
         return self.__new_batch(
-            [parser for parser in self if parser._file_format == format]
+            [parser for parser in self if parser.file_format == format]
         )
 
     def __repr__(self) -> str:

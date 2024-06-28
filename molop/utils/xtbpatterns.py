@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-03-23 21:07:37
 LastEditors: TMJ
-LastEditTime: 2024-05-26 16:17:49
+LastEditTime: 2024-06-26 21:35:30
 Description: 请填写简介
 """
 
@@ -28,7 +28,7 @@ xtboutpatterns: Dict[str, re.Pattern] = {
     "geometric_optimization_state": re.compile(r"GEOMETRY OPTIMIZATION CONVERGED"),
     "orbitals_start": re.compile(r"Orbital Energies and Occupations"),
     "orbitals_match": re.compile(
-        r"(\d+|\.\.\.)\s*(\d.\d+|\s|\.\.\.)\s*(-*\d+.\d+|\.\.\.)\s*(-*\d+.\d+|\.\.\.)\s*(\(HOMO\)|\(LUMO\)|)"
+        r"(\d+|\.\.\.)\s+(\d.\d{4}|\s|\.\.\.)\s+(-*\d+.\d+[^\n]|\.\.\.)\s*(-*\d+.\d+|\.\.\.)\s*(\(HOMO\)|\(LUMO\)|)"
     ),
     "orbitals_end": re.compile(r"HL-Gap\s*(\d+.\d+)\s*Eh\s*(\d+.\d+)\s*eV"),
     "wiberg_start": re.compile(r"#   Z sym  total"),

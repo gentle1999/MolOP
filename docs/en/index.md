@@ -2,12 +2,12 @@
  * @Author: TMJ
  * @Date: 2024-01-30 16:53:29
  * @LastEditors: TMJ
- * @LastEditTime: 2024-02-20 19:30:39
+ * @LastEditTime: 2024-06-28 18:51:20
  * @Description: 请填写简介
 -->
 # MolOP
 
-**Molecule OPerator**, which is the basic molecule information extraction and operation unit of the [Open TS DataBase](http://10.72.201.58:13000/tmj/OTSDB-Core) project.
+**Molecule OPerator**, which is the basic molecule information extraction and operation library.
 
 ## Features
 

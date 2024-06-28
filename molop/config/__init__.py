@@ -1,17 +1,22 @@
-'''
+"""
 Author: TMJ
 Date: 2024-02-14 14:40:02
 LastEditors: TMJ
-LastEditTime: 2024-04-26 10:52:12
+LastEditTime: 2024-06-26 23:39:45
 Description: 请填写简介
-'''
+"""
+
 import logging
+import warnings
 
 from openbabel import pybel
+from pint.errors import UnitStrippedWarning
 from rdkit import RDLogger
 from rdkit.Chem import AllChem
 
 from molop.logger.logger import logger
+
+warnings.simplefilter("ignore", UnitStrippedWarning)
 
 
 class MolOPConfig:
@@ -25,10 +30,16 @@ class MolOPConfig:
         # ob_log_handler.SetOutputLevel(0)
         pybel.ob.obErrorLog.StopLogging()
         self.max_jobs = 16
-        self.morgan_fpgen = AllChem.GetMorganGenerator(radius=3, fpSize=1024, includeChirality=True)
-        self.atompair_fpgen = AllChem.GetAtomPairGenerator(fpSize=1024, includeChirality=True)
+        self.morgan_fpgen = AllChem.GetMorganGenerator(
+            radius=3, fpSize=1024, includeChirality=True
+        )
+        self.atompair_fpgen = AllChem.GetAtomPairGenerator(
+            fpSize=1024, includeChirality=True
+        )
         self.rdkit_fpgen = AllChem.GetRDKitFPGenerator(fpSize=1024)
-        self.topological_torsion_fpgen = AllChem.GetTopologicalTorsionGenerator(fpSize=1024)
+        self.topological_torsion_fpgen = AllChem.GetTopologicalTorsionGenerator(
+            fpSize=1024
+        )
         self.max_structure_recovery_time = 10
         self.allow_spin_change = False
 

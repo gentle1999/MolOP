@@ -2,24 +2,32 @@
 Author: TMJ
 Date: 2024-02-25 14:51:27
 LastEditors: TMJ
-LastEditTime: 2024-03-18 21:27:47
+LastEditTime: 2024-06-26 22:45:08
 Description: 请填写简介
 """
-from typing import Literal, Union
 
-from molop.io.bases.file_base import BLOCKTYPES, QMBLOCKTYPES
-from molop.io.coords_file.gjf_parser import GJFParser
-from molop.io.coords_file.sdf_parser import SDFParser
-from molop.io.coords_file.xyz_parser import XYZParser
-from molop.io.qm_file.g16fchk_parser import G16FCHKParser
-from molop.io.qm_file.g16log_parser import G16LOGParser
-from molop.io.qm_file.xtbout_parser import XTBOUTParser
+from typing import TypeVar, Union
 
+from molop.io.bases.BaseMolFileParser import BaseMolFileParser, BaseQMMolFileParser
+from molop.io.bases.BaseMolFrameParser import MolFrameType, QMMolFrameType
+from molop.io.coords_file.GJFFileParser import GJFFileParser
+from molop.io.coords_file.SDFFileParser import SDFFileParser, SDFFrameParser
+from molop.io.coords_file.XYZFileParser import XYZFileParser
+from molop.io.qm_file.G16FchkFileParser import G16FchkFileParser
+from molop.io.qm_file.G16LogFileParser import G16LogFileParser
+from molop.io.qm_file.XTBFileParser import XTBFileParser
+
+MolFileParserType = TypeVar(
+    "MolFileParserType", bound=BaseMolFileParser, covariant=True
+)
+QMMolFileParserType = TypeVar(
+    "QMMolFileParserType", bound=BaseQMMolFileParser, covariant=True
+)
 PARSERTYPES = Union[
-    GJFParser,
-    SDFParser,
-    XYZParser,
-    G16FCHKParser,
-    G16LOGParser,
-    XTBOUTParser,
+    GJFFileParser,
+    XYZFileParser,
+    SDFFileParser,
+    G16LogFileParser,
+    G16FchkFileParser,
+    XTBFileParser,
 ]
