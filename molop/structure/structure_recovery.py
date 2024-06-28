@@ -17,6 +17,7 @@ from rdkit import Chem
 
 from molop.utils import is_metal
 from molop.config import molopconfig
+from molop.structure.structure import bond_list
 from molop.logger.logger import logger
 
 pt = Chem.GetPeriodicTable()
@@ -39,30 +40,31 @@ def get_under_bonded_number(atom: ob.OBAtom) -> int:
     if atom.IsMetal():
         return 0
     if atom.GetAtomicNum() in (7, 15):
-        if atom.GetExplicitValence() == 5:
-            # For nitrogen and phosphorus atoms, the radical number is 0 when the explicit valence is 5
+        if atom.GetTotalValence() == 5:
+            # For nitrogen and phosphorus atoms, the radical number is 0 when the valence is 5
             return 0
     elif atom.GetAtomicNum() == 16:
-        if atom.GetExplicitValence() in (4, 6):
-            # For sulfur atoms, the radical number is 0 when the explicit valence is 4 or 6
+        if atom.GetTotalValence() in (4, 6):
+            # For sulfur atoms, the radical number is 0 when the valence is 4 or 6
             return 0
-        if atom.GetExplicitValence() == 5:
-            # For sulfur atoms, the radical number is 0 when the explicit valence is 4 or 6
+        if atom.GetTotalValence() == 5:
             return 1
-    # For other atoms, the radical number is the default valence electrons plus formal charge minus the explicit valence
+        if atom.GetTotalValence() == 3:
+            return 1
+    # For other atoms, the radical number is the default valence electrons plus formal charge minus the valence
     if (
-        pt.GetDefaultValence(atom.GetAtomicNum()) > atom.GetExplicitValence()
+        pt.GetDefaultValence(atom.GetAtomicNum()) > atom.GetTotalValence()
         and atom.GetFormalCharge() > 0
     ):
         return (
             pt.GetDefaultValence(atom.GetAtomicNum())
             - atom.GetFormalCharge()
-            - atom.GetExplicitValence()
+            - atom.GetTotalValence()
         )
     return (
         pt.GetDefaultValence(atom.GetAtomicNum())
         + atom.GetFormalCharge()
-        - atom.GetExplicitValence()
+        - atom.GetTotalValence()
     )
 
 
@@ -120,7 +122,7 @@ def clean_neighbor_radicals(
             and get_under_bonded_number(omol.OBMol.GetAtom(radical_atom_2)) >= 1
         ):  # the two atoms should be bonded
             """
-            This code block checks if two radical atoms are bonded and if they have a valence greater than their explicit valence.
+            This code block checks if two radical atoms are bonded and if they have a valence greater than their valence.
             If they do, it increases the bond order between them by the minimum radical value of the two atoms.
             """
             omol.OBMol.GetBond(radical_atom_1, radical_atom_2).SetBondOrder(
@@ -206,9 +208,9 @@ def fix_under_bonded_dipole(omol: pybel.Molecule):
                 if atom_2.GetFormalCharge() == -1:
                     if (
                         pt.GetDefaultValence(atom_1.OBAtom.GetAtomicNum())
-                        > atom_1.OBAtom.GetExplicitValence()
+                        > atom_1.OBAtom.GetTotalValence()
                         and pt.GetDefaultValence(atom_2.GetAtomicNum())
-                        > atom_2.GetExplicitValence()
+                        > atom_2.GetTotalValence()
                     ):
                         logger.debug(f"{DEBUG_TAG} fix under bonded dipole")
                         atom_1.OBAtom.GetBond(atom_2).SetBondOrder(
@@ -611,6 +613,29 @@ def clean_resonances_8(omol: pybel.Molecule) -> pybel.Molecule:
     return omol
 
 
+def clean_resonances_9(omol: pybel.Molecule) -> pybel.Molecule:
+    smarts = pybel.Smarts("[*+]-[*-]")
+    res = list(smarts.findall(omol))
+    while len(res):
+        logger.debug(f"Cleaning splited charges")
+        idxs = res.pop(0)
+        pos_atom = omol.OBMol.GetAtom(idxs[0])
+        neg_atom = omol.OBMol.GetAtom(idxs[1])
+        if (
+            pt.GetDefaultValence(pos_atom.GetAtomicNum()) - pos_atom.GetTotalDegree()
+            == 1
+            and pt.GetDefaultValence(neg_atom.GetAtomicNum())
+            - neg_atom.GetTotalDegree()
+            == 1
+        ):
+            omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
+                int(omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1)
+            )
+            pos_atom.SetFormalCharge(0)
+            neg_atom.SetFormalCharge(0)
+    return omol
+
+
 def clean_resonances(omol: pybel.Molecule) -> pybel.Molecule:
     """
     Cleaning up resonance structures in molecules.
@@ -630,6 +655,7 @@ def clean_resonances(omol: pybel.Molecule) -> pybel.Molecule:
         clean_resonances_5,
         clean_resonances_7,
         clean_resonances_8,
+        clean_resonances_9,
     ]
     for process in processes:
         omol = process(omol)
@@ -721,15 +747,15 @@ def fix_over_bonded_C(given_charge: int, omol: pybel.Molecule):
     for atom in omol.atoms:
         if (
             atom.atomicnum == 6
-            and atom.OBAtom.GetExplicitValence() == 5
+            and atom.OBAtom.GetTotalValence() == 5
             and atom.OBAtom.GetFormalCharge() == 0
         ):
             for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
                 if (
                     neighbour_atom.GetAtomicNum() in HETEROATOM
                     and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
-                    and atom.OBAtom.GetExplicitValence() == 5
-                    and neighbour_atom.GetExplicitValence()
+                    and atom.OBAtom.GetTotalValence() == 5
+                    and neighbour_atom.GetTotalValence()
                     - pt.GetDefaultValence(neighbour_atom.GetAtomicNum())
                     == 1
                 ):
@@ -744,7 +770,7 @@ def fix_over_bonded_C(given_charge: int, omol: pybel.Molecule):
                 if (
                     neighbour_atom.GetAtomicNum() in HETEROATOM
                     and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
-                    and atom.OBAtom.GetExplicitValence() == 5
+                    and atom.OBAtom.GetTotalValence() == 5
                 ):
                     atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
                         atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
@@ -760,7 +786,7 @@ def fix_over_bonded_C(given_charge: int, omol: pybel.Molecule):
                 if (
                     neighbour_atom.GetAtomicNum() in (6,)
                     and atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
-                    and atom.OBAtom.GetExplicitValence() == 5
+                    and atom.OBAtom.GetTotalValence() == 5
                 ):
                     atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
                         atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
@@ -784,7 +810,7 @@ def fix_fake_dipole(given_charge: int, omol: pybel.Molecule):
         for atom in omol.atoms:
             if (
                 atom.atomicnum == 7
-                and atom.OBAtom.GetExplicitValence() == 4
+                and atom.OBAtom.GetTotalValence() == 4
                 and atom.OBAtom.GetFormalCharge() == 0
                 and all(
                     atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 2
@@ -794,7 +820,7 @@ def fix_fake_dipole(given_charge: int, omol: pybel.Molecule):
                 for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
                     if (
                         atom.atomicnum == 7
-                        and atom.OBAtom.GetExplicitValence() == 4
+                        and atom.OBAtom.GetTotalValence() == 4
                         and atom.OBAtom.GetFormalCharge() == 0
                         and all(
                             atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 2
@@ -824,13 +850,13 @@ def fix_CN_in_doubt(given_charge: int, omol: pybel.Molecule):
         if (
             atom.atomicnum == 6
             and atom.OBAtom.GetFormalCharge() == 0
-            and atom.OBAtom.GetExplicitValence() == 4
+            and atom.OBAtom.GetTotalValence() == 4
         ):
             for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
                 if (
                     atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
                     and neighbour_atom.GetAtomicNum() == 7
-                    and neighbour_atom.GetExplicitValence() == 4
+                    and neighbour_atom.GetTotalValence() == 4
                 ):
                     CN_in_doubt += 1
                     doubt_pair.append((atom.OBAtom, neighbour_atom))
@@ -874,7 +900,7 @@ def fix_over_bonded_N_in_possitive(given_charge: int, omol: pybel.Molecule):
         for atom in omol.atoms:
             if (
                 atom.atomicnum == 7  # Check if the atom is nitrogen
-                and atom.OBAtom.GetExplicitValence()
+                and atom.OBAtom.GetTotalValence()
                 == 4  # Check if the atom is over-bonded
                 and atom.OBAtom.GetFormalCharge()
                 == 0  # Check if the atom has no formal charge
@@ -903,7 +929,7 @@ def fix_convinced_possitive_N(given_charge: int, omol: pybel.Molecule):
     for atom in omol.atoms:
         if (
             atom.atomicnum in (7, 15)
-            and atom.OBAtom.GetExplicitValence() == 4
+            and atom.OBAtom.GetTotalValence() == 4
             and atom.OBAtom.GetFormalCharge() == 0
             and all(
                 neighbour_atom.GetBond(atom.OBAtom).GetBondOrder() == 1
@@ -978,8 +1004,12 @@ def fix_over_bonded_heteroatom(
         for atom in resonance.atoms:
             if charge_to_be_allocated <= 0:
                 break
-            if atom.atomicnum in HETEROATOM and atom.OBAtom.GetFormalCharge() == 0:
-                over_valence = atom.OBAtom.GetExplicitValence() - pt.GetDefaultValence(
+            if (
+                atom.atomicnum in HETEROATOM
+                and atom.OBAtom.GetFormalCharge() == 0
+                and get_under_bonded_number(atom.OBAtom) != 0
+            ):
+                over_valence = atom.OBAtom.GetTotalValence() - pt.GetDefaultValence(
                     atom.atomicnum
                 )
                 if over_valence > 0:
@@ -1102,7 +1132,7 @@ def fix_over_bonded_N_remove_bond(
         if (
             atom.atomicnum in (7,)
             and atom.OBAtom.GetFormalCharge() == 0
-            and atom.OBAtom.GetExplicitValence() == 4
+            and atom.OBAtom.GetTotalValence() == 4
         ):
             for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
                 if (
@@ -1125,7 +1155,7 @@ def fix_under_bonded_with_negative(
         if charge_to_be_allocated <= 0:
             break
         if atom.atomicnum in HETEROATOM and atom.OBAtom.GetFormalCharge() == 0:
-            under_valence = atom.OBAtom.GetExplicitValence() - pt.GetDefaultValence(
+            under_valence = atom.OBAtom.GetTotalValence() - pt.GetDefaultValence(
                 atom.atomicnum
             )
             if under_valence < 0:
@@ -1207,6 +1237,7 @@ def final_check(omol: pybel.Molecule, total_charge: int = 0, total_radical: int 
     logger.debug(
         f"{DEBUG_TAG} Final check, target charge {total_charge}, target radical {total_radical}"
     )
+    logger.debug(f"{DEBUG_TAG} Now SMILES: {omol.write('smi')}")
     charge, radical = 0, 0
     for atom in omol.atoms:
         charge += atom.OBAtom.GetFormalCharge()
@@ -1265,6 +1296,9 @@ def split_charge(omol: pybel.Molecule, given_charge: int = 0, given_radical: int
 def fix_carbine_neighbor_heteroatom(omol: pybel.Molecule, given_charge: int = 0):
     for atom in omol.atoms:
         if get_under_bonded_number(atom.OBAtom) == 2:
+            for neibhor in ob.OBAtomAtomIter(atom.OBAtom):
+                if get_under_bonded_number(neibhor):
+                    return given_charge
             for neighbor in ob.OBAtomAtomIter(atom.OBAtom):
                 if (
                     neighbor.GetAtomicNum() in HETEROATOM
@@ -1301,7 +1335,7 @@ def fix_carbine_neighbor_unsaturated(omol: pybel.Molecule):
                             )
 
 
-def polarisation(omol: pybel.Molecule, given_charge: int = 0, given_radical: int = 0):
+def polarization(omol: pybel.Molecule, given_charge: int = 0, given_radical: int = 0):
     radicals = [atom for atom in omol.atoms if get_under_bonded_number(atom.OBAtom)]
     single_radicals = [
         atom for atom in radicals if get_under_bonded_number(atom.OBAtom) == 1
@@ -1439,9 +1473,9 @@ def xyz_block_to_omol(
         fix_under_bonded_dipole(resonance)
         clean_neighbor_radicals(resonance, given_charge, total_radical)
         if charge >= 0:
-            polarisation(resonance, charge_to_be_allocated, total_radical)
+            polarization(resonance, charge_to_be_allocated, total_radical)
         else:
-            polarisation(resonance, -charge_to_be_allocated, total_radical)
+            polarization(resonance, -charge_to_be_allocated, total_radical)
         transform_alkene(resonance)
         resonance.OBMol.MakeDativeBonds()
         if charge_to_be_allocated == 0 and final_check(
@@ -1475,27 +1509,58 @@ def rdmol_check(
             radical += atom.GetNumRadicalElectrons()
         if is_metal(atom.GetAtomicNum()):
             has_metal = True
+    logger.debug(
+        f"{DEBUG_TAG} check rdmol, target charge: {total_charge} charge: {charge}, target radical: {total_radical} radical: {radical}"
+    )
     if has_metal:
         return charge == total_charge
     else:
         return charge == total_charge and radical == total_radical
 
 
+def omol_to_rdmol_by_graph(omol: pybel.Molecule) -> Chem.rdchem.Mol:
+    bonds = [
+        (bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1, bond.GetBondOrder())
+        for bond in ob.OBMolBondIter(omol.OBMol)
+    ]
+    formal_charges = [atom.GetFormalCharge() for atom in ob.OBMolAtomIter(omol.OBMol)]
+    formal_radicals = [
+        get_under_bonded_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol)
+    ]
+    rwmol = Chem.RWMol(Chem.MolFromXYZBlock(omol.write("xyz")))
+    for bond in bonds:
+        rwmol.AddBond(bond[0], bond[1], bond_list[bond[2]])
+    for atom, charge, radical in zip(rwmol.GetAtoms(), formal_charges, formal_radicals):
+        atom.SetFormalCharge(charge)
+        atom.SetNumRadicalElectrons(radical)
+    Chem.SanitizeMol(rwmol)
+    return rwmol.GetMol()
+
+
 def omol_to_rdmol(
     omol: pybel.Molecule, total_charge=0, total_radical=0
 ) -> Chem.rdchem.Mol:
     total_atom_num = omol.OBMol.NumAtoms()
+    logger.debug("try tranform by mol2")
     rdmol = Chem.MolFromMol2Block(omol.write("mol2"), removeHs=False)
     if rdmol is not None:
         rdmol = Chem.AddHs(rdmol)
         if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
             return rdmol
+    logger.debug("try tranform by cdxml")
     rdmols = Chem.MolsFromCDXML(omol.write("cdxml"), removeHs=False)
     if len(rdmols) > 0:
         rdmol = Chem.AddHs(rdmols[0])
         if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
             rdmol.ClearProp("CDXML_FRAG_ID")
             return rdmol
+    rdmol = omol_to_rdmol_by_graph(omol)
+    logger.debug("try tranform by graph")
+    if rdmol is not None:
+        rdmol = Chem.AddHs(rdmol)
+        if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
+            return rdmol
+    logger.debug("try tranform by sdf")
     rdmol = Chem.MolFromMolBlock(omol.write("sdf"), removeHs=False)
     if rdmol is not None:
         rdmol = Chem.AddHs(rdmol)

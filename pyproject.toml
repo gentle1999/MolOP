@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "molop"
-version = "0.1.30.2"
+version = "0.1.31.0"
 description = "Molcule OPerator"
 authors = ["tmj <mj_t@zju.edu.cn>"]
 license = "MIT"
@@ -13,65 +13,50 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-packages = [{ include = "molop" }]
 
 [tool.poetry.dependencies]
-python = ">=3.8"
-rdkit = ">=2023.9.4"
-openbabel-wheel = "~3.1.1"
-numpy = ">=1.24.2"
-pandas = ">=2.0.3"
-tqdm = ">=4.66.1"
-pint = ">=0.21.1"
-joblib = ">=1.3.2"
-fire = ">=0.5.0"
-packaging = "~24.0"
-trimesh = { version = "~4.1.3", optional = true }
-scikit-learn = { version = ">=1.2.2", optional = true }
-scikit-image = { version = ">=0.21.0", optional = true }
-matplotlib = { version = ">=3.7.1", optional = true }
-mordred = { version = ">=1.2.0", optional = true }
-dscribe = { version = ">=2.1.0", optional = true }
-ase = { version = ">=3.22.1", optional = true }
-mkdocs = { version = ">=1.5.3", optional = true }
-mkdocs-material = { version = ">=9.5.7", optional = true }
-mkdocs-material-extensions = { version = ">=1.3.1", optional = true }
-mkdocs-static-i18n = { version = ">=1.2.0", optional = true }
-mkdocstrings-python = { version = ">=1.8.0", optional = true }
-pytest = { version = ">=8.0.0", optional = true }
-jupyter_contrib_nbextensions = { version = ">=0.7.0", optional = true }
-notebook = { version = "~6.4.12", optional = true }
-nbconvert = { version = ">=7.14.2", optional = true }
-pymcubes = "^0.1.4"
+python = "^3.8"
+openbabel-wheel = "^3.1.1.19"
+tqdm = "^4.66.4"
+joblib = "^1.4.2"
+fire = "^0.6.0"
+pydantic = "^2.7.4"
+numpy = "^1.24.2"
+pandas = "^2.0.0"
+pint = "^0.21.0"
+rdkit = "^2023.9.6"
+scipy = "^1.8"
+packaging = "^24.0"
+
+mordred = { version = "^1.2", optional = true }
+dscribe = { version = "^2.1", optional = true }
+ase = { version = "^3.22", optional = true }
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+mkdocs = "^1.5.3"
+mkdocs-material = "^9.5.7"
+mkdocs-material-extensions = "^1.3.1"
+mkdocs-static-i18n = "^1.2.0"
+mkdocstrings-python = "^1.8.0"
+pytest = "^8.0.0"
+jupyter-contrib-nbextensions = "^0.7.0"
+notebook = "~6.4.12"
+nbconvert = "^7.14.2"
 
 [tool.poetry.extras]
-spatial = ["trimesh", "matplotlib", "scikit-image", "scikit-learn"]
 desc = ["mordred", "dscribe", "ase"]
 full = [
-    "mordred",
-    "dscribe",
-    "ase",
     "trimesh",
     "matplotlib",
     "scikit-image",
     "scikit-learn",
-]
-dev = [
-    "trimesh",
-    "scikit-image",
-    "scikit-learn",
+    "pymcubes",
     "mordred",
     "dscribe",
     "ase",
-    "mkdocs",
-    "mkdocs-material",
-    "mkdocs-material-extensions",
-    "mkdocs-static-i18n",
-    "nbconvert",
-    "pytest",
-    "mkdocstrings-python",
-    "jupyter_contrib_nbextensions",
-    "notebook",
 ]
 
 [build-system]

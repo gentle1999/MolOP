@@ -279,7 +279,7 @@ def standard_orient(mol: RdMol, idx_list: Sequence[int], conformer_id=0):
         mol RdMol:
             Molecule to be oriented
         idx_list Sequence[int]:
-            A list of indices of the atoms to be translated, rotated, and rotated again
+            A Sequence of indices of the atoms to be translated, rotated, and rotated again
         conformer_id int:
             The conformer of id to be oriented
     """
@@ -327,15 +327,15 @@ def unique_conformer(mol: RdMol, idx: int):
     return temp_mol
 
 
-def get_geometry_info(mol: RdMol, atom_idxs: Tuple[int]) -> float:
+def get_geometry_info(mol: RdMol, atom_idxs: Sequence[int]) -> float:
     """
     Get the geometry infos among the atoms
 
     Parameters:
         mol RdMol:
             Molecule to be oriented
-        atom_idxs Tuple[int]:
-            A list of index of the atoms, starts from 0
+        atom_idxs Sequence[int]:
+            A Sequence of index of the atoms, starts from 0
 
     Returns:
         - If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.

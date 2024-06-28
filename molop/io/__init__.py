@@ -2,9 +2,10 @@
 Author: TMJ
 Date: 2024-02-14 14:40:02
 LastEditors: TMJ
-LastEditTime: 2024-02-20 19:50:10
+LastEditTime: 2024-06-26 23:17:51
 Description: 请填写简介
 """
+
 from glob import glob
 from typing import Union
 
@@ -13,8 +14,8 @@ from molop.io.file_batch import FileParserBatch
 
 def AutoParser(
     file_path: str,
-    charge: int = None,
-    multiplicity: int = None,
+    charge: int = 0,
+    multiplicity: int = 1,
     n_jobs: int = -1,
     only_extract_structure=False,
     only_last_frame=False,

@@ -70,6 +70,9 @@ def get_formal_num_radicals(mol: RdMol) -> List[int]:
     return [atom.GetNumRadicalElectrons() for atom in mol.GetAtoms()]
 
 
+
+
+
 def get_resonance_structures(rdmol, flags=0):
     suppl = Chem.ResonanceMolSupplier(rdmol, flags)
     return [mol for mol in suppl]
@@ -145,7 +148,9 @@ def replace_mol(
             end = end_idx
             start = start_idx
         else:
-            raise ValueError("start_idx and end_idx should be bonded with single but not in a ring.")
+            raise ValueError(
+                "start_idx and end_idx should be bonded with single but not in a ring."
+            )
     else:
         if query_mol is None:
             raise ValueError("start_idx and end_idx should be provided.")

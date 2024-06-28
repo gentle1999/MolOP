@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-03-20 10:04:46
+ * @LastEditTime: 2024-06-17 20:39:24
  * @Description: 请填写简介
 -->
 # MolOP
@@ -67,7 +67,8 @@ conda create -n molop python=3.8 # The lowest python version is 3.8
 conda activate molop
 # install the dependencies
 pip install poetry
-pip install .[dev]
+poetry install --with dev
+poetry install --all-extras
 ```
 ## Online Documentation (only avialable in ZJU intranet now) 
 Visit [MolOP Documentation](https://molop-gentle-7355819aa2dbcc7edc9420595fa823e6ffaebc1a874271edbf.pages.zjusct.io/).

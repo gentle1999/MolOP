@@ -51,22 +51,19 @@ plugins:
                 - 读取文件并提取信息: read_file_and_extract_info.md
                 - 转换为GJF格式: transform_in_gjf.md
                 - 命令行接口: command_line_interface.md
-                - 空间特征: spatial_features.md
             - API: 
               - io:
                 - bases:
-                  - molblock_base: 
-                    - MolBlock.md
-                    - BaseBlockParser.md
-                    - QMBaseBlockParser.md
-                  - file_base:
-                    - BaseFileParser.md
-                    - BaseQMFileParser.md
+                  - MolFrame: 
+                    - BaseMolFrameParser.md
+                  - File:
+                    - BaseMolFileParser.md
                 - file_batch.md
               - structure:
                 - structure_recovery.md
                 - structure.md
                 - geometry.md
+
 
 nav:
   - Home: index.md
@@ -81,17 +78,13 @@ nav:
       - Read a file and extract info: read_file_and_extract_info.md
       - Transform in gjf: transform_in_gjf.md
       - Command line interface: command_line_interface.md
-      - Spatial features: spatial_features.md
   - API: 
     - io:
       - bases:
-        - molblock_base: 
-          - MolBlock.md
-          - BaseBlockParser.md
-          - QMBaseBlockParser.md
-        - file_base:
-          - BaseFileParser.md
-          - BaseQMFileParser.md
+        - MolFrame: 
+          - BaseMolFrameParser.md
+        - File:
+          - BaseMolFileParser.md
       - file_batch.md
     - structure:
       - structure_recovery.md
