@@ -178,16 +178,14 @@ def break_one_bond(
         and abs(charge_to_be_allowed) + given_radical > 0
     ):
         logger.debug(f"{DEBUG_TAG} breaking bond")
-        for atom_1 in omol.atoms:
-            for atom_2 in ob.OBAtomAtomIter(atom_1.OBAtom):
-                if atom_1.OBAtom.GetBond(atom_2).GetBondOrder() > 1:
-                    logger.debug(
-                        f"{DEBUG_TAG} break bond {atom_1.idx} and {atom_2.GetIdx()}"
-                    )
-                    atom_1.OBAtom.GetBond(atom_2).SetBondOrder(
-                        atom_1.OBAtom.GetBond(atom_2).GetBondOrder() - 1
-                    )
-                    return
+        smarts = pybel.Smarts("[*]#,=[*]")
+        while res := smarts.findall(omol):
+            idxs = res.pop(0)
+            logger.debug(f"{DEBUG_TAG} break bond {idxs[0]} and {idxs[1]}")
+            omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
+                omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() - 1
+            )
+            return
 
 
 def fix_under_bonded_dipole(omol: pybel.Molecule):
@@ -201,23 +199,23 @@ def fix_under_bonded_dipole(omol: pybel.Molecule):
     Parameters:
         omol (pybel.Molecule): The input molecule.
     """
-    # smarts = pybel.Smarts("[*+]-[*-]")
-    for atom_1 in omol.atoms:
-        if atom_1.OBAtom.GetFormalCharge() == 1:
-            for atom_2 in ob.OBAtomAtomIter(atom_1.OBAtom):
-                if atom_2.GetFormalCharge() == -1:
-                    if (
-                        pt.GetDefaultValence(atom_1.OBAtom.GetAtomicNum())
-                        > atom_1.OBAtom.GetTotalValence()
-                        and pt.GetDefaultValence(atom_2.GetAtomicNum())
-                        > atom_2.GetTotalValence()
-                    ):
-                        logger.debug(f"{DEBUG_TAG} fix under bonded dipole")
-                        atom_1.OBAtom.GetBond(atom_2).SetBondOrder(
-                            atom_1.OBAtom.GetBond(atom_2).GetBondOrder() + 1
-                        )
-                        atom_1.OBAtom.SetFormalCharge(0)
-                        atom_2.SetFormalCharge(0)
+    smarts = pybel.Smarts("[*+]~[*-]")
+    res = smarts.findall(omol)
+    while len(res):
+        logger.debug(f"{DEBUG_TAG} fixing under bonded dipole")
+        idxs = res.pop(0)
+        atom_1 = omol.OBMol.GetAtom(idxs[0])
+        atom_2 = omol.OBMol.GetAtom(idxs[1])
+        if (
+            pt.GetDefaultValence(atom_1.GetAtomicNum()) > atom_1.GetTotalValence()
+            and pt.GetDefaultValence(atom_2.GetAtomicNum()) > atom_2.GetTotalValence()
+        ):
+            logger.debug(f"{DEBUG_TAG} fix under bonded dipole")
+            atom_1.GetBond(atom_2).SetBondOrder(
+                atom_1.GetBond(atom_2).GetBondOrder() + 1
+            )
+            atom_1.SetFormalCharge(0)
+            atom_2.SetFormalCharge(0)
 
 
 def fix_dipole_type_a(mol: pybel.Molecule):
@@ -433,17 +431,15 @@ def clean_resonances_1(omol: pybel.Molecule) -> pybel.Molecule:
         The cleaned molecule.
     """
     smarts = pybel.Smarts("[#8]=[#6](-[!-])-[*]=[*]-[#7-,#6-]")
-    res = smarts.findall(omol)
-    while len(res):
+    while res := smarts.findall(omol):
+        idxs = res.pop(0)
         logger.debug(f"Cleaning resonance 1: {res}")
-        idxs = res[0]
         omol.OBMol.GetBond(idxs[4], idxs[5]).SetBondOrder(2)
         omol.OBMol.GetBond(idxs[3], idxs[4]).SetBondOrder(1)
         omol.OBMol.GetBond(idxs[1], idxs[3]).SetBondOrder(2)
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
-        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(-1)
-        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(0)
-        res = smarts.findall(omol)
+        omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(-1)
+        omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(0)
     return omol
 
 
@@ -458,17 +454,15 @@ def clean_resonances_2(omol: pybel.Molecule) -> pybel.Molecule:
         The cleaned molecule.
     """
     smarts = pybel.Smarts("[#7+]=[*]-[*]=[*]-[#8-]")
-    res = smarts.findall(omol)
-    while len(res):
+    while res := smarts.findall(omol):
+        idxs = res.pop(0)
         logger.debug(f"Cleaning resonance 2: {res}")
-        idxs = res[0]
         omol.OBMol.GetBond(idxs[3], idxs[4]).SetBondOrder(2)
         omol.OBMol.GetBond(idxs[2], idxs[3]).SetBondOrder(1)
         omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(2)
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
-        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(0)
-        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(0)
-        res = smarts.findall(omol)
+        omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(0)
+        omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(0)
     return omol
 
 
@@ -483,15 +477,14 @@ def clean_resonances_3(omol: pybel.Molecule) -> pybel.Molecule:
         The cleaned molecule.
     """
     smarts = pybel.Smarts("[#7+,#8+]=[*]-[#6-,#7-,#8-]")
-    res = smarts.findall(omol)
-    while len(res):
+    while res := smarts.findall(omol):
+        idxs = res.pop(0)
         logger.debug(f"Cleaning resonance 3: {res}")
         idxs = res[0]
         omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(2)
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
-        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(0)
-        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(0)
-        res = smarts.findall(omol)
+        omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(0)
+        omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(0)
     return omol
 
 
@@ -506,15 +499,13 @@ def clean_resonances_4(omol: pybel.Molecule) -> pybel.Molecule:
         The cleaned molecule.
     """
     smarts = pybel.Smarts("[#8+0,#16+0]=[#6+0]-[#6-,#7-]")
-    res = smarts.findall(omol)
-    while len(res):
+    while res := smarts.findall(omol):
+        idxs = res.pop(0)
         logger.debug(f"Cleaning resonance 4: {res}")
-        idxs = res[0]
         omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(2)
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
-        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(-1)
-        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(0)
-        res = smarts.findall(omol)
+        omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(-1)
+        omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(0)
     return omol
 
 
@@ -529,16 +520,13 @@ def clean_resonances_5(omol: pybel.Molecule) -> pybel.Molecule:
         The cleaned molecule.
     """
     smarts = pybel.Smarts("[#6]=[#6]=[#6-,#7-]")
-    res = smarts.findall(omol)
-    while len(res):
+    while res := smarts.findall(omol):
+        idxs = res.pop(0)
         logger.debug(f"Cleaning resonance 5: {res}")
-        idxs = res[0]
-        # print(idxs)
         omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(3)
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
-        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(-1)
-        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(0)
-        res = smarts.findall(omol)
+        omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(-1)
+        omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(0)
     return omol
 
 
@@ -553,15 +541,13 @@ def clean_resonances_6(omol: pybel.Molecule) -> pybel.Molecule:
         The cleaned molecule.
     """
     smarts = pybel.Smarts("[*-]=[*+]=[*]")
-    res = smarts.findall(omol)
-    while len(res):
+    while res := smarts.findall(omol):
+        idxs = res.pop(0)
         logger.debug(f"Cleaning resonance 6: {res}")
-        idxs = res[0]
         omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(1)
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(3)
-        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(0)
-        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(-1)
-        res = smarts.findall(omol)
+        omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(0)
+        omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(-1)
     return omol
 
 
@@ -576,15 +562,13 @@ def clean_resonances_7(omol: pybel.Molecule) -> pybel.Molecule:
         The cleaned molecule.
     """
     smarts = pybel.Smarts("[*-]1-[*](=[*])-[*]=[*]-[*]=[*]1")
-    res = smarts.findall(omol)
-    while len(res):
+    while res := smarts.findall(omol):
+        idxs = res.pop(0)
         logger.debug(f"Cleaning resonance 7: {res}")
-        idxs = res[0]
         omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(1)
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(2)
-        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(0)
-        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(-1)
-        res = smarts.findall(omol)
+        omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(0)
+        omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(-1)
     return omol
 
 
@@ -599,17 +583,15 @@ def clean_resonances_8(omol: pybel.Molecule) -> pybel.Molecule:
         The cleaned molecule.
     """
     smarts = pybel.Smarts("[*-]1-[*]=[*]-[*](=[*])-[*]=[*]1")
-    res = smarts.findall(omol)
-    while len(res):
+    while res := smarts.findall(omol):
+        idxs = res.pop(0)
         logger.debug(f"Cleaning resonance 8: {res}")
-        idxs = res[0]
         omol.OBMol.GetBond(idxs[3], idxs[4]).SetBondOrder(1)
         omol.OBMol.GetBond(idxs[2], idxs[3]).SetBondOrder(2)
         omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(1)
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(2)
-        omol.atoms[idxs[0] - 1].OBAtom.SetFormalCharge(0)
-        omol.atoms[idxs[-1] - 1].OBAtom.SetFormalCharge(-1)
-        res = smarts.findall(omol)
+        omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(0)
+        omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(-1)
     return omol
 
 
@@ -691,17 +673,14 @@ def fix_N_BCP(omol: pybel.Molecule):
         omol (pybel.Molecule): The input molecule object
     """
     smarts = pybel.Smarts("[#6]1([#6]2)([#6]3)[#7]23[#6]1")
-    n_bcp = smarts.findall(omol)
-    for n_bcp_idxs in n_bcp:
-        for idx in n_bcp_idxs:
-            indexs = set(n_bcp_idxs) - set([idx])
-            if all(
-                omol.atoms[idx - 1].OBAtom.GetBond(omol.atoms[idx_2 - 1].OBAtom)
-                for idx_2 in indexs
-            ):
-                if omol.atoms[idx - 1].atomicnum == 7:
+    while res := smarts.findall(omol):
+        idxs = res.pop(0)
+        for idx in idxs:
+            indexs = set(idxs) - set([idx])
+            if all(omol.OBMol.GetBond(idx, idx_2) for idx_2 in indexs):
+                if omol.OBMol.GetAtom(idx).GetAtomicNum() == 7:
                     bcp_n = idx
-                if omol.atoms[idx - 1].atomicnum == 6:
+                if omol.OBMol.GetAtom(idx).GetAtomicNum() == 6:
                     bcp_c = idx
         omol.OBMol.DeleteBond(omol.OBMol.GetBond(bcp_n, bcp_c))
         logger.debug(f"{DEBUG_TAG} Fix N-BCP: {bcp_n} - {bcp_c}")
@@ -712,17 +691,14 @@ def fix_cyclobutylamine(omol: pybel.Molecule):
     Fix cyclobutylamine structure.
     """
     smarts = pybel.Smarts("[#6]1([#6]2)[#7]2[#6]1")
-    cyclobutylamine = smarts.findall(omol)
-    for cyclobutylamine_idxs in cyclobutylamine:
-        for idx in cyclobutylamine_idxs:
-            indexs = set(cyclobutylamine_idxs) - set([idx])
-            if all(
-                omol.atoms[idx - 1].OBAtom.GetBond(omol.atoms[idx_2 - 1].OBAtom)
-                for idx_2 in indexs
-            ):
-                if omol.atoms[idx - 1].atomicnum == 7:
+    while res := smarts.findall(omol):
+        idxs = res.pop(0)
+        for idx in idxs:
+            indexs = set(idxs) - set([idx])
+            if all(omol.OBMol.GetBond(idx, idx_2) for idx_2 in indexs):
+                if omol.OBMol.GetAtom(idx).GetAtomicNum() == 7:
                     amine_n = idx
-                if omol.atoms[idx - 1].atomicnum == 6:
+                if omol.OBMol.GetAtom(idx).GetAtomicNum() == 6:
                     butyl_c = idx
         omol.OBMol.DeleteBond(omol.OBMol.GetBond(amine_n, butyl_c))
         logger.debug(f"{DEBUG_TAG} Fix N-BCP: {amine_n} - {butyl_c}")
@@ -807,32 +783,15 @@ def fix_fake_dipole(given_charge: int, omol: pybel.Molecule):
         omol (OBMol): The molecule object.
     """
     if given_charge >= 0:
-        for atom in omol.atoms:
-            if (
-                atom.atomicnum == 7
-                and atom.OBAtom.GetTotalValence() == 4
-                and atom.OBAtom.GetFormalCharge() == 0
-                and all(
-                    atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 2
-                    for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
-                )
-            ):
-                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
-                    if (
-                        atom.atomicnum == 7
-                        and atom.OBAtom.GetTotalValence() == 4
-                        and atom.OBAtom.GetFormalCharge() == 0
-                        and all(
-                            atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() == 2
-                            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
-                        )
-                    ):
-                        atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
-                            atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
-                        )
-                        logger.debug(
-                            f"{DEBUG_TAG} Fix fake dipole: {atom.OBAtom.GetIdx()} - {neighbour_atom.GetIdx()}, charge to be allocated: {given_charge}"
-                        )
+        smarts = pybel.Smarts(("[*]=[#7v4+0]=[*]"))
+        while res := smarts.findall(omol):
+            idxs = res.pop(0)
+            omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
+                omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() - 1
+            )
+            logger.debug(
+                f"{DEBUG_TAG} Fix fake dipole: {idxs[0]} - {idxs[1]}, charge to be allocated: {given_charge}"
+            )
     return given_charge
 
 
@@ -844,22 +803,12 @@ def fix_CN_in_doubt(given_charge: int, omol: pybel.Molecule):
         given_charge (int): The given charge to be fixed.
         omol (OBMol): The molecule object.
     """
-    CN_in_doubt = 0
-    doubt_pair = []
-    for atom in omol.atoms:
-        if (
-            atom.atomicnum == 6
-            and atom.OBAtom.GetFormalCharge() == 0
-            and atom.OBAtom.GetTotalValence() == 4
-        ):
-            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
-                if (
-                    atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() > 1
-                    and neighbour_atom.GetAtomicNum() == 7
-                    and neighbour_atom.GetTotalValence() == 4
-                ):
-                    CN_in_doubt += 1
-                    doubt_pair.append((atom.OBAtom, neighbour_atom))
+    smarts = pybel.Smarts("[#6v4+0]=,#[#7v4+0]")
+    doubt_pair = [
+        (omol.OBMol.GetAtom(idx1), omol.OBMol.GetAtom(idx2))
+        for idx1, idx2 in smarts.findall(omol)
+    ]
+    CN_in_doubt = len(doubt_pair)
     if CN_in_doubt > 0:
         logger.debug(
             f"{DEBUG_TAG} Fixing CN in doubt, number of pairs: {CN_in_doubt}, charge to be allocated: {given_charge}"
@@ -897,19 +846,16 @@ def fix_over_bonded_N_in_possitive(given_charge: int, omol: pybel.Molecule):
         omol (pybel.Molecule): The molecule object to be fixed.
     """
     if given_charge > 0:
-        for atom in omol.atoms:
-            if (
-                atom.atomicnum == 7  # Check if the atom is nitrogen
-                and atom.OBAtom.GetTotalValence()
-                == 4  # Check if the atom is over-bonded
-                and atom.OBAtom.GetFormalCharge()
-                == 0  # Check if the atom has no formal charge
-            ):
-                atom.OBAtom.SetFormalCharge(1)  # Set the formal charge of the atom to 1
-                given_charge -= 1  # Decrease the given charge by 1
-                logger.debug(
-                    f"{DEBUG_TAG} Fix over-bonded N: {atom.OBAtom.GetIdx()}, charge to be allocated: {given_charge}"
-                )
+        smarts = pybel.Smarts("[#7v4+0]")
+        while res := smarts.findall(omol):
+            idxs = res.pop(0)
+            omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(
+                1
+            )  # Set the formal charge of the atom to 1
+            given_charge -= 1  # Decrease the given charge by 1
+            logger.debug(
+                f"{DEBUG_TAG} Fix over-bonded N: {idxs[0]}, charge to be allocated: {given_charge}"
+            )
     return given_charge
 
 
@@ -926,32 +872,26 @@ def fix_convinced_possitive_N(given_charge: int, omol: pybel.Molecule):
         given_charge (int): The given charge to be fixed.
         omol (OBMol): The molecule object.
     """
-    for atom in omol.atoms:
-        if (
-            atom.atomicnum in (7, 15)
-            and atom.OBAtom.GetTotalValence() == 4
-            and atom.OBAtom.GetFormalCharge() == 0
-            and all(
-                neighbour_atom.GetBond(atom.OBAtom).GetBondOrder() == 1
-                for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom)
-            )
-        ):
-            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
-                if atom.OBAtom.GetDistance(neighbour_atom) >= 1.1 * (
-                    pt.GetRcovalent(atom.OBAtom.GetAtomicNum())
-                    + pt.GetRcovalent(neighbour_atom.GetAtomicNum())
-                ):
-                    omol.OBMol.DeleteBond(atom.OBAtom.GetBond(neighbour_atom))
-                    logger.debug(
-                        f"{DEBUG_TAG} Fix un-convinced possitive N: {atom.OBAtom.GetIdx()}, charge to be allocated: {given_charge}"
-                    )
-                    break
-            else:
-                atom.OBAtom.SetFormalCharge(1)
-                given_charge -= 1
+    smarts = pybel.Smarts("[#7v4+0,#15v4+0](-[*])(-[*])(-[*])-[*]")
+    while res := smarts.findall(omol):
+        idxs = res.pop(0)
+        atom = omol.OBMol.GetAtom(idxs[0])
+        for neighbour_atom in ob.OBAtomAtomIter(atom):
+            if atom.GetDistance(neighbour_atom) >= 1.1 * (
+                pt.GetRcovalent(atom.GetAtomicNum())
+                + pt.GetRcovalent(neighbour_atom.GetAtomicNum())
+            ):
+                omol.OBMol.DeleteBond(atom.GetBond(neighbour_atom))
                 logger.debug(
-                    f"{DEBUG_TAG} Fix convinced possitive N: {atom.OBAtom.GetIdx()}, charge to be allocated: {given_charge}"
+                    f"{DEBUG_TAG} Fix un-convinced possitive N: {idxs[0]}, charge to be allocated: {given_charge}"
                 )
+                break
+        else:
+            atom.SetFormalCharge(1)
+            given_charge -= 1
+            logger.debug(
+                f"{DEBUG_TAG} Fix convinced possitive N: {idxs[0]}, charge to be allocated: {given_charge}"
+            )
     return given_charge
 
 
@@ -1123,35 +1063,21 @@ def attribute_radicals_to_d_orbitals(resonance: pybel.Molecule):
                     )
 
 
-def fix_over_bonded_N_remove_bond(
-    resonance: pybel.Molecule, charge_to_be_allocated: int
-):
-    for atom in resonance.atoms:
-        if charge_to_be_allocated <= 0:
-            break
-        if (
-            atom.atomicnum in (7,)
-            and atom.OBAtom.GetFormalCharge() == 0
-            and atom.OBAtom.GetTotalValence() == 4
-        ):
-            for neighbour_atom in ob.OBAtomAtomIter(atom.OBAtom):
-                if (
-                    atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() >= 2
-                    and neighbour_atom.GetFormalCharge() == 0
-                ):
-                    atom.OBAtom.GetBond(neighbour_atom).SetBondOrder(
-                        atom.OBAtom.GetBond(neighbour_atom).GetBondOrder() - 1
-                    )
-                    neighbour_atom.SetFormalCharge(-1)
-                    charge_to_be_allocated -= 1
+def fix_over_bonded_N_remove_bond(omol: pybel.Molecule, charge_to_be_allocated: int):
+    smarts = pybel.Smarts("[#7v4+0]=,#[*+0]")
+    while charge_to_be_allocated > 0 and (res := smarts.findall(omol)):
+        idxs = res.pop(0)
+        omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
+            omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() - 1
+        )
+        omol.OBMol.GetAtom(idxs[1]).SetFormalCharge(-1)
+        charge_to_be_allocated -= 1
     return charge_to_be_allocated
 
 
-def fix_under_bonded_with_negative(
-    resonance: pybel.Molecule, charge_to_be_allocated: int
-):
+def fix_under_bonded_with_negative(omol: pybel.Molecule, charge_to_be_allocated: int):
     # Step 2.3.1: Try to find the heteroatom with negative charge first.
-    for atom in resonance.atoms:
+    for atom in omol.atoms:
         if charge_to_be_allocated <= 0:
             break
         if atom.atomicnum in HETEROATOM and atom.OBAtom.GetFormalCharge() == 0:
@@ -1163,58 +1089,36 @@ def fix_under_bonded_with_negative(
                 charge_to_be_allocated -= abs(under_valence)
 
             # Step 2.3.2: Try to find the heteroatom with negative charge first.
-    for atom in resonance.atoms:
-        if charge_to_be_allocated <= 0:
-            break
-        if (
-            atom.atomicnum in (6,)
-            and get_under_bonded_number(atom.OBAtom) == 1
-            and atom.OBAtom.GetFormalCharge() == 0
-        ):
-            atom.OBAtom.SetFormalCharge(-1)
-            charge_to_be_allocated -= 1
-    for atom in resonance.atoms:
-        if charge_to_be_allocated <= 0:
-            break
-        if (
-            atom.atomicnum in (1,)
-            and get_under_bonded_number(atom.OBAtom) == 1
-            and atom.OBAtom.GetFormalCharge() == 0
-        ):
-            atom.OBAtom.SetFormalCharge(-1)
-            charge_to_be_allocated -= 1
-    for atom in resonance.atoms:
-        if charge_to_be_allocated <= 0:
-            break
-        if (
-            atom.atomicnum in (6,)
-            and get_under_bonded_number(atom.OBAtom) > 1
-            and atom.OBAtom.GetFormalCharge() == 0
-        ):
-            atom.OBAtom.SetFormalCharge(-1)
-            charge_to_be_allocated -= 1
+    smarts = pybel.Smarts("[#6v3+0]")
+    while charge_to_be_allocated > 0 and (res := smarts.findall(omol)):
+        idxs = res.pop(0)
+        omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(-1)
+        charge_to_be_allocated -= 1
+    smarts = pybel.Smarts("[#1v0+0]")
+    while charge_to_be_allocated > 0 and (res := smarts.findall(omol)):
+        idxs = res.pop(0)
+        omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(-1)
+        charge_to_be_allocated -= 1
+    smarts = pybel.Smarts("[#6v2+0,#6v1+0,#6v0+0]")
+    while charge_to_be_allocated > 0 and (res := smarts.findall(omol)):
+        idxs = res.pop(0)
+        omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(-1)
+        charge_to_be_allocated -= 1
     return charge_to_be_allocated
 
 
-def fix_under_bonded_with_positive(
-    resonance: pybel.Molecule, charge_to_be_allocated: int
-):
+def fix_under_bonded_with_positive(omol: pybel.Molecule, charge_to_be_allocated: int):
     # Step 2.2.4: If no heteroatom (with the neighboring free radical) found, allocate the positive charge to the carbon or hydrogen atom with free radical.
     # Explaination:
     # In this case, OpenBabel will consider the carbon atom lack of bonds, so it will set the radical to 1.
     # Thus, find the carbon atoms with free radical, set the charge to 1 and set the radical to 0.
-    for atom in resonance.atoms:
-        if charge_to_be_allocated <= 0:
-            break
-        if (
-            atom.atomicnum in (1, 6)
-            and get_under_bonded_number(atom.OBAtom) == 1
-            and atom.OBAtom.GetFormalCharge() == 0
-        ):
-            atom.OBAtom.SetFormalCharge(1)
-            charge_to_be_allocated -= 1
-            # allocate postive charge to the other elements
-    for atom in resonance.atoms:
+    smarts = pybel.Smarts("[#6v3+0,#1v0+0]")
+    while charge_to_be_allocated > 0 and (res := smarts.findall(omol)):
+        idxs = res.pop(0)
+        omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(1)
+        charge_to_be_allocated -= 1
+    # allocate postive charge to the other elements
+    for atom in omol.atoms:
         if charge_to_be_allocated <= 0:
             break
         if (

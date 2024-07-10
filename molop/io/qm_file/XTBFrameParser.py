@@ -45,24 +45,20 @@ class XTBFrameParser(BaseQMMolFrameParser):
         if self.only_extract_structure:
             return
         self._parse_state()
-        self.energies = self._parse_energy()
-        self.charge_spin_populations = self._parse_charges()
-        self.molecular_orbitals = self._parse_orbitals()
-        self.bond_orders = self._parse_bond_order()
-        self.polarizability = self._parse_polarizability()
-        self.thermal_energies = self._parse_thermal()
+        self._parse_energy()
+        self._parse_charges()
+        self._parse_orbitals()
+        self._parse_bond_order()
+        self._parse_polarizability()
+        self._parse_thermal()
         self._parse_rotation()
-        single_point_properties = SinglePointProperties.model_validate(
+        self.single_point_properties = SinglePointProperties.model_validate(
             {
                 **self._parse_vipea().model_dump(exclude_unset=True),
                 **self._parse_gei().model_dump(exclude_unset=True),
                 **self._parse_fukui_index().model_dump(exclude_unset=True),
             }
-        ).model_dump(exclude_unset=True)
-        if len(single_point_properties):
-            self.single_point_properties = SinglePointProperties(
-                **single_point_properties
-            )
+        )
 
     def _parse_coords_attached(self):
         attached_coords_path = re.search(
@@ -233,7 +229,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
             block = block[e_match.end() :]
             e_match = xtboutpatterns["total_E"].search(block)
         if len(energies):
-            return Energies.model_validate(energies)
+            self.energies = Energies.model_validate(energies)
 
     def _parse_charges(self):
         charges = {}
@@ -253,7 +249,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
                 mulliken_charges.append(float(row.split()[4]))
             charges["mulliken_charges"] = mulliken_charges
         if len(charges):
-            return ChargeSpinPopulations.model_validate(charges)
+            self.charge_spin_populations = ChargeSpinPopulations.model_validate(charges)
 
     def _parse_orbitals(self):
         orbitals_start = xtboutpatterns["orbitals_start"].search(self.__block)
@@ -290,7 +286,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
             orbital_energies = (
                 np.array(orbital_energies) * atom_ureg.hartree / atom_ureg.particle
             )
-            return MolecularOrbitals(
+            self.molecular_orbitals = MolecularOrbitals(
                 alpha_energies=orbital_energies,
                 beta_energies=orbital_energies,
                 alpha_occupancies=alpha_orbital_occ,
@@ -320,7 +316,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
                     result[idx][i] = v
                     result[i][idx] = v
             bond_order["wiberg_bond_order"] = result
-            return BondOrders.model_validate(bond_order)
+            self.bond_orders = BondOrders.model_validate(bond_order)
 
     def _parse_polarizability(self):
         polar = {}
@@ -335,7 +331,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
                 * atom_ureg.atomic_unit_of_time
                 * atom_ureg.bohr
             ).to(atom_ureg.debye)
-            return Polarizability.model_validate(polar)
+            self.polarizability = Polarizability.model_validate(polar)
 
     def _parse_thermal(self):
         thermal = {}
@@ -383,7 +379,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
                     )
                     break
         if len(thermal):
-            return ThermalEnergies.model_validate(thermal)
+            self.thermal_energies = ThermalEnergies.model_validate(thermal)
 
     def _parse_rotation(self):
         rot = xtboutpatterns["rotation_consts"].search(self.__block)

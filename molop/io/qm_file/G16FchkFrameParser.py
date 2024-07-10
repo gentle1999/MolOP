@@ -76,13 +76,14 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
         self._parse_coords()
         if self.only_extract_structure:
             return
-        self.energies = self._parse_energy()
-        self.total_spin = self._parse_spin()
+        self._parse_energy()
+        self._parse_spin()
         self._parse_gradient()
-        self.molecular_orbitals = self._parse_orbitals()
-        pops = ChargeSpinPopulations(mulliken_charges=self._parse_mulliken_charges())
-        self.charge_spin_populations = pops
-        self.polarizability = self._parse_polarizability()
+        self._parse_orbitals()
+        self.charge_spin_populations = ChargeSpinPopulations(
+            mulliken_charges=self._parse_mulliken_charges()
+        )
+        self._parse_polarizability()
         self._parse_vibrations()
         self._parse_state()
 
@@ -131,7 +132,7 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
                 float(cluster_energy.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )
         if len(energies):
-            return Energies.model_validate(energies)
+            self.energies = Energies.model_validate(energies)
 
     def _parse_spin(self) -> TotalSpin:
         matches = g16fchkpatterns["spin"].search(self.__block)
@@ -141,7 +142,7 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
             spins["spin_quantum_number"] = math.sqrt(spins["spin_square"] + 0.25) - 0.5
             if molopconfig.allow_spin_change:
                 self.multiplicity = int(round(2 * spins["spin_quantum_number"] + 1, 0))
-            return TotalSpin.model_validate(spins)
+            self.total_spin = TotalSpin.model_validate(spins)
 
     def _parse_mulliken_charges(self):
         mulliken_match = self._parse_block(
@@ -188,7 +189,7 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
             beta_orbitals_energy = alpha_orbitals_energy
             beta_occ = alpha_occ
         if len(alpha_orbitals_energy):
-            return MolecularOrbitals(
+            self.molecular_orbitals = MolecularOrbitals(
                 alpha_energies=np.array(alpha_orbitals_energy)
                 * atom_ureg.hartree
                 / atom_ureg.particle,
@@ -265,7 +266,7 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
                 * atom_ureg.angstrom
             )
         if len(polar):
-            return Polarizability.model_validate(polar)
+            self.polarizability = Polarizability.model_validate(polar)
 
     def _parse_state(self):
         matches = re.search(g16fchkpatterns["job status"], self.__block)

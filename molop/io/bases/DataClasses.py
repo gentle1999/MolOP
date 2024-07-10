@@ -52,7 +52,7 @@ class BaseDataClassWithUnit(BaseModel):
     def to_unitless_dump(self, **kwargs):
         return {
             k: (
-                v.m
+                (v.m.tolist() if isinstance(v.m, np.ndarray) else v.m)
                 if isinstance(v, PlainQuantity)
                 else (
                     getattr(self, k).to_unitless_dump(**kwargs)
@@ -67,7 +67,7 @@ class BaseDataClassWithUnit(BaseModel):
                             for v1 in getattr(self, k)
                         ]
                         if isinstance(v, List)
-                        else v
+                        else v.tolist() if isinstance(v, np.ndarray) else v
                     )
                 )
             )
@@ -360,7 +360,7 @@ class Vibration(BaseDataClassWithUnit):
         description="IR intensity of each mode, unit is `kmol/mol`",
     )
     vibration_mode: Union[PlainQuantity, None] = Field(
-        default=None,
+        default=np.array([[]]) * atom_ureg.angstrom,
         description="Vibration mode of each mode, unit is `angstrom`",
     )
 
@@ -372,20 +372,20 @@ class Vibration(BaseDataClassWithUnit):
 
 class Vibrations(BaseDataClassWithUnit):
     __index: int = PrivateAttr(default=0)
-    frequencies: Union[PlainQuantity, None] = Field(
-        default=None,
+    frequencies: PlainQuantity = Field(
+        default=np.array([]) * atom_ureg.cm_1,
         description="Frequency of each mode, unit is `cm^-1`",
     )
-    reduced_masses: Union[PlainQuantity, None] = Field(
-        default=None,
+    reduced_masses: PlainQuantity = Field(
+        default=np.array([]) * atom_ureg.amu,
         description="Reduced mass of each mode, unit is `amu`",
     )
-    force_constants: Union[PlainQuantity, None] = Field(
-        default=None,
+    force_constants: PlainQuantity = Field(
+        default=np.array([]) * atom_ureg.mdyne / atom_ureg.angstrom,
         description="Force constant of each mode, unit is `mdyne/angstrom`",
     )
-    IR_intensities: Union[PlainQuantity, None] = Field(
-        default=None,
+    IR_intensities: PlainQuantity = Field(
+        default=np.array([]) * atom_ureg.kmol / atom_ureg.mol,
         description="IR intensity of each mode, unit is `kmol/mol`",
     )
     vibration_modes: List[Union[PlainQuantity, None]] = Field(

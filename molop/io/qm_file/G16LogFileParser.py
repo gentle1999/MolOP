@@ -86,27 +86,33 @@ class G16LogFileParser(BaseQMMolFileParser[G16LogFrameParser]):
         return n_atom
 
     def _parse_input_parameter(self, full_text: str):
-        pattern = re.compile(
-            r"""\s+\*+
-\s+(Gaussian\s+\d+\:\s+[A-Za-z0-9-.]+\s+\d+-[A-Za-z]{3}-\d{4})
-\s+\d+-[A-Za-z]{3}-\d{4}\s+
-\s+\*+
-([a-zA-Z%0-9.=\s\_\\\/\*\+\-\"]+)
-\s+-+
-([a-zA-Z%0-9.\=\s\-\+\#\(\),\*\/\\^\n]+)
-\s+-+"""
-        )
-        matches = pattern.search(full_text)
-        if matches:
-            version, para_1, para_2 = matches.groups()
+        version_match = g16logpatterns["version"].search(full_text)
+        if version_match:
+            version = version_match.group()
         else:
             logger.error(f"No version found in {self.file_path}")
             raise ValueError(f"No version found in {self.file_path}")
         self.qm_software_version = version
-        self.keywords = "\n".join(
-            (para_1.replace("\n", " "), para_2.replace("\n ", ""))
+        link = ""
+        route = ""
+        link_start = False
+        route_start = False
+        for row in full_text[version_match.end():].splitlines(True):
+            if "----" in row and route_start:
+                route_start = False
+                break
+            if route_start:
+                route += row
+            if "----" in row and not route_start:
+                link_start = False
+                route_start = True
+            if link_start:
+                link += row
+            if "****" in row:
+                link_start = True
+        self.keywords = "\n\n".join(
+            (link.replace("\n", " "), route.replace("\n ", ""))
         )
-        link, route = self.keywords.split("#")
         link = link.replace("\n", " ")
         route = "#" + route.replace("\n", " ")
         self.__link0 = link0_parser(link)

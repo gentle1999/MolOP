@@ -46,11 +46,11 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         """
         Get the link.
         """
-        return self.keywords.split("#")[0]
+        return self.keywords.split("\n\n")[0].replace("\n", " ")
 
     @property
     def route(self):
-        return "#" + self.keywords.split("#")[1].replace("\n", " ")
+        return self.keywords.split("\n\n")[1].replace("\n", " ")
 
     @property
     def link0(self) -> dict:
@@ -90,8 +90,8 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         self._parse_solvent()
         energies = self._parse_energy()
         isotropic_polarizability = self._parse_isotropic_polarizability()
-        self.total_spin = self._parse_total_spin()
-        self.molecular_orbitals = self._parse_orbitals()
+        self._parse_total_spin()
+        self._parse_orbitals()
         electronic_spatial_extent = self._parse_electronic_spatial_extent()
         mulliken_charges = self._parse_mulliken_charges()
         mulliken_spins = self._parse_mulliken_spin_density()
@@ -128,32 +128,22 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             atom_atom_overlap_bond_order=atom_atom_overlap_bond_order,
             nbo_bond_order=self._parse_nbo_bond_order(),
         )
-        self.vibrations = self._parse_vibrations()
+        self._parse_vibrations()
         self._parse_temperature()
         thermal_energies = self._parse_thermal_energies()
         self._parse_forces()
         self._parse_status()
-        merged_energies = Energies.model_validate(
+        self.energies = Energies.model_validate(
             {
                 **energies.model_dump(exclude_unset=True),
                 **self._parse_tail_energies().model_dump(exclude_unset=True),
             }
         )
-        merged_thermal_energies = ThermalEnergies.model_validate(
+        self.thermal_energies = ThermalEnergies.model_validate(
             {
                 **thermal_energies.model_dump(exclude_unset=True),
                 **self._parse_tail_thermal_energies().model_dump(exclude_unset=True),
             }
-        )
-        self.energies = (
-            merged_energies
-            if len(merged_energies.model_dump(exclude_unset=True))
-            else None
-        )
-        self.thermal_energies = (
-            merged_thermal_energies
-            if len(merged_thermal_energies.model_dump(exclude_unset=True))
-            else None
         )
 
     def _parse_coords(self):
@@ -473,7 +463,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 self.multiplicity = int(
                     round(2 * total_spin["spin_quantum_number"] + 1, 0)
                 )
-        return TotalSpin.model_validate(total_spin)
+            self.total_spin = TotalSpin.model_validate(total_spin)
 
     def _parse_orbitals(self) -> Tuple[MolecularOrbitals, MolecularOrbitals]:
         orbital_start = g16logpatterns["orbital_start"].search(self.__block)
@@ -520,7 +510,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 raise ValueError(
                     "Number of beta orbitals does not match number of alpha orbitals"
                 )
-            return MolecularOrbitals(
+            self.molecular_orbitals = MolecularOrbitals(
                 alpha_energies=np.array(temp_alpha_orbitals)
                 * atom_ureg.hartree
                 / atom_ureg.particle,
@@ -620,7 +610,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 freq_modes_reindex.append(
                     freq_modes[i + 2 : i + 2 + 3 * self.n_atom : 3]
                 )
-            return Vibrations(
+            self.vibrations = Vibrations(
                 frequencies=np.array(list(map(float, chain.from_iterable(freqs))))
                 * atom_ureg.cm_1,
                 reduced_masses=np.array(
