@@ -8,6 +8,7 @@ Description: 请填写简介
 
 import os
 import re
+import json
 from typing import List, Literal, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
@@ -465,7 +466,7 @@ class BaseMolFrameParser(BaseMolFrame):
     def is_optimized(self) -> bool:
         return False
 
-    def to_summary_series(self) -> pd.Series:
+    def to_summary_series(self, full: bool = False) -> pd.Series:
         """
         Generate a summary series for the current frame.
         """
@@ -554,33 +555,34 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         default=np.array([[]]) * atom_ureg.Ghertz,
         description="Rotational constants, unit is `GHz`",
     )
-    energies: Union[Energies, None] = Field(
-        default=None,
+    energies: Energies = Field(
+        default=Energies(),
         description="Energies",
     )
-    thermal_energies: Union[ThermalEnergies, None] = Field(
-        default=None,
+    thermal_energies: ThermalEnergies = Field(
+        default=ThermalEnergies(),
         description="Thermal Energies",
     )
-    molecular_orbitals: Union[MolecularOrbitals, None] = Field(
-        default=None,
+    molecular_orbitals: MolecularOrbitals = Field(
+        default=MolecularOrbitals(),
         description="Molecular Orbitals",
     )
-    vibrations: Union[Vibrations, None] = Field(default=None, description="vibrations")
+    vibrations: Vibrations = Field(default=Vibrations(), description="vibrations")
     charge_spin_populations: ChargeSpinPopulations = Field(
         default=None, description="Charge and spin populations"
     )
-    polarizability: Union[Polarizability, None] = Field(
-        default=None, description="Polarizability of the molecule"
+    polarizability: Polarizability = Field(
+        default=Polarizability(), description="Polarizability of the molecule"
     )
-    bond_orders: Union[BondOrders, None] = Field(
-        default=None, description="Bond orders of the molecule"
+    bond_orders: BondOrders = Field(
+        default=BondOrders(), description="Bond orders of the molecule"
     )
-    total_spin: Union[TotalSpin, None] = Field(
-        default=None, description="Total spin of the molecule"
+    total_spin: TotalSpin = Field(
+        default=TotalSpin(), description="Total spin of the molecule"
     )
-    single_point_properties: Union[SinglePointProperties, None] = Field(
-        default=None, description="Single point properties of the molecule"
+    single_point_properties: SinglePointProperties = Field(
+        default=SinglePointProperties(),
+        description="Single point properties of the molecule",
     )
 
     def ts_vibration(self) -> List[BaseMolFrameParser]:
@@ -599,7 +601,8 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         for ratio in (-1.75, -1.5, -1.25, -1, 1, 1.25, 1.5, 1.75):
             # Calculate extreme coordinates based on current ratio
             extreme_coords = (
-                self.coords.m - self.vibrations.imaginary_vibrations[0].vibration_mode.m * ratio
+                self.coords.m
+                - self.vibrations.imaginary_vibrations[0].vibration_mode.m * ratio
             )
 
             try:
@@ -665,51 +668,44 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
             block_parsers[-1].rdmol.RemoveAllConformers()
         return block_parsers[0].rdmol, block_parsers[-1].rdmol
 
-    def to_summary_series(self) -> pd.Series:
+    def to_summary_series(self, full: bool = False) -> pd.Series:
         """
         Generate a summary series for the current frame.
         """
-        energies = self.energies if self.energies else Energies()
-        thermal_energies = (
-            self.thermal_energies if self.thermal_energies else ThermalEnergies()
-        )
-        orbitals = (
-            self.molecular_orbitals if self.molecular_orbitals else MolecularOrbitals()
-        )
-        total_spin = self.total_spin if self.total_spin else TotalSpin()
-        polarizability = (
-            self.polarizability if self.polarizability else Polarizability()
-        )
-        return pd.Series(
-            {
-                "parser": self.__class__.__name__,
-                "file_path": self.file_path,
-                "file_name": self.filename,
-                "file_format": self.file_format,
-                "version": self.qm_software_version,
-                "frame_index": self.frame_id,
-                "charge": self.charge,
-                "multiplicity": self.multiplicity,
-                "SMILES": self.to_standard_SMILES(),
-                "functional": self.functional,
-                "basis": self.basis,
-                "solvent_model": self.solvent_model,
-                "solvent": self.solvent,
-                "temperature": self.temperature,
-                "status": str(self.status),
-                "is_error": self.is_error,
-                "is_optimized": self.is_optimized,
-                "is_TS": self.is_TS,
-                **energies.model_dump(),
-                **thermal_energies.model_dump(),
-                "HOMO": orbitals.HOMO_energy,
-                "LUMO": orbitals.LUMO_energy,
-                "GAP": orbitals.HOMO_LUMO_gap,
-                **total_spin.model_dump(),
+        brief_dict = {
+            "parser": self.__class__.__name__,
+            "file_path": self.file_path,
+            "file_name": self.filename,
+            "file_format": self.file_format,
+            "version": self.qm_software_version,
+            "frame_index": self.frame_id,
+            "charge": self.charge,
+            "multiplicity": self.multiplicity,
+            "SMILES": self.to_standard_SMILES(),
+            "functional": self.functional,
+            "basis": self.basis,
+            "solvent_model": self.solvent_model,
+            "solvent": self.solvent,
+            "temperature": self.temperature,
+            "status": str(self.status),
+            "is_error": self.is_error,
+            "is_optimized": self.is_optimized,
+            "is_TS": self.is_TS,
+        }
+        if full:
+            brief_dict = {
+                **brief_dict,
                 "rotational_constants": self.rotation_constants,
-                **polarizability.model_dump(),
+                **self.energies.model_dump(),
+                **self.thermal_energies.model_dump(),
+                **self.total_spin.model_dump(),
+                **self.molecular_orbitals.model_dump(),
+                **self.vibrations.model_dump(),
+                **self.polarizability.model_dump(),
+                **self.bond_orders.model_dump(),
+                **self.single_point_properties.model_dump(),
             }
-        )
+        return pd.Series(brief_dict)
 
     @computed_field
     @property
@@ -730,9 +726,7 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
             return False
         if not self.is_optimized:
             return False
-        if self.vibrations:
-            return len(self.vibrations.imaginary_idxs) == 1
-        return False
+        return len(self.vibrations.imaginary_idxs) == 1
 
 
 MolFrameType = TypeVar("MolFrameType", bound=BaseMolFrameParser, covariant=True)

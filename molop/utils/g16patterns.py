@@ -140,6 +140,7 @@ def shell_to_orbitals(shell_type, offset):
 
 
 g16logpatterns: Dict[str, re.Pattern] = {
+    "version": re.compile(r"(Gaussian\s+\d+:\s*[^\s]*\s*\d+-[A-Za-z]{3}-\d{4}\n\s+\d+-[A-Za-z]{3}-\d{4})"),
     "n atoms": re.compile(r"NAtoms=\s*(\d+)"),
     "input_coords_start": re.compile(r"Input orientation:"),
     "standard_coords_start": re.compile(r"Standard orientation:"),

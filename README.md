@@ -2,7 +2,7 @@
  * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-06-17 20:39:24
+ * @LastEditTime: 2024-07-07 16:30:32
  * @Description: 请填写简介
 -->
 # MolOP
@@ -44,17 +44,18 @@ All teat cases shown in the [test_cases](tutorial/test_cases.ipynb) file.
 This package is actively developing, and this time is too early to be published to pypi. So you can install by the following.
 
 ### In ZJU intranet
+
 You can use our self-host repository.
+
 ```bash
 pip install --extra-index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop --upgrade
 ```
 
 For additional descriptor calculation, you need to install the requirements below:
+
 ```bash
 pip install --extra-index-url http://10.72.201.58:13000/api/packages/tmj/pypi/simple/ --trusted-host 10.72.201.58 molop[full] --upgrade
 ```
-
-
 
 ## Installation for Developers
 
@@ -70,10 +71,13 @@ pip install poetry
 poetry install --with dev
 poetry install --all-extras
 ```
-## Online Documentation (only avialable in ZJU intranet now) 
+
+## Online Documentation (only avialable in ZJU intranet now)
+
 Visit [MolOP Documentation](https://molop-gentle-7355819aa2dbcc7edc9420595fa823e6ffaebc1a874271edbf.pages.zjusct.io/).
 
 ## Start documentation server
+
 ```bash
 mkdocs serve
 ```
