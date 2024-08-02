@@ -27,6 +27,7 @@ from molop.io.bases.DataClasses import (
     Vibrations,
 )
 from molop.unit import atom_ureg
+from molop.utils import fill_symmetric_matrix
 from molop.utils.g16patterns import (
     g16logpatterns,
     link0_parser,
@@ -707,6 +708,45 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 nbo_bond_order[_idx2 - 1, _idx1 - 1] += _occ
             return nbo_bond_order
         return np.array([[]])
+
+    @property
+    def hessian(self) -> np.ndarray:
+        """
+        Get the hessian matrix (Force constants) from the frame
+        """
+        hessian_in_body_start = g16logpatterns["hessian_in_body_start"].search(
+            self.frame_content
+        )
+        hessian_in_body_end = g16logpatterns["hessian_in_body_end"].search(
+            self.frame_content
+        )
+        if hessian_in_body_start and hessian_in_body_end:
+            hessians = g16logpatterns["hessian_in_body_match"].findall(
+                self.frame_content[
+                    hessian_in_body_start.start() : hessian_in_body_end.end()
+                ]
+            )
+            return fill_symmetric_matrix(
+                np.array(list(map(lambda x: float(x.replace("D", "E")), hessians)))
+            )
+
+        tail = self._tail
+        if len(tail):
+            hessian_in_tail_start = g16logpatterns["hessian_in_tail_start"].search(tail)
+            if hessian_in_tail_start:
+                hessian_in_tail_end = g16logpatterns["hessian_in_tail_end"].search(
+                    tail[hessian_in_tail_start.end() :]
+                )
+                if hessian_in_tail_end:
+                    hessians = g16logpatterns["hessian_in_tail_match"].findall(
+                        tail[
+                            hessian_in_tail_start.end() : hessian_in_tail_start.end()
+                            + hessian_in_tail_end.end()
+                        ]
+                    )
+                    return fill_symmetric_matrix(
+                        np.array(list(map(lambda x: float(x), hessians)))
+                    )
 
     @computed_field
     @property

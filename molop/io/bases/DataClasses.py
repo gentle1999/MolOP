@@ -6,7 +6,7 @@ LastEditTime: 2024-06-18 20:43:03
 Description: 请填写简介
 """
 
-from typing import ClassVar, List, Sequence, Union
+from typing import ClassVar, List, Sequence, Union, overload
 
 import numpy as np
 from pint.facets.plain import PlainQuantity
@@ -73,6 +73,9 @@ class BaseDataClassWithUnit(BaseModel):
             )
             for k, v in self.model_dump(**kwargs).items()
         }
+
+
+class WaveFunction(BaseDataClassWithUnit): ...
 
 
 class Energies(BaseDataClassWithUnit):
@@ -328,15 +331,51 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             self.__index += 1
             return self[self.__index - 1]
 
-    def __getitem__(self, frameID: int) -> MoleculeOrbital:
-        return MoleculeOrbital.model_validate(
-            {
-                "alpha_energy": self.alpha_energies[frameID],
-                "beta_energy": self.beta_energies[frameID],
-                "alpha_occupancy": self.alpha_occupancies[frameID],
-                "beta_occupancy": self.beta_occupancies[frameID],
-            }
-        )
+    @overload
+    def __getitem__(self, orbitalID: int) -> MoleculeOrbital: ...
+
+    @overload
+    def __getitem__(self, orbitalID: slice) -> List[MoleculeOrbital]: ...
+
+    @overload
+    def __getitem__(self, orbitalID: Union[Sequence]) -> List[MoleculeOrbital]: ...
+
+    def __getitem__(
+        self, orbitalID: Union[int, slice]
+    ) -> Union[MoleculeOrbital, List[MoleculeOrbital]]:
+        if isinstance(orbitalID, int):
+            return MoleculeOrbital.model_validate(
+                {
+                    "alpha_energy": self.alpha_energies[orbitalID],
+                    "beta_energy": self.beta_energies[orbitalID],
+                    "alpha_occupancy": self.alpha_occupancies[orbitalID],
+                    "beta_occupancy": self.beta_occupancies[orbitalID],
+                }
+            )
+        if isinstance(orbitalID, slice):
+            return [
+                MoleculeOrbital.model_validate(
+                    {
+                        "alpha_energy": self.alpha_energies[orbital_id],
+                        "beta_energy": self.beta_energies[orbital_id],
+                        "alpha_occupancy": self.alpha_occupancies[orbital_id],
+                        "beta_occupancy": self.beta_occupancies[orbital_id],
+                    },
+                )
+                for orbital_id in range(*orbitalID.indices(len(self.alpha_energies)))
+            ]
+        else:
+            return [
+                MoleculeOrbital.model_validate(
+                    {
+                        "alpha_energy": self.alpha_energies[orbital_id],
+                        "beta_energy": self.beta_energies[orbital_id],
+                        "alpha_occupancy": self.alpha_occupancies[orbital_id],
+                        "beta_occupancy": self.beta_occupancies[orbital_id],
+                    },
+                )
+                for orbital_id in orbitalID
+            ]
 
     def __len__(self) -> int:
         return len(self.alpha_energies)

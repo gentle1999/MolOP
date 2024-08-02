@@ -6,19 +6,20 @@ Offer a molecular graph recovery algorithm from the simple coodinates of atoms b
 Although our algorithm overcome the free radicals and metal problem and tested, it is still not perfect. There is no denying that, rdDetermineBonds works well for normal organic molecules. Thus, we would give molecule structure recovered by rdDetermineBonds first, if error happens, we will use our algorithm to recover the molecule structure instead. We hope that this strategy can take advantage of both approaches.
 """
 
+import itertools
+
 # TODO SMARTS
 import time
-import itertools
 from typing import List, Tuple
 
 from openbabel import openbabel as ob
 from openbabel import pybel
 from rdkit import Chem
 
-from molop.utils import is_metal
 from molop.config import molopconfig
-from molop.structure.structure import bond_list
 from molop.logger.logger import logger
+from molop.structure.structure import bond_list
+from molop.utils import is_metal
 
 pt = Chem.GetPeriodicTable()
 HETEROATOM = (9, 8, 17, 7, 35, 54, 16, 34, 15)
@@ -40,16 +41,18 @@ def get_under_bonded_number(atom: ob.OBAtom) -> int:
     if atom.IsMetal():
         return 0
     if atom.GetAtomicNum() in (7, 15):
-        if atom.GetTotalValence() == 5:
+        if atom.GetTotalValence() == 5 and atom.GetFormalCharge() == 0:
             # For nitrogen and phosphorus atoms, the radical number is 0 when the valence is 5
             return 0
+        if atom.GetTotalValence() == 4 and atom.GetFormalCharge() == 0:
+            return 1
     elif atom.GetAtomicNum() == 16:
         if atom.GetTotalValence() in (4, 6):
             # For sulfur atoms, the radical number is 0 when the valence is 4 or 6
             return 0
-        if atom.GetTotalValence() == 5:
+        if atom.GetTotalValence() == 5 and atom.GetFormalCharge() == 0:
             return 1
-        if atom.GetTotalValence() == 3:
+        if atom.GetTotalValence() == 3 and atom.GetFormalCharge() == 0:
             return 1
     # For other atoms, the radical number is the default valence electrons plus formal charge minus the valence
     if (
@@ -618,6 +621,24 @@ def clean_resonances_9(omol: pybel.Molecule) -> pybel.Molecule:
     return omol
 
 
+def clean_resonances_10(omol: pybel.Molecule) -> pybel.Molecule:
+    smarts = pybel.Smarts("[S]=[*]")
+    res = list(smarts.findall(omol))
+    while len(res):
+        logger.debug(f"Cleaning S radical")
+        idxs = res.pop(0)
+        S_atom = omol.OBMol.GetAtom(idxs[0])
+        neighbor_atom = omol.OBMol.GetAtom(idxs[1])
+        if (
+            get_under_bonded_number(S_atom) == 1
+            and get_under_bonded_number(neighbor_atom) == 0
+        ):
+            omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
+                int(omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() - 1)
+            )
+    return omol
+
+
 def clean_resonances(omol: pybel.Molecule) -> pybel.Molecule:
     """
     Cleaning up resonance structures in molecules.
@@ -638,6 +659,7 @@ def clean_resonances(omol: pybel.Molecule) -> pybel.Molecule:
         clean_resonances_7,
         clean_resonances_8,
         clean_resonances_9,
+        clean_resonances_10,
     ]
     for process in processes:
         omol = process(omol)
@@ -1316,7 +1338,7 @@ def xyz_block_to_omol(
     given_charge = fix_convinced_possitive_N(given_charge, omol)
 
     if final_check(omol, total_charge, total_radical):
-        return omol
+        return clean_resonances(omol)
     given_charge = split_charge(omol, given_charge, total_radical)
     omol.OBMol.MakeDativeBonds()
 

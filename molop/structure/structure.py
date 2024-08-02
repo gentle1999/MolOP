@@ -70,9 +70,6 @@ def get_formal_num_radicals(mol: RdMol) -> List[int]:
     return [atom.GetNumRadicalElectrons() for atom in mol.GetAtoms()]
 
 
-
-
-
 def get_resonance_structures(rdmol, flags=0):
     suppl = Chem.ResonanceMolSupplier(rdmol, flags)
     return [mol for mol in suppl]
@@ -115,15 +112,11 @@ def get_under_bonded_number(atom: Chem.Atom) -> int:
     """
     Get the number of under-bonded electrons of atom.
     """
-    return (
-        pt.GetDefaultValence(atom.GetAtomicNum())
-        + atom.GetFormalCharge()
-        - atom.GetTotalValence()
-    )
+    return atom.GetNumRadicalElectrons()
 
 
 def replace_mol(
-    mol,
+    mol: RdMol,
     replacement_mol: RdMol,
     query_mol: Union[RdMol, None] = None,
     bind_idx: int = None,
@@ -198,16 +191,24 @@ def replace_mol(
     # build skeleton with queried substruct removed
     # considering the original mol may have been split into frags
     origin_mol.RemoveBond(start, end)
-    frags = [
-        frag
-        for frag, frag_idx in zip(
-            Chem.GetMolFrags(origin_mol, asMols=True), Chem.GetMolFrags(origin_mol)
-        )
+    frags, frag_idxs = (
+        Chem.GetMolFrags(origin_mol, asMols=True),
+        Chem.GetMolFrags(origin_mol),
+    )
+    ske_frags = [
+        (frag, frag_idx)
+        for frag, frag_idx in zip(frags, frag_idxs)
         if end not in frag_idx
     ]  # get all frags except the one that contains the end atom
-    skeleton = frags[0]
-    for frag in frags[1:]:
+    skeleton = ske_frags[0][0]
+    init_mapping = list(ske_frags[0][1])
+    for frag, frag_idx in ske_frags[1:]:
         skeleton = Chem.CombineMols(skeleton, frag)
+        init_mapping.extend(frag_idx)
+    mapping = list(
+        map(lambda x: x[0], sorted(list(enumerate(init_mapping)), key=lambda x: x[1]))
+    )
+    skeleton = reset_atom_index(skeleton, mapping)
 
     # build replacement conformer
     replacement = Chem.AddHs(replacement_mol, addCoords=True)
@@ -239,52 +240,44 @@ def replace_mol(
     idx_list = [
         idx_list for idx_list in rmol.GetSubstructMatches(replacement) if 0 in idx_list
     ]
-    for forth_atom in rmol.GetAtomWithIdx(0).GetNeighbors():
-        if forth_atom.GetIdx() in idx_list[0]:
-            forth_atom_idx = forth_atom.GetIdx()
-            break
-    for first_atom in rmol.GetAtomWithIdx(lines_idx[0][0]).GetNeighbors():
-        if first_atom.GetIdx() not in idx_list[0]:
-            first_atom_idx = first_atom.GetIdx()
-            break
-    Chem.SanitizeMol(rmol)
-    best_angle, best_crowding_score = 0, 0
-    for angle in np.linspace(0, 2 * np.pi, angle_split):
+    if replacement.GetNumAtoms() >= 2:
+        for forth_atom in rmol.GetAtomWithIdx(0).GetNeighbors():
+            if forth_atom.GetIdx() in idx_list[0]:
+                forth_atom_idx = forth_atom.GetIdx()
+                break
+        for first_atom in rmol.GetAtomWithIdx(lines_idx[0][0]).GetNeighbors():
+            if first_atom.GetIdx() not in idx_list[0]:
+                first_atom_idx = first_atom.GetIdx()
+                break
+        Chem.SanitizeMol(rmol)
+        best_angle, best_crowding_score = 0, 0
+        for angle in np.linspace(0, 2 * np.pi, angle_split):
+            rdMolTransforms.SetDihedralRad(
+                rmol.GetConformer(),
+                first_atom_idx,
+                lines_idx[0][0],
+                0,
+                forth_atom_idx,
+                angle,
+            )
+            crowding_score = get_crowding_socre(rmol, threshold=threshold)
+            if crowding_score > best_crowding_score:
+                best_angle = angle
+                best_crowding_score = crowding_score
         rdMolTransforms.SetDihedralRad(
             rmol.GetConformer(),
             first_atom_idx,
             lines_idx[0][0],
             0,
             forth_atom_idx,
-            angle,
+            best_angle,
         )
-        crowding_score = get_crowding_socre(rmol, threshold=threshold)
-        if crowding_score > best_crowding_score:
-            best_angle = angle
-            best_crowding_score = crowding_score
-    rdMolTransforms.SetDihedralRad(
-        rmol.GetConformer(),
-        first_atom_idx,
-        lines_idx[0][0],
-        0,
-        forth_atom_idx,
-        best_angle,
-    )
     geometry.standard_orient(rmol, [0, 1, 2])
     # recover the original atom index of the skeleton
-    if len([atom for atom in skeleton.GetAtoms()]) > 50:
-        return rmol
-    for indice in mol.GetSubstructMatches(skeleton):
-        if unique_queried_idx[0] not in indice:
-            origin_indice = list(indice) + [unique_queried_idx[0]]
-            break
-    for indice in rmol.GetSubstructMatches(skeleton):
-        if 0 not in indice:
-            transed_indice = list(indice) + [0]
-            break
-    zip_indice = list(zip(origin_indice, transed_indice))
-    zip_indice.sort(key=lambda x: x[0])
-    mapping = [item[1] for item in zip_indice]
+    atom_idxs = list(range(rmol.GetNumAtoms()))
+    mapping = (
+        atom_idxs[replacement.GetNumAtoms() :] + atom_idxs[: replacement.GetNumAtoms()]
+    )
     return reset_atom_index(rmol, mapping)
 
 
@@ -382,6 +375,7 @@ def attempt_replacement(
                 end_idx=end_idx,
             )
         if check_crowding(new_mol, threshold=crowding_threshold):
+            Chem.SanitizeMol(new_mol)
             return new_mol
     else:
         raise RuntimeError(
