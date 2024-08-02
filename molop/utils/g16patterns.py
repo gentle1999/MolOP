@@ -285,7 +285,13 @@ g16logpatterns: Dict[str, re.Pattern] = {
         r"Electronic spatial extent \(au\):  <R\*\*2>=\s*(\d+.\d+)"
     ),
     "isotropic_polarizability": re.compile(r"Isotropic polarizability for W=\s*\d+.\d+\s*(\d+.\d+)\s*Bohr\*\*3"),
-    "polarizability": re.compile(r"Exact\s*polarizability:\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)")
+    "polarizability": re.compile(r"Exact\s*polarizability:\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)"),
+    "hessian_in_body_start": re.compile(r"Force constants in Cartesian coordinates:"),
+    "hessian_in_body_match": re.compile(r"[-]*\d+.\d+D[+-]\d+"),
+    "hessian_in_body_end": re.compile(r"FormGI is forming"),
+    "hessian_in_tail_start": re.compile(r"NImag=\d+\\\\"),
+    "hessian_in_tail_match": re.compile(r"[-]*\d+\.\d+"),
+    "hessian_in_tail_end": re.compile(r"\\\\"),
 }
 
 
