@@ -27,7 +27,7 @@ from molop.io.bases.DataClasses import (
     Vibrations,
 )
 from molop.unit import atom_ureg
-from molop.utils import fill_symmetric_matrix
+from molop.utils.functions import fill_symmetric_matrix
 from molop.utils.g16patterns import (
     g16logpatterns,
     link0_parser,

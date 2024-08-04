@@ -1,10 +1,12 @@
-import re
+"""
+Author: TMJ
+Date: 2024-06-20 22:46:56
+LastEditors: TMJ
+LastEditTime: 2024-08-04 21:01:15
+Description: 请填写简介
+"""
 
-import numpy as np
-from openbabel import pybel
-from pydantic import Field, model_validator
 from rdkit import Chem
-from typing_extensions import Self
 
 from molop.io.bases.BaseMolFrameParser import BaseMolFrameParser
 from molop.structure.structure import (
@@ -13,7 +15,7 @@ from molop.structure.structure import (
     get_formal_num_radicals,
 )
 from molop.unit import atom_ureg
-from molop.utils import is_metal
+from molop.utils.functions import is_metal
 
 
 class SDFFrameParser(BaseMolFrameParser):

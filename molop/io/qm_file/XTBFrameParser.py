@@ -8,7 +8,6 @@ Description: 请填写简介
 
 import os
 import re
-from typing import List, Literal
 
 import numpy as np
 from openbabel import pybel
@@ -24,8 +23,6 @@ from molop.io.bases.DataClasses import (
     MolecularOrbitals,
     Polarizability,
     ThermalEnergies,
-    TotalSpin,
-    Vibrations,
     SinglePointProperties,
 )
 from molop.logger.logger import logger

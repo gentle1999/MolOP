@@ -2,18 +2,18 @@
 Author: TMJ
 Date: 2024-01-13 21:26:08
 LastEditors: TMJ
-LastEditTime: 2024-01-17 15:48:30
+LastEditTime: 2024-08-04 16:54:01
 Description: 请填写简介
 '''
 from typing import List, Dict, Literal, Union
 
 def calc_rdkit_descs(rdmol, desc_names:List[str]):
     from rdkit.Chem import Descriptors
-    from rdkit.ML.Descriptors import MoleculeDescriptors
+    from rdkit.ML.Descriptors.MoleculeDescriptors import MolecularDescriptorCalculator
 
     if desc_names is None:
         desc_names = [desc_name[0] for desc_name in Descriptors._descList]
-    desc_calc = MoleculeDescriptors.MolecularDescriptorCalculator(desc_names)
+    desc_calc = MolecularDescriptorCalculator(desc_names)
     return {
         desc_name: value
         for desc_name, value in zip(

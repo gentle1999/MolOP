@@ -70,6 +70,27 @@ def get_formal_num_radicals(mol: RdMol) -> List[int]:
     return [atom.GetNumRadicalElectrons() for atom in mol.GetAtoms()]
 
 
+def get_total_charge(mol: RdMol) -> int:
+    """
+    Get total charge of mol.
+    """
+    return sum(get_formal_charges(mol))
+
+
+def get_total_num_radical(mol: RdMol) -> int:
+    """
+    Get total spin of mol.
+    """
+    return sum(get_formal_num_radicals(mol))
+
+
+def get_total_multiplicity(mol: RdMol) -> int:
+    """
+    Get total spin of mol.
+    """
+    return get_total_num_radical(mol) + 1
+
+
 def get_resonance_structures(rdmol, flags=0):
     suppl = Chem.ResonanceMolSupplier(rdmol, flags)
     return [mol for mol in suppl]

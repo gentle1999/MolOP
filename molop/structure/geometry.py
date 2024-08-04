@@ -3,7 +3,7 @@ Including functions related to the three-dimensional structure of molecules
 """
 
 from copy import deepcopy
-from typing import Iterable, List, Sequence, Optional, Tuple
+from typing import Iterable, List, Sequence
 
 import numpy as np
 import pandas as pd
@@ -13,7 +13,7 @@ from rdkit.Chem import rdMolTransforms
 from rdkit.Geometry import Point3D
 from scipy.spatial.transform import Rotation as R
 
-from ..utils.types import RdMol, RdConformer
+from ..utils.types import RdMol
 from rdkit import RDLogger
 
 RDLogger.DisableLog("rdApp.*")

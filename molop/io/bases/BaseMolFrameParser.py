@@ -8,8 +8,7 @@ Description: 请填写简介
 
 import os
 import re
-import json
-from typing import List, Literal, Sequence, Tuple, TypeVar, Union
+from typing import List, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 import pandas as pd
@@ -19,18 +18,17 @@ from pydantic import ConfigDict, Field, PrivateAttr, computed_field, model_valid
 from rdkit import Chem
 from typing_extensions import Self
 
-from molop.config import molopconfig
 from molop.io.bases.BaseMolFrame import BaseMolFrame
 from molop.io.bases.DataClasses import (
+    BondOrders,
     ChargeSpinPopulations,
     Energies,
     MolecularOrbitals,
     Polarizability,
+    SinglePointProperties,
     ThermalEnergies,
     TotalSpin,
     Vibrations,
-    BondOrders,
-    SinglePointProperties,
 )
 from molop.logger.logger import logger
 from molop.structure.geometry import standard_orient
@@ -39,6 +37,8 @@ from molop.structure.structure import (
     get_bond_pairs,
     get_formal_charges,
     get_formal_num_radicals,
+    get_total_charge,
+    get_total_multiplicity,
     reset_atom_index,
 )
 from molop.structure.structure_recovery import xyz_block_to_rdmol
@@ -305,10 +305,11 @@ class BaseMolFrameParser(BaseMolFrame):
             return self._prev_frame
         raise ValueError("No previous frame in the file.")
 
+    @classmethod
     def rebuild_parser(
-        self,
+        cls,
         new_mol: Chem.rdchem.Mol,
-        rebuild_type=Literal["mod", "reindex", "transform"],
+        path: str = os.path.join(os.getcwd(), "temp.xyz"),
     ) -> "BaseMolFrameParser":
         """
         Create a new parser with the given molecule.
@@ -316,23 +317,22 @@ class BaseMolFrameParser(BaseMolFrame):
         Parameters:
             new_mol Chem.rdchem.Mol:
                 The new molecule.
-            rebuild_type Literal["mod", "reindex", "transform"]:
-                The tag of the new parser.
+            path str:
+                The path to save the new file.
         Returns:
             The new parser.
         """
-        new_parser = BaseMolFrameParser(
+        return cls(
             atoms=[atom.GetAtomicNum() for atom in new_mol.GetAtoms()],
             coords=new_mol.GetConformer().GetPositions() * atom_ureg.angstrom,
-            file_path=os.path.splitext(self.file_path)[0] + f"_{rebuild_type}.xyz",
+            file_path=path,
             frame_content=Chem.MolToXYZBlock(new_mol),
-            charge=self.charge,
-            multiplicity=self.multiplicity,
+            charge=get_total_charge(new_mol),
+            multiplicity=get_total_multiplicity(new_mol),
             bonds=get_bond_pairs(new_mol),
             formal_charges=get_formal_charges(new_mol),
             formal_num_radicals=get_formal_num_radicals(new_mol),
         )
-        return new_parser
 
     def replace_substituent(
         self,
@@ -376,6 +376,7 @@ class BaseMolFrameParser(BaseMolFrame):
         Returns:
             The new parser.
         """
+        rebuild_type = "mod"
         new_mol = attempt_replacement(
             self.rdmol,
             query=query,
@@ -389,7 +390,9 @@ class BaseMolFrameParser(BaseMolFrame):
             start_idx=start_idx,
             end_idx=end_idx,
         )
-        return self.rebuild_parser(new_mol, rebuild_type="mod")
+        return self.rebuild_parser(
+            new_mol, path=os.path.splitext(self.file_path)[0] + f"_{rebuild_type}.xyz"
+        )
 
     def reset_atom_index(self, mapping_smarts: str) -> "BaseMolFrameParser":
         """
@@ -403,6 +406,7 @@ class BaseMolFrameParser(BaseMolFrame):
         Returns:
             The new parser.
         """
+        rebuild_type = "reindex"
         smarts = Chem.MolFromSmarts(mapping_smarts)
         if not self.rdmol.HasSubstructMatch(smarts):
             logger.error(f"Failed to match {self.file_path} with {mapping_smarts}")
@@ -415,8 +419,7 @@ class BaseMolFrameParser(BaseMolFrame):
         mapping = mapping[0]
         rdmol = reset_atom_index(self.rdmol, mapping)
         return self.rebuild_parser(
-            rdmol,
-            rebuild_type="reindex",
+            rdmol, path=os.path.splitext(self.file_path)[0] + f"_{rebuild_type}.xyz"
         )
 
     def standard_orient(
@@ -440,11 +443,11 @@ class BaseMolFrameParser(BaseMolFrame):
                 - If length is 3, execute `translate_anchor`, `rotate_anchor_to_X` and `rotate_anchor_to_XY`
                 - If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
         """
+        rebuild_type = "transform"
         mol = Chem.RWMol(self.rdmol)
         standard_orient(mol, anchor_list)
         return self.rebuild_parser(
-            mol,
-            rebuild_type="transform",
+            mol, path=os.path.splitext(self.file_path)[0] + f"_{rebuild_type}.xyz"
         )
 
     @computed_field(

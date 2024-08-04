@@ -7,7 +7,7 @@ Description: 请填写简介
 """
 
 import re
-from typing import List, Literal, Tuple
+from typing import Literal
 
 from pydantic import Field
 

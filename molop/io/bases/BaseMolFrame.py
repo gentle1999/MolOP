@@ -7,14 +7,13 @@ Description: 请填写简介
 """
 
 import os
-from abc import abstractmethod
-from typing import ClassVar, Dict, List, Literal, Tuple, Union, Sequence
+from typing import Dict, List, Literal, Sequence, Tuple, Union
 
 import numpy as np
-from openbabel import pybel
 from openbabel import openbabel as ob
+from openbabel import pybel
 from pint.facets.plain import PlainQuantity
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field
+from pydantic import Field, PrivateAttr, computed_field
 from rdkit import Chem
 from rdkit.Chem import rdDetermineBonds
 
@@ -29,7 +28,7 @@ from molop.structure.structure import (
 )
 from molop.structure.structure_recovery import omol_to_rdmol, xyz_block_to_omol
 from molop.unit import atom_ureg
-from molop.utils.types import RdMol, arrayNx3
+from molop.utils.types import RdMol
 
 pt = Chem.GetPeriodicTable()
 
