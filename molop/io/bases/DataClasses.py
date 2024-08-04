@@ -6,18 +6,11 @@ LastEditTime: 2024-06-18 20:43:03
 Description: 请填写简介
 """
 
-from typing import ClassVar, List, Sequence, Union, overload
+from typing import List, Sequence, Union, overload
 
 import numpy as np
 from pint.facets.plain import PlainQuantity
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    PrivateAttr,
-    computed_field,
-    model_serializer,
-)
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field
 
 from molop.unit import atom_ureg
 

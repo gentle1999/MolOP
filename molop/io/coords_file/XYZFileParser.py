@@ -2,13 +2,11 @@
 Author: TMJ
 Date: 2024-06-20 20:52:50
 LastEditors: TMJ
-LastEditTime: 2024-06-20 21:09:28
+LastEditTime: 2024-08-04 21:01:32
 Description: 请填写简介
 """
 
-from typing import List, Tuple
-
-from pydantic import Field
+from typing import Tuple
 
 from molop.io.bases.BaseMolFileParser import BaseMolFileParser
 from molop.io.coords_file.XYZFrameParser import XYZFrameParser
@@ -20,6 +18,7 @@ class XYZFileParser(BaseMolFileParser[XYZFrameParser]):
     """
 
     _allowed_formats: Tuple[str] = (".xyz",)
+
     def _parse(self):
         with open(self.file_path, "r") as fr:
             lines = fr.readlines()

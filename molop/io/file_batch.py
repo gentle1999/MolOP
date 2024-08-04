@@ -9,27 +9,21 @@ Description: 请填写简介
 import os
 from collections import OrderedDict
 from collections.abc import MutableMapping
-from typing import Dict, Generator, List, Sequence, Union
+from typing import Dict, List, Union
 
 import pandas as pd
 from joblib import Parallel, cpu_count, delayed
 from tqdm import tqdm
 
 from molop.config import molopconfig
-from molop.io.bases.BaseMolFileParser import BaseMolFileParser, BaseQMMolFileParser
+from molop.io.bases.BaseMolFileParser import BaseMolFileParser
 from molop.io.coords_file.GJFFileParser import GJFFileParser
-from molop.io.coords_file.SDFFileParser import SDFFileParser, SDFFrameParser
+from molop.io.coords_file.SDFFileParser import SDFFileParser
 from molop.io.coords_file.XYZFileParser import XYZFileParser
 from molop.io.qm_file.G16FchkFileParser import G16FchkFileParser
 from molop.io.qm_file.G16LogFileParser import G16LogFileParser
 from molop.io.qm_file.XTBFileParser import XTBFileParser
-from molop.io.types import (
-    PARSERTYPES,
-    MolFileParserType,
-    MolFrameType,
-    QMMolFileParserType,
-    QMMolFrameType,
-)
+from molop.io.types import PARSERTYPES
 from molop.logger.logger import logger
 
 parsers: Dict[str, PARSERTYPES] = {

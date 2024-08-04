@@ -7,12 +7,11 @@ Description: 请填写简介
 """
 
 import os
-from typing import Generic, List, Tuple, TypeVar
+from typing import Generic, List, Tuple
 
 import pandas as pd
 from pint.facets.plain import PlainQuantity
 from pydantic import (
-    BaseModel,
     Field,
     PrivateAttr,
     computed_field,
@@ -20,14 +19,10 @@ from pydantic import (
     model_validator,
 )
 from typing_extensions import Self
-from molop.unit import atom_ureg
 
-from molop.io.bases.BaseMolFrameParser import (
-    BaseMolFrameParser,
-    MolFrameType,
-    QMMolFrameType,
-)
+from molop.io.bases.BaseMolFrameParser import MolFrameType, QMMolFrameType
 from molop.io.bases.DataClasses import BaseDataClassWithUnit
+from molop.unit import atom_ureg
 
 
 class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):

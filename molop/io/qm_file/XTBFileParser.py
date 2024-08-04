@@ -6,11 +6,10 @@ LastEditTime: 2024-06-25 19:51:15
 Description: 请填写简介
 """
 
-import os
 import re
 
 from packaging.version import Version
-from pydantic import Field, computed_field
+from pydantic import Field
 
 from molop.io.bases.BaseMolFileParser import BaseQMMolFileParser
 from molop.io.qm_file.XTBFrameParser import XTBFrameParser

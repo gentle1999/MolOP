@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-06-20 22:47:26
 LastEditors: TMJ
-LastEditTime: 2024-06-25 13:46:55
+LastEditTime: 2024-08-04 21:00:54
 Description: 请填写简介
 """
 
@@ -10,7 +10,7 @@ import re
 from typing import Literal
 
 import numpy as np
-from pydantic import Field, computed_field
+from pydantic import Field
 from rdkit import Chem
 
 from molop.io.bases.BaseMolFrameParser import BaseMolFrameParser

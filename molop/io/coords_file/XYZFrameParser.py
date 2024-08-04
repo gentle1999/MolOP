@@ -2,17 +2,16 @@
 Author: TMJ
 Date: 2024-06-20 21:10:52
 LastEditors: TMJ
-LastEditTime: 2024-06-20 22:51:35
+LastEditTime: 2024-08-04 21:01:45
 Description: 请填写简介
 """
 
-from molop.io.bases.BaseMolFrameParser import BaseMolFrameParser
-from typing_extensions import Self
-from pydantic import Field, model_validator
+import re
+
+import numpy as np
 from rdkit import Chem
 
-import re
-import numpy as np
+from molop.io.bases.BaseMolFrameParser import BaseMolFrameParser
 from molop.unit import atom_ureg
 
 

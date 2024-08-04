@@ -19,7 +19,7 @@ from rdkit import Chem
 from molop.config import molopconfig
 from molop.logger.logger import logger
 from molop.structure.structure import bond_list
-from molop.utils import is_metal
+from molop.utils.functions import is_metal
 
 pt = Chem.GetPeriodicTable()
 HETEROATOM = (9, 8, 17, 7, 35, 54, 16, 34, 15)
