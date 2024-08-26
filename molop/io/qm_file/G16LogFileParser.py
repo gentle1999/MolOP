@@ -13,7 +13,7 @@ from pydantic import Field
 
 from molop.io.bases.BaseMolFileParser import BaseQMMolFileParser
 from molop.io.qm_file.G16LogFrameParser import G16LogFrameParser
-from molop.logger.logger import logger
+from molop.logger.logger import moloplogger
 from molop.utils.g16patterns import (
     g16logpatterns,
     get_solvent,
@@ -90,7 +90,7 @@ class G16LogFileParser(BaseQMMolFileParser[G16LogFrameParser]):
         if version_match:
             version = version_match.group()
         else:
-            logger.error(f"No version found in {self.file_path}")
+            moloplogger.error(f"No version found in {self.file_path}")
             raise ValueError(f"No version found in {self.file_path}")
         self.qm_software_version = version
         link = ""

@@ -1,10 +1,10 @@
-"""
+'''
 Author: TMJ
 Date: 2024-03-23 21:07:37
 LastEditors: TMJ
-LastEditTime: 2024-06-26 21:35:30
+LastEditTime: 2024-08-26 21:05:52
 Description: 请填写简介
-"""
+'''
 
 import re
 from typing import Dict, Tuple
@@ -79,4 +79,8 @@ xtboutpatterns: Dict[str, re.Pattern] = {
     "GEI": re.compile(r"Global electrophilicity index \(eV\):\s*(-*\d+.\d+)"),
     "fukui_start": re.compile(r"#\s*f\(\+\)\s*f\(-\)\s*f\(0\)\n"),
     "fukui_match": re.compile(r"\d+[a-zA-Z]\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)"),
+    "energy_convergence": re.compile(r"energy convergence\s*(\d+.\d+[E+\-\d]*)"),
+    "grad_convergence": re.compile(r"grad. convergence\s*(\d+.\d+[E+\-\d]*)"),
+    "energy_change": re.compile(r"change\s*(-*\d+.\d+[E+\-\d]*)\s*Eh"),
+    "grad_norm": re.compile(r"gradient norm\s*:\s*(\d+.\d+[E+\-\d]*)\s*Eh"),
 }

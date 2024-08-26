@@ -3,11 +3,12 @@ Including functions related to the structure of molecules
 """
 
 import itertools
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Sequence
 
 import numpy as np
 from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem, rdMolTransforms
+from rdkit.Chem import AllChem, rdMolTransforms, SanitizeMol
+from rdkit.Chem.rdDistGeom import EmbedMolecule
 
 from molop.structure import geometry
 from molop.utils.types import RdMol
@@ -42,9 +43,17 @@ bond_list = [
 ]
 
 
-def get_bond_pairs(mol: RdMol) -> List[Tuple[int, int, int]]:
+def get_bond_pairs(mol: RdMol) -> List[Tuple[int]]:
     """
-    Get bond pair of mol.
+    Get the list of bond pairs in the molecule.
+
+    Parameters:
+        mol (RdMol):
+            The input molecule
+    Returns:
+        List[Tuple[int]]:
+            The list of bond pairs in the molecule. Each bond pair is represented
+            by a tuple of two atom indices and a bond type index.
     """
     return [
         (
@@ -58,14 +67,30 @@ def get_bond_pairs(mol: RdMol) -> List[Tuple[int, int, int]]:
 
 def get_formal_charges(mol: RdMol) -> List[int]:
     """
-    Get formal charge of mol.
+    Get formal charges of mol.
+
+    Parameters:
+        mol (RdMol):
+            The input molecule
+
+    Returns:
+        List[int]:
+            The list of formal charges of atoms in the molecule.
     """
     return [atom.GetFormalCharge() for atom in mol.GetAtoms()]
 
 
 def get_formal_num_radicals(mol: RdMol) -> List[int]:
     """
-    Get formal spin of mol.
+    Get formal radical numbers of mol.
+
+    Parameters:
+        mol (RdMol):
+            The input molecule
+
+    Returns:
+        List[int]:
+            The list of formal radical numbers of atoms in the molecule.
     """
     return [atom.GetNumRadicalElectrons() for atom in mol.GetAtoms()]
 
@@ -73,40 +98,115 @@ def get_formal_num_radicals(mol: RdMol) -> List[int]:
 def get_total_charge(mol: RdMol) -> int:
     """
     Get total charge of mol.
+
+    Parameters:
+        mol (RdMol):
+            The input molecule
+
+    Returns:
+        int:
+            The total charge of the molecule.
     """
     return sum(get_formal_charges(mol))
 
 
 def get_total_num_radical(mol: RdMol) -> int:
     """
-    Get total spin of mol.
+    Get total radical number of mol.
+
+    Parameters:
+        mol (RdMol):
+            The input molecule
+
+    Returns:
+        int:
+            The total radical number of the molecule.
     """
     return sum(get_formal_num_radicals(mol))
 
 
 def get_total_multiplicity(mol: RdMol) -> int:
     """
-    Get total spin of mol.
+    Get total spin multiplicity of mol.
+
+    Parameters:
+        mol (RdMol):
+            The input molecule
+
+    Returns:
+        int:
+            The total spin multiplicity of the molecule.
     """
     return get_total_num_radical(mol) + 1
 
 
-def get_resonance_structures(rdmol, flags=0):
+def get_resonance_structures(rdmol: RdMol, flags=0) -> List[RdMol]:
+    """
+    Get all resonance structures of rdmol.
+
+    Parameters:
+        rdmol (RdMol):
+            The input molecule
+        flags (int):
+            Flags for resonance structure generation.
+
+    Returns:
+        List[RdMol]:
+            The list of resonance structures of the input molecule.
+    """
     suppl = Chem.ResonanceMolSupplier(rdmol, flags)
     return [mol for mol in suppl]
 
 
-def structure_score(rdmol):
+def structure_score(rdmol: RdMol) -> int:
+    """
+    Calculate the structure score of rdmol.
+
+    Parameters:
+        rdmol (RdMol):
+            The input molecule
+
+    Returns:
+        int:
+            The structure score of the input molecule.
+    """
     return sum(atom.GetNumRadicalElectrons() for atom in rdmol.GetAtoms()) + sum(
         abs(atom.GetFormalCharge()) for atom in rdmol.GetAtoms()
     )
 
 
-def check_mol_equal(rdmol_1, rdmol_2):
+def check_mol_equal(rdmol_1: RdMol, rdmol_2: RdMol) -> bool:
+    """
+    Check if two molecules are equal. Two molecules are equal if the molecule A contains molecule B
+    while the molecule B contains molecule A.
+
+    Parameters:
+        rdmol_1 (RdMol):
+            The first input molecule
+        rdmol_2 (RdMol):
+            The second input molecule
+
+    Returns:
+        bool:
+            True if the two molecules are equal, False otherwise.
+    """
     return rdmol_1.HasSubstructMatch(rdmol_2) and rdmol_2.HasSubstructMatch(rdmol_1)
 
 
-def get_sub_mol(origin_mol: RdMol, scale: List[int]):
+def get_sub_mol(origin_mol: RdMol, scale: List[int]) -> RdMol:
+    """
+    Get a sub-molecule of origin_mol with the given scale.
+
+    Parameters:
+        origin_mol (RdMol):
+            The input molecule
+        scale (List[int]):
+            The list of atom indices to be included in the sub-molecule.
+
+    Returns:
+        RdMol:
+            The sub-molecule of origin_mol with the given scale.
+    """
     sub_mol = Chem.RWMol(Chem.MolFromSmiles(""))
     for idx in scale:
         atom = origin_mol.GetAtomWithIdx(idx)
@@ -125,8 +225,9 @@ def get_sub_mol(origin_mol: RdMol, scale: List[int]):
             end_atom.GetIdx(),
             bond_type,
         )
-
-    return sub_mol
+    if SanitizeMol(sub_mol):
+        return sub_mol.GetMol()
+    raise ValueError("Sub-molecule is not valid.")
 
 
 def get_under_bonded_number(atom: Chem.Atom) -> int:
@@ -149,6 +250,39 @@ def replace_mol(
 ):
     """
     Replace the query_mol with replacement_mol in mol.
+
+    Parameters:
+        mol (RdMol):
+            The input molecule
+        replacement_mol (RdMol):
+            The replacement molecule
+        query_mol (Union[RdMol, None]):
+            The query molecule to be replaced. If None, the function will try to find
+            the first substructure match of replacement_mol in mol.
+        bind_idx (int):
+            The index of the atom in query_mol to be bound to the replacement_mol.
+            If None, the function will try to find the first atom in query_mol that
+            is not in the same fragment as the end atom of the bond to be replaced.
+        threshold (float):
+            The threshold for the similarity between the query_mol and the substructure
+            match of replacement_mol in mol.
+        angle_split (int):
+            The number of angles to split the replacement_mol.
+        randomSeed (int):
+            The random seed for the conformer generation.
+        start_idx (int):
+            The index of the atom in the main structure to be replaced. If None, the
+            function will try to find the first atom in the main structure that is
+            bonded to the end atom of the bond to be replaced and has a single bond.
+        end_idx (int):
+            The index of the atom in the main structure that is bonded to the start
+            atom of the bond to be replaced. If None, the function will try to find
+            the first atom in the main structure that is bonded to the start atom of
+            the bond to be replaced and has a single bond.
+
+    Returns:
+        RdMol:
+            The new molecule with the replacement.
     """
     if get_under_bonded_number(replacement_mol.GetAtomWithIdx(0)) != 1:
         raise ValueError("Replacement atom should be one bond left")
@@ -302,7 +436,20 @@ def replace_mol(
     return reset_atom_index(rmol, mapping)
 
 
-def check_crowding(mol, threshold=0.6):
+def check_crowding(mol: RdMol, threshold=0.6) -> bool:
+    """
+    Check if the molecule is crowded.
+
+    Parameters:
+        mol (RdMol):
+            The input molecule.
+        threshold (float):
+            The threshold of crowding. If too crowded
+            `d(a-b) < threshold * (R(a)+R(b))`, return False.
+
+    Returns:
+        bool: True if the molecule is not crowded, False otherwise.
+    """
     distances = Chem.Get3DDistanceMatrix(mol)
     for start_atom, end_atom in itertools.combinations(mol.GetAtoms(), 2):
         if mol.GetBondBetweenAtoms(start_atom.GetIdx(), end_atom.GetIdx()):
@@ -315,7 +462,18 @@ def check_crowding(mol, threshold=0.6):
     return True
 
 
-def get_crowding_socre(mol, threshold: float):
+def get_crowding_socre(mol: RdMol, threshold: float) -> float:
+    """
+    Calculate the crowding score of the input molecule.
+
+    Parameters:
+        mol (RdMol):
+            The input molecule.
+        threshold (float):
+            The threshold of crowding. If too crowded
+    Returns:
+        float: The crowding score of the input molecule.
+    """
     score = 0
     distances = Chem.Get3DDistanceMatrix(mol)
     for start_atom, end_atom in itertools.combinations(mol.GetAtoms(), 2):
@@ -344,6 +502,42 @@ def attempt_replacement(
     start_idx: int = None,
     end_idx: int = None,
 ):
+    """
+    Attempt to replace the query with the replacement in the input molecule.
+
+    Parameters:
+        mol (RdMol):
+            The input molecule.
+        query (str | RdMol):
+            The SMARTS or Mol object to query the substituent in the original molecule.
+        replacement (str | RdMol):
+            The SMARTS or Mol object of new substituent.
+        bind_idx (int):
+            The index of the atom to bind the new substituent. The default is None, which means
+            to replace the first legal atom in original molecule.
+            If specified, try to replace the legal substruct where the atom in it. User should
+            meke sure the atom is legal.
+            Detail example in (Repalce Substituent)[Repalce Substituent]
+        replace_all (bool):
+            If True, replace all the substituent queried in the original molecule.
+        crowding_threshold (float):
+            The threshold of crowding. If the new substituent is too crowded
+            `d(a-b) < threshold * (R(a)+R(b))`, the substitution will be rejected.
+        angle_split (int):
+            Decide how many equal parts of 360° you want to divide. The larger the number the finer
+            the rotation will be attempted but the slower the calculation will be.
+        randomSeed (int):
+            The random seed.
+        start_idx (int):
+            If both `start_idx` and `end_idx` are specified, simply ignore the `query`, break the
+            key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
+        end_idx (int):
+            If both `start_idx` and `end_idx` are specified, simply ignore the `query`, break the
+            key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
+
+    Returns:
+        RdMol: The new molecule with the replacement.
+    """
     random_seeds = list(range(1, attempt_num + 1))
     np.random.RandomState(randomSeed).shuffle(random_seeds)
 
@@ -405,19 +599,30 @@ def attempt_replacement(
 
 
 def fix_geometry(replacement: RdMol, bind_type: int, randomSeed=114514):
+    """
+    Fix the geometry of the replacement molecule with the given bind_type.
+
+    Parameters:
+        replacement (RdMol): The input replacement molecule.
+        bind_type (int): The atomic number of the atom that binds to the replacement.
+        randomSeed (int): The random seed for the embedding.
+
+    Returns:
+        RdMol: The fixed replacement molecule.
+    """
     r = Chem.RWMol(replacement)
     idx = r.AddAtom(Chem.Atom("At"))
     r.AddBond(0, idx, Chem.BondType.SINGLE)
     r.UpdatePropertyCache()
     Chem.SanitizeMol(r)
     if replacement.GetNumConformers() == 0:
-        AllChem.EmbedMolecule(r, randomSeed=randomSeed)
+        EmbedMolecule(r, randomSeed=randomSeed)
     else:
         cmap = {
             atom_idx: replacement.GetConformer().GetAtomPosition(atom_idx)
             for atom_idx in range(replacement.GetNumAtoms())
         }
-        AllChem.EmbedMolecule(r, randomSeed=randomSeed, coordMap=cmap)
+        EmbedMolecule(r, randomSeed=randomSeed, coordMap=cmap)
     geometry.standard_orient(r, [idx, 0])
     rdMolTransforms.SetBondLength(
         r.GetConformer(),
@@ -430,7 +635,20 @@ def fix_geometry(replacement: RdMol, bind_type: int, randomSeed=114514):
     return r
 
 
-def reset_atom_index(mol: Chem.rdchem.Mol, mapping: List[int]) -> Chem.rdchem.Mol:
+def reset_atom_index(mol: Chem.rdchem.Mol, mapping: Sequence[int]) -> Chem.rdchem.Mol:
+    """
+    Reset the atom index of a molecule according to the given mapping.
+    The mapping should be a list of the new index of each atom in the same order as the original molecule.
+
+    e.g. mapping = [2, 0, 1] means the first atom in the new molecule is mapped to the third atom in the original molecule,
+    the second atom is mapped to the first atom, and the third atom is mapped to the second atom.
+
+    Parameters:
+        mol (Chem.rdchem.Mol): The input molecule.
+        mapping (Sequence[int]): The mapping of the atom index.
+    Returns:
+        Chem.rdchem.Mol: The molecule with the new atom index.
+    """
     # drop the bonds
     rwmol = Chem.RWMol()
     # new index
@@ -444,6 +662,8 @@ def reset_atom_index(mol: Chem.rdchem.Mol, mapping: List[int]) -> Chem.rdchem.Mo
         )
 
     for idx in new_idx:
+        if idx >= mol.GetNumAtoms():
+            raise ValueError("Invalid mapping. idx not in mol.")
         rwmol.AddAtom(mol.GetAtomWithIdx(idx))
 
     bond_pairs = get_bond_pairs(mol)

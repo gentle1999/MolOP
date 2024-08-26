@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from rdkit.Chem.rdDistGeom import EmbedMolecule
 from rdkit.Chem import rdMolTransforms
 from rdkit.Geometry import Point3D
 from scipy.spatial.transform import Rotation as R
@@ -26,18 +27,18 @@ def merge_mols(
     Merge a list of molecules.
 
     Parameters:
-        mols List[RdMol]:
+        mols (List[RdMol]):
             List of RDkit molecules.
             All molecules must have conformers.
-        scale float:
+        scale (float):
             intermolecular scale
-        overlap_threshold float:
+        overlap_threshold (float):
             maximum atomic spacing allowed between molecules
-        random_state int:
+        random_state (int):
             random number generator seed
 
     Returns:
-        merged RDkit molecules
+        Chem.rdchem.Mol: merged RDkit molecules
     """
     rng = np.random.RandomState(random_state)
     mols_copy = deepcopy(mols)
@@ -64,13 +65,13 @@ def is_overlap(mol: RdMol, threshold=1.0) -> bool:
     Based on whether there is an atomic spacing between molecules that is less than the threshold value.
 
     Parameters:
-        mol RdMol:
+        mol (RdMol):
             molecule to be determined whether overlap or not
-        threshold float:
+        threshold (float):
             maximum atomic spacing allowed between molecules
 
     Returns:
-        True if overlap, False otherwise
+        bool: True if overlap, False otherwise
     """
     frags = Chem.GetMolFrags(mol)
     for ix1, frag1 in enumerate(frags):
@@ -97,7 +98,7 @@ def xyz_to_point(xyz: Sequence) -> Point3D:
         xyz (Sequence): A sequence of three numbers representing an XYZ coordinate.
 
     Returns:
-        A Point3D object representing the given XYZ coordinate.
+        rdkit.Geometry.Point3D: A Point3D object representing the given XYZ coordinate.
     """
     return Point3D(float(xyz[0]), float(xyz[1]), float(xyz[2]))
 
@@ -107,15 +108,15 @@ def set_conformer_position(mol: RdMol, positions: np.ndarray, conformer_id=0):
     Set conformer position of a molecule.
 
     Parameters:
-        mol RdMol:
+        mol (RdMol):
             molecule to be set conformer position
-        positions np.ndarray:
+        positions (np.ndarray):
             conformer position
-        conformer_id int:
+        conformer_id (int):
             conformer id
     """
     if mol.GetNumConformers() == 0:
-        AllChem.EmbedMolecule(mol)
+        EmbedMolecule(mol)
     for atom in mol.GetAtoms():
         mol.GetConformer(conformer_id).SetAtomPosition(
             atom.GetIdx(), xyz_to_point(positions[atom.GetIdx()])
@@ -131,7 +132,7 @@ def get_random_vector(scale=5.0, random_state=3407) -> Point3D:
         random_state (int): The random seed for reproducibility. Default is 3407.
 
     Returns:
-        A Point3D object representing the scaled random vector.
+        rdkit.Geometry.Point3D: A Point3D object representing the scaled random vector.
     """
     rng = np.random.RandomState(random_state)
     vec = rng.rand(3) - 0.5
@@ -144,13 +145,14 @@ def fibonacci_sphere(samples=1, random_state=3407) -> List[List[float]]:
     Generate points on a Fibonacci sphere surface.
 
     Parameters:
-        samples int:
+        samples (int):
             number of sample points to generate
-        random_state int:
+        random_state (int):
             random number generator seed
 
     Returns:
-        list of points in format [x, y, z]
+        List[List[float]]: 
+            list of points in format [x, y, z]
     """
     rng = np.random.RandomState(random_state)
     rnd = rng.random() * samples
@@ -173,11 +175,11 @@ def translate_mol(mol: RdMol, vector: Point3D, conformer_id=0):
     Translates the coordinates of a molecule by a given vector.
 
     Parameters:
-        mol (RdMol): 
+        mol (RdMol):
             The molecule to translate.
-        vector (Point3D): 
+        vector (Point3D):
             The vector by which to translate the molecule.
-        conformer_id (int, optional): 
+        conformer_id (int):
             The conformer ID to translate. Defaults to 0.
     """
     for at in mol.GetAtoms():
@@ -187,22 +189,24 @@ def translate_mol(mol: RdMol, vector: Point3D, conformer_id=0):
         )
 
 
-def translate_sub_mol(mol: RdMol, vector: Point3D, idx: Iterable[int], conformer_id=0)->RdMol:
+def translate_sub_mol(
+    mol: RdMol, vector: Point3D, idx: Iterable[int], conformer_id=0
+) -> RdMol:
     """
     Translates a subset of atoms in a molecule by a given vector.
 
     Parameters:
-        mol (RdMol): 
+        mol (RdMol):
             The molecule to translate.
-        vector (Point3D): 
+        vector (Point3D):
             The vector by which to translate the atoms.
-        idx (Iterable[int]): 
+        idx (Iterable[int]):
             The indices of the atoms to translate.
-        conformer_id (int, optional): 
+        conformer_id (int):
             The conformer ID to use for translation. Defaults to 0.
 
     Returns:
-        A copy of the molecule with the specified atoms translated.
+        Chem.rdchem.Mol: A copy of the molecule with the specified atoms translated.
     """
     mol_copy = deepcopy(mol)
     for at_idx in idx:
@@ -217,11 +221,11 @@ def translate_anchor(mol: RdMol, idx: int, conformer_id=0):
     Translate the entire molecule such that the atomic coordinates of the specified index are the origin
 
     Parameters:
-        mol RdMol:
+        mol (RdMol):
             Molecule to be translated
-        idx int:
+        idx (int):
             The index of the anchor atom
-        conformer_id int:
+        conformer_id (int):
             The conformer of id to be translated
     """
     vector = mol.GetConformer(conformer_id).GetAtomPosition(idx) * -1.0
@@ -233,11 +237,11 @@ def rotate_anchor_to_X(mol: RdMol, idx: int, conformer_id=0):
     Suppose the specified atom is A, and by rotating along the z and y axes, point A is rotated to the positive half of the X axis.
 
     Parameters:
-        mol RdMol:
+        mol (RdMol):
             Molecule to be rotated
-        idx int:
+        idx (int):
             The index of the anchor atom
-        conformer_id int:
+        conformer_id (int):
             The conformer of id to be rotated
     """
     original_positions = mol.GetConformer(conformer_id).GetPositions()
@@ -255,11 +259,11 @@ def rotate_anchor_to_XY(mol: RdMol, idx: int, conformer_id=0):
     Suppose the specified atom is A and rotates along the X-axis, rotating point A to quadrant 1 or 2 of the XY plane.
 
     Parameters:
-        mol RdMol:
+        mol (RdMol):
             Molecule to be rotated
-        idx int:
+        idx (int):
             The index of the anchor atom
-        conformer_id int:
+        conformer_id (int):
             The conformer of id to be rotated
     """
     original_positions = mol.GetConformer(conformer_id).GetPositions()
@@ -276,11 +280,11 @@ def standard_orient(mol: RdMol, idx_list: Sequence[int], conformer_id=0):
     If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
 
     Parameters:
-        mol RdMol:
+        mol (RdMol):
             Molecule to be oriented
-        idx_list Sequence[int]:
+        idx_list (Sequence[int]):
             A Sequence of indices of the atoms to be translated, rotated, and rotated again
-        conformer_id int:
+        conformer_id (int):
             The conformer of id to be oriented
     """
     methods = [translate_anchor, rotate_anchor_to_X, rotate_anchor_to_XY]
@@ -295,9 +299,9 @@ def standard_orient_all_conformer(mol: RdMol, idx_list: Sequence[int]):
     If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
 
     Parameters:
-        mol RdMol:
+        mol (RdMol):
             Molecule to be oriented
-        idx_list Sequence[int]:
+        idx_list (Sequence[int]):
             A list of indices of the atoms to be translated, rotated, and rotated again
     """
     conformers = mol.GetConformers()
@@ -307,16 +311,16 @@ def standard_orient_all_conformer(mol: RdMol, idx_list: Sequence[int]):
         standard_orient(mol, idx_list, conformer.GetId())
 
 
-def unique_conformer(mol: RdMol, idx: int):
+def unique_conformer(mol: RdMol, idx: int)->RdMol:
     """
     Remove all conformers except for the specified conformer index.
-    
+
     Parameters:
         mol (RdMol): The molecule object.
         idx (int): The index of the conformer to keep.
-        
+
     Returns:
-        The molecule object with only the specified conformer.
+        Chem.rdchem.Mol: The molecule object with only the specified conformer.
     """
     temp_mol = deepcopy(mol)
     conformer_idx = [conf.GetId() for conf in temp_mol.GetConformers()]
@@ -332,15 +336,16 @@ def get_geometry_info(mol: RdMol, atom_idxs: Sequence[int]) -> float:
     Get the geometry infos among the atoms
 
     Parameters:
-        mol RdMol:
+        mol (RdMol):
             Molecule to be oriented
-        atom_idxs Sequence[int]:
+        atom_idxs (Sequence[int]):
             A Sequence of index of the atoms, starts from 0
 
     Returns:
-        - If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
-        - If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
-        - If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
+        float:
+            - If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
+            - If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
+            - If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
     """
     if len(atom_idxs) == 2:
         return rdMolTransforms.GetBondLength(mol.GetConformer(), *atom_idxs)

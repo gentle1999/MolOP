@@ -13,7 +13,7 @@ from pydantic import Field
 
 from molop.io.bases.BaseMolFileParser import BaseQMMolFileParser
 from molop.io.qm_file.XTBFrameParser import XTBFrameParser
-from molop.logger.logger import logger
+from molop.logger.logger import moloplogger
 from molop.unit import atom_ureg
 from molop.utils.xtbpatterns import xtboutpatterns
 

@@ -25,6 +25,7 @@ from molop.io.bases.DataClasses import (
     ThermalEnergies,
     TotalSpin,
     Vibrations,
+    GeometryOptimizationStatus,
 )
 from molop.unit import atom_ureg
 from molop.utils.functions import fill_symmetric_matrix
@@ -73,9 +74,9 @@ class G16LogFrameParser(BaseQMMolFrameParser):
 
     @property
     def _tail(self) -> str:
-        start = g16logpatterns["tail_start"].search(self.__block)
-        end = g16logpatterns["tail_end"].search(self.__block)
-        if start and end:
+        if (start := g16logpatterns["tail_start"].search(self.__block)) and (
+            end := g16logpatterns["tail_end"].search(self.__block)
+        ):
             tail = self.__block[start.end() : end.start()]
             tail = tail.replace("\n ", "").replace("|", "\\")
             return tail
@@ -148,11 +149,9 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         )
 
     def _parse_coords(self):
-        corrds_end = g16logpatterns["coords_end"].search(self.__block)
-        if corrds_end:
+        if corrds_end := g16logpatterns["coords_end"].search(self.__block):
             block = self.__block[: corrds_end.end()]
-            input_coords = g16logpatterns["input_coords_start"].search(block)
-            if input_coords:
+            if input_coords := g16logpatterns["input_coords_start"].search(block):
                 coords = g16logpatterns["coords"].findall(
                     block,
                 )[: self.n_atom]
@@ -163,8 +162,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                     temp_coords.append((float(x), float(y), float(z)))
                 self.coords = np.array(temp_coords) * atom_ureg.angstrom
                 self.atoms = atoms
-            standard_coords = g16logpatterns["standard_coords_start"].search(block)
-            if standard_coords:
+            if standard_coords := g16logpatterns["standard_coords_start"].search(block):
                 coords = g16logpatterns["coords"].findall(block)[-self.n_atom :]
                 atoms = []
                 temp_coords = []
@@ -177,8 +175,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 self.coords = self.standard_coords
 
     def _parse_rotation_consts(self):
-        rotational_matches = g16logpatterns["rotation_consts"].search(self.__block)
-        if rotational_matches:
+        if rotational_matches := g16logpatterns["rotation_consts"].search(self.__block):
             rots = []
             for i in range(1, 4):
                 try:
@@ -189,11 +186,9 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             self.rotation_constants = np.array(rots) * atom_ureg.Ghertz
 
     def _parse_functional_basis(self):
-        functional_match = g16logpatterns["functional"].search(self.__block)
-        if functional_match:
+        if functional_match := g16logpatterns["functional"].search(self.__block):
             self.functional = functional_match.group(1).lower()
-        basis_match = g16logpatterns["basis"].search(self.__block)
-        if basis_match:
+        if basis_match := g16logpatterns["basis"].search(self.__block):
             self.basis = basis_match.group(1)
         if g16logpatterns["Pseudopotential"].search(self.__block):
             self.basis = "pseudopotential"
@@ -233,32 +228,28 @@ class G16LogFrameParser(BaseQMMolFrameParser):
 
     def _parse_energy(self) -> Energies:
         energies = {}
-        scf_energy_match = g16logpatterns["scf_energy"].search(self.__block)
-        if scf_energy_match:
+        if scf_energy_match := g16logpatterns["scf_energy"].search(self.__block):
             self.__block = self.__block[scf_energy_match.start() :]
             energies["scf_energy"] = (
                 float(scf_energy_match.group(1))
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
-            self.status["SCF Done"] = True
+            self.status.scf_converged = True
         mp2_4_energy_match = g16logpatterns["mp2-4"].findall(self.__block)
         for mp_energy in mp2_4_energy_match:
-
             energies[f"{mp_energy[0].lower()}_energy"] = (
                 float(mp_energy[1].replace("D", "E"))
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
-        ccsd_energy_match = g16logpatterns["ccsd"].search(self.__block)
-        if ccsd_energy_match:
+        if ccsd_energy_match := g16logpatterns["ccsd"].search(self.__block):
             energies["ccsd_energy"] = (
                 float(ccsd_energy_match.group(1))
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
-        ccsd_energy_match = g16logpatterns["ccsd(t)"].search(self.__block)
-        if ccsd_energy_match:
+        if ccsd_energy_match := g16logpatterns["ccsd(t)"].search(self.__block):
             energies["ccsd_energy"] = (
                 float(ccsd_energy_match.group(1).replace("D", "E"))
                 * atom_ureg.hartree
@@ -288,26 +279,17 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             self.basis = basis
         energies_match = g16logpatterns["tail_match"].findall(tail)
         for e, v in energies_match:
+            energies_value = float(v) * atom_ureg.hartree / atom_ureg.particle
             if "HF" in e:
-                energies["scf_energy"] = (
-                    float(v) * atom_ureg.hartree / atom_ureg.particle
-                )
+                energies["scf_energy"] = energies_value
             if "MP2" in e:
-                energies["mp2_energy"] = (
-                    float(v) * atom_ureg.hartree / atom_ureg.particle
-                )
+                energies["mp2_energy"] = energies_value
             if "MP3" in e:
-                energies["mp3_energy"] = (
-                    float(v) * atom_ureg.hartree / atom_ureg.particle
-                )
+                energies["mp3_energy"] = energies_value
             if "MP4" in e:
-                energies["mp4_energy"] = (
-                    float(v) * atom_ureg.hartree / atom_ureg.particle
-                )
+                energies["mp4_energy"] = energies_value
             if "CCSD" in e:
-                energies["ccsd_energy"] = (
-                    float(v) * atom_ureg.hartree / atom_ureg.particle
-                )
+                energies["ccsd_energy"] = energies_value
         return Energies.model_validate(energies)
 
     def _parse_thermal_energies(self) -> ThermalEnergies:
@@ -653,22 +635,33 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             self.temperature = float(temperature_match.group(1)) * atom_ureg.kelvin
 
     def _parse_status(self):
+        feature_mapping = {
+            "Maximum Force": "max_force",
+            "RMS     Force": "rms_force",
+            "Maximum Displacement": "max_displacement",
+            "RMS     Displacement": "rms_displacement",
+        }
         if "opt" in self.route_params:
-            matches = g16logpatterns["opt stat"].findall(self.__block)
-            if matches:
-                for key, val in matches:
-                    self.status[key] = val == "YES"
-        matches = g16logpatterns["termination"].findall(self.__block)
-        if matches:
-            self.status["termination"] = matches[0]
-        matches = g16logpatterns["failure reason"].findall(self.__block)
-        if matches:
-            self.status["failure reason"] = matches[0]
+            if matches := g16logpatterns["opt stat"].findall(self.__block):
+                geometric_metric = {}
+                for key, val, threshold, converged in matches:
+                    geometric_metric[feature_mapping[key]] = float(val)
+                    geometric_metric[f"{feature_mapping[key]}_threshold"] = float(
+                        threshold
+                    )
+                self.geometry_optimization_status = (
+                    GeometryOptimizationStatus.model_validate(geometric_metric)
+                )
+        if matches := g16logpatterns["termination"].findall(self.__block):
+            self.status.normal_terminated = matches[0] == "Normal"
+            self.status.scf_converged = True
+            if "opt" in self.route_params:
+                self.geometry_optimization_status.geometry_optimized = True
 
     def _parse_bond_order(self, _type: Literal["wiberg", "atom_atom_overlap", "mo"]):
-        start_matches = g16logpatterns[f"{_type}_start"].search(self.__block)
-        end_matches = g16logpatterns[f"{_type}_end"].search(self.__block)
-        if start_matches and end_matches:
+        if (
+            start_matches := g16logpatterns[f"{_type}_start"].search(self.__block)
+        ) and (end_matches := g16logpatterns[f"{_type}_end"].search(self.__block)):
             temp_block = self.__block[start_matches.start() : end_matches.end()]
             self.__block = self.__block[end_matches.start() :]
             digits = list(map(float, g16logpatterns["digit"].findall(temp_block)))
@@ -754,23 +747,19 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         """
         Check if the current frame is an error frame
         """
-        if self.energies is None:
-            return True
         if self.energies.total_energy is None:
             return True
-        if "termination" in self.status and self.status["termination"] == "Error":
+        if not self.status.normal_terminated:
             return True
-        if "SCF Done" in self.status and self.status["SCF Done"] == False:
+        if not self.status.scf_converged:
             return True
         return False
 
-    @computed_field
     @property
     def is_optimized(self) -> bool:
         if (
             "opt" in self.route_params
-            and "termination" in self.status
-            and self.status["termination"] == "Normal"
+            and self.geometry_optimization_status.geometry_optimized
         ):
             return True
         else:

@@ -25,7 +25,7 @@ from molop.io.bases.DataClasses import (
     ThermalEnergies,
     SinglePointProperties,
 )
-from molop.logger.logger import logger
+from molop.logger.logger import moloplogger
 from molop.unit import atom_ureg
 from molop.utils.xtbpatterns import xtboutpatterns
 
@@ -78,7 +78,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
                     break
 
             if attach_path is None:
-                logger.error(
+                moloplogger.error(
                     f"No attached coordinates found. Check your path if space in it. {coords_path}"
                 )
                 return False
@@ -90,7 +90,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
             )
             self.atoms = [atom.atomicnum for atom in omol.atoms]
         else:
-            logger.error(
+            moloplogger.error(
                 "No attached coordinates found. Check your path if space in it."
             )
             return False
@@ -101,7 +101,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
         if not coords_match:
             if not self._parse_coords_attached():
                 if "--hess" in self.keywords:
-                    logger.error(
+                    moloplogger.error(
                         "No coordinates found. If you are using `--hess`, use `--ohess` instead. See https://xtb-docs.readthedocs.io/en/latest/hessian.html for more details."
                     )
                 raise RuntimeError("No coordinates found.")
@@ -174,34 +174,41 @@ class XTBFrameParser(BaseQMMolFrameParser):
     def _parse_state(self):
         if "opt" in self.keywords:
             if xtboutpatterns["geometric_optimization_state"].search(self.__block):
-                self.status["geometric_optimization"] = True
-            else:
-                self.status["geometric_optimization"] = False
+                self.geometry_optimization_status.geometry_optimized = True
+            if match := xtboutpatterns["energy_convergence"].search(self.__block):
+                self.geometry_optimization_status.energy_change_threshold = float(
+                    match.group(1)
+                )
+            if match := xtboutpatterns["grad_convergence"].search(self.__block):
+                self.geometry_optimization_status.max_force_threshold = float(
+                    match.group(1)
+                )
+            if match := xtboutpatterns["energy_change"].findall(self.__block):
+                self.geometry_optimization_status.energy_change = abs(float(match[-1]))
+            if match := xtboutpatterns["grad_norm"].findall(self.__block):
+                self.geometry_optimization_status.max_force = abs(float(match[-1]))
+        if self.energies.total_energy is not None:
+            self.status.scf_converged = True
         if xtboutpatterns["success_tag"].search(self.__block):
-            self.status["finished run"] = True
-        else:
-            self.status["finished run"] = False
+            self.status.normal_terminated = True
 
     @computed_field
     @property
     def is_error(self) -> bool:
-        if not self.status["finished run"]:
-            return True
-        if self.energies is None:
+        if not self.status.normal_terminated:
             return True
         if self.energies.total_energy is None:
             return True
-        if "geometric_optimization" in self.status:
-            return self.status["geometric_optimization"] == False
-        else:
+        if (
+            "opt" in self.keywords
+            and self.geometry_optimization_status.geometry_optimized == False
+        ):
             return True
+        return False
 
-    @computed_field
     @property
     def is_optimized(self) -> bool:
-        if "geometric_optimization" in self.status:
-            return self.status["geometric_optimization"]
-        return False
+        return self.status.normal_terminated
 
     def _parse_energy(self):
         energies = {}
