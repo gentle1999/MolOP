@@ -18,7 +18,7 @@ from rdkit import Chem
 from rdkit.Chem import rdDetermineBonds
 
 from molop.io.bases.DataClasses import BaseDataClassWithUnit
-from molop.logger.logger import logger
+from molop.logger.logger import moloplogger
 from molop.structure.geometry import get_geometry_info
 from molop.structure.structure import (
     bond_list,
@@ -76,6 +76,9 @@ class BaseMolFrame(BaseDataClassWithUnit):
     def atom_symbols(self) -> List[str]:
         """
         Get the atom symbols.
+
+        Returns:
+            List[str]: A list of atom symbols.
         """
         return [Chem.Atom(atom).GetSymbol() for atom in self.atoms]
 
@@ -85,7 +88,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Get the total electrons.
 
         Returns:
-            The total electrons.
+            int: The total electrons.
         """
         return sum(Chem.Atom(atom).GetAtomicNum() for atom in self.atoms) + self.charge
 
@@ -95,7 +98,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Get the elements set.
 
         Returns:
-            A list of element symbols dropped duplicates.
+            List[str]: A list of element symbols dropped duplicates.
         """
         return list(set(self.atoms))
 
@@ -103,6 +106,9 @@ class BaseMolFrame(BaseDataClassWithUnit):
     def formula(self) -> str:
         """
         Get the formula.
+
+        Returns:
+            str: The formula.
         """
         return "".join(
             [
@@ -125,7 +131,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Get the openbabel molecule object.
 
         Returns:
-            The openbabel molecule object.
+            pybel.Molecule: The openbabel molecule object.
         """
         if len(self.bonds):
             omol = pybel.readstring("xyz", self.to_XYZ_block())
@@ -162,7 +168,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Get the rdkit molecule object.
 
         Returns:
-            The rdkit molecule object.
+            Chem.rdchem.Mol: The rdkit molecule object.
         """
         if self._rdmol is None:
             if len(self.bonds) == 0:
@@ -179,14 +185,14 @@ class BaseMolFrame(BaseDataClassWithUnit):
                     self._rdmol = conn_mol
                     self.__get_topology()
                 except:
-                    logger.debug(
+                    moloplogger.debug(
                         f"{self.file_path}: rdkit determinebonds failed. Use MolOP structure recovery instead."
                     )
                     # If failed, use MolOP implementation
                     try:
                         omol = self.omol
                     except Exception as e:
-                        logger.error(
+                        moloplogger.error(
                             f"{self.file_path}: MolOP structure recovery failed. {e}"
                         )
                         return None
@@ -196,7 +202,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
                             omol, self.charge, self.multiplicity - 1
                         )
                     except Exception as e:
-                        logger.error(
+                        moloplogger.error(
                             f"{self.file_path}: RDKit structure recovery failed. {e}"
                         )
                     finally:
@@ -218,12 +224,12 @@ class BaseMolFrame(BaseDataClassWithUnit):
         return self._rdmol
 
     @property
-    def rdmol_no_conformer(self):
+    def rdmol_no_conformer(self) -> Chem.rdchem.Mol:
         """
         Get the rdkit molecule object without conformer.
 
         Returns:
-            The rdkit molecule object without conformer.
+            Chem.rdchem.Mol: The rdkit molecule object without conformer.
         """
         rdmol = Chem.RWMol(self.rdmol)
         rdmol.RemoveAllConformers()
@@ -234,7 +240,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Get the XYZ block.
 
         Returns:
-            The XYZ block.
+            str: The XYZ block.
         """
         if self.coords is None:
             raise ValueError("No coordinates found!")
@@ -254,7 +260,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Get the SDF block.
 
         Returns:
-            The SDF block.
+            str: The SDF block.
         """
         return Chem.MolToMolBlock(self.rdmol)
 
@@ -263,7 +269,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Get the CML block.
 
         Returns:
-            The CML block.
+            str: The CML block.
         """
         return Chem.MolToMrvBlock(self.rdmol)
 
@@ -272,7 +278,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Get the SMILES with explicit hydrogens.
 
         Returns:
-            The SMILES.
+            str: The SMILES.
         """
         if self.rdmol is None:
             return ""
@@ -284,17 +290,26 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Get the SMILES with standardization.
 
         Returns:
-            The SMILES.
+            str: The standard SMILES.
         """
         # return rdMolStandardize.StandardizeSmiles(self.to_SMILES())
         return Chem.CanonSmiles(self.to_SMILES(), useChiral=True)
+
+    def to_canonical_SMILES(self) -> str:
+        """
+        Get the canonical SMILES.
+
+        Returns:
+            str: The canonical SMILES.
+        """
+        return Chem.CanonSmiles(self.to_standard_SMILES(), useChiral=True)
 
     def to_InChI(self) -> str:
         """
         Get the InChI.
 
         Returns:
-            The InChI.
+            str: The InChI.
         """
         return Chem.MolToInchi(self.rdmol)
 
@@ -303,11 +318,11 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Calculate the RDKit descriptors.
 
         Parameters:
-            desc_names List[str]:
+            desc_names (List[str]):
                 The names of the descriptors. Must be a subset of the RDKit descriptors.
 
         Returns:
-            The dictionary of the descriptors.
+            Dict[str,float]: The dictionary of the descriptors.
         """
         from molop.descriptor.descriptor import calc_rdkit_descs
 
@@ -337,11 +352,11 @@ class BaseMolFrame(BaseDataClassWithUnit):
         ```
 
         Parameters:
-            desc_names List[str]:
+            desc_names (List[str]):
                 The names of the descriptors. Must be a subset of "SOAP", "ACSF", "MBTR", "LMBTR"
 
         Returns:
-            The dictionary of the descriptors.
+            Dict[str,np.ndarray]: The dictionary of the descriptors.
         """
         from molop.descriptor.descriptor import calc_dscribe_descs
 
@@ -367,7 +382,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         ```
 
         Returns:
-            The dictionary of the descriptors.
+            Dict[str,float]: The dictionary of the descriptors.
         """
 
         from molop.descriptor.descriptor import calc_mordred_descs
@@ -385,15 +400,16 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Get the geometry infos among the atoms
 
         Parameters:
-            atom_idxs Sequence[int]:
+            atom_idxs (Sequence[int]):
                 A Sequence of index of the atoms, starts from 0
-            one_start bool:
+            one_start (bool):
                 If true, consider atom index starts from 1, so let index value subtracts 1 for all the atoms
 
         Returns:
-            - If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
-            - If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
-            - If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
+            float:
+                - If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
+                - If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
+                - If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
         """
         if one_start:
             atom_idxs = [atom_idx - 1 for atom_idx in atom_idxs]

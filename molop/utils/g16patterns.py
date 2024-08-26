@@ -243,7 +243,7 @@ g16logpatterns: Dict[str, re.Pattern] = {
     ),
     "forces end": re.compile(r"Cartesian\s+Forces:\s+Max.*RMS.*"),
     "opt stat": re.compile(
-        r"(Maximum\s+Force|RMS\s+Force|Maximum\s+Displacement|RMS\s+Displacement)\s+[\d.]+\s+[\d.]+\s+(NO|YES)"
+        r"(Maximum\s+Force|RMS\s+Force|Maximum\s+Displacement|RMS\s+Displacement)\s+([\d.]+)\s+([\d.]+)\s+(NO|YES)"
     ),
     "termination": re.compile(r"(Normal|Error) termination"),
     "failure reason": re.compile(r"(! Non-Optimized Parameters !|Convergence failure)"),
@@ -286,6 +286,8 @@ g16logpatterns: Dict[str, re.Pattern] = {
     ),
     "isotropic_polarizability": re.compile(r"Isotropic polarizability for W=\s*\d+.\d+\s*(\d+.\d+)\s*Bohr\*\*3"),
     "polarizability": re.compile(r"Exact\s*polarizability:\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)"),
+    "isotropic_polarizability_alter": re.compile(r"Isotropic polarizability for W=\s*\d+.\d+\s*(\d+.\d+)\s*Bohr\*\*3"),
+    # TODO isotropic_polarizability & anisotropic_polarizability
     "hessian_in_body_start": re.compile(r"Force constants in Cartesian coordinates:"),
     "hessian_in_body_match": re.compile(r"[-]*\d+.\d+D[+-]\d+"),
     "hessian_in_body_end": re.compile(r"FormGI is forming"),

@@ -95,14 +95,16 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
                 break
 
     def _parse_coords(self):
-        atomic_numbers = self._parse_block(
+        atomic_numbers = self.__parse_block__(
             "atomic_number_start", "int_digits", end_tag="atomic_number_end"
         )
         if len(atomic_numbers) > 0:
             self.atoms = list(map(int, atomic_numbers))
         else:
             raise RuntimeError("No atomic number found in fchk file.")
-        coords = self._parse_block("coords_start", "float_digits", end_tag="coords_end")
+        coords = self.__parse_block__(
+            "coords_start", "float_digits", end_tag="coords_end"
+        )
         if len(coords) > 0:
             coords = np.array(list(map(float, coords))).reshape(-1, 3)
         else:
@@ -145,7 +147,7 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
             self.total_spin = TotalSpin.model_validate(spins)
 
     def _parse_mulliken_charges(self):
-        mulliken_match = self._parse_block(
+        mulliken_match = self.__parse_block__(
             "mulliken_start", "float_digits", "gradient_start"
         )
         if len(mulliken_match) > 0:
@@ -157,10 +159,10 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
             g16fchkpatterns["alpha_elec"].search(self.__block).group(1)
         )
         beta_elec_num = int(g16fchkpatterns["beta_elec"].search(self.__block).group(1))
-        alpha_orbitals_energy = self._parse_block(
+        alpha_orbitals_energy = self.__parse_block__(
             "alpha_start", "float_digits", "alpha_end"
         )
-        beta_orbitals_energy = self._parse_block(
+        beta_orbitals_energy = self.__parse_block__(
             "beta_start", "float_digits", "beta_end"
         )
         if len(alpha_orbitals_energy) > 0:
@@ -201,7 +203,9 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
             )
 
     def _parse_gradient(self):
-        gradients = self._parse_block("gradient_start", "float_digits", "gradient_end")
+        gradients = self.__parse_block__(
+            "gradient_start", "float_digits", "gradient_end"
+        )
         if len(gradients) > 0:
             gradients = list(map(float, gradients))
         self.forces = (
@@ -215,13 +219,17 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
             freqs = list(
                 map(
                     float,
-                    self._parse_block("vib_e2_start", "float_digits", "vib_mode_start"),
+                    self.__parse_block__(
+                        "vib_e2_start", "float_digits", "vib_mode_start"
+                    ),
                 )
             )
             freq_modes = list(
                 map(
                     float,
-                    self._parse_block("vib_mode_start", "float_digits", "vib_mode_end"),
+                    self.__parse_block__(
+                        "vib_mode_start", "float_digits", "vib_mode_end"
+                    ),
                 )
             )
             self.vibrations = Vibrations(
@@ -252,13 +260,13 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
 
     def _parse_polarizability(self):
         polar = {}
-        dipole = self._parse_block("dipole_start", "float_digits")
+        dipole = self.__parse_block__("dipole_start", "float_digits")
         if len(dipole) > 0:
             polar["dipole"] = np.array(list(map(float, dipole))) * atom_ureg.debye
-        polarizability = self._parse_block("polarizability_start", "float_digits")
+        polarizability = self.__parse_block__("polarizability_start", "float_digits")
         if len(polarizability) > 0:
             polar["polarizability"] = list(map(float, polarizability))
-        quadrupole = self._parse_block("quadrupole_start", "float_digits")
+        quadrupole = self.__parse_block__("quadrupole_start", "float_digits")
         if len(quadrupole) > 0:
             polar["quadrupole"] = (
                 np.array(list(map(float, quadrupole)))
@@ -269,33 +277,28 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
             self.polarizability = Polarizability.model_validate(polar)
 
     def _parse_state(self):
-        matches = re.search(g16fchkpatterns["job status"], self.__block)
-        if matches:
-            self.status["Job Status"] = matches.group(1) == "1"
+        if matches := re.search(g16fchkpatterns["job status"], self.__block):
+            self.status.normal_terminated = matches.group(1) == "1"
         else:
-            self.status["Job Status"] = False
+            self.status.normal_terminated = False
+        self.status.scf_converged = self.energies.total_energy is not None
+        if "opt" in self.route_params and not self.is_error:
+            self.geometry_optimization_status.geometry_optimized = True
 
     @computed_field
     @property
     def is_error(self) -> bool:
-        if self.energies is None:
-            return True
         if self.energies.total_energy is None:
             return True
-        if "Job Status" in self.status:
-            return self.status["Job Status"] == False
-        else:
+        if not self.status.normal_terminated:
             return True
+        return False
 
-    @computed_field
     @property
     def is_optimized(self) -> bool:
-        if "opt" in self.route_params and not self.is_error:
-            return True
-        else:
-            return False
+        return self.geometry_optimization_status.geometry_optimized
 
-    def _parse_block(
+    def __parse_block__(
         self, start_tag: str, item_map: str, end_tag: str = None
     ) -> List[str]:
         start_match = g16fchkpatterns[start_tag].search(self.__block)

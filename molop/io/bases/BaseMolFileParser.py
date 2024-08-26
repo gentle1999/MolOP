@@ -7,7 +7,7 @@ Description: 请填写简介
 """
 
 import os
-from typing import Generic, List, Tuple
+from typing import Generic, List, Tuple, Union, Sequence
 
 import pandas as pd
 from pint.facets.plain import PlainQuantity
@@ -23,6 +23,7 @@ from typing_extensions import Self
 from molop.io.bases.BaseMolFrameParser import MolFrameType, QMMolFrameType
 from molop.io.bases.DataClasses import BaseDataClassWithUnit
 from molop.unit import atom_ureg
+from molop.utils.types import RdMol
 
 
 class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
@@ -78,10 +79,26 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
     @computed_field
     @property
     def file_format(self) -> str:
+        """
+        return the file format of the file.
+        """
         _, file_format = os.path.splitext(self.file_path)
         return file_format
 
     def _check_path(self, file_path: str = None, format: str = ".xyz"):
+        """
+        Check the file path and format. If the file path is a directory, will generate a file path with the same name as the
+        input file and the specified format.
+
+        Parameters:
+            file_path (str):
+                The file path. If not specified, will use the file path in the object.
+            format (str):
+                The file format.
+
+        Returns:
+            strThe absolute path of the file.
+        """
         if file_path is None:
             return os.path.splitext(self.file_path)[0] + format
         if os.path.isdir(file_path):
@@ -145,14 +162,6 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
 
         Parameters:
             frame (MolFrameType): The frame to be appended.
-
-        Raises:
-            TypeError: If the type of the frame is not a subclass of MolFrameType.
-        """
-        """
-        print(MolFrameType)
-        if not isinstance(type(frame), MolFrameType):
-            raise TypeError(f"{type(frame)} is not instance of {MolFrameType}")
         """
         frame.frame_id = len(self.__frames)
         if frame.frame_id > 0:
@@ -194,23 +203,23 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Convert the frame at the specified index to a Gaussian input block in the Gaussian 16 format (GJF).
 
         Parameters:
-            charge int:
+            charge (int):
                 The forced charge. If specified, will be used to overwrite the charge in the gjf file.
-            multiplicity int:
+            multiplicity (int):
                 The forced multiplicity. If specified, will be used to overwrite the multiplicity in the gjf file.
-            template str:
+            template (str):
                 path to read a gjf file as a template.
-            prefix str:
+            prefix (str):
                 prefix to add to the beginning of the gjf file, priority is lower than template.
-            suffix str:
+            suffix (str):
                 suffix to add to the end of the gjf file, priority is lower than template.
-            chk bool:
+            chk (bool):
                 If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
-            oldchk bool:
+            oldchk (bool):
                 If true, add the oldchk keyword to the link0 section. Will use the file name as the chk file name.
 
         Returns:
-            A modified GJF block.
+            str: A modified GJF block.
         """
         return self.__frames[frameID].to_GJF_block(
             file_path=file_path,
@@ -228,10 +237,10 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Write the XYZ file.
 
         Parameters:
-            file_path str:
+            file_path (str):
                 The file path. If not specified, will be generated in situ.
         Returns:
-            The absolute path of the XYZ file.
+            str: The absolute path of the XYZ file.
         """
         _file_path = self._check_path(file_path, ".xyz")
         with open(_file_path, "w") as f:
@@ -244,10 +253,10 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Write the SDF file.
 
         Parameters:
-            file_path str:
+            file_path (str):
                 The file path. If not specified, will be generated in situ.
         Returns:
-            The absolute path of the SDF file.
+            str: The absolute path of the SDF file.
         """
         _file_path = self._check_path(file_path, ".sdf")
         with open(_file_path, "w") as f:
@@ -271,26 +280,26 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Write the GJF file.
 
         Parameters:
-            file_path str:
+            file_path (str):
                 The path to write the GJF file. If not specified, will be generated in situ.
-            charge int:
+            charge (int):
                 The forced charge. If specified, will be used to overwrite the charge in the gjf file.
-            multiplicity int:
+            multiplicity (int):
                 The forced multiplicity. If specified, will be used to overwrite the multiplicity in the gjf file.
-            template str:
+            template (str):
                 path to read a gjf file as a template.
-            prefix str:
+            prefix (str):
                 prefix to add to the beginning of the gjf file, priority is lower than template.
-            suffix str:
+            suffix (str):
                 suffix to add to the end of the gjf file, priority is lower than template.
-            frameID int:
+            frameID (int):
                 The frame ID to write.
-            chk bool:
+            chk (bool):
                 If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
-            oldchk bool:
+            oldchk (bool):
                 If true, add the oldchk keyword to the link0 section. Will use the file name as the chk file name.
         Returns:
-            The path to the GJF file.
+            str: The path to the GJF file.
         """
         _file_path = self._check_path(file_path, ".gjf")
         with open(_file_path, "w") as f:
@@ -315,14 +324,14 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Write the ChemDraw file.
 
         Parameters:
-            file_path str:
+            file_path (str):
                 The path to write the ChemDraw file. If not specified, will be generated in situ.
-            frameID int:
+            frameID (int):
                 The frame ID to write.
-            keep3D bool:
+            keep3D (bool):
                 Whether to keep the 3D information.
         Returns:
-            The path to the ChemDraw file.
+            str: The path to the ChemDraw file.
         """
         return self.__frames[frameID].to_chemdraw(file_path, keep3D=keep3D)
 
@@ -333,19 +342,19 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Get the geometry infos among the atoms with all frames in the file
 
         Parameters:
-            key_atoms List[List[int]]:
+            key_atoms (List[List[int]]):
                 A list of list of index of the atoms, starts from 0:
 
                     - If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
                     - If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
                     - If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
-            precision int:
+            precision (int):
                 The precision of the geometry analysis. Default is 1. e.g. 1 means 1.0001 ==> 1.0
-            one_start bool:
+            one_start (bool):
                 If true, consider atom index starts from 1, so let index value subtracts 1 for all the atoms
 
         Returns:
-            A pandas DataFrame:
+            pd.DataFrame:
                 The columns of the DataFrame is the atom_idxs, and the index are the frames.
         """
         values = {
@@ -368,21 +377,21 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Get the geometry infos among the atoms with all frames in the file
 
         Parameters:
-            key_atoms List[List[int]]:
+            key_atoms (List[List[int]]):
                 A list of list of index of the atoms, starts from 0
 
                     - If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
                     - If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
                     - If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
-            file_path str:
+            file_path (str):
                 The path of the csv file to be saved. If None, the file will be saved in the same directory of the file_path.
-            precision int:
+            precision (int):
                 The precision of the geometry analysis. Default is 1. e.g. 1 means 1.0001 ==> 1.0
-            one_start bool:
+            one_start (bool):
                 If true, consider atom index starts from 1, so let index value subtracts 1 for all the atoms
 
         Returns:
-            file_path
+            str: file_path
         """
         df = self.geometry_analysis_df(
             key_atoms, precision=precision, one_start=one_start
@@ -397,36 +406,67 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
 
     def replace_substituent(
         self,
-        query_smi: str,
-        replacement_smi: str,
+        query: Union[str, RdMol],
+        replacement: Union[str, RdMol] = None,
         bind_idx: int = None,
         replace_all=False,
-        attempt_num: int = 10,
+        attempt_num=10,
+        crowding_threshold=0.75,
+        angle_split=10,
+        randomSeed=114514,
+        start_idx: int = None,
+        end_idx: int = None,
         frameID=-1,
     ) -> MolFrameType:
         """
         Replace the substituent with the given SMARTS. The substituent is defined by the query_smi, and the new substituent is defined by the replacement_smi.
 
         Parameters:
-            query_smi str:
-                The SMARTS to query the substituent in the original molecule.
-            replacement_smi str:
-                The SMARTS of new substituent. The bind atom is the first atom of the replacement_smi.
-            bind_idx int:
-                The index of the atom to bind the new substituent. The default is None, which means to replace the first legal atom in original molecule.
-                If specified, try to replace the atom. User should meke sure the atom is legal.
+            query (str | RdMol):
+                The SMARTS or Mol object to query the substituent in the original molecule.
+            replacement (str | RdMol):
+                The SMARTS or Mol object of new substituent.
+            bind_idx (int):
+                The index of the atom to bind the new substituent. The default is None, which means
+                to replace the first legal atom in original molecule.
+                If specified, try to replace the legal substruct where the atom in it. User should
+                meke sure the atom is legal.
                 Detail example in (Repalce Substituent)[Repalce Substituent]
-            replace_all bool:
+            replace_all (bool):
                 If True, replace all the substituent queried in the original molecule.
-            attempt_num int:
-                Max attempt times to replace the substituent. Each time a new substituent conformation will be used for substitution.
+            attempt_num (int):
+                Max attempt times to replace the substituent. Each time a new substituent conformation
+                will be used for substitution.
+            crowding_threshold (float):
+                The threshold of crowding. If the new substituent is too crowded
+                `d(a-b) < threshold * (R(a)+R(b))`, the substitution will be rejected.
+            angle_split (int):
+                Decide how many equal parts of 360° you want to divide. The larger the number the finer
+                the rotation will be attempted but the slower the calculation will be.
+            randomSeed (int):
+                The random seed.
+            start_idx (int):
+                If both `start_idx` and `end_idx` are specified, simply ignore the `query`, break the
+                key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
+            end_idx (int):
+                If both `start_idx` and `end_idx` are specified, simply ignore the `query`, break the
+                key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
             frameID int:
                 The frame ID to replace.
         Returns:
             The new parser.
         """
         return self.__frames[frameID].replace_substituent(
-            query_smi, replacement_smi, bind_idx, replace_all, attempt_num
+            query=query,
+            replacement=replacement,
+            bind_idx=bind_idx,
+            replace_all=replace_all,
+            attempt_num=attempt_num,
+            crowding_threshold=crowding_threshold,
+            angle_split=angle_split,
+            randomSeed=randomSeed,
+            start_idx=start_idx,
+            end_idx=end_idx,
         )
 
     def reset_atom_index(
@@ -438,19 +478,19 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Reset the atom index of the molecule according to the mapping SMARTS.
 
         Parameters:
-            mapping_smarts str:
+            mapping_smarts (str):
                 The SMARTS to query the molecule substructure.
                 The queried atoms will be renumbered and placed at the beginning of all atoms according to the order of the atoms in SMARTS. The relative order of the remaining atoms remains unchanged.
-            frameID int:
+            frameID (int):
                 The frame ID to reset.
         Returns:
-            The new parser.
+            MolFrameType: The new parser.
         """
         return self.__frames[frameID].reset_atom_index(mapping_smarts)
 
     def standard_orient(
         self,
-        anchor_list: List[int],
+        anchor_list: Sequence[int],
         frameID: int = -1,
     ) -> MolFrameType:
         """
@@ -462,25 +502,32 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
             - `rotate_anchor_to_XY`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
 
         Parameters:
-            anchor_list List[int]:
+            anchor_list (Sequence[int]):
                 A list of indices of the atoms to be translated to origin, rotated to X axis, and rotated again to XY face:
 
                 - If length is 1, execute `translate_anchor`
                 - If length is 2, execute `translate_anchor` and `rotate_anchor_to_X`
                 - If length is 3, execute `translate_anchor`, `rotate_anchor_to_X` and `rotate_anchor_to_XY`
                 - If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
-            frameID int:
+            frameID (int):
                 The frame ID to standardize orientation.
 
         Returns:
-            The new parser.
+            MolFrameType: The new parser.
         """
         return self.__frames[frameID].standard_orient(anchor_list)
 
     def to_summary_df(self, full: bool = False) -> pd.DataFrame:
         """
+        Get the summary information of the parser.
+
+        Parameters:
+            full (bool):
+                If True, include the full information of the parser.
+
         Returns:
-            A pandas DataFrame containing the summary information of the parser.
+            pd.DataFrame:
+                A pandas DataFrame containing the summary information of the parser.
         """
         self.recover_structures()
         return pd.concat(
@@ -488,7 +535,13 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         ).T
 
     def recover_structures(self) -> List[str]:
-        return [frame.smiles for frame in self.frames]
+        """
+        Recover the structures of the frames.
+
+        Returns:
+            List[str]: A list of SMILES strings of the frames.
+        """
+        return [frame.to_canonical_SMILES() for frame in self.frames]
 
 
 class BaseQMMolFileParser(BaseMolFileParser[QMMolFrameType]):
@@ -544,3 +597,24 @@ class BaseQMMolFileParser(BaseMolFileParser[QMMolFrameType]):
         default=298.15 * atom_ureg.K,
         description="Electron temperature used in the QM calculation, unit is `K`",
     )
+    
+    @property
+    def sort_by_optimization(self) -> List[QMMolFrameType]:
+        """
+        Sort the frames by the optimization status. The closer the frame is to the optimized state, the higher the priority.
+
+        Returns:
+            List[QMMolFrameType]: A list of frames sorted by the optimization status.
+        """
+        frames = self.frames
+        return sorted(frames, key=lambda frame: frame.geometry_optimization_status)
+
+    @property
+    def closest_optimized_frame(self) -> QMMolFrameType:
+        """
+        Get the frame with the closest optimization status to the optimized state.
+
+        Returns:
+            QMMolFrameType: The frame with the closest optimization status to the optimized state.
+        """
+        return self.sort_by_optimization[0]

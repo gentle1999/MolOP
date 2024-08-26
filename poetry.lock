@@ -3951,4 +3951,4 @@ full = ["ase", "dscribe", "mordred"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "58a8e2ba67eac9d3949e461916a34673ec1f01567fe6425683c6fd3cbbf777ce"
+content-hash = "450dabeefb42da3d943b9bc4a7e22efaa5d2d974f69d398ef86cdf65dfcb26f7"

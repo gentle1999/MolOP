@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from openbabel import pybel
 from pint.facets.plain import PlainQuantity
-from pydantic import ConfigDict, Field, PrivateAttr, computed_field, model_validator
+from pydantic import Field, PrivateAttr, computed_field, model_validator
 from rdkit import Chem
 from typing_extensions import Self
 
@@ -29,8 +29,10 @@ from molop.io.bases.DataClasses import (
     ThermalEnergies,
     TotalSpin,
     Vibrations,
+    Status,
+    GeometryOptimizationStatus,
 )
-from molop.logger.logger import logger
+from molop.logger.logger import moloplogger
 from molop.structure.geometry import standard_orient
 from molop.structure.structure import (
     attempt_replacement,
@@ -48,13 +50,17 @@ from molop.utils.types import RdMol
 
 
 class BaseMolFrameParser(BaseMolFrame):
-    model_config = ConfigDict(arbitrary_types_allowed=True)
     frame_id: int = Field(default=0, description="Frame ID")
     file_path: str = Field(default="", repr=False, exclude=True)
     frame_content: str = Field(default="", repr=False, exclude=True)
     _frame_type: str = PrivateAttr(default="")
     _next_frame: "BaseMolFrameParser" = PrivateAttr(default=None)
     _prev_frame: "BaseMolFrameParser" = PrivateAttr(default=None)
+    status: Status = Field(default=Status(), description="Status of the frame")
+    geometry_optimization_status: GeometryOptimizationStatus = Field(
+        default=GeometryOptimizationStatus(),
+        description="Geometry optimization status",
+    )
 
     def _parse(self):
         raise NotImplementedError
@@ -69,14 +75,29 @@ class BaseMolFrameParser(BaseMolFrame):
     @computed_field
     @property
     def filename(self) -> str:
+        """
+        Get the filename of the frame.
+        Returns:
+            str: The filename of the frame.
+        """
         return os.path.basename(self.file_path)
 
     @property
     def pure_filename(self) -> str:
+        """
+        Get the pure filename of the frame.
+        Returns:
+            str: The pure filename of the frame.
+        """
         return os.path.splitext(self.filename)[0]
 
     @property
     def file_dir_path(self) -> str:
+        """
+        Get the file directory path of the frame.
+        Returns:
+            str: The file directory path of the frame.
+        """
         return os.path.dirname(self.file_path)
 
     @property
@@ -88,7 +109,18 @@ class BaseMolFrameParser(BaseMolFrame):
         """
         return os.path.splitext(self.file_path)[-1]
 
-    def _check_path(self, file_path: str = None, format: str = ".xyz"):
+    def _check_path(self, file_path: str = None, format: str = ".xyz") -> str:
+        """
+        Check if the file path is valid or modify it.
+
+        Parameters:
+            file_path (str):
+                The file path. If not specified, will be generated in situ.
+            format (str):
+                The file format. If not specified, will be generated in situ.
+        Returns:
+            str: The absolute path of the file.
+        """
         if file_path is None:
             return os.path.splitext(self.file_path)[0] + format
         if os.path.isdir(file_path):
@@ -96,6 +128,10 @@ class BaseMolFrameParser(BaseMolFrame):
                 file_path,
                 self.pure_filename + format,
             )
+        if not file_path.endswith(format):
+            file_path = file_path + format
+        if not os.path.isabs(file_path):
+            file_path = os.path.abspath(file_path)
         return file_path
 
     def to_XYZ_file(self, file_path: str = None) -> str:
@@ -103,10 +139,10 @@ class BaseMolFrameParser(BaseMolFrame):
         Write the XYZ file.
 
         Parameters:
-            file_path str:
+            file_path (str):
                 The file path. If not specified, will be generated in situ.
         Returns:
-            The absolute path of the XYZ file.
+            str: The absolute path of the XYZ file.
         """
         _file_path = self._check_path(file_path, ".xyz")
         with open(_file_path, "w") as f:
@@ -119,10 +155,10 @@ class BaseMolFrameParser(BaseMolFrame):
         Write the SDF file.
 
         Parameters:
-            file_path str:
+            file_path (str):
                 The file path. If not specified, will be generated in situ.
         Returns:
-            The absolute path of the SDF file.
+            str: The absolute path of the SDF file.
         """
         _file_path = self._check_path(file_path, ".sdf")
         with open(_file_path, "w") as f:
@@ -145,22 +181,22 @@ class BaseMolFrameParser(BaseMolFrame):
         Get the GJF frame.
 
         Parameters:
-            charge int:
+            charge (int):
                 The forced charge. If specified, will be used to overwrite the charge in the gjf file.
-            multiplicity int:
+            multiplicity (int):
                 The forced multiplicity. If specified, will be used to overwrite the multiplicity in the gjf file.
-            template str:
+            template (str):
                 path to read a gjf file as a template.
-            prefix str:
+            prefix (str):
                 prefix to add to the beginning of the gjf file, priority is lower than template.
-            suffix str:
+            suffix (str):
                 suffix to add to the end of the gjf file, priority is lower than template.
-            chk bool:
+            chk (bool):
                 If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
-            oldchk bool:
+            oldchk (bool):
                 If true, add the oldchk keyword to the link0 section. Will use the file name as the chk file name.
         Returns:
-            A modified GJF frame.
+            str: A modified GJF frame.
         """
         _file_path = self._check_path(file_path, ".gjf")
         if template is not None:
@@ -223,24 +259,24 @@ class BaseMolFrameParser(BaseMolFrame):
         Write the GJF file.
 
         Parameters:
-            file_path str:
+            file_path (str):
                 The path to write the GJF file. If not specified, will be generated in situ.
-            charge int:
+            charge (int):
                 The forced charge. If specified, will be used to overwrite the charge in the gjf file.
-            multiplicity int:
+            multiplicity (int):
                 The forced multiplicity. If specified, will be used to overwrite the multiplicity in the gjf file.
-            template str:
+            template (str):
                 path to read a gjf file as a template.
-            prefix str:
+            prefix (str):
                 prefix to add to the beginning of the gjf file, priority is lower than template.
-            suffix str:
+            suffix (str):
                 suffix to add to the end of the gjf file, priority is lower than template.
-            chk bool:
+            chk (bool):
                 If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
-            oldchk bool:
+            oldchk (bool):
                 If true, add the oldchk keyword to the link0 section. Will use the file name as the chk file name.
         Returns:
-            The path to the GJF file.
+            str: The path to the GJF file.
         """
         _file_path = self._check_path(file_path, ".gjf")
         with open(_file_path, "w") as f:
@@ -259,17 +295,17 @@ class BaseMolFrameParser(BaseMolFrame):
         f.close()
         return os.path.abspath(_file_path)
 
-    def to_chemdraw(self, file_path: str = None, keep3D=True):
+    def to_chemdraw(self, file_path: str = None, keep3D=True) -> str:
         """
         Write the ChemDraw file.
 
         Parameters:
-            file_path str:
+            file_path (str):
                 The path to write the ChemDraw file. If not specified, will be generated in situ.
-            keep3D bool:
+            keep3D (bool):
                 Whether to keep the 3D information.
         Returns:
-            The path to the ChemDraw file.
+            str: The path to the ChemDraw file.
         """
         _file_path = self._check_path(file_path, ".cdxml")
         if not keep3D:
@@ -288,7 +324,7 @@ class BaseMolFrameParser(BaseMolFrame):
         Get the next frame.
 
         Returns:
-            The next frame.
+            BaseMolFrameParser: The next frame.
         """
         if self._next_frame.file_path == self.file_path:
             return self._next_frame
@@ -299,7 +335,7 @@ class BaseMolFrameParser(BaseMolFrame):
         """
         Get the previous frame.
         Returns:
-            The previous frame.
+            BaseMolFrameParser: The previous frame.
         """
         if self._prev_frame.file_path == self.file_path:
             return self._prev_frame
@@ -315,12 +351,12 @@ class BaseMolFrameParser(BaseMolFrame):
         Create a new parser with the given molecule.
 
         Parameters:
-            new_mol Chem.rdchem.Mol:
+            new_mol (Chem.rdchem.Mol):
                 The new molecule.
-            path str:
+            path (str):
                 The path to save the new file.
         Returns:
-            The new parser.
+            BaseMolFrameParser: The new parser.
         """
         return cls(
             atoms=[atom.GetAtomicNum() for atom in new_mol.GetAtoms()],
@@ -348,33 +384,41 @@ class BaseMolFrameParser(BaseMolFrame):
         end_idx: int = None,
     ) -> "BaseMolFrameParser":
         """
-        Replace the substituent with the given SMARTS. The substituent is defined by the query_smi, and the new substituent is defined by the replacement_smi.
+        Replace the substituent with the given SMARTS. The substituent is defined by the query_smi,
+        and the new substituent is defined by the replacement_smi.
 
         Parameters:
-            query str | RdMol:
+            query (str | RdMol):
                 The SMARTS or Mol object to query the substituent in the original molecule.
-            replacement str | RdMol:
+            replacement (str | RdMol):
                 The SMARTS or Mol object of new substituent.
-            bind_idx int:
-                The index of the atom to bind the new substituent. The default is None, which means to replace the first legal atom in original molecule.
-                If specified, try to replace the legal substruct where the atom in it. User should meke sure the atom is legal.
+            bind_idx (int):
+                The index of the atom to bind the new substituent. The default is None, which means
+                to replace the first legal atom in original molecule.
+                If specified, try to replace the legal substruct where the atom in it. User should
+                meke sure the atom is legal.
                 Detail example in (Repalce Substituent)[Repalce Substituent]
-            replace_all bool:
+            replace_all (bool):
                 If True, replace all the substituent queried in the original molecule.
-            attempt_num int:
-                Max attempt times to replace the substituent. Each time a new substituent conformation will be used for substitution.
-            crowding_threshold float:
-                The threshold of crowding. If the new substituent is too crowded `d(a-b) > threshold * (R(a)+R(b))`, the substitution will be rejected.
-            angle_split int:
-                Decide how many equal parts of 360° you want to divide. The larger the number the finer the rotation will be attempted.
-            randomSeed int:
+            attempt_num (int):
+                Max attempt times to replace the substituent. Each time a new substituent conformation
+                will be used for substitution.
+            crowding_threshold (float):
+                The threshold of crowding. If the new substituent is too crowded
+                `d(a-b) < threshold * (R(a)+R(b))`, the substitution will be rejected.
+            angle_split (int):
+                Decide how many equal parts of 360° you want to divide. The larger the number the finer
+                the rotation will be attempted but the slower the calculation will be.
+            randomSeed (int):
                 The random seed.
-            start_idx int:
-                If both `start_idx` and `end_idx` are specified, simply ignore the `query`, break the key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
-            end_idx int:
-                If both `start_idx` and `end_idx` are specified, simply ignore the `query`, break the key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
+            start_idx (int):
+                If both `start_idx` and `end_idx` are specified, simply ignore the `query`, break the
+                key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
+            end_idx (int):
+                If both `start_idx` and `end_idx` are specified, simply ignore the `query`, break the
+                key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
         Returns:
-            The new parser.
+            BaseMolFrameParser: The new parser.
         """
         rebuild_type = "mod"
         new_mol = attempt_replacement(
@@ -399,21 +443,21 @@ class BaseMolFrameParser(BaseMolFrame):
         Reset the atom index of the molecule according to the mapping SMARTS.
 
         Parameters:
-            mapping_smarts str:
+            mapping_smarts (str):
                 The SMARTS to query the molecule substructure.
                 The queried atoms will be renumbered and placed at the beginning of all atoms according to the order of the atoms in SMARTS. The relative order of the remaining atoms remains unchanged.
 
         Returns:
-            The new parser.
+            BaseMolFrameParser: The new parser.
         """
         rebuild_type = "reindex"
         smarts = Chem.MolFromSmarts(mapping_smarts)
         if not self.rdmol.HasSubstructMatch(smarts):
-            logger.error(f"Failed to match {self.file_path} with {mapping_smarts}")
+            moloplogger.error(f"Failed to match {self.file_path} with {mapping_smarts}")
             raise ValueError("Failed to match")
         mapping = self.rdmol.GetSubstructMatches(smarts)
         if len(mapping) > 1:
-            logger.warning(
+            moloplogger.warning(
                 f"Multiple matches found in {self.file_path} with {mapping_smarts}"
             )
         mapping = mapping[0]
@@ -435,13 +479,15 @@ class BaseMolFrameParser(BaseMolFrame):
             - `rotate_anchor_to_XY`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
 
         Parameters:
-            anchor_list Sequence[int]:
+            anchor_list (Sequence[int]):
                 A Sequence of indices of the atoms to be translated to origin, rotated to X axis, and rotated again to XY face:
 
                 - If length is 1, execute `translate_anchor`
                 - If length is 2, execute `translate_anchor` and `rotate_anchor_to_X`
                 - If length is 3, execute `translate_anchor`, `rotate_anchor_to_X` and `rotate_anchor_to_XY`
                 - If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
+        Returns:
+            BaseMolFrameParser: The new parser.
         """
         rebuild_type = "transform"
         mol = Chem.RWMol(self.rdmol)
@@ -451,27 +497,50 @@ class BaseMolFrameParser(BaseMolFrame):
         )
 
     @computed_field(
-        description="Abstrcact method to check if the current frame is an error. The details are implemented in the derived classes."
+        description="Abstrcact method to check if the current frame is an error. "
+        "The details are implemented in the derived classes."
     )
     @property
     def is_error(self) -> bool:
-        return False
+        """
+        Abstrcact method to check if the current frame is an error.
+        The details are implemented in the derived classes.
+        """
+        return not self.status.normal_terminated
+
+    @computed_field(description="Check if the molecule is normal.")
+    @property
+    def is_normal(self) -> bool:
+        return not self.is_error
 
     @computed_field(
-        description="Check if the molecule is a TS. Can not check if the molecule is a TS without frequency information. Thus this function returns False."
+        description="Check if the molecule is a TS. Can not check if the molecule "
+        "is a TS without frequency information. Thus this function returns False."
     )
     @property
     def is_TS(self) -> bool:
+        """
+        Check if the molecule is a TS. Can not check if the molecule
+        is a TS without frequency information. Thus this function returns False.
+        """
         return False
 
-    @computed_field(description="Check if the molecule is optimized.")
     @property
     def is_optimized(self) -> bool:
-        return False
+        """
+        Check if the molecule is optimized.
+        """
+        return self.geometry_optimization_status.geometry_optimized
 
     def to_summary_series(self, full: bool = False) -> pd.Series:
         """
         Generate a summary series for the current frame.
+
+        Parameters:
+            full (bool):
+                Not used but for API compatibility.
+        Returns:
+            pd.Series: The summary series.
         """
         return pd.Series(
             {
@@ -544,11 +613,6 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         default=298.15 * atom_ureg.K,
         description="Electron temperature used in the QM calculation, unit is `K`",
     )
-    # status
-    status: dict = Field(
-        default={},
-        description="Status of the QM calculation",
-    )
     # QM properties
     forces: Union[PlainQuantity, None] = Field(
         default=np.array([[]]) * atom_ureg.hartree / atom_ureg.bohr,
@@ -572,7 +636,7 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
     )
     vibrations: Vibrations = Field(default=Vibrations(), description="vibrations")
     charge_spin_populations: ChargeSpinPopulations = Field(
-        default=None, description="Charge and spin populations"
+        default=ChargeSpinPopulations(), description="Charge and spin populations"
     )
     polarizability: Polarizability = Field(
         default=Polarizability(), description="Polarizability of the molecule"
@@ -593,7 +657,7 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         Generate a list of base block parsers for transition state vibration calculations.
 
         Returns:
-            A list of base block parsers for transition state vibration calculations.
+            List[BaseMolFrameParser]: A list of base block parsers for transition state vibration calculations.
         """
         if not self.is_TS:
             raise RuntimeError("This is not a TS")
@@ -623,9 +687,9 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
                     total_radical=self.multiplicity - 1,
                 )
                 # Rebuild parser using the openbabel molecule object
-                block_parser = self.rebuild_parser(rdmol, rebuild_type="reindex")
+                block_parser = self.rebuild_parser(rdmol)
             except Exception as e:
-                logger.warning(
+                moloplogger.warning(
                     f"Failed to rebuild for {self.to_SMILES()} with error {e}"
                 )
                 continue
@@ -640,10 +704,10 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         Write the TS vibration calculations to an SDF file.
 
         Parameters:
-            file_path str:
+            file_path (str):
                 The file path. If not specified, will be generated in situ.
         Returns:
-            The absolute path of the SDF file.
+            str: The absolute path of the SDF file.
         """
         if file_path is None:
             file_path = self.file_path
@@ -662,8 +726,11 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         """
         This method returns the possible pre- and post-transition state molecules.
 
+        Parameters:
+            show_3D (bool): Whether to show 3D coordinates. Defaults to False.
+
         Returns:
-            A tuple containing the possible pre- and post-transition state molecules.
+            Tuple[Chem.rdchem.Mol, Chem.rdchem.Mol]: A tuple containing the possible pre- and post-transition state molecules.
         """
         block_parsers = self.ts_vibration()
         if not show_3D:
@@ -674,6 +741,12 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
     def to_summary_series(self, full: bool = False) -> pd.Series:
         """
         Generate a summary series for the current frame.
+
+        Parameters:
+            full (bool): Whether to include all properties. Defaults to False.
+
+        Returns:
+            pd.Series: A summary series for the current frame.
         """
         brief_dict = {
             "parser": self.__class__.__name__,
@@ -685,14 +758,13 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
             "charge": self.charge,
             "multiplicity": self.multiplicity,
             "SMILES": self.to_standard_SMILES(),
+            "keywords": self.keywords,
             "functional": self.functional,
             "basis": self.basis,
             "solvent_model": self.solvent_model,
             "solvent": self.solvent,
             "temperature": self.temperature,
-            "status": str(self.status),
-            "is_error": self.is_error,
-            "is_optimized": self.is_optimized,
+            **self.status.model_dump(),
             "is_TS": self.is_TS,
         }
         if full:
@@ -707,6 +779,7 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
                 **self.polarizability.model_dump(),
                 **self.bond_orders.model_dump(),
                 **self.single_point_properties.model_dump(),
+                **self.geometry_optimization_status.model_dump(),
             }
         return pd.Series(brief_dict)
 
@@ -716,15 +789,16 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         """
         Abstrcact method to check if the current frame is an error. The details are implemented in the derived classes.
         """
-        if self.energies is None:
-            return True
         if self.energies.total_energy is None:
             return True
-        return False
+        return not self.status.normal_terminated
 
     @computed_field
     @property
     def is_TS(self) -> bool:
+        """
+        Abstract method to check if the current frame is a transition state. The details are implemented in the derived classes.
+        """
         if self.is_error:
             return False
         if not self.is_optimized:

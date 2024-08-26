@@ -16,6 +16,7 @@ from joblib import Parallel, cpu_count, delayed
 from tqdm import tqdm
 
 from molop.config import molopconfig
+from molop.io.bases.BaseMolFrameParser import MolFrameType
 from molop.io.bases.BaseMolFileParser import BaseMolFileParser
 from molop.io.coords_file.GJFFileParser import GJFFileParser
 from molop.io.coords_file.SDFFileParser import SDFFileParser
@@ -24,7 +25,7 @@ from molop.io.qm_file.G16FchkFileParser import G16FchkFileParser
 from molop.io.qm_file.G16LogFileParser import G16LogFileParser
 from molop.io.qm_file.XTBFileParser import XTBFileParser
 from molop.io.types import PARSERTYPES
-from molop.logger.logger import logger
+from molop.logger.logger import moloplogger
 
 parsers: Dict[str, PARSERTYPES] = {
     ".gjf": (GJFFileParser,),
@@ -57,16 +58,6 @@ def singlefile_parser(
     """
     A function to parse a single file based on its format.
 
-    Args:
-        file_path (str): The path of the file.
-        charge (int, optional): The molecular charge. Defaults to None.
-        multiplicity (int, optional): The molecular spin multiplicity. Defaults to None.
-        only_extract_structure (bool, optional): Whether to extract structure only. Defaults to False.
-        only_last_frame (bool, optional): Whether to extract the last frame only. Defaults to False.
-
-    Returns:
-        PARSERTYPES: An instance of the appropriate parser class.
-
     Core Logic:
         - Checks if the provided `file_path` is an actual file.
         - Determines the file format by getting the file extension.
@@ -77,14 +68,27 @@ def singlefile_parser(
         - If all parsers fail, logs the final error and returns None.
         - If the `file_path` points to a directory, logs an error and returns None.
 
-    Raises:
-        None
+    Parameters:
+        file_path (str):
+            The path of the file.
+        charge (int):
+            The molecular charge. Defaults to None.
+        multiplicity (int):
+            The molecular spin multiplicity. Defaults to None.
+        only_extract_structure (bool):
+            Whether to extract structure only. Defaults to False.
+        only_last_frame (bool):
+            Whether to extract the last frame only. Defaults to False.
 
+    Returns:
+        PARSERTYPES: An instance of the appropriate parser class.
     """
     if os.path.isfile(file_path):
         _, file_format = os.path.splitext(file_path)
         if file_format not in parsers:
-            logger.error("Unknown file format: {}, {}".format(file_format, file_path))
+            moloplogger.error(
+                "Unknown file format: {}, {}".format(file_format, file_path)
+            )
             return None
         for idx, parser in enumerate(parsers[file_format]):
             try:
@@ -114,15 +118,15 @@ def singlefile_parser(
                     return parser(file_path=file_path)
             except Exception as e:
                 if idx == len(parsers[file_format]) - 1:
-                    logger.error(
+                    moloplogger.error(
                         f"Failed to parse file {file_path} with {parser.__name__}. {e}"
                     )
                     return None
-                logger.debug(
+                moloplogger.debug(
                     f"Failed to parse file {file_path} with {parser.__name__}, trying {parsers[file_format][idx+1].__name__} instead"
                 )
     elif os.path.isdir(file_path):
-        logger.error(f"{file_path} is not a file.")
+        moloplogger.error(f"{file_path} is not a file.")
         return None
 
 
@@ -136,6 +140,12 @@ class FileParserBatch(MutableMapping):
     ) -> None:
         self.__n_jobs = self._set_n_jobs(n_jobs)
         self.__parsers: Dict[str, PARSERTYPES] = OrderedDict()
+
+    def __contains__(self, key: Union[str, PARSERTYPES]) -> bool:
+        if isinstance(key, str):
+            return key in self.__parsers.keys()
+        else:
+            return key in self.__parsers.values()
 
     def __getitem__(self, key: Union[int, str, slice]) -> PARSERTYPES:
         if isinstance(key, int):
@@ -179,10 +189,10 @@ class FileParserBatch(MutableMapping):
         file_paths = []
         for file_path in files:
             if not os.path.isfile(file_path):
-                logger.warning(f"{file_path} is not a file.")
+                moloplogger.warning(f"{file_path} is not a file.")
                 continue
             if os.path.splitext(file_path)[1] not in parsers:
-                logger.warning(f"Unsupported input file format: {file_path}")
+                moloplogger.warning(f"Unsupported input file format: {file_path}")
                 continue
             if file_path.endswith("molop.log"):
                 continue
@@ -261,7 +271,7 @@ class FileParserBatch(MutableMapping):
                     }
                 )
 
-        logger.info(
+        moloplogger.info(
             f"{len(file_paths) - len(self.__parsers)} files failed to parse, {len(self.__parsers)} successfully parsed"
         )
 
@@ -274,7 +284,7 @@ class FileParserBatch(MutableMapping):
             if parser.file_path not in self.__parsers:
                 self[parser.file_path] = parser
             else:
-                logger.warning(
+                moloplogger.warning(
                     f"File {parser.file_path} already exists in the batch, skipped"
                 )
 
@@ -317,7 +327,7 @@ class FileParserBatch(MutableMapping):
                 oldchk=oldchk,
                 frameID=frameID,
             )
-        logger.info(f"gjf files saved to {os.path.abspath(file_path)}")
+        moloplogger.info(f"gjf files saved to {os.path.abspath(file_path)}")
 
     def to_XYZ_file(self, file_path: str = None) -> None:
         if file_path is None:
@@ -326,7 +336,7 @@ class FileParserBatch(MutableMapping):
             raise NotADirectoryError(f"{file_path} is not a directory")
         for parser in self:
             parser.to_XYZ_file(os.path.join(file_path, parser.pure_filename + ".xyz"))
-        logger.info(f"xyz files saved to {os.path.abspath(file_path)}")
+        moloplogger.info(f"xyz files saved to {os.path.abspath(file_path)}")
 
     def to_SDF_file(self, file_path: str = None) -> None:
         if file_path is None:
@@ -335,7 +345,7 @@ class FileParserBatch(MutableMapping):
             raise NotADirectoryError(f"{file_path} is not a directory")
         for parser in self:
             parser.to_SDF_file(os.path.join(file_path, parser.pure_filename + ".sdf"))
-        logger.info(f"sdf files saved to {os.path.abspath(file_path)}")
+        moloplogger.info(f"sdf files saved to {os.path.abspath(file_path)}")
 
     def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=True) -> None:
         if file_path is None:
@@ -348,7 +358,7 @@ class FileParserBatch(MutableMapping):
                 frameID=frameID,
                 keep3D=keep3D,
             )
-        logger.info(f"chemdraw files saved to {os.path.abspath(file_path)}")
+        moloplogger.info(f"chemdraw files saved to {os.path.abspath(file_path)}")
 
     def replace_substituent(
         self,
@@ -366,22 +376,28 @@ class FileParserBatch(MutableMapping):
         Replace the substituent with the given SMARTS. The substituent is defined by the query_smi, and the new substituent is defined by the replacement_smi.
 
         Parameters:
-            query_smi str:
+            query_smi (str):
                 The SMARTS to query the substituent in the original molecule.
-            replacement_smi str:
+            replacement_smi (str):
                 The SMARTS of new substituent. The bind atom is the first atom of the replacement_smi.
-            bind_idx int:
+            bind_idx (int):
                 The index of the atom to bind the new substituent. The default is None, which means to replace the first legal atom in original molecule.
                 If specified, try to replace the atom. User should meke sure the atom is legal.
                 Detail example in (Repalce Substituent)[Repalce Substituent]
-            replace_all bool:
+            replace_all (bool):
                 If True, replace all the substituent queried in the original molecule.
-            attempt_num int:
+            attempt_num (int):
                 Max attempt times to replace the substituent. Each time a new substituent conformation will be used for substitution.
-            frameID int:
+            crowding_threshold (float):
+                The threshold of crowding. If the new substituent is too crowded, the substitution will be rejected.
+            angle_split (int):
+                The number of angles to rotate the new substituent to find a legal conformation.
+            randomSeed (int):
+                The random seed for the random number generator.
+            frameID ():
                 The frameID to replace.
         Returns:
-            The new `FileParserBatch`.
+            FileParserBatch: The new `FileParserBatch`.
         """
         new_parsers = []
         if molopconfig.show_progress_bar:
@@ -403,7 +419,7 @@ class FileParserBatch(MutableMapping):
                     )
                     os.remove(temp_file_path)
                 except:
-                    logger.error(
+                    moloplogger.error(
                         f"Failed to replace substituent from {query_smi} to {replacement_smi} in {parser.file_path}, {parser.file_name}"
                     )
         else:
@@ -425,13 +441,13 @@ class FileParserBatch(MutableMapping):
                     )
                     os.remove(temp_file_path)
                 except:
-                    logger.error(
+                    moloplogger.error(
                         f"Failed to replace substituent from {query_smi} to {replacement_smi} in {parser.file_path}, {parser.file_name}"
                     )
 
         new_batch = FileParserBatch()
         new_batch.add_file_parsers(new_parsers)
-        logger.info(
+        moloplogger.info(
             f"{len(new_parsers)} files successfully replaced, {len(self.__parsers) - len(new_parsers)} files failed to replace"
         )
         return new_batch
@@ -453,7 +469,7 @@ class FileParserBatch(MutableMapping):
                     )
                     os.remove(temp_file_path)
                 except Exception as e:
-                    logger.error(
+                    moloplogger.error(
                         f"{e}: Failed to reset atom index by {mapping_smarts} in {parser.file_path}, {parser.file_name}"
                     )
         else:
@@ -468,12 +484,12 @@ class FileParserBatch(MutableMapping):
                     )
                     os.remove(temp_file_path)
                 except Exception as e:
-                    logger.error(
+                    moloplogger.error(
                         f"{e}: Failed to reset atom index by {mapping_smarts} in {parser.file_path}, {parser.file_name}"
                     )
         new_batch = FileParserBatch()
         new_batch.add_file_parsers(new_parsers)
-        logger.info(
+        moloplogger.info(
             f"{len(new_parsers)} files successfully replaced, {len(self.__parsers) - len(new_parsers)} files failed to reset_index"
         )
         return new_batch
@@ -492,7 +508,7 @@ class FileParserBatch(MutableMapping):
             - `rotate_anchor_to_XY`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
 
         Parameters:
-            anchor_list List[int]:
+            anchor_list (List[int]):
                 A list of indices of the atoms to be translated to origin, rotated to X axis, and rotated again to XY face:
 
                 - If length is 1, execute `translate_anchor`
@@ -502,7 +518,7 @@ class FileParserBatch(MutableMapping):
 
 
         Returns:
-            The new `FileParserBatch`.
+            FileParserBatch: The new `FileParserBatch`.
         """
         new_parsers = []
         if molopconfig.show_progress_bar:
@@ -515,7 +531,7 @@ class FileParserBatch(MutableMapping):
                     )
                     os.remove(temp_file_path)
                 except Exception as e:
-                    logger.error(
+                    moloplogger.error(
                         f"{e}: Failed to standard_orient by {anchor_list} in {parser.file_path}, {parser.file_name}"
                     )
         else:
@@ -528,12 +544,12 @@ class FileParserBatch(MutableMapping):
                     )
                     os.remove(temp_file_path)
                 except Exception as e:
-                    logger.error(
+                    moloplogger.error(
                         f"{e}: Failed to standard_orient by {anchor_list} in {parser.file_path}, {parser.file_name}"
                     )
         new_batch = FileParserBatch()
         new_batch.add_file_parsers(new_parsers)
-        logger.info(
+        moloplogger.info(
             f"{len(new_parsers)} files successfully replaced, {len(self.__parsers) - len(new_parsers)} files failed to standard_orient"
         )
         return new_batch
@@ -558,7 +574,7 @@ class FileParserBatch(MutableMapping):
         Return a new `FileParserBatch` with all the QM parsers that are flagged as errors.
 
         Returns:
-            The new `FileParserBatch`.
+            FileParserBatch: The new `FileParserBatch`.
         """
         return self.__new_batch(
             [
@@ -573,7 +589,7 @@ class FileParserBatch(MutableMapping):
         Return a new `FileParserBatch` with all the QM parsers that are flagged as normal.
 
         Returns:
-            The new `FileParserBatch`.
+            FileParserBatch: The new `FileParserBatch`.
         """
         return self.__new_batch(
             [
@@ -614,7 +630,7 @@ class FileParserBatch(MutableMapping):
         if os.path.isdir(file_path):
             file_path = os.path.join(file_path, "summary.csv")
         self.to_summary_df(full).to_csv(file_path)
-        logger.info(f"summary csv saved to {os.path.abspath(file_path)}")
+        moloplogger.info(f"summary csv saved to {os.path.abspath(file_path)}")
 
     def to_summary_excel(self, file_path: str = None, full: bool = False):
         if not file_path:
@@ -622,7 +638,7 @@ class FileParserBatch(MutableMapping):
         if os.path.isdir(file_path):
             file_path = os.path.join(file_path, "summary.xlsx")
         self.to_summary_df(full).to_excel(file_path)
-        logger.info(f"summary xlsx saved to {os.path.abspath(file_path)}")
+        moloplogger.info(f"summary xlsx saved to {os.path.abspath(file_path)}")
 
     def geometry_analysis(
         self,
@@ -630,26 +646,26 @@ class FileParserBatch(MutableMapping):
         file_path: str = None,
         precision: int = 1,
         one_start=False,
-    ):
+    ) -> List[str]:
         """
         Get the geometry infos among the atoms with all frames in each file, and save them to seperated csv files.
 
         Parameters:
-            key_atoms List[List[int]]:
+            key_atoms L(ist[List[int]]):
                 A list of list of index of the atoms, starts from 0
                     If the length of atom_idxs is 2, the bond length with unit Angstrom between the two atoms will be returned.
 
                     If the length of atom_idxs is 3, the angle with unit degree between  the three atoms will be returned.
 
                     If the length of atom_idxs is 4, the dihedral angle with unit degree between the four atoms will be returned.
-            file_path str:
+            file_path (str):
                 The path of the csv file to be saved. If None, the file will be saved in the same directory of the file_path.
-            precision int:
+            precision (int):
                 The precision of the geometry analysis. Default is 1. e.g. 1 means 1.0001 ==> 1.0
-            one_start bool:
+            one_start (bool):
                 If true, consider atom index starts from 1, so let index value subtracts 1 for all the atoms
         Returns:
-            file_paths
+            List[str]: file_paths
         """
         if file_path is None:
             file_path = os.path.curdir
@@ -715,3 +731,13 @@ class FileParserBatch(MutableMapping):
             if n_jobs > 0
             else min(cpu_count(), molopconfig.max_jobs)
         )
+
+    @property
+    def closest_optimized_frames(self):
+        """
+        Find the closest optimized frames for each file.
+
+        Returns:
+            A list of optimized frame parsers closest to the optimized state.
+        """
+        return [parser.closest_optimized_frame for parser in self]

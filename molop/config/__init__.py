@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-14 14:40:02
 LastEditors: TMJ
-LastEditTime: 2024-08-04 20:36:07
+LastEditTime: 2024-08-26 17:58:26
 Description: 请填写简介
 """
 
@@ -19,7 +19,7 @@ from rdkit.Chem.rdFingerprintGenerator import (
     GetTopologicalTorsionGenerator,
 )
 
-from molop.logger.logger import logger
+from molop.logger.logger import moloplogger, file_handler, stream_handler
 
 warnings.simplefilter("ignore", UnitStrippedWarning)
 
@@ -28,8 +28,6 @@ class MolOPConfig:
     def __init__(self) -> None:
         self.show_progress_bar = True
         self.show_log = True
-        self._sh = logging.StreamHandler()
-        logger.addHandler(self._sh)
         RDLogger.DisableLog("rdApp.*")
         # ob_log_handler = pybel.ob.OBMessageHandler()
         # ob_log_handler.SetOutputLevel(0)
@@ -47,12 +45,20 @@ class MolOPConfig:
     def quiet(self):
         self.show_progress_bar = False
         self.show_log = False
-        logger.removeHandler(self._sh)
+        moloplogger.removeHandler(stream_handler)
 
     def verbose(self):
         self.show_progress_bar = True
         self.show_log = True
-        logger.addHandler(self._sh)
+        moloplogger.addHandler(stream_handler)
+
+    def log_off(self):
+        self.quiet()
+        moloplogger.removeHandler(file_handler)
+
+    def log_on(self):
+        self.verbose()
+        moloplogger.addHandler(file_handler)
 
 
 molopconfig = MolOPConfig()

@@ -7,10 +7,19 @@ Description: 请填写简介
 """
 
 from typing import List, Sequence, Union, overload
+from typing_extensions import Self
 
 import numpy as np
+import pandas as pd
 from pint.facets.plain import PlainQuantity
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    PrivateAttr,
+    computed_field,
+    model_validator,
+)
 
 from molop.unit import atom_ureg
 
@@ -71,6 +80,9 @@ class BaseDataClassWithUnit(BaseModel):
 class WaveFunction(BaseDataClassWithUnit): ...
 
 
+# TODO
+
+
 class Energies(BaseDataClassWithUnit):
     # energies
     electronic_energy: Union[PlainQuantity, None] = Field(
@@ -115,7 +127,7 @@ class Energies(BaseDataClassWithUnit):
 
     @computed_field(description="Total energy, unit is `hartree/particle`")
     @property
-    def total_energy(self) -> PlainQuantity:
+    def total_energy(self) -> Union[PlainQuantity, None]:
         keys = list(self.energy.keys())
         if len(keys) > 0:
             return self.energy[keys[0]]
@@ -331,10 +343,10 @@ class MolecularOrbitals(BaseDataClassWithUnit):
     def __getitem__(self, orbitalID: slice) -> List[MoleculeOrbital]: ...
 
     @overload
-    def __getitem__(self, orbitalID: Union[Sequence]) -> List[MoleculeOrbital]: ...
+    def __getitem__(self, orbitalID: Sequence) -> List[MoleculeOrbital]: ...
 
     def __getitem__(
-        self, orbitalID: Union[int, slice]
+        self, orbitalID: Union[int, slice, Sequence]
     ) -> Union[MoleculeOrbital, List[MoleculeOrbital]]:
         if isinstance(orbitalID, int):
             return MoleculeOrbital.model_validate(
@@ -399,7 +411,10 @@ class Vibration(BaseDataClassWithUnit):
     @computed_field
     @property
     def is_imaginary(self) -> bool:
-        return isinstance(self.frequency, PlainQuantity) and self.frequency < 0
+        if self.frequency is not None and self.frequency < 0:
+            return True
+        else:
+            return False
 
 
 class Vibrations(BaseDataClassWithUnit):
@@ -560,6 +575,10 @@ class Polarizability(BaseDataClassWithUnit):
         default=None,
         description="Isotropic polarizability, unit is bohr^3",
     )
+    anisotropic_polarizability: Union[PlainQuantity, None] = Field(
+        default=None,
+        description="Anisotropic polarizability, unit is bohr^3",
+    )
     polarizability: List[float] = Field(
         default=[],
         description="Polarizability tensor",
@@ -589,7 +608,11 @@ class BondOrders(BaseDataClassWithUnit):
     )
     mo_bond_order: np.ndarray = Field(
         default=np.array([[]]),
-        description="MO bond order",
+        description="MO bond order, ∑[i∈A]∑[j∈B]P(i,j)",
+    )
+    mayer_bond_order: np.ndarray = Field(
+        default=np.array([[]]),
+        description="MAYER POPULATION ANALYSIS bond order, ∑[i∈A]∑[j∈B]P(i,j)",
     )
     atom_atom_overlap_bond_order: np.ndarray = Field(
         default=np.array([[]]),
@@ -644,4 +667,168 @@ class SinglePointProperties(BaseDataClassWithUnit):
     fod: List[float] = Field(
         default=[],
         description="fractional occupation density population",
+    )
+
+
+class GeometryOptimizationStatus(BaseDataClassWithUnit):
+    """
+    Geometry optimization status.
+    """
+
+    geometry_optimized: bool = Field(
+        default=False, description="Whether the geometry has been optimized"
+    )
+    energy_change_threshold: float = Field(
+        default=None, description="Energy change threshold"
+    )
+    rms_force_threshold: float = Field(
+        default=None,
+        description="RMS force threshold in internal some programs use gradient, which has the same absolute value",
+    )
+    max_force_threshold: float = Field(
+        default=None,
+        description="Maximum force threshold in internal some programs use gradient, which has the same absolute value",
+    )
+    rms_displacement_threshold: float = Field(
+        default=None, description="RMS displacement threshold in internal"
+    )
+    max_displacement_threshold: float = Field(
+        default=None, description="Maximum displacement threshold in internal"
+    )
+    energy_change: float = Field(default=float("inf"), description="Energy change")
+    rms_force: float = Field(
+        default=float("inf"),
+        description="RMS force some programs use gradient, which has the same absolute value",
+    )
+    max_force: float = Field(
+        default=float("inf"),
+        description="Maximum force some programs use gradient, which has the same absolute value",
+    )
+    rms_displacement: float = Field(default=float("inf"), description="RMS displacement")
+    max_displacement: float = Field(default=float("inf"), description="Maximum displacement")
+
+    @computed_field()
+    @property
+    def energy_change_converged(self) -> Union[bool, None]:
+        """
+        Whether the energy change has converged.
+        """
+        if self.energy_change_threshold is None:
+            return None
+        return self.energy_change < self.energy_change_threshold
+
+    @computed_field()
+    @property
+    def rms_force_converged(self) -> Union[bool, None]:
+        """
+        Whether the RMS force has converged.
+        """
+        if self.rms_force_threshold is None:
+            return None
+        return self.rms_force < self.rms_force_threshold
+
+    @computed_field()
+    @property
+    def max_force_converged(self) -> Union[bool, None]:
+        """
+        Whether the maximum force has converged.
+        """
+        if self.max_force_threshold is None:
+            return None
+        return self.max_force < self.max_force_threshold
+
+    @computed_field()
+    @property
+    def rms_displacement_converged(self) -> Union[bool, None]:
+        """
+        Whether the RMS displacement has converged.
+        """
+        if self.rms_displacement_threshold is None:
+            return None
+        return self.rms_displacement < self.rms_displacement_threshold
+
+    @computed_field()
+    @property
+    def max_displacement_converged(self) -> Union[bool, None]:
+        """
+        Whether the maximum displacement has converged.
+        """
+        if self.max_displacement_threshold is None:
+            return None
+        return self.max_displacement < self.max_displacement_threshold
+
+    def not_converged_num(self) -> int:
+        """
+        Return the number of not converged properties.
+        """
+        return sum(
+            1
+            for metric in (
+                self.energy_change_converged,
+                self.rms_force_converged,
+                self.max_force_converged,
+                self.rms_displacement_converged,
+                self.max_displacement_converged,
+            )
+            if metric is False
+        )
+
+    def __vector__(self):
+        return abs(
+            np.array(
+                [
+                    self.energy_change,
+                    self.rms_force,
+                    self.max_force,
+                    self.rms_displacement,
+                    self.max_displacement,
+                ]
+            )
+        )
+
+    def to_df(self) -> pd.DataFrame:
+        metrics = (
+            "energy_change",
+            "rms_force",
+            "max_force",
+            "rms_displacement",
+            "max_displacement",
+        )
+        df = pd.DataFrame(index=metrics, columns=["value", "threshold", "converged"])
+        df["value"] = [getattr(self, metric) for metric in metrics]
+        df["threshold"] = [getattr(self, f"{metric}_threshold") for metric in metrics]
+        df["converged"] = [getattr(self, f"{metric}_converged") for metric in metrics]
+        return df
+
+    def __le__(self, other: "GeometryOptimizationStatus"):
+        if not isinstance(other, GeometryOptimizationStatus):
+            raise NotImplementedError
+        if self.not_converged_num() > other.not_converged_num():
+            return False
+        else:
+            return sum(self.__vector__() <= other.__vector__()) >= 4
+
+    def __gt__(self, other: "GeometryOptimizationStatus"):
+        return not self.__le__(other)
+
+    @model_validator(mode="after")
+    def __check_geometry_optimized__(self) -> Self:
+        status = (
+            self.energy_change_converged,
+            self.rms_force_converged,
+            self.max_force_converged,
+            self.rms_displacement_converged,
+            self.max_displacement_converged,
+        )
+        if False not in status and any(status):
+            self.geometry_optimized = True
+        return self
+
+
+class Status(BaseDataClassWithUnit):
+    scf_converged: bool = Field(
+        default=False, description="Whether the SCF has converged"
+    )
+    normal_terminated: bool = Field(
+        default=False, description="Whether the calculation has terminated normally"
     )
