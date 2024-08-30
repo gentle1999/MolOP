@@ -62,6 +62,7 @@ class XTBFileParser(BaseQMMolFileParser[XTBFrameParser]):
                 only_extract_structure=self.only_extract_structure,
             )
         )
+        self._parse_time()
 
     def _parse_temperature(self, full_text: str):
         temperature_match = re.search(xtboutpatterns["temperature"], full_text)
@@ -117,3 +118,8 @@ class XTBFileParser(BaseQMMolFileParser[XTBFrameParser]):
             version = "unknown"
         self.qm_software_version = version
         return version
+    
+    def _parse_time(self):
+        self.running_time = sum(
+            frame.running_time for frame in self.frames
+        )

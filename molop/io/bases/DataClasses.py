@@ -579,24 +579,28 @@ class Polarizability(BaseDataClassWithUnit):
         default=None,
         description="Anisotropic polarizability, unit is bohr^3",
     )
-    polarizability: List[float] = Field(
-        default=[],
+    polarizability_tensor: Union[PlainQuantity, None] = Field(
+        default=np.array([]) * atom_ureg.bohr**3,
         description="Polarizability tensor",
     )
+    electric_dipole_moment: Union[PlainQuantity, None] = Field(
+        default=np.array([]) * atom_ureg.debye,
+        description="Electric dipole moment, unit is `debye`",
+    )
     dipole: Union[PlainQuantity, None] = Field(
-        default=np.array([[]]) * atom_ureg.debye,
+        default=np.array([]) * atom_ureg.debye,
         description="Dipole moment, unit is `debye`",
     )
     quadrupole: Union[PlainQuantity, None] = Field(
-        default=np.array([[]]) * atom_ureg.debye * atom_ureg.angstrom,
+        default=np.array([]) * atom_ureg.debye * atom_ureg.angstrom,
         description="Quadrupole moment, unit is `debye*angstrom`",
     )
     octapole: Union[PlainQuantity, None] = Field(
-        default=np.array([[]]) * atom_ureg.debye * atom_ureg.angstrom**2,
+        default=np.array([]) * atom_ureg.debye * atom_ureg.angstrom**2,
         description="Octapole moment, unit is `debye*angstrom**2`",
     )
     hexadecapole: Union[PlainQuantity, None] = Field(
-        default=np.array([[]]) * atom_ureg.debye * atom_ureg.angstrom**3,
+        default=np.array([]) * atom_ureg.debye * atom_ureg.angstrom**3,
         description="Hexadecapole moment, unit is `debye*angstrom**3`",
     )
 
@@ -675,8 +679,8 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
     Geometry optimization status.
     """
 
-    geometry_optimized: bool = Field(
-        default=False, description="Whether the geometry has been optimized"
+    geometry_optimized: Union[bool, None] = Field(
+        default=None, description="Whether the geometry has been optimized"
     )
     energy_change_threshold: float = Field(
         default=None, description="Energy change threshold"
@@ -704,8 +708,12 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
         default=float("inf"),
         description="Maximum force some programs use gradient, which has the same absolute value",
     )
-    rms_displacement: float = Field(default=float("inf"), description="RMS displacement")
-    max_displacement: float = Field(default=float("inf"), description="Maximum displacement")
+    rms_displacement: float = Field(
+        default=float("inf"), description="RMS displacement"
+    )
+    max_displacement: float = Field(
+        default=float("inf"), description="Maximum displacement"
+    )
 
     @computed_field()
     @property

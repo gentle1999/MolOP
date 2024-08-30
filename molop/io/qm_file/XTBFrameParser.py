@@ -38,6 +38,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
 
     def _parse(self):
         self.__block = self.frame_content
+        self._parse_time()
         self._parse_coords()
         if self.only_extract_structure:
             return
@@ -56,6 +57,19 @@ class XTBFrameParser(BaseQMMolFrameParser):
                 **self._parse_fukui_index().model_dump(exclude_unset=True),
             }
         )
+
+    def _parse_time(self):
+        if time_match := xtboutpatterns["time"].findall(self.__block):
+            self.running_time = (
+                sum(
+                    float(day) * 24 * 60 * 60
+                    + float(hour) * 60 * 60
+                    + float(minute) * 60
+                    + float(second)
+                    for t, day, hour, minute, second in time_match
+                )
+                * atom_ureg.second
+            )
 
     def _parse_coords_attached(self):
         attached_coords_path = re.search(

@@ -32,7 +32,7 @@ from molop.utils.functions import is_metal
 
 pt = Chem.GetPeriodicTable()
 HETEROATOM = (9, 8, 17, 7, 35, 54, 16, 34, 15)
-DEBUG_TAG = "[DEBUG]|[STRUCTURE RECOVERY]"
+DEBUG_TAG = "[STRUCTURE RECOVERY]"
 
 
 def get_under_bonded_number(atom: ob.OBAtom) -> int:

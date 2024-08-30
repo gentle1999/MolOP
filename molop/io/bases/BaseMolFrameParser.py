@@ -172,7 +172,7 @@ class BaseMolFrameParser(BaseMolFrame):
         charge: int = None,
         multiplicity: int = None,
         template: str = None,
-        prefix: str = "#p opt b3lyp def2svp freq EmpiricalDispersion=GD3BJ NoSymm\n",
+        prefix: str = "",
         suffix="",
         chk: bool = True,
         oldchk: bool = False,
@@ -181,6 +181,8 @@ class BaseMolFrameParser(BaseMolFrame):
         Get the GJF frame.
 
         Parameters:
+            file_path (str):
+                The path to write the GJF file. If not specified, will be generated in situ.
             charge (int):
                 The forced charge. If specified, will be used to overwrite the charge in the gjf file.
             multiplicity (int):
@@ -188,9 +190,9 @@ class BaseMolFrameParser(BaseMolFrame):
             template (str):
                 path to read a gjf file as a template.
             prefix (str):
-                prefix to add to the beginning of the gjf file, priority is lower than template.
+                prefix to add to the beginning of the gjf file, priority is higher than template.
             suffix (str):
-                suffix to add to the end of the gjf file, priority is lower than template.
+                suffix to add to the end of the gjf file, priority is higher than template.
             chk (bool):
                 If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
             oldchk (bool):
@@ -198,6 +200,9 @@ class BaseMolFrameParser(BaseMolFrame):
         Returns:
             str: A modified GJF frame.
         """
+        if not isinstance(prefix, str) or not isinstance(suffix, str):
+            raise TypeError("prefix and suffix must be strings.")
+        _prefix, _suffix = "", ""
         _file_path = self._check_path(file_path, ".gjf")
         if template is not None:
             if not os.path.isfile(template):
@@ -207,14 +212,23 @@ class BaseMolFrameParser(BaseMolFrame):
             f.close()
             for i, line in enumerate(lines):
                 if re.match(r"^\s*[\+\-\d]+\s+\d+$", line):
-                    prefix = "".join(lines[: i - 2])
+                    _prefix = "".join(lines[: i - 2])
                 if re.search(
                     r"[a-zA-z0-9]+\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)",
                     line,
                 ):
-                    suffix = lines[i + 1 :]
-        suffix = "".join(suffix)
-        link, route = prefix.split("#")
+                    try:
+                        _suffix = lines[i + 2 :]
+                    except:
+                        raise ValueError(
+                            "The template file is not a valid GJF file. Please add more blank lines after the section."
+                        )
+        if prefix != "":
+            _prefix = prefix
+        if suffix != "":
+            _suffix = suffix
+        _suffix = "".join(_suffix)
+        link, route = _prefix.split("#")
         link = link.replace("\n", " ")
         route = "#" + route.replace("\n", " ")
 
@@ -226,9 +240,13 @@ class BaseMolFrameParser(BaseMolFrame):
             _link0[r"%oldchk"] = (
                 f"{os.path.splitext(os.path.basename(_file_path))[0]}.chk"
             )
+        link0_lines = (
+            "\n".join([f"{key}={val}" for key, val in _link0.items()]) + "\n"
+            if _link0
+            else ""
+        )
         return (
-            "\n".join([f"{key}={val}" for key, val in _link0.items()])
-            + "\n"
+            link0_lines
             + route
             + "\n\n"
             + f" Title: {self.pure_filename}\n\n"
@@ -240,7 +258,7 @@ class BaseMolFrameParser(BaseMolFrame):
                 ]
             )
             + "\n\n"
-            + suffix
+            + _suffix
             + "\n\n"
         )
 
@@ -250,7 +268,7 @@ class BaseMolFrameParser(BaseMolFrame):
         charge: int = None,
         multiplicity: int = None,
         template: str = None,
-        prefix: str = "#p opt b3lyp def2svp freq EmpiricalDispersion=GD3BJ NoSymm\n",
+        prefix: str = "",
         suffix="",
         chk: bool = True,
         oldchk: bool = False,
@@ -268,9 +286,9 @@ class BaseMolFrameParser(BaseMolFrame):
             template (str):
                 path to read a gjf file as a template.
             prefix (str):
-                prefix to add to the beginning of the gjf file, priority is lower than template.
+                prefix to add to the beginning of the gjf file, priority is higher than template.
             suffix (str):
-                suffix to add to the end of the gjf file, priority is lower than template.
+                suffix to add to the end of the gjf file, priority is higher than template.
             chk (bool):
                 If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
             oldchk (bool):
@@ -651,6 +669,10 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         default=SinglePointProperties(),
         description="Single point properties of the molecule",
     )
+    running_time: PlainQuantity = Field(
+        default=0.0 * atom_ureg.second,
+        description="Running time of the QM calculation, unit is `second`",
+    )
 
     def ts_vibration(self) -> List[BaseMolFrameParser]:
         """
@@ -780,6 +802,7 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
                 **self.bond_orders.model_dump(),
                 **self.single_point_properties.model_dump(),
                 **self.geometry_optimization_status.model_dump(),
+                "running_time": self.running_time,
             }
         return pd.Series(brief_dict)
 
