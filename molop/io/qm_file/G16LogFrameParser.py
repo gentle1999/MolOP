@@ -84,6 +84,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
 
     def _parse(self):
         self.__block = self.frame_content
+        self._parse_time()
         self._parse_coords()
         if self.only_extract_structure:
             return
@@ -91,23 +92,13 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         self._parse_functional_basis()
         self._parse_solvent()
         energies = self._parse_energy()
-        isotropic_polarizability = self._parse_isotropic_polarizability()
         self._parse_total_spin()
         self._parse_orbitals()
-        electronic_spatial_extent = self._parse_electronic_spatial_extent()
         mulliken_charges = self._parse_mulliken_charges()
         mulliken_spins = self._parse_mulliken_spin_density()
         apt_charges = self._parse_apt_charges()
         lowdin_charges = self._parse_lowdin_charges()
-        self.polarizability = Polarizability(
-            isotropic_polarizability=isotropic_polarizability,
-            electronic_spatial_extent=electronic_spatial_extent,
-            dipole=self._parse_dipole(),
-            quadrupole=self._parse_quadrupole(),
-            octapole=self._parse_octapole(),
-            hexadecapole=self._parse_hexadecapole(),
-            polarizability=self._parse_polarizability(),
-        )
+        self.polarizability = self._parse_polarizability()
         hirshfeld_charges, hirshfeld_spins, hirshfeld_q_cm5 = (
             self._parse_hirshfeld_spin_charges()
         )
@@ -147,6 +138,16 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 **self._parse_tail_thermal_energies().model_dump(exclude_unset=True),
             }
         )
+
+    def _parse_time(self):
+        if time_match := g16logpatterns["time"].findall(self.__block):
+            self.running_time = (
+                sum(
+                    float(cpu_time) + float(elapsed_time)
+                    for mem, cpu_time, elapsed_time in time_match
+                )
+                * atom_ureg.second
+            )
 
     def _parse_coords(self):
         if corrds_end := g16logpatterns["coords_end"].search(self.__block):
@@ -362,12 +363,55 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 ).to("kcal/mol")
         return ThermalEnergies.model_validate(thermal_energies)
 
-    def _parse_isotropic_polarizability(self) -> PlainQuantity:
-        isotropic_polarizability = g16logpatterns["isotropic_polarizability"].search(
+    def _parse_polarizability(self) -> Polarizability:
+        polar = {}
+        if isotropic_polarizability := g16logpatterns[
+            "isotropic_polarizability"
+        ].search(self.__block):
+            polar["isotropic_polarizability"] = (
+                float(isotropic_polarizability.group(1)) * atom_ureg.bohr**3
+            )
+        if polarizability := g16logpatterns["polarizability"].search(self.__block):
+            polar["polarizability"] = (
+                np.array(list(map(float, polarizability.groups()))) * atom_ureg.bohr**3
+            )
+        if electric_dipole_moment := g16logpatterns["electric_dipole_moment"].search(
             self.__block
-        )
-        if isotropic_polarizability:
-            return float(isotropic_polarizability.group(1)) * atom_ureg.bohr**3
+        ):
+            temp_block = self.__block[electric_dipole_moment.start() :].splitlines()
+            polar["electric_dipole_moment"] = (
+                np.array(
+                    [
+                        float(temp_block[i].split()[2].replace("D", "E"))
+                        for i in range(4, 7)
+                    ]
+                )
+                * atom_ureg.debye
+            )
+        if polarizability_alter := g16logpatterns["polarizability_alter"].search(
+            self.__block
+        ):
+            temp_block = self.__block[polarizability_alter.start() :].splitlines()
+            polar["isotropic_polarizability"] = (
+                float(temp_block[4].split()[1].replace("D", "E")) * atom_ureg.bohr**3
+            )
+            polar["anisotropic_polarizability"] = (
+                float(temp_block[5].split()[1].replace("D", "E")) * atom_ureg.bohr**3
+            )
+            polar["polarizability_tensor"] = (
+                np.array(
+                    [
+                        float(temp_block[i].split()[1].replace("D", "E"))
+                        for i in range(6, 12)
+                    ]
+                )
+                * atom_ureg.bohr**3
+            )
+        polar["dipole"] = self._parse_dipole()
+        polar["quadrupole"] = self._parse_quadrupole()
+        polar["octapole"] = self._parse_octapole()
+        polar["hexadecapole"] = self._parse_hexadecapole()
+        return Polarizability.model_validate(polar)
 
     def _parse_electronic_spatial_extent(self) -> PlainQuantity:
         ese_match = g16logpatterns["electronic_spatial_extent"].search(self.__block)
@@ -429,12 +473,6 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 ]
             )
             return hexadecapole * atom_ureg.debye * atom_ureg.angstrom**3
-
-    def _parse_polarizability(self):
-        polarizability = g16logpatterns["polarizability"].search(self.__block)
-        if polarizability:
-            return list(map(float, polarizability.groups()))
-        return []
 
     def _parse_total_spin(self) -> TotalSpin:
         total_spin = {}
@@ -757,10 +795,4 @@ class G16LogFrameParser(BaseQMMolFrameParser):
 
     @property
     def is_optimized(self) -> bool:
-        if (
-            "opt" in self.route_params
-            and self.geometry_optimization_status.geometry_optimized
-        ):
-            return True
-        else:
-            return False
+        return self.geometry_optimization_status.geometry_optimized

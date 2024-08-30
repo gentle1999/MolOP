@@ -1,15 +1,18 @@
-'''
+"""
 Author: TMJ
 Date: 2024-03-23 21:07:37
 LastEditors: TMJ
-LastEditTime: 2024-08-26 21:05:52
+LastEditTime: 2024-08-28 23:14:51
 Description: 请填写简介
-'''
+"""
 
 import re
 from typing import Dict, Tuple
 
 xtboutpatterns: Dict[str, re.Pattern] = {
+    "time": re.compile(
+        r"(wall-time:|cpu-time:)\s*(\d+)\s*d,\s*(\d+)\s*h,\s*(\d+)\s*min,\s*(\d+.\d+)\s*sec"
+    ),
     "method": re.compile(r"Hamiltonian\s+([GFN\d\-xTBF]+)"),
     "solvent model": re.compile(r"Solvation model:\s+([a-zA-Z\d]+)"),
     "solvent": re.compile(r"Solvent\s+([a-zA-Z\d\-]+)\n"),

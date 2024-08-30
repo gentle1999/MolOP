@@ -11,7 +11,10 @@ from rdkit.Chem import AllChem, rdMolTransforms, SanitizeMol
 from rdkit.Chem.rdDistGeom import EmbedMolecule
 
 from molop.structure import geometry
+from molop.logger.logger import moloplogger
 from molop.utils.types import RdMol
+
+DEBUG_TAG = "[STRUCTURE]"
 
 RDLogger.DisableLog("rdApp.*")
 
@@ -237,6 +240,41 @@ def get_under_bonded_number(atom: Chem.Atom) -> int:
     return atom.GetNumRadicalElectrons()
 
 
+def transform_replacement_index(
+    mol: RdMol,
+    *,
+    relative_idx: int = 0,
+    absolute_idx: Union[int, None] = None,
+) -> RdMol:
+    """
+    Transform the index of the atom in the molecule to let the first atom to be radical atom.
+
+    Parameters:
+        mol (RdMol):
+            The input molecule
+        relative_idx (int):
+            The relative index of the radical atom in the molecule to be transformed to the first atom.
+        absolute_idx (Union[int, None]):
+            Priority is higher than relative_idx.
+            The absolute index of the radical atom in the molecule to be transformed to the first atom.
+            If None, the function will try to find the first atom in the molecule that is
+            a radical atom.
+
+    Returns:
+        RdMol: The transformed molecule.
+    """
+    if get_under_bonded_number(mol.GetAtomWithIdx(0)) == 1:
+        return mol
+    radical_idxs = [
+        atom.GetIdx() for atom in mol.GetAtoms() if get_under_bonded_number(atom) == 1
+    ]
+    if absolute_idx is None:
+        absolute_idx = radical_idxs[relative_idx]
+    elif absolute_idx not in radical_idxs:
+        raise ValueError("Absolute index is not a radical atom.")
+    return reset_atom_index(mol, [absolute_idx])
+
+
 def replace_mol(
     mol: RdMol,
     replacement_mol: RdMol,
@@ -247,7 +285,10 @@ def replace_mol(
     randomSeed=114514,
     start_idx: int = None,
     end_idx: int = None,
-):
+    *,
+    replacement_relative_idx: int = 0,
+    replacement_absolute_idx: Union[int, None] = None,
+) -> RdMol:
     """
     Replace the query_mol with replacement_mol in mol.
 
@@ -279,13 +320,20 @@ def replace_mol(
             atom of the bond to be replaced. If None, the function will try to find
             the first atom in the main structure that is bonded to the start atom of
             the bond to be replaced and has a single bond.
+        replacement_relative_idx (int):
+            The relative index of the radical atom in the replacement molecule to be
+            transformed to the first atom.
+        replacement_absolute_idx (Union[int, None]):
+            Priority is higher than replacement_relative_idx.
+            The absolute index of the radical atom in the replacement molecule to be
+            transformed to the first atom.
+            If None, the function will try to find the first atom in the replacement
+            molecule that is a radical atom.
 
     Returns:
         RdMol:
             The new molecule with the replacement.
     """
-    if get_under_bonded_number(replacement_mol.GetAtomWithIdx(0)) != 1:
-        raise ValueError("Replacement atom should be one bond left")
     if start_idx and end_idx:
         if (
             mol.GetBondBetweenAtoms(start_idx, end_idx)
@@ -331,9 +379,10 @@ def replace_mol(
                     break
             else:
                 raise ValueError("Bond between skeleton and replacement is not single.")
+    moloplogger.debug(f"{DEBUG_TAG}: Initial check of structure replacement passed")
+
     # start: the idx of atom that bind to the substruct to be replaced
     # end: the idx of atom in substruct to be replaced, and bind to the main structure
-
     origin_mol = Chem.RWMol(mol)
     geometry.standard_orient(origin_mol, [start, end])
     rdMolTransforms.SetBondLength(
@@ -364,15 +413,29 @@ def replace_mol(
         map(lambda x: x[0], sorted(list(enumerate(init_mapping)), key=lambda x: x[1]))
     )
     skeleton = reset_atom_index(skeleton, mapping)
+    moloplogger.debug(
+        f"{DEBUG_TAG}: Skeleton initialization of structure replacement passed"
+    )
 
     # build replacement conformer
     replacement = Chem.AddHs(replacement_mol, addCoords=True)
+    if replacement.GetNumConformers() == 0:
+        EmbedMolecule(replacement, randomSeed=randomSeed)
+    replacement = transform_replacement_index(
+        replacement,
+        relative_idx=replacement_relative_idx,
+        absolute_idx=replacement_absolute_idx,
+    )
     replacement.GetAtomWithIdx(0).SetNumRadicalElectrons(0)
     rr = fix_geometry(
         replacement,
         bind_type=mol.GetAtomWithIdx(start).GetAtomicNum(),
         randomSeed=randomSeed,
     )
+    moloplogger.debug(
+        f"{DEBUG_TAG}: Replacement initialization of structure replacement passed"
+    )
+
     # combine skeleton and replacement
     new_mol = Chem.CombineMols(rr, skeleton)
     # find the new index mapping of start and end (end in the replacement now)
@@ -391,17 +454,19 @@ def replace_mol(
         mol.GetAtomWithIdx(start).GetNumRadicalElectrons()
     )
     replacement.GetAtomWithIdx(0).SetNumRadicalElectrons(0)
+    moloplogger.debug(
+        f"{DEBUG_TAG}: Skeleton and Replacement combination of structure replacement passed"
+    )
+
     # find the idx list of replacement
-    idx_list = [
-        idx_list for idx_list in rmol.GetSubstructMatches(replacement) if 0 in idx_list
-    ]
+    idx_list = [atom.GetIdx() for atom in rr.GetAtoms()]
     if replacement.GetNumAtoms() >= 2:
         for forth_atom in rmol.GetAtomWithIdx(0).GetNeighbors():
-            if forth_atom.GetIdx() in idx_list[0]:
+            if forth_atom.GetIdx() in idx_list:
                 forth_atom_idx = forth_atom.GetIdx()
                 break
         for first_atom in rmol.GetAtomWithIdx(lines_idx[0][0]).GetNeighbors():
-            if first_atom.GetIdx() not in idx_list[0]:
+            if first_atom.GetIdx() not in idx_list:
                 first_atom_idx = first_atom.GetIdx()
                 break
         Chem.SanitizeMol(rmol)
@@ -598,14 +663,21 @@ def attempt_replacement(
         )
 
 
-def fix_geometry(replacement: RdMol, bind_type: int, randomSeed=114514):
+def fix_geometry(
+    replacement: RdMol,
+    bind_type: int,
+    randomSeed=114514,
+):
     """
     Fix the geometry of the replacement molecule with the given bind_type.
 
     Parameters:
-        replacement (RdMol): The input replacement molecule.
-        bind_type (int): The atomic number of the atom that binds to the replacement.
-        randomSeed (int): The random seed for the embedding.
+        replacement (RdMol):
+            The input replacement molecule.
+        bind_type (int):
+            The atomic number of the atom that binds to the replacement.
+        randomSeed (int):
+            The random seed for the embedding.
 
     Returns:
         RdMol: The fixed replacement molecule.
@@ -615,14 +687,11 @@ def fix_geometry(replacement: RdMol, bind_type: int, randomSeed=114514):
     r.AddBond(0, idx, Chem.BondType.SINGLE)
     r.UpdatePropertyCache()
     Chem.SanitizeMol(r)
-    if replacement.GetNumConformers() == 0:
-        EmbedMolecule(r, randomSeed=randomSeed)
-    else:
-        cmap = {
-            atom_idx: replacement.GetConformer().GetAtomPosition(atom_idx)
-            for atom_idx in range(replacement.GetNumAtoms())
-        }
-        EmbedMolecule(r, randomSeed=randomSeed, coordMap=cmap)
+    cmap = {
+        atom_idx: replacement.GetConformer().GetAtomPosition(atom_idx)
+        for atom_idx in range(replacement.GetNumAtoms())
+    }
+    EmbedMolecule(r, randomSeed=randomSeed, coordMap=cmap)
     geometry.standard_orient(r, [idx, 0])
     rdMolTransforms.SetBondLength(
         r.GetConformer(),

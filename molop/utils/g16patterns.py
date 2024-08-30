@@ -141,6 +141,8 @@ def shell_to_orbitals(shell_type, offset):
 
 g16logpatterns: Dict[str, re.Pattern] = {
     "version": re.compile(r"(Gaussian\s+\d+:\s*[^\s]*\s*\d+-[A-Za-z]{3}-\d{4}\n\s+\d+-[A-Za-z]{3}-\d{4})"),
+    "time": re.compile(r"MaxMem=\s*(\d+)\s*cpu:\s*(\d+.\d+)\s*elap:\s*(\d+.\d+)"),
+    "total_time": re.compile(r"(\d+)\s*days\s*(\d+)\s*hours\s*(\d+)\s*minutes\s*(\d+.\d+)\s*seconds."),
     "n atoms": re.compile(r"NAtoms=\s*(\d+)"),
     "input_coords_start": re.compile(r"Input orientation:"),
     "standard_coords_start": re.compile(r"Standard orientation:"),
@@ -195,6 +197,10 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "lowdin_start": re.compile(r"Lowdin\s*charges"),
     "lowdin_match": re.compile(r"\d+\s+[A-Z][a-z]?\s+([\s-]\d+.\d+)"),
     "lowdin_end": re.compile(r"Sum of Lowdin charges"),
+    "isotropic_polarizability": re.compile(r"Isotropic polarizability for W=\s*\d+.\d+\s*(\d+.\d+)\s*Bohr\*\*3"),
+    "polarizability": re.compile(r"Exact\s*polarizability:\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)"),
+    "electric_dipole_moment": re.compile(r"Electric dipole moment \(input orientation\):"),
+    "polarizability_alter": re.compile(r"Dipole polarizability, Alpha \(input orientation\)."),
     "dipole_start": re.compile(r"Dipole moment \(field-independent basis"),
     "dipole": re.compile(r"[XYZ]=\s+([\s-]\d+\.\d+)"),
     "quadrupole_start": re.compile(r"Quadrupole moment \(field-independent basis"),
@@ -284,10 +290,6 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "electronic_spatial_extent": re.compile(
         r"Electronic spatial extent \(au\):  <R\*\*2>=\s*(\d+.\d+)"
     ),
-    "isotropic_polarizability": re.compile(r"Isotropic polarizability for W=\s*\d+.\d+\s*(\d+.\d+)\s*Bohr\*\*3"),
-    "polarizability": re.compile(r"Exact\s*polarizability:\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)"),
-    "isotropic_polarizability_alter": re.compile(r"Isotropic polarizability for W=\s*\d+.\d+\s*(\d+.\d+)\s*Bohr\*\*3"),
-    # TODO isotropic_polarizability & anisotropic_polarizability
     "hessian_in_body_start": re.compile(r"Force constants in Cartesian coordinates:"),
     "hessian_in_body_match": re.compile(r"[-]*\d+.\d+D[+-]\d+"),
     "hessian_in_body_end": re.compile(r"FormGI is forming"),

@@ -36,6 +36,10 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
     multiplicity: int = Field(default=1, description="multiplicity")
     only_extract_structure: bool = Field(default=False, exclude=True, repr=False)
     only_last_frame: bool = Field(default=False, exclude=True, repr=False)
+    running_time: PlainQuantity = Field(
+        default=0.0 * atom_ureg.second,
+        description="Running time of the QM calculation, unit is `second`",
+    )
     _allowed_formats: Tuple[str] = PrivateAttr(default=())
     __frames: List[MolFrameType] = PrivateAttr(default=[])
     __index: int = PrivateAttr(default=0)
@@ -192,7 +196,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         file_path: str = None,
         charge: int = None,
         multiplicity: int = None,
-        prefix: str = f"#p opt b3lyp def2svp freq EmpiricalDispersion=GD3BJ NoSymm\n",
+        prefix: str = "",
         suffix="",
         template: str = None,
         chk: bool = True,
@@ -203,6 +207,8 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Convert the frame at the specified index to a Gaussian input block in the Gaussian 16 format (GJF).
 
         Parameters:
+            file_path (str):
+                The path to write the GJF file. If not specified, will be generated in situ.
             charge (int):
                 The forced charge. If specified, will be used to overwrite the charge in the gjf file.
             multiplicity (int):
@@ -210,9 +216,9 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
             template (str):
                 path to read a gjf file as a template.
             prefix (str):
-                prefix to add to the beginning of the gjf file, priority is lower than template.
+                prefix to add to the beginning of the gjf file, priority is higher than template.
             suffix (str):
-                suffix to add to the end of the gjf file, priority is lower than template.
+                suffix to add to the end of the gjf file, priority is higher than template.
             chk (bool):
                 If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
             oldchk (bool):
@@ -270,8 +276,8 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         charge: int = None,
         multiplicity: int = None,
         template: str = None,
-        prefix: str = f"#p opt b3lyp def2svp freq EmpiricalDispersion=GD3BJ NoSymm\n",
-        suffix="\n\n",
+        prefix: str = "",
+        suffix="",
         chk: bool = True,
         oldchk: bool = False,
         frameID=-1,
@@ -289,15 +295,15 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
             template (str):
                 path to read a gjf file as a template.
             prefix (str):
-                prefix to add to the beginning of the gjf file, priority is lower than template.
+                prefix to add to the beginning of the gjf file, priority is higher than template.
             suffix (str):
-                suffix to add to the end of the gjf file, priority is lower than template.
-            frameID (int):
-                The frame ID to write.
+                suffix to add to the end of the gjf file, priority is higher than template.
             chk (bool):
                 If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
             oldchk (bool):
                 If true, add the oldchk keyword to the link0 section. Will use the file name as the chk file name.
+            frameID (int):
+                The frame ID to write.
         Returns:
             str: The path to the GJF file.
         """

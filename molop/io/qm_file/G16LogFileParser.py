@@ -14,6 +14,7 @@ from pydantic import Field
 from molop.io.bases.BaseMolFileParser import BaseQMMolFileParser
 from molop.io.qm_file.G16LogFrameParser import G16LogFrameParser
 from molop.logger.logger import moloplogger
+from molop.unit import atom_ureg
 from molop.utils.g16patterns import (
     g16logpatterns,
     get_solvent,
@@ -68,6 +69,7 @@ class G16LogFileParser(BaseQMMolFileParser[G16LogFrameParser]):
                     only_extract_structure=self.only_extract_structure,
                 ),
             )
+        self._get_running_time(full_text)
 
     def _get_n_atoms(self, full_text: str):
         n_atom_match = re.search(g16logpatterns["n atoms"], full_text)
@@ -97,7 +99,7 @@ class G16LogFileParser(BaseQMMolFileParser[G16LogFrameParser]):
         route = ""
         link_start = False
         route_start = False
-        for row in full_text[version_match.end():].splitlines(True):
+        for row in full_text[version_match.end() :].splitlines(True):
             if "----" in row and route_start:
                 route_start = False
                 break
@@ -110,9 +112,7 @@ class G16LogFileParser(BaseQMMolFileParser[G16LogFrameParser]):
                 link += row
             if "****" in row:
                 link_start = True
-        self.keywords = "\n\n".join(
-            (link.replace("\n", " "), route.replace("\n ", ""))
-        )
+        self.keywords = "\n\n".join((link.replace("\n", " "), route.replace("\n ", "")))
         link = link.replace("\n", " ")
         route = "#" + route.replace("\n", " ")
         self.__link0 = link0_parser(link)
@@ -171,6 +171,21 @@ class G16LogFileParser(BaseQMMolFileParser[G16LogFrameParser]):
                     self.method = "POST-HF"
             else:
                 self.method = "DFT"
+
+    def _get_running_time(self, full_text: str):
+        if total_time := g16logpatterns["total_time"].findall(full_text):
+            self.running_time = (
+                sum(
+                    float(day) * 24 * 60 * 60
+                    + float(hour) * 60 * 60
+                    + float(minute) * 60
+                    + float(second)
+                    for day, hour, minute, second in total_time
+                )
+                * atom_ureg.second
+            )
+        else:
+            self.running_time = sum(frame.running_time for frame in self.frames)
 
     @property
     def link0(self) -> dict:
