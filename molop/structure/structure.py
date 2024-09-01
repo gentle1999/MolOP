@@ -46,6 +46,21 @@ bond_list = [
 ]
 
 
+def canonical_smiles(smiles: str):
+    original_smi = smiles
+    viewed_smi = {original_smi: 1}
+    while original_smi != (
+        canonical_smi := Chem.CanonSmiles(original_smi, useChiral=True)
+    ) and (canonical_smi not in viewed_smi or viewed_smi[canonical_smi] < 2):
+        original_smi = canonical_smi
+        if original_smi not in viewed_smi:
+            viewed_smi[original_smi] = 1
+        else:
+            viewed_smi[original_smi] += 1
+    else:
+        return original_smi
+
+
 def get_bond_pairs(mol: RdMol) -> List[Tuple[int]]:
     """
     Get the list of bond pairs in the molecule.
@@ -549,6 +564,10 @@ def get_crowding_socre(mol: RdMol, threshold: float) -> float:
         )
         distance = distances[start_atom.GetIdx()][end_atom.GetIdx()]
         if distance < threshold * ideal_distance:
+            moloplogger.debug(
+                f"{DEBUG_TAG}: Distance between {start_atom.GetIdx()} and {end_atom.GetIdx()}"
+                f" is {distance} and ideal distance is {ideal_distance}"
+            )
             return -float("inf")
         score += np.log(distance / ideal_distance)
     return score
@@ -566,6 +585,9 @@ def attempt_replacement(
     randomSeed=114514,
     start_idx: int = None,
     end_idx: int = None,
+    *,
+    replacement_relative_idx: int = 0,
+    replacement_absolute_idx: Union[int, None] = None,
 ):
     """
     Attempt to replace the query with the replacement in the input molecule.
@@ -599,6 +621,15 @@ def attempt_replacement(
         end_idx (int):
             If both `start_idx` and `end_idx` are specified, simply ignore the `query`, break the
             key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
+        replacement_relative_idx (int):
+            The relative index of the radical atom in the replacement molecule to be
+            transformed to the first atom.
+        replacement_absolute_idx (Union[int, None]):
+            Priority is higher than replacement_relative_idx.
+            The absolute index of the radical atom in the replacement molecule to be
+            transformed to the first atom.
+            If None, the function will try to find the first atom in the replacement
+            molecule that is a radical atom.
 
     Returns:
         RdMol: The new molecule with the replacement.
@@ -630,6 +661,8 @@ def attempt_replacement(
                 threshold=crowding_threshold,
                 angle_split=angle_split,
                 randomSeed=random_seed,
+                replacement_relative_idx=replacement_relative_idx,
+                replacement_absolute_idx=replacement_absolute_idx,
             )
             while new_mol.HasSubstructMatch(query_mol):
                 # print(new_mol.GetSubstructMatches(query_mol))
@@ -641,6 +674,8 @@ def attempt_replacement(
                     threshold=crowding_threshold,
                     angle_split=angle_split,
                     randomSeed=random_seed,
+                    replacement_relative_idx=replacement_relative_idx,
+                    replacement_absolute_idx=replacement_absolute_idx,
                 )
         else:
             new_mol = replace_mol(
@@ -653,6 +688,8 @@ def attempt_replacement(
                 randomSeed=random_seed,
                 start_idx=start_idx,
                 end_idx=end_idx,
+                replacement_relative_idx=replacement_relative_idx,
+                replacement_absolute_idx=replacement_absolute_idx,
             )
         if check_crowding(new_mol, threshold=crowding_threshold):
             Chem.SanitizeMol(new_mol)
@@ -718,30 +755,8 @@ def reset_atom_index(mol: Chem.rdchem.Mol, mapping: Sequence[int]) -> Chem.rdche
     Returns:
         Chem.rdchem.Mol: The molecule with the new atom index.
     """
-    # drop the bonds
-    rwmol = Chem.RWMol()
     # new index
     new_idx = list(mapping) + [
         idx for idx, atom in enumerate(mol.GetAtoms()) if idx not in mapping
     ]
-    mol_copy = Chem.RWMol(mol)
-    for i, idx in enumerate(new_idx):
-        mol_copy.GetConformer().SetAtomPosition(
-            i, mol.GetConformer().GetAtomPosition(idx)
-        )
-
-    for idx in new_idx:
-        if idx >= mol.GetNumAtoms():
-            raise ValueError("Invalid mapping. idx not in mol.")
-        rwmol.AddAtom(mol.GetAtomWithIdx(idx))
-
-    bond_pairs = get_bond_pairs(mol)
-    for bond_pair in bond_pairs:
-        rwmol.AddBond(
-            new_idx.index(bond_pair[0]),
-            new_idx.index(bond_pair[1]),
-            bond_list[bond_pair[2]],
-        )
-    rwmol.AddConformer(mol_copy.GetConformer(0))
-    Chem.SanitizeMol(rwmol)
-    return rwmol
+    return Chem.RenumberAtoms(mol, new_idx)

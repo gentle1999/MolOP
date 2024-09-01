@@ -787,9 +787,9 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         """
         if self.energies.total_energy is None:
             return True
-        if not self.status.normal_terminated:
-            return True
         if not self.status.scf_converged:
+            return True
+        if self.next is None and not self.status.normal_terminated:
             return True
         return False
 

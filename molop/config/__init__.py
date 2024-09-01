@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-14 14:40:02
 LastEditors: TMJ
-LastEditTime: 2024-08-26 17:58:26
+LastEditTime: 2024-08-31 15:24:50
 Description: 请填写简介
 """
 
@@ -27,7 +27,6 @@ warnings.simplefilter("ignore", UnitStrippedWarning)
 class MolOPConfig:
     def __init__(self) -> None:
         self.show_progress_bar = True
-        self.show_log = True
         RDLogger.DisableLog("rdApp.*")
         # ob_log_handler = pybel.ob.OBMessageHandler()
         # ob_log_handler.SetOutputLevel(0)
@@ -43,22 +42,33 @@ class MolOPConfig:
         self.allow_spin_change = False
 
     def quiet(self):
+        """
+        Turn off progress bar and log messages to stdout.
+        """
         self.show_progress_bar = False
-        self.show_log = False
         moloplogger.removeHandler(stream_handler)
 
     def verbose(self):
+        """
+        Turn on progress bar and log messages to stdout.
+        """
         self.show_progress_bar = True
-        self.show_log = True
         moloplogger.addHandler(stream_handler)
 
     def log_off(self):
-        self.quiet()
+        """
+        Turn off log messages to file.
+        """
         moloplogger.removeHandler(file_handler)
 
     def log_on(self):
-        self.verbose()
+        """
+        Turn on log messages to file.
+        """
         moloplogger.addHandler(file_handler)
+
+    def set_log_level(self, level: str):
+        moloplogger.setLevel(level)
 
 
 molopconfig = MolOPConfig()

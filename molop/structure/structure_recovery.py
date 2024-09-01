@@ -1728,18 +1728,18 @@ def omol_to_rdmol(
         rdmol = Chem.AddHs(rdmol)
         if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
             return rdmol
+    rdmol = omol_to_rdmol_by_graph(omol)
+    moloplogger.debug("try tranform by graph")
+    if rdmol is not None:
+        rdmol = Chem.AddHs(rdmol)
+        if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
+            return rdmol
     moloplogger.debug("try tranform by cdxml")
     rdmols = Chem.MolsFromCDXML(omol.write("cdxml"), removeHs=False)
     if len(rdmols) > 0:
         rdmol = Chem.AddHs(rdmols[0])
         if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
             rdmol.ClearProp("CDXML_FRAG_ID")
-            return rdmol
-    rdmol = omol_to_rdmol_by_graph(omol)
-    moloplogger.debug("try tranform by graph")
-    if rdmol is not None:
-        rdmol = Chem.AddHs(rdmol)
-        if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
             return rdmol
     moloplogger.debug("try tranform by sdf")
     rdmol = Chem.MolFromMolBlock(omol.write("sdf"), removeHs=False)

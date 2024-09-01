@@ -202,7 +202,7 @@ class BaseMolFrameParser(BaseMolFrame):
         """
         if not isinstance(prefix, str) or not isinstance(suffix, str):
             raise TypeError("prefix and suffix must be strings.")
-        _prefix, _suffix = "", ""
+        _prefix, _suffix = "#p b3lyp def2svp", ""
         _file_path = self._check_path(file_path, ".gjf")
         if template is not None:
             if not os.path.isfile(template):
@@ -344,9 +344,11 @@ class BaseMolFrameParser(BaseMolFrame):
         Returns:
             BaseMolFrameParser: The next frame.
         """
-        if self._next_frame.file_path == self.file_path:
+        if (
+            self._next_frame is not None
+            and self._next_frame.file_path == self.file_path
+        ):
             return self._next_frame
-        raise ValueError("No next frame in the file.")
 
     @property
     def prev(self) -> "BaseMolFrameParser":
@@ -355,9 +357,11 @@ class BaseMolFrameParser(BaseMolFrame):
         Returns:
             BaseMolFrameParser: The previous frame.
         """
-        if self._prev_frame.file_path == self.file_path:
+        if (
+            self._prev_frame is not None
+            and self._prev_frame.file_path == self.file_path
+        ):
             return self._prev_frame
-        raise ValueError("No previous frame in the file.")
 
     @classmethod
     def rebuild_parser(
@@ -400,6 +404,9 @@ class BaseMolFrameParser(BaseMolFrame):
         randomSeed=114514,
         start_idx: int = None,
         end_idx: int = None,
+        *,
+        replacement_relative_idx: int = 0,
+        replacement_absolute_idx: Union[int, None] = None,
     ) -> "BaseMolFrameParser":
         """
         Replace the substituent with the given SMARTS. The substituent is defined by the query_smi,
@@ -435,6 +442,16 @@ class BaseMolFrameParser(BaseMolFrame):
             end_idx (int):
                 If both `start_idx` and `end_idx` are specified, simply ignore the `query`, break the
                 key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
+            replacement_relative_idx (int):
+                The relative index of the radical atom in the replacement molecule to be
+                transformed to the first atom.
+            replacement_absolute_idx (Union[int, None]):
+                Priority is higher than replacement_relative_idx.
+                The absolute index of the radical atom in the replacement molecule to be
+                transformed to the first atom.
+                If None, the function will try to find the first atom in the replacement
+                molecule that is a radical atom.
+
         Returns:
             BaseMolFrameParser: The new parser.
         """
@@ -451,6 +468,8 @@ class BaseMolFrameParser(BaseMolFrame):
             randomSeed=randomSeed,
             start_idx=start_idx,
             end_idx=end_idx,
+            replacement_relative_idx=replacement_relative_idx,
+            replacement_absolute_idx=replacement_absolute_idx,
         )
         return self.rebuild_parser(
             new_mol, path=os.path.splitext(self.file_path)[0] + f"_{rebuild_type}.xyz"
@@ -489,21 +508,21 @@ class BaseMolFrameParser(BaseMolFrame):
         anchor_list: Sequence[int],
     ) -> "BaseMolFrameParser":
         """
-        Depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_X`, and `rotate_anchor_to_XY` are executed in order to obtain the normalized oriented molecule.
+        Depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_axis`, and `rotate_anchor_to_plane` are executed in order to obtain the normalized oriented molecule.
 
         Sub-functions:
             - `translate_anchor`: Translate the entire molecule so that the specified atom reaches the origin.
-            - `rotate_anchor_to_X`: Rotate the specified second atom along the axis passing through the origin so that it reaches the positive half-axis of the X-axis.
-            - `rotate_anchor_to_XY`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
+            - `rotate_anchor_to_axis`: Rotate the specified second atom along the axis passing through the origin so that it reaches the positive half-axis of the X-axis.
+            - `rotate_anchor_to_plane`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
 
         Parameters:
             anchor_list (Sequence[int]):
                 A Sequence of indices of the atoms to be translated to origin, rotated to X axis, and rotated again to XY face:
 
                 - If length is 1, execute `translate_anchor`
-                - If length is 2, execute `translate_anchor` and `rotate_anchor_to_X`
-                - If length is 3, execute `translate_anchor`, `rotate_anchor_to_X` and `rotate_anchor_to_XY`
-                - If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
+                - If length is 2, execute `translate_anchor` and `rotate_anchor_to_axis`
+                - If length is 3, execute `translate_anchor`, `rotate_anchor_to_axis` and `rotate_anchor_to_plane`
+                - If the length of the input `anchor_list` is greater than 3, subsequent atomic numbers are not considered.
         Returns:
             BaseMolFrameParser: The new parser.
         """

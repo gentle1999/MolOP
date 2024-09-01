@@ -500,20 +500,20 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         frameID: int = -1,
     ) -> MolFrameType:
         """
-        Depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_X`, and `rotate_anchor_to_XY` are executed in order to obtain the normalized oriented molecule.
+        Depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_axis`, and `rotate_anchor_to_plane` are executed in order to obtain the normalized oriented molecule.
 
         Sub-functions:
             - `translate_anchor`: Translate the entire molecule so that the specified atom reaches the origin.
-            - `rotate_anchor_to_X`: Rotate the specified second atom along the axis passing through the origin so that it reaches the positive half-axis of the X-axis.
-            - `rotate_anchor_to_XY`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
+            - `rotate_anchor_to_axis`: Rotate the specified second atom along the axis passing through the origin so that it reaches the positive half-axis of the X-axis.
+            - `rotate_anchor_to_plane`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
 
         Parameters:
             anchor_list (Sequence[int]):
                 A list of indices of the atoms to be translated to origin, rotated to X axis, and rotated again to XY face:
 
                 - If length is 1, execute `translate_anchor`
-                - If length is 2, execute `translate_anchor` and `rotate_anchor_to_X`
-                - If length is 3, execute `translate_anchor`, `rotate_anchor_to_X` and `rotate_anchor_to_XY`
+                - If length is 2, execute `translate_anchor` and `rotate_anchor_to_axis`
+                - If length is 3, execute `translate_anchor`, `rotate_anchor_to_axis` and `rotate_anchor_to_plane`
                 - If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
             frameID (int):
                 The frame ID to standardize orientation.

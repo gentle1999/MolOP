@@ -22,10 +22,12 @@ from molop.logger.logger import moloplogger
 from molop.structure.geometry import get_geometry_info
 from molop.structure.structure import (
     bond_list,
+    canonical_smiles,
     get_bond_pairs,
     get_formal_charges,
     get_formal_num_radicals,
 )
+from molop.descriptor.spms import SPMSCalculator
 from molop.structure.structure_recovery import omol_to_rdmol, xyz_block_to_omol
 from molop.unit import atom_ureg
 from molop.utils.types import RdMol
@@ -282,8 +284,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         """
         if self.rdmol is None:
             return ""
-        smiles = Chem.MolToSmiles(self.rdmol)
-        return smiles
+        return Chem.MolToSmiles(self.rdmol)
 
     def to_standard_SMILES(self) -> str:
         """
@@ -292,17 +293,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Returns:
             str: The standard SMILES.
         """
-        # return rdMolStandardize.StandardizeSmiles(self.to_SMILES())
-        return Chem.CanonSmiles(self.to_SMILES(), useChiral=True)
-
-    def to_canonical_SMILES(self) -> str:
-        """
-        Get the canonical SMILES.
-
-        Returns:
-            str: The canonical SMILES.
-        """
-        return Chem.CanonSmiles(self.to_standard_SMILES(), useChiral=True)
+        return canonical_smiles(self.to_SMILES())
 
     def to_InChI(self) -> str:
         """
@@ -388,6 +379,58 @@ class BaseMolFrame(BaseDataClassWithUnit):
         from molop.descriptor.descriptor import calc_mordred_descs
 
         return calc_mordred_descs(self.rdmol, **kwargs)
+
+    def calc_spms_descriptor(
+        self,
+        anchor_list: Union[Sequence[int], None] = None,
+        sphere_radius: Union[float, None] = None,
+        latitudinal_resolution: int = 40,
+        longitude_resolution: int = 40,
+        precision: int = 8,
+        *,
+        custom_first_anchors: Union[Sequence[int], None] = None,
+        custom_second_anchors: Union[Sequence[int], None] = None,
+        custom_third_anchors: Union[Sequence[int], None] = None,
+    ) -> SPMSCalculator:
+        """
+        Re-implementation of SPMS descriptor [A Molecular Stereostructure Descriptor based on
+        Spherical Projection](https://www.thieme-connect.de/products/ejournals/abstract/10.1055/s-0040-1705977).
+        GitHub repository: https://github.com/licheng-xu-echo/SPMS.git
+
+        Parameters:
+            anchor_list (Sequence[int] | None):
+                The anchor atoms for SPMS calculation. If None, the default anchor atoms will be used.
+            sphere_radius (float | None):
+                The radius of the sphere for SPMS calculation. If None, the default sphere radius will be used.
+
+            latitudinal_resolution (int):
+                The number of latitudinal divisions for SPMS calculation.
+            longitude_resolution (int):
+                The number of longitudinal divisions for SPMS calculation.
+            precision (int):
+                The precision of the SPMS calculation.
+
+            custom_first_anchors (Sequence[int] | None):
+                The custom anchor atoms for SPMS calculation. If None, the default anchor atoms will be used.
+            custom_second_anchors (Sequence[int] | None):
+                The custom anchor atoms for SPMS calculation. If None, the default anchor atoms will be used.
+            custom_third_anchors (Sequence[int] | None):
+                The custom anchor atoms for SPMS calculation. If None, the default anchor atoms will be used.
+
+        Returns:
+            SPMSCalculator: The SPMS calculator object.
+        """
+        return SPMSCalculator(
+            rdmol=self.rdmol,
+            anchor_list=anchor_list,
+            sphere_radius=sphere_radius,
+            latitudinal_resolution=latitudinal_resolution,
+            longitude_resolution=longitude_resolution,
+            precision=precision,
+            custom_first_anchors=custom_first_anchors,
+            custom_second_anchors=custom_second_anchors,
+            custom_third_anchors=custom_third_anchors,
+        )
 
     def __hash__(self) -> int:
         return hash(str(self))
