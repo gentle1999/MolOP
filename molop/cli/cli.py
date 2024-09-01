@@ -19,6 +19,7 @@ class MolOPCLI:
     """
 
     def __init__(self) -> None:
+        molopconfig.log_on()
         self._file_batch: FileParserBatch = None
         self._temp_batch: FileParserBatch = None
 
@@ -108,8 +109,8 @@ class MolOPCLI:
         file_dir: str = None,
         charge: int = None,
         multiplicity: int = None,
-        prefix: str = "#p opt b3lyp def2svp freq EmpiricalDispersion=GD3BJ NoSymm\n",
-        suffix: str = "\n\n",
+        prefix: str = "",
+        suffix: str = "",
         template: str = None,
         chk: bool = True,
         oldchk: bool = False,
@@ -200,6 +201,27 @@ class MolOPCLI:
         Quiet the command chain, stop printing logs.
         """
         molopconfig.quiet()
+        return self
+    
+    def verbose(self):
+        """
+        Verbose the command chain, print logs.
+        """
+        molopconfig.verbose()
+        return self
+    
+    def log_off(self):
+        """
+        Turn off the log.
+        """
+        molopconfig.log_off()
+        return self
+    
+    def log_on(self):
+        """
+        Turn on the log.
+        """
+        molopconfig.log_on()
         return self
 
 

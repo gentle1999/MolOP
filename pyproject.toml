@@ -24,7 +24,7 @@ pydantic = "^2.7.4"
 numpy = "^1.24.2,<2.0.0"
 pandas = "^2.0.0"
 pint = "^0.21.0"
-rdkit = "^2023.9.6"
+rdkit = ">=2023.9.6"
 scipy = "^1.8"
 packaging = "^24.0"
 

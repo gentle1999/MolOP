@@ -303,8 +303,8 @@ class FileParserBatch(MutableMapping):
         file_path: str = None,
         charge: int = None,
         multiplicity: int = None,
-        prefix: str = "#p opt b3lyp def2svp freq EmpiricalDispersion=GD3BJ NoSymm\n",
-        suffix="\n\n",
+        prefix: str = "",
+        suffix="",
         template: str = None,
         chk: bool = True,
         oldchk: bool = False,
@@ -370,6 +370,9 @@ class FileParserBatch(MutableMapping):
         crowding_threshold: float = 0.75,
         angle_split: int = 10,
         randomSeed: int = 114514,
+        *,
+        replacement_relative_idx: int = 0,
+        replacement_absolute_idx: Union[int, None] = None,
         frameID=-1,
     ) -> "FileParserBatch":
         """
@@ -394,7 +397,17 @@ class FileParserBatch(MutableMapping):
                 The number of angles to rotate the new substituent to find a legal conformation.
             randomSeed (int):
                 The random seed for the random number generator.
-            frameID ():
+                key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
+            replacement_relative_idx (int):
+                The relative index of the radical atom in the replacement molecule to be
+                transformed to the first atom.
+            replacement_absolute_idx (Union[int, None]):
+                Priority is higher than replacement_relative_idx.
+                The absolute index of the radical atom in the replacement molecule to be
+                transformed to the first atom.
+                If None, the function will try to find the first atom in the replacement
+                molecule that is a radical atom.
+            frameID (int):
                 The frameID to replace.
         Returns:
             FileParserBatch: The new `FileParserBatch`.
@@ -412,6 +425,8 @@ class FileParserBatch(MutableMapping):
                         crowding_threshold=crowding_threshold,
                         angle_split=angle_split,
                         randomSeed=randomSeed,
+                        replacement_relative_idx=replacement_relative_idx,
+                        replacement_absolute_idx=replacement_absolute_idx,
                     )
                     temp_file_path = temp_parser.to_SDF_file()
                     new_parsers.append(
@@ -434,6 +449,8 @@ class FileParserBatch(MutableMapping):
                         crowding_threshold=crowding_threshold,
                         angle_split=angle_split,
                         randomSeed=randomSeed,
+                        replacement_relative_idx=replacement_relative_idx,
+                        replacement_absolute_idx=replacement_absolute_idx,
                     )
                     temp_file_path = temp_parser.to_SDF_file()
                     new_parsers.append(
@@ -500,20 +517,20 @@ class FileParserBatch(MutableMapping):
         frameID: int = -1,
     ) -> "FileParserBatch":
         """
-        Depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_X`, and `rotate_anchor_to_XY` are executed in order to obtain the normalized oriented molecule.
+        Depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_axis`, and `rotate_anchor_to_plane` are executed in order to obtain the normalized oriented molecule.
 
         Sub-functions:
             - `translate_anchor`: Translate the entire molecule so that the specified atom reaches the origin.
-            - `rotate_anchor_to_X`: Rotate the specified second atom along the axis passing through the origin so that it reaches the positive half-axis of the X-axis.
-            - `rotate_anchor_to_XY`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
+            - `rotate_anchor_to_axis`: Rotate the specified second atom along the axis passing through the origin so that it reaches the positive half-axis of the X-axis.
+            - `rotate_anchor_to_plane`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
 
         Parameters:
             anchor_list (List[int]):
                 A list of indices of the atoms to be translated to origin, rotated to X axis, and rotated again to XY face:
 
                 - If length is 1, execute `translate_anchor`
-                - If length is 2, execute `translate_anchor` and `rotate_anchor_to_X`
-                - If length is 3, execute `translate_anchor`, `rotate_anchor_to_X` and `rotate_anchor_to_XY`
+                - If length is 2, execute `translate_anchor` and `rotate_anchor_to_axis`
+                - If length is 3, execute `translate_anchor`, `rotate_anchor_to_axis` and `rotate_anchor_to_plane`
                 - If the length of the input `idx_list` is greater than 3, subsequent atomic numbers are not considered.
 
 
@@ -595,7 +612,7 @@ class FileParserBatch(MutableMapping):
             [
                 parser
                 for parser in self
-                if parser.__class__ in qm_parsers and not parser[-1].is_error
+                if parser.__class__ in qm_parsers and parser[-1].is_normal
             ]
         )
 
