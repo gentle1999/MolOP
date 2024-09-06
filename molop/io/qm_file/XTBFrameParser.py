@@ -22,8 +22,8 @@ from molop.io.bases.DataClasses import (
     Energies,
     MolecularOrbitals,
     Polarizability,
-    ThermalEnergies,
     SinglePointProperties,
+    ThermalEnergies,
 )
 from molop.logger.logger import moloplogger
 from molop.unit import atom_ureg
@@ -161,7 +161,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
         for x, y, z, atom in coords:
             temp_coords.append((float(x), float(y), float(z)))
             self.atoms.append(Chem.Atom(atom).GetAtomicNum())
-        self.coords = (np.array(temp_coords) * atom_ureg.bohr).to("angstrom")
+        self.coords = np.array(temp_coords) * atom_ureg.bohr
 
     def _parse_coords_new(self, block: str):
         """
@@ -348,7 +348,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
                 * atom_ureg.atomic_unit_of_current
                 * atom_ureg.atomic_unit_of_time
                 * atom_ureg.bohr
-            ).to(atom_ureg.debye)
+            )
             self.polarizability = Polarizability.model_validate(polar)
 
     def _parse_thermal(self):
@@ -357,27 +357,19 @@ class XTBFrameParser(BaseQMMolFrameParser):
         if zpc:
             thermal["ZPVE"] = (
                 float(zpc.group(1)) * atom_ureg.hartree / atom_ureg.particle
-            ).to("kcal/mol")
+            )
         hc = xtboutpatterns["H correct"].search(self.__block)
         if hc:
-            thermal["TCH"] = (
-                float(hc.group(1)) * atom_ureg.hartree / atom_ureg.particle
-            ).to("kcal/mol")
+            thermal["TCH"] = float(hc.group(1)) * atom_ureg.hartree / atom_ureg.particle
         gc = xtboutpatterns["G correct"].search(self.__block)
         if gc:
-            thermal["TCG"] = (
-                float(gc.group(1)) * atom_ureg.hartree / atom_ureg.particle
-            ).to("kcal/mol")
+            thermal["TCG"] = float(gc.group(1)) * atom_ureg.hartree / atom_ureg.particle
         sh = xtboutpatterns["sum H"].search(self.__block)
         if sh:
-            thermal["H_T"] = (
-                float(sh.group(1)) * atom_ureg.hartree / atom_ureg.particle
-            ).to("kcal/mol")
+            thermal["H_T"] = float(sh.group(1)) * atom_ureg.hartree / atom_ureg.particle
         sg = xtboutpatterns["sum G"].search(self.__block)
         if sg:
-            thermal["G_T"] = (
-                float(sg.group(1)) * atom_ureg.hartree / atom_ureg.particle
-            ).to("kcal/mol")
+            thermal["G_T"] = float(sg.group(1)) * atom_ureg.hartree / atom_ureg.particle
         thermal_Cv_S_match = xtboutpatterns["thermal_Cv_S_start"].search(self.__block)
         if thermal_Cv_S_match:
             block = self.__block[thermal_Cv_S_match.end() :]
@@ -411,7 +403,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
                 rots.append(temp_rot)
             self.rotation_constants = (
                 np.array(rots) * atom_ureg.cm_1 * 299792458 * atom_ureg.m / atom_ureg.s
-            ).to("Ghertz")
+            )
 
     def _parse_freqs(self):
         pass

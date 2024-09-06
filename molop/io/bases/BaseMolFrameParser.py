@@ -23,14 +23,14 @@ from molop.io.bases.DataClasses import (
     BondOrders,
     ChargeSpinPopulations,
     Energies,
+    GeometryOptimizationStatus,
     MolecularOrbitals,
     Polarizability,
     SinglePointProperties,
+    Status,
     ThermalEnergies,
     TotalSpin,
     Vibrations,
-    Status,
-    GeometryOptimizationStatus,
 )
 from molop.logger.logger import moloplogger
 from molop.structure.geometry import standard_orient
@@ -44,7 +44,7 @@ from molop.structure.structure import (
     reset_atom_index,
 )
 from molop.structure.structure_recovery import xyz_block_to_rdmol
-from molop.unit import atom_ureg
+from molop.unit import atom_ureg, unit_transform
 from molop.utils.g16patterns import link0_parser
 from molop.utils.types import RdMol
 
@@ -70,7 +70,12 @@ class BaseMolFrameParser(BaseMolFrame):
         if len(self.atoms) > 0:
             return self
         self._parse()
+        self._set_default_units()
         return self
+
+    def _set_default_units(self):
+        self.coords = unit_transform(self.coords, atom_ureg.angstrom)
+        self.standard_coords = unit_transform(self.standard_coords, atom_ureg.angstrom)
 
     @computed_field
     @property
@@ -253,7 +258,7 @@ class BaseMolFrameParser(BaseMolFrame):
             + f"{charge if charge else self.charge} {multiplicity if multiplicity else self.multiplicity}\n"
             + "\n".join(
                 [
-                    f"{Chem.Atom(atom).GetSymbol():10s}{x:10.5f}{y:10.5f}{z:10.5f}"
+                    f"{Chem.Atom(atom).GetSymbol():10s}{x:14.8f}{y:14.8f}{z:14.8f}"
                     for atom, (x, y, z) in zip(self.atoms, self.coords.m)
                 ]
             )
@@ -693,6 +698,15 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         description="Running time of the QM calculation, unit is `second`",
     )
 
+    def _set_default_units(self):
+        self.coords = self.coords.to(atom_ureg.angstrom)
+        self.standard_coords = self.standard_coords.to(atom_ureg.angstrom)
+        self.forces = self.forces.to(atom_ureg.hartree / atom_ureg.bohr)
+        self.rotation_constants = self.rotation_constants.to(atom_ureg.GHz)
+        self.running_time = self.running_time.to(atom_ureg.second)
+        self.temperature = self.temperature.to(atom_ureg.K)
+        self.electron_temperature = self.electron_temperature.to(atom_ureg.K)
+
     def ts_vibration(self) -> List[BaseMolFrameParser]:
         """
         Generate a list of base block parsers for transition state vibration calculations.
@@ -800,6 +814,7 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
             "multiplicity": self.multiplicity,
             "SMILES": self.to_standard_SMILES(),
             "keywords": self.keywords,
+            "method": self.method,
             "functional": self.functional,
             "basis": self.basis,
             "solvent_model": self.solvent_model,

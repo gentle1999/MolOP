@@ -39,6 +39,7 @@ class G16LogFileParser(BaseQMMolFileParser[G16LogFrameParser]):
         self._parse_charge_multi(full_text)
         self._parse_input_parameter(full_text)
         self._parse_tail(full_text)
+        self._add_em()
         temperature_match = g16logpatterns["Temperature"].search(full_text)
         if temperature_match:
             self.temperature = float(temperature_match.group(1))
@@ -114,7 +115,7 @@ class G16LogFileParser(BaseQMMolFileParser[G16LogFrameParser]):
                 link_start = True
         self.keywords = "\n\n".join((link.replace("\n", " "), route.replace("\n ", "")))
         link = link.replace("\n", " ")
-        route = "#" + route.replace("\n", " ")
+        route = route.replace("\n ", "")
         self.__link0 = link0_parser(link)
 
         (
@@ -123,6 +124,7 @@ class G16LogFileParser(BaseQMMolFileParser[G16LogFrameParser]):
         ) = parameter_comment_parser(route)
         self.solvent_model = get_solvent_model(self.route_params)
         self.solvent = get_solvent(self.route_params)
+        self._parse_functional_basis(full_text)
 
     def _parse_charge_multi(self, full_text: str):
         charge, multi = map(
@@ -171,6 +173,14 @@ class G16LogFileParser(BaseQMMolFileParser[G16LogFrameParser]):
                     self.method = "POST-HF"
             else:
                 self.method = "DFT"
+
+    def _add_em(self):
+        if "em" in self.route_params.keys():
+            self.functional = f"{self.functional}-{self.route_params['em']}"
+        if "empiricaldispersion" in self.route_params.keys():
+            self.functional = (
+                f"{self.functional}-{self.route_params['empiricaldispersion']}"
+            )
 
     def _get_running_time(self, full_text: str):
         if total_time := g16logpatterns["total_time"].findall(full_text):

@@ -46,10 +46,10 @@ def parameter_comment_parser(
         .replace("= ", "=")
         .replace(" ,", ",")
         .replace(", ", ",")
-        .replace("/", " ")
         .lower()
     )
-
+    while split_match := re.search(r"/[a-z]", _route):
+        _route = _route[: split_match.start()] + " " + _route[split_match.start() + 1 :]
     multi_params_patt = g16logpatterns["multi_params_patt"]
     route_params = {}
     dieze_tag = None
@@ -61,8 +61,7 @@ def parameter_comment_parser(
                 dieze_tag = "#N" if tok == "#" else tok
                 continue
             else:
-                m = re.search(multi_params_patt, tok.strip("#"))
-                if m:
+                if m := re.search(multi_params_patt, tok.strip("#")):
                     pars = {}
                     for par in m.group(3).split(","):
                         p = par.split("=")
@@ -140,9 +139,13 @@ def shell_to_orbitals(shell_type, offset):
 
 
 g16logpatterns: Dict[str, re.Pattern] = {
-    "version": re.compile(r"(Gaussian\s+\d+:\s*[^\s]*\s*\d+-[A-Za-z]{3}-\d{4}\n\s+\d+-[A-Za-z]{3}-\d{4})"),
+    "version": re.compile(
+        r"(Gaussian\s+\d+:\s*[^\s]*\s*\d+-[A-Za-z]{3}-\d{4}\n\s+\d+-[A-Za-z]{3}-\d{4})"
+    ),
     "time": re.compile(r"MaxMem=\s*(\d+)\s*cpu:\s*(\d+.\d+)\s*elap:\s*(\d+.\d+)"),
-    "total_time": re.compile(r"(\d+)\s*days\s*(\d+)\s*hours\s*(\d+)\s*minutes\s*(\d+.\d+)\s*seconds."),
+    "total_time": re.compile(
+        r"(\d+)\s*days\s*(\d+)\s*hours\s*(\d+)\s*minutes\s*(\d+.\d+)\s*seconds."
+    ),
     "n atoms": re.compile(r"NAtoms=\s*(\d+)"),
     "input_coords_start": re.compile(r"Input orientation:"),
     "standard_coords_start": re.compile(r"Standard orientation:"),
@@ -154,7 +157,9 @@ g16logpatterns: Dict[str, re.Pattern] = {
     ),
     "link0": re.compile(r"\%[a-zA-Z]+=[^\s]+"),
     "scrf_patt": re.compile(r"^([sS][cC][rR][fF])\s*=\s*(.+)"),
-    "multi_params_patt": re.compile(r"([A-z\d\+\-]+)([\s=]+)*\(([a-zA-Z\d,=\-\(\)]+)\)"),
+    "multi_params_patt": re.compile(
+        r"([a-zA-Z\d\+\-]+)([\s=]+)*\(([a-zA-Z\d,=\-\(\)/]+)\)"
+    ),
     "rotation_consts": re.compile(
         r"Rotational constants \(GHZ\):\s*(\d+.\d+)\s*(\d+.\d+)\s*(\d+.\d+)"
     ),
@@ -197,10 +202,18 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "lowdin_start": re.compile(r"Lowdin\s*charges"),
     "lowdin_match": re.compile(r"\d+\s+[A-Z][a-z]?\s+([\s-]\d+.\d+)"),
     "lowdin_end": re.compile(r"Sum of Lowdin charges"),
-    "isotropic_polarizability": re.compile(r"Isotropic polarizability for W=\s*\d+.\d+\s*(\d+.\d+)\s*Bohr\*\*3"),
-    "polarizability": re.compile(r"Exact\s*polarizability:\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)"),
-    "electric_dipole_moment": re.compile(r"Electric dipole moment \(input orientation\):"),
-    "polarizability_alter": re.compile(r"Dipole polarizability, Alpha \(input orientation\)."),
+    "isotropic_polarizability": re.compile(
+        r"Isotropic polarizability for W=\s*\d+.\d+\s*(\d+.\d+)\s*Bohr\*\*3"
+    ),
+    "polarizability": re.compile(
+        r"Exact\s*polarizability:\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)\s*(-*\d+.\d+)"
+    ),
+    "electric_dipole_moment": re.compile(
+        r"Electric dipole moment \(input orientation\):"
+    ),
+    "polarizability_alter": re.compile(
+        r"Dipole polarizability, Alpha \(input orientation\)."
+    ),
     "dipole_start": re.compile(r"Dipole moment \(field-independent basis"),
     "dipole": re.compile(r"[XYZ]=\s+([\s-]\d+\.\d+)"),
     "quadrupole_start": re.compile(r"Quadrupole moment \(field-independent basis"),
@@ -275,10 +288,8 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "nbo summary match": re.compile(
         r"BD\s+\(\s+\d\)\s+[A-Za-z]+\s+(\d+)\s+-[\sA-Za-z]+\s+(\d+)\s+(\d+.\d+)\s+([-\d.]+)"
     ),
-    "tail_start": re.compile(
-        r"(1\\1\\GINC|1\|1\|GINC)"
-    ),
-    "tail_end": re.compile(r"\\@"),
+    "tail_start": re.compile(r"(1\\1\\GINC|1\|1\|GINC)"),
+    "tail_end": re.compile(r"(\\@|@\n)"),
     "tail_match": re.compile(r"(HF|MP2|MP3|MP4[SDTQ]*|CCSD[\(\)T]*)=([\s-]\d+.\d+)"),
     "tail_thermal_match": re.compile(
         r"(ZeroPoint|Thermal|ETot|HTot|GTot)=([\s-]\d+.\d+)"
@@ -345,6 +356,4 @@ g16fchkpatterns: Dict[str, re.Pattern] = {
 }
 
 
-semi_empirical_methods = (
-    "am1", "pm3", "pm6", "pm7", "pddg", "indo", "cndo", "pm3mm"
-)
+semi_empirical_methods = ("am1", "pm3", "pm6", "pm7", "pddg", "indo", "cndo", "pm3mm")

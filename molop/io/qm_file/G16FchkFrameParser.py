@@ -109,7 +109,7 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
             coords = np.array(list(map(float, coords))).reshape(-1, 3)
         else:
             raise RuntimeError("No coords found in fchk file.")
-        self.coords = (coords * atom_ureg.bohr).to("angstrom")
+        self.coords = coords * atom_ureg.bohr
         self.standard_coords = self.coords
 
     def _parse_energy(self) -> Energies:

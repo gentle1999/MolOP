@@ -27,6 +27,7 @@ from molop.io.bases.DataClasses import (
     Vibrations,
     GeometryOptimizationStatus,
 )
+from molop.logger.logger import moloplogger
 from molop.unit import atom_ureg
 from molop.utils.functions import fill_symmetric_matrix
 from molop.utils.g16patterns import (
@@ -126,18 +127,24 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         thermal_energies = self._parse_thermal_energies()
         self._parse_forces()
         self._parse_status()
+
         self.energies = Energies.model_validate(
             {
-                **energies.model_dump(exclude_unset=True),
-                **self._parse_tail_energies().model_dump(exclude_unset=True),
+                **energies.model_dump_without_none(exclude_unset=True),
+                **self._parse_tail_energies().model_dump_without_none(
+                    exclude_unset=True
+                ),
             }
         )
         self.thermal_energies = ThermalEnergies.model_validate(
             {
-                **thermal_energies.model_dump(exclude_unset=True),
-                **self._parse_tail_thermal_energies().model_dump(exclude_unset=True),
+                **thermal_energies.model_dump_without_none(exclude_unset=True),
+                **self._parse_tail_thermal_energies().model_dump_without_none(
+                    exclude_unset=True
+                ),
             }
         )
+        self._add_em()
 
     def _parse_time(self):
         if time_match := g16logpatterns["time"].findall(self.__block):
@@ -193,6 +200,14 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             self.basis = basis_match.group(1)
         if g16logpatterns["Pseudopotential"].search(self.__block):
             self.basis = "pseudopotential"
+
+    def _add_em(self):
+        if "em" in self.route_params.keys():
+            self.functional = f"{self.functional}-{self.route_params['em']}"
+        if "empiricaldispersion" in self.route_params.keys():
+            self.functional = (
+                f"{self.functional}-{self.route_params['empiricaldispersion']}"
+            )
 
     def _parse_solvent(self):
         solvent_start = g16logpatterns["solvent_start"].search(self.__block)
@@ -256,6 +271,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 * atom_ureg.hartree
                 / atom_ureg.particle
             )
+        moloplogger.debug(f"Energies: {energies}")
         return Energies.model_validate(energies)
 
     def _parse_tail_energies(self) -> Energies:
@@ -310,13 +326,13 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             for tag, val in matches:
                 thermal_energies[mappings[tag]] = (
                     float(val) * atom_ureg.hartree / atom_ureg.particle
-                ).to("kcal/mol")
+                )
         matches = g16logpatterns["corrections"].findall(self.__block)
         if matches:
             for tag1, tag2, val in matches:
                 thermal_energies[mappings[(tag1, tag2)]] = (
                     float(val) * atom_ureg.hartree / atom_ureg.particle
-                ).to("kcal/mol")
+                )
         thermal_Cv_S_matches = g16logpatterns["thermal_Cv_S_start"].search(self.__block)
         if thermal_Cv_S_matches:
             block = self.__block[thermal_Cv_S_matches.end() :]
@@ -348,19 +364,19 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             if "Thermal" in e:
                 thermal_energies["TCE"] = (
                     float(v) * atom_ureg.hartree / atom_ureg.particle
-                ).to("kcal/mol")
+                )
             if "ETot" in e:
                 thermal_energies["U_T"] = (
                     float(v) * atom_ureg.hartree / atom_ureg.particle
-                ).to("kcal/mol")
+                )
             if "HTot" in e:
                 thermal_energies["H_T"] = (
                     float(v) * atom_ureg.hartree / atom_ureg.particle
-                ).to("kcal/mol")
+                )
             if "GTot" in e:
                 thermal_energies["G_T"] = (
                     float(v) * atom_ureg.hartree / atom_ureg.particle
-                ).to("kcal/mol")
+                )
         return ThermalEnergies.model_validate(thermal_energies)
 
     def _parse_polarizability(self) -> Polarizability:
@@ -411,6 +427,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         polar["quadrupole"] = self._parse_quadrupole()
         polar["octapole"] = self._parse_octapole()
         polar["hexadecapole"] = self._parse_hexadecapole()
+        polar["electronic_spatial_extent"] = self._parse_electronic_spatial_extent()
         return Polarizability.model_validate(polar)
 
     def _parse_electronic_spatial_extent(self) -> PlainQuantity:
