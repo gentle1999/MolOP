@@ -522,7 +522,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         """
         return self.__frames[frameID].standard_orient(anchor_list)
 
-    def to_summary_df(self, full: bool = False) -> pd.DataFrame:
+    def to_summary_df(self, full: bool = False, with_units: bool = True) -> pd.DataFrame:
         """
         Get the summary information of the parser.
 
@@ -536,7 +536,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         """
         self.recover_structures()
         return pd.concat(
-            [frame.to_summary_series(full) for frame in self.__frames], axis=1
+            [frame.to_summary_series(full, with_units) for frame in self.__frames], axis=1
         ).T
 
     def recover_structures(self) -> List[str]:
