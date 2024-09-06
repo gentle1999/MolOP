@@ -636,25 +636,25 @@ class FileParserBatch(MutableMapping):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({len(self)})"
 
-    def to_summary_df(self, full: bool = False) -> pd.DataFrame:
+    def to_summary_df(self, full: bool = False, with_units: bool = True) -> pd.DataFrame:
         return pd.concat(
-            [parser[-1].to_summary_series(full) for parser in self], axis=1
+            [parser[-1].to_summary_series(full, with_units) for parser in self], axis=1
         ).T
 
-    def to_summary_csv(self, file_path: str = None, full: bool = False):
+    def to_summary_csv(self, file_path: str = None, full: bool = False, with_units: bool = True):
         if not file_path:
             file_path = os.path.join(os.path.curdir, "summary.csv")
         if os.path.isdir(file_path):
             file_path = os.path.join(file_path, "summary.csv")
-        self.to_summary_df(full).to_csv(file_path)
+        self.to_summary_df(full, with_units).to_csv(file_path)
         moloplogger.info(f"summary csv saved to {os.path.abspath(file_path)}")
 
-    def to_summary_excel(self, file_path: str = None, full: bool = False):
+    def to_summary_excel(self, file_path: str = None, full: bool = False, with_units: bool = True):
         if not file_path:
             file_path = os.path.join(os.path.curdir, "summary.xlsx")
         if os.path.isdir(file_path):
             file_path = os.path.join(file_path, "summary.xlsx")
-        self.to_summary_df(full).to_excel(file_path)
+        self.to_summary_df(full, with_units).to_excel(file_path)
         moloplogger.info(f"summary xlsx saved to {os.path.abspath(file_path)}")
 
     def geometry_analysis(

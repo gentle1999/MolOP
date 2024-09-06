@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-14 14:40:02
 LastEditors: TMJ
-LastEditTime: 2024-08-31 15:24:50
+LastEditTime: 2024-09-04 10:59:22
 Description: 请填写简介
 """
 
@@ -28,8 +28,6 @@ class MolOPConfig:
     def __init__(self) -> None:
         self.show_progress_bar = True
         RDLogger.DisableLog("rdApp.*")
-        # ob_log_handler = pybel.ob.OBMessageHandler()
-        # ob_log_handler.SetOutputLevel(0)
         pybel.ob.obErrorLog.StopLogging()
         self.max_jobs = 16
         self.morgan_fpgen = GetMorganGenerator(

@@ -76,11 +76,11 @@ class MolOPCLI:
         )
         return self
 
-    def summary(self, file_dir: str = None, full: bool = True):
+    def summary(self, file_dir: str = None, full: bool = True, with_units: bool = True):
         """
         Save the summary csv file.
         """
-        self.temp_batch.to_summary_csv(file_dir, full)
+        self.temp_batch.to_summary_csv(file_dir, full, with_units)
         return self
 
     def xyz(self, file_dir: str = None):

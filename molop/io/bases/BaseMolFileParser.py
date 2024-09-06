@@ -7,7 +7,7 @@ Description: 请填写简介
 """
 
 import os
-from typing import Generic, List, Tuple, Union, Sequence
+from typing import Generic, List, Sequence, Tuple, Union
 
 import pandas as pd
 from pint.facets.plain import PlainQuantity
@@ -22,7 +22,7 @@ from typing_extensions import Self
 
 from molop.io.bases.BaseMolFrameParser import MolFrameType, QMMolFrameType
 from molop.io.bases.DataClasses import BaseDataClassWithUnit
-from molop.unit import atom_ureg
+from molop.unit import atom_ureg, unit_transform
 from molop.utils.types import RdMol
 
 
@@ -36,16 +36,15 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
     multiplicity: int = Field(default=1, description="multiplicity")
     only_extract_structure: bool = Field(default=False, exclude=True, repr=False)
     only_last_frame: bool = Field(default=False, exclude=True, repr=False)
-    running_time: PlainQuantity = Field(
-        default=0.0 * atom_ureg.second,
-        description="Running time of the QM calculation, unit is `second`",
-    )
     _allowed_formats: Tuple[str] = PrivateAttr(default=())
     __frames: List[MolFrameType] = PrivateAttr(default=[])
     __index: int = PrivateAttr(default=0)
 
     def _parse(self):
         raise NotImplementedError
+
+    def _set_default_units(self):
+        pass
 
     @model_validator(mode="after")
     def __parse_file__(self) -> Self:
@@ -523,7 +522,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         """
         return self.__frames[frameID].standard_orient(anchor_list)
 
-    def to_summary_df(self, full: bool = False) -> pd.DataFrame:
+    def to_summary_df(self, full: bool = False, with_units: bool = True) -> pd.DataFrame:
         """
         Get the summary information of the parser.
 
@@ -537,7 +536,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         """
         self.recover_structures()
         return pd.concat(
-            [frame.to_summary_series(full) for frame in self.__frames], axis=1
+            [frame.to_summary_series(full, with_units) for frame in self.__frames], axis=1
         ).T
 
     def recover_structures(self) -> List[str]:
@@ -603,7 +602,16 @@ class BaseQMMolFileParser(BaseMolFileParser[QMMolFrameType]):
         default=298.15 * atom_ureg.K,
         description="Electron temperature used in the QM calculation, unit is `K`",
     )
-    
+    running_time: PlainQuantity = Field(
+        default=0.0 * atom_ureg.second,
+        description="Running time of the QM calculation, unit is `second`",
+    )
+
+    def _set_default_units(self):
+        self.temperature = unit_transform(self.temperature, "K")
+        self.electron_temperature = unit_transform(self.electron_temperature, "K")
+        self.running_time = unit_transform(self.running_time, "s")
+
     @property
     def sort_by_optimization(self) -> List[QMMolFrameType]:
         """
