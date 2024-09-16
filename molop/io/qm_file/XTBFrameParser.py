@@ -301,9 +301,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
                 beta_orbital_occ.append(occ_value > 1)
                 if tag == "(HOMO)":
                     has_homo = True
-            orbital_energies = (
-                np.array(orbital_energies) * atom_ureg.hartree / atom_ureg.particle
-            )
+            orbital_energies = np.array(orbital_energies) * atom_ureg.hartree
             self.molecular_orbitals = MolecularOrbitals(
                 alpha_energies=orbital_energies,
                 beta_energies=orbital_energies,

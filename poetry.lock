@@ -3327,6 +3327,21 @@ files = [
 ]
 
 [[package]]
+name = "rmsd"
+version = "1.5.1"
+description = "Calculate root-mean-square deviation (RMSD) between two sets of cartesian coordinates (XYZ or PDB format), using rotation (fx. Kabsch algorithm), atom reordering (fx. Hungarian algorithm), and axis reflections, resulting in the minimal RMSD."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "rmsd-1.5.1-py3-none-any.whl", hash = "sha256:45b860048362f75bdb7c8073decf313dd5679d8201411c18a037e1ea42f17362"},
+    {file = "rmsd-1.5.1.tar.gz", hash = "sha256:c0342821432aac10e98089877875a2cd8bbf624163971076d93686a40f10d127"},
+]
+
+[package.dependencies]
+numpy = "*"
+scipy = "*"
+
+[[package]]
 name = "rpds-py"
 version = "0.18.1"
 description = "Python bindings to Rust's persistent data structures (rpds)"
@@ -3951,4 +3966,4 @@ full = ["ase", "dscribe", "mordred"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "d3da49e80adef55318233ec791fbd587a5c6a51649c2840975abfb60a26842a2"
+content-hash = "6b9ab9c14b712dbce67512d1571fa20ee0a5fb7c2d294d8cf8cca7c4aa810412"

@@ -137,7 +137,7 @@ class MolOPCLI:
         Print the SMILES of last frame of each files.
         """
         for _file in self.temp_batch:
-            print(_file[-1].to_standard_SMILES())
+            print(_file[-1].to_canonical_SMILES())
         return self
 
     def charge(self, charge: int):

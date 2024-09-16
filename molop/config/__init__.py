@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-14 14:40:02
 LastEditors: TMJ
-LastEditTime: 2024-09-04 10:59:22
+LastEditTime: 2024-09-13 21:32:11
 Description: 请填写简介
 """
 
@@ -36,6 +36,7 @@ class MolOPConfig:
         self.atompair_fpgen = GetAtomPairGenerator(fpSize=1024, includeChirality=True)
         self.rdkit_fpgen = GetRDKitFPGenerator(fpSize=1024)
         self.topological_torsion_fpgen = GetTopologicalTorsionGenerator(fpSize=1024)
+        self.strict_structure_recovery = False
         self.max_structure_recovery_time = 10
         self.allow_spin_change = False
 

@@ -20,12 +20,12 @@ from molop.io.bases.DataClasses import (
     BondOrders,
     ChargeSpinPopulations,
     Energies,
+    GeometryOptimizationStatus,
     MolecularOrbitals,
     Polarizability,
     ThermalEnergies,
     TotalSpin,
     Vibrations,
-    GeometryOptimizationStatus,
 )
 from molop.logger.logger import moloplogger
 from molop.unit import atom_ureg
@@ -503,7 +503,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 )
             self.total_spin = TotalSpin.model_validate(total_spin)
 
-    def _parse_orbitals(self) -> Tuple[MolecularOrbitals, MolecularOrbitals]:
+    def _parse_orbitals(self):
         orbital_start = g16logpatterns["orbital_start"].search(self.__block)
         orbital_end = g16logpatterns["orbital_end"].search(self.__block)
         if orbital_start and orbital_end:
@@ -549,12 +549,8 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                     "Number of beta orbitals does not match number of alpha orbitals"
                 )
             self.molecular_orbitals = MolecularOrbitals(
-                alpha_energies=np.array(temp_alpha_orbitals)
-                * atom_ureg.hartree
-                / atom_ureg.particle,
-                beta_energies=np.array(temp_beta_orbitals)
-                * atom_ureg.hartree
-                / atom_ureg.particle,
+                alpha_energies=np.array(temp_alpha_orbitals) * atom_ureg.hartree,
+                beta_energies=np.array(temp_beta_orbitals) * atom_ureg.hartree,
                 alpha_occupancies=temp_alpha_occupancy,
                 beta_occupancies=temp_beta_occupancy,
             )
@@ -663,7 +659,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 IR_intensities=np.array(
                     list(map(float, chain.from_iterable(ir_intens)))
                 )
-                * atom_ureg.kmol
+                * atom_ureg.km
                 / atom_ureg.mol,
                 vibration_modes=[
                     np.array([list(map(float, row)) for row in vib])
