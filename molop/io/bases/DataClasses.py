@@ -53,28 +53,30 @@ class BaseDataClassWithUnit(BaseModel):
     #    }
     #    return {**fields, **computed_fields}
 
+    @staticmethod
+    def __unitless_dump(item):
+        if isinstance(item, PlainQuantity):
+            if isinstance(item.m, np.ndarray):
+                return item.m.tolist()
+            else:
+                return item.m
+        if isinstance(item, list):
+            return [BaseDataClassWithUnit.__unitless_dump(i) for i in item]
+        if isinstance(item, tuple):
+            return tuple(BaseDataClassWithUnit.__unitless_dump(i) for i in item)
+        if isinstance(item, dict):
+            return {
+                k: BaseDataClassWithUnit.__unitless_dump(v) for k, v in item.items()
+            }
+        if isinstance(item, np.ndarray):
+            return item.tolist()
+        if hasattr(item, "to_unitless_dump"):
+            return item.to_unitless_dump()
+        return item
+
     def to_unitless_dump(self, **kwargs):
         return {
-            k: (
-                (v.m.tolist() if isinstance(v.m, np.ndarray) else v.m)
-                if isinstance(v, PlainQuantity)
-                else (
-                    getattr(self, k).to_unitless_dump(**kwargs)
-                    if hasattr(getattr(self, k), "to_unitless_dump")
-                    else (
-                        [
-                            (
-                                v1.to_unitless_dump(**kwargs)
-                                if hasattr(v1, "to_unitless_dump")
-                                else v1
-                            )
-                            for v1 in getattr(self, k)
-                        ]
-                        if isinstance(v, List)
-                        else v.tolist() if isinstance(v, np.ndarray) else v
-                    )
-                )
-            )
+            k: BaseDataClassWithUnit.__unitless_dump(getattr(self, k))
             for k, v in self.model_dump(**kwargs).items()
         }
 
@@ -244,11 +246,11 @@ class ThermalEnergies(BaseDataClassWithUnit):
 class MoleculeOrbital(BaseDataClassWithUnit):
     alpha_energy: PlainQuantity = Field(
         default=None,
-        description="alpha orbital energy, unit is `hartree/particle`",
+        description="alpha orbital energy, unit is `hartree`",
     )
     beta_energy: PlainQuantity = Field(
         default=None,
-        description="beta orbital energy, unit is `hartree/particle`",
+        description="beta orbital energy, unit is `hartree`",
     )
     alpha_occupancy: bool = Field(
         default=None,
@@ -261,10 +263,10 @@ class MoleculeOrbital(BaseDataClassWithUnit):
 
     def _set_default_units(self):
         self.alpha_energy = unit_transform(
-            self.alpha_energy, atom_ureg.hartree / atom_ureg.particle
+            self.alpha_energy, atom_ureg.hartree 
         )
         self.beta_energy = unit_transform(
-            self.beta_energy, atom_ureg.hartree / atom_ureg.particle
+            self.beta_energy, atom_ureg.hartree 
         )
 
 
@@ -272,12 +274,12 @@ class MolecularOrbitals(BaseDataClassWithUnit):
     __index: int = PrivateAttr(default=0)
     # orbital energies
     alpha_energies: PlainQuantity = Field(
-        default=np.array([]) * atom_ureg.hartree / atom_ureg.particle,
-        description="alpha orbital energies, unit is `hartree/particle`",
+        default=np.array([]) * atom_ureg.hartree,
+        description="alpha orbital energies, unit is `hartree`",
     )
     beta_energies: PlainQuantity = Field(
-        default=np.array([]) * atom_ureg.hartree / atom_ureg.particle,
-        description="beta orbital energies, unit is `hartree/particle`",
+        default=np.array([]) * atom_ureg.hartree,
+        description="beta orbital energies, unit is `hartree`",
     )
     alpha_occupancies: List[bool] = Field(
         default=[],
@@ -290,10 +292,10 @@ class MolecularOrbitals(BaseDataClassWithUnit):
 
     def _set_default_units(self):
         self.alpha_energies = unit_transform(
-            self.alpha_energies, atom_ureg.hartree / atom_ureg.particle
+            self.alpha_energies, atom_ureg.hartree
         )
         self.beta_energies = unit_transform(
-            self.beta_energies, atom_ureg.hartree / atom_ureg.particle
+            self.beta_energies, atom_ureg.hartree 
         )
 
     @computed_field(
@@ -311,7 +313,11 @@ class MolecularOrbitals(BaseDataClassWithUnit):
     )
     @property
     def LUMO_id(self) -> int:
-        return max(0, self.HOMO_id + 1, min(len(self.alpha_occupancies) - 1, sum(self.alpha_occupancies)))
+        return max(
+            0,
+            self.HOMO_id + 1,
+            min(len(self.alpha_occupancies) - 1, sum(self.alpha_occupancies)),
+        )
 
     @computed_field(
         description="SOMO orbital idx",
@@ -468,7 +474,7 @@ class Vibration(BaseDataClassWithUnit):
     )
     IR_intensity: Union[PlainQuantity, None] = Field(
         default=None,
-        description="IR intensity of each mode, unit is `kmol/mol`",
+        description="IR intensity of each mode, unit is `km/mol`",
     )
     vibration_mode: Union[PlainQuantity, None] = Field(
         default=np.array([[]]) * atom_ureg.angstrom,
@@ -482,7 +488,7 @@ class Vibration(BaseDataClassWithUnit):
             self.force_constant, atom_ureg.mdyne / atom_ureg.angstrom
         )
         self.IR_intensity = unit_transform(
-            self.IR_intensity, atom_ureg.kmol / atom_ureg.mol
+            self.IR_intensity, atom_ureg.km / atom_ureg.mol
         )
         self.vibration_mode = unit_transform(self.vibration_mode, atom_ureg.angstrom)
 
@@ -510,8 +516,8 @@ class Vibrations(BaseDataClassWithUnit):
         description="Force constant of each mode, unit is `mdyne/angstrom`",
     )
     IR_intensities: PlainQuantity = Field(
-        default=np.array([]) * atom_ureg.kmol / atom_ureg.mol,
-        description="IR intensity of each mode, unit is `kmol/mol`",
+        default=np.array([]) * atom_ureg.km / atom_ureg.mol,
+        description="IR intensity of each mode, unit is `km/mol`",
     )
     vibration_modes: List[Union[PlainQuantity, None]] = Field(
         default=[],
@@ -525,7 +531,7 @@ class Vibrations(BaseDataClassWithUnit):
             self.force_constants, atom_ureg.mdyne / atom_ureg.angstrom
         )
         self.IR_intensities = unit_transform(
-            self.IR_intensities, atom_ureg.kmol / atom_ureg.mol
+            self.IR_intensities, atom_ureg.km / atom_ureg.mol
         )
         for i, vibration_mode in enumerate(self.vibration_modes):
             if vibration_mode is not None:

@@ -3,19 +3,18 @@ Including functions related to the three-dimensional structure of molecules
 """
 
 from copy import deepcopy
-from typing import Iterable, List, Sequence, Literal
+from typing import Iterable, List, Literal, Sequence, Union
 
 import numpy as np
 import pandas as pd
-from rdkit import Chem
-from rdkit.Chem import AllChem
+from rdkit import Chem, RDLogger
+from rdkit.Chem import AllChem, rdMolTransforms
 from rdkit.Chem.rdDistGeom import EmbedMolecule
-from rdkit.Chem import rdMolTransforms
 from rdkit.Geometry import Point3D
+from rmsd import centroid, kabsch_rmsd, quaternion_rmsd, rmsd
 from scipy.spatial.transform import Rotation as R
 
 from ..utils.types import RdMol
-from rdkit import RDLogger
 
 RDLogger.DisableLog("rdApp.*")
 
@@ -501,3 +500,87 @@ def get_geometry_info(mol: RdMol, atom_idxs: Sequence[int]) -> float:
         )
     else:
         raise ValueError("The length of atom_idxs must be 2, 3, or 4")
+
+
+def calculate_rmsd(
+    mol1: RdMol,
+    mol2: RdMol,
+    *,
+    ignore_H: bool = False,
+    centroid_align: bool = False,
+    rotate_align: Literal["None", "kabsch", "quaternion"] = "none",
+    atom_idxs: Union[Sequence[int], None] = None
+) -> float:
+    """
+    Calculate the RMSD between two molecules.
+    Based on [rmsd](https://github.com/charnley/rmsd) library.
+
+    Parameters:
+        mol1 (RdMol):
+            The first molecule.
+        mol2 (RdMol):
+            The second molecule.
+        ignore_H (bool):
+            Whether to ignore the H atoms.
+        centroid_align (bool):
+            Whether to align the molecules by their centroids.
+        rotate_align (Literal["None", "kabsch", "quaternion"]):
+            Whether to align the molecules by their rotation matrices.
+        atom_idxs (Union[Sequence[int], None]):
+            A sequence of atom indices to calculate the RMSD.
+            If None, all atoms will be used.
+
+    Returns:
+        float: The RMSD between the two molecules.
+    """
+
+    assert rotate_align.lower() in [
+        "none",
+        "kabsch",
+        "quaternion",
+    ], "rotate_align must be one of 'None', 'kabsch', or 'quaternion'"
+    assert (
+        mol1.GetNumConformers() > 0 and mol2.GetNumConformers() > 0
+    ), "Both molecules must have at least one conformer"
+    assert (
+        atom_idxs is None or len(atom_idxs) > 0
+    ), "atom_idxs must be a non-empty sequence if provided"
+    mol_1_coords: np.ndarray = mol1.GetConformer().GetPositions()
+    mol_2_coords: np.ndarray = mol2.GetConformer().GetPositions()
+    if atom_idxs is None:
+        atom_idxs = list(range(mol1.GetNumAtoms()))
+    assert all(0 <= i < mol1.GetNumAtoms() for i in atom_idxs) and all(
+        0 <= i < mol2.GetNumAtoms() for i in atom_idxs
+    ), "atom_idxs must be a sequence of valid atom indices"
+    if ignore_H:
+        mol_1_remained_idx = [
+            i for i in atom_idxs if mol1.GetAtomWithIdx(i).GetAtomicNum() != 1
+        ]
+        mol_2_remained_idx = [
+            i for i in atom_idxs if mol2.GetAtomWithIdx(i).GetAtomicNum() != 1
+        ]
+    else:
+        mol_1_remained_idx = atom_idxs
+        mol_2_remained_idx = atom_idxs
+    assert len(mol_1_remained_idx) == len(
+        mol_2_remained_idx
+    ), "Molecular slices must have the same number of atoms"
+    assert all(
+        mol1.GetAtomWithIdx(atom_idx_1).GetAtomicNum()
+        == mol2.GetAtomWithIdx(atom_idx_2).GetAtomicNum()
+        for atom_idx_1, atom_idx_2 in zip(mol_1_remained_idx, mol_2_remained_idx)
+    ), "Molecular slices must have the same atom types"
+
+    mol_1_coords = mol_1_coords[mol_1_remained_idx]
+    mol_2_coords = mol_2_coords[mol_2_remained_idx]
+
+    if centroid_align:
+        mol_1_coords = mol_1_coords - centroid(mol_1_coords)
+        mol_2_coords = mol_2_coords - centroid(mol_2_coords)
+
+    if rotate_align.lower() == "kabsch":
+        return kabsch_rmsd(mol_1_coords, mol_2_coords)
+    elif rotate_align.lower() == "quaternion":
+        return quaternion_rmsd(mol_1_coords, mol_2_coords)
+    elif rotate_align.lower() == "none":
+        return rmsd(mol_1_coords, mol_2_coords)

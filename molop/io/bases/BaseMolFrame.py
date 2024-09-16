@@ -17,9 +17,10 @@ from pydantic import Field, PrivateAttr, computed_field
 from rdkit import Chem
 from rdkit.Chem import rdDetermineBonds
 
+from molop.descriptor.spms import SPMSCalculator
 from molop.io.bases.DataClasses import BaseDataClassWithUnit
 from molop.logger.logger import moloplogger
-from molop.structure.geometry import get_geometry_info
+from molop.structure.geometry import get_geometry_info, calculate_rmsd
 from molop.structure.structure import (
     bond_list,
     canonical_smiles,
@@ -27,7 +28,6 @@ from molop.structure.structure import (
     get_formal_charges,
     get_formal_num_radicals,
 )
-from molop.descriptor.spms import SPMSCalculator
 from molop.structure.structure_recovery import omol_to_rdmol, xyz_block_to_omol
 from molop.unit import atom_ureg
 from molop.utils.types import RdMol
@@ -56,7 +56,12 @@ class BaseMolFrame(BaseDataClassWithUnit):
     @computed_field
     @property
     def smiles(self) -> str:
-        return self.to_standard_SMILES()
+        return self.to_SMILES()
+
+    @computed_field()
+    @property
+    def canonical_smiles(self) -> str:
+        return self.to_canonical_SMILES()
 
     bonds: List[Tuple[int, int, int]] = Field(
         default=[],
@@ -121,7 +126,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         )
 
     def __get_topology(self):
-        if self.rdmol is None:
+        if self._rdmol is None:
             return
         self.bonds = get_bond_pairs(self.rdmol)
         self.formal_charges = get_formal_charges(self.rdmol)
@@ -257,14 +262,28 @@ class BaseMolFrame(BaseDataClassWithUnit):
             )
         )
 
-    def to_SDF_block(self) -> str:
+    def to_SDF_block(self, engine: Literal["rdkit", "openbabel"] = "rdkit") -> str:
         """
         Get the SDF block.
+
+        Parameters:
+            engine (Literal["rdkit", "openbabel"]):
+                The engine to generate the SDF block. default is "rdkit".
 
         Returns:
             str: The SDF block.
         """
-        return Chem.MolToMolBlock(self.rdmol)
+        if self.rdmol is None:
+            moloplogger.warning(
+                f"{self.file_path}: SDF building failed. No RDKit molecule found."
+            )
+            return ""
+        if engine == "rdkit":
+            return Chem.MolToMolBlock(self.rdmol)
+        elif engine == "openbabel":
+            return self.omol.write("sdf")
+        else:
+            raise ValueError(f"Unsupported engine: {engine}")
 
     def to_CML_block(self) -> str:
         """
@@ -273,6 +292,11 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Returns:
             str: The CML block.
         """
+        if self.rdmol is None:
+            moloplogger.warning(
+                f"{self.file_path}: CML building failed. No RDKit molecule found."
+            )
+            return ""
         return Chem.MolToMrvBlock(self.rdmol)
 
     def to_SMILES(self) -> str:
@@ -286,7 +310,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
             return ""
         return Chem.MolToSmiles(self.rdmol)
 
-    def to_standard_SMILES(self) -> str:
+    def to_canonical_SMILES(self) -> str:
         """
         Get the SMILES with standardization.
 
@@ -457,3 +481,44 @@ class BaseMolFrame(BaseDataClassWithUnit):
         if one_start:
             atom_idxs = [atom_idx - 1 for atom_idx in atom_idxs]
         return get_geometry_info(self.rdmol, atom_idxs)
+
+    def compare_rmsd(
+        self,
+        other: "BaseMolFrame",
+        *,
+        ignore_H: bool = False,
+        centroid_align: bool = False,
+        rotate_align: Literal["None", "kabsch", "quaternion"] = "none",
+        atom_idxs: Union[Sequence[int], None] = None,
+    ) -> float:
+        """
+        Calculate the RMSD between two molecules.
+        Based on [rmsd](https://github.com/charnley/rmsd) library.
+
+        Parameters:
+            other (BaseMolFrame):
+                The other molecule to compare.
+            ignore_H (bool):
+                Whether to ignore the H atoms.
+            centroid_align (bool):
+                Whether to align the molecules by their centroids.
+            rotate_align (Literal["None", "kabsch", "quaternion"]):
+                Whether to align the molecules by their rotation matrices.
+            atom_idxs (Union[Sequence[int], None]):
+                A sequence of atom indices to calculate the RMSD.
+                If None, all atoms will be used.
+
+        Returns:
+            float: The RMSD value.
+        """
+        assert isinstance(
+            other, BaseMolFrame
+        ), "The other object is not a BaseMolFrame object."
+        return calculate_rmsd(
+            self.rdmol,
+            other.rdmol,
+            ignore_H=ignore_H,
+            centroid_align=centroid_align,
+            rotate_align=rotate_align,
+            atom_idxs=atom_idxs,
+        )

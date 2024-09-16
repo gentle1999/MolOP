@@ -27,10 +27,7 @@ from molop.utils.types import RdMol
 
 
 class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
-    file_path: str = Field(
-        default="",
-        description="File path",
-    )
+    file_path: str = Field(default="", description="File path")
 
     charge: int = Field(default=0, description="charge")
     multiplicity: int = Field(default=1, description="multiplicity")
@@ -264,6 +261,9 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
             str: The absolute path of the SDF file.
         """
         _file_path = self._check_path(file_path, ".sdf")
+        sdf_block = self.to_SDF_block()
+        if sdf_block == "":
+            return ""
         with open(_file_path, "w") as f:
             f.write(self.to_SDF_block())
         f.close()
@@ -522,7 +522,9 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         """
         return self.__frames[frameID].standard_orient(anchor_list)
 
-    def to_summary_df(self, full: bool = False, with_units: bool = True) -> pd.DataFrame:
+    def to_summary_df(
+        self, full: bool = False, with_units: bool = True
+    ) -> pd.DataFrame:
         """
         Get the summary information of the parser.
 
@@ -536,7 +538,8 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         """
         self.recover_structures()
         return pd.concat(
-            [frame.to_summary_series(full, with_units) for frame in self.__frames], axis=1
+            [frame.to_summary_series(full, with_units) for frame in self.__frames],
+            axis=1,
         ).T
 
     def recover_structures(self) -> List[str]:

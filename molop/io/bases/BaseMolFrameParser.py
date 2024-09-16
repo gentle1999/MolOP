@@ -8,7 +8,7 @@ Description: 请填写简介
 
 import os
 import re
-from typing import List, Sequence, Tuple, TypeVar, Union
+from typing import List, Sequence, Tuple, TypeVar, Union, Literal
 
 import numpy as np
 import pandas as pd
@@ -155,17 +155,22 @@ class BaseMolFrameParser(BaseMolFrame):
         f.close()
         return os.path.abspath(_file_path)
 
-    def to_SDF_file(self, file_path: str = None) -> str:
+    def to_SDF_file(self, file_path: str = None, engine: Literal["rdkit", "openbabel"] = "rdkit") -> str:
         """
         Write the SDF file.
 
         Parameters:
             file_path (str):
                 The file path. If not specified, will be generated in situ.
+            engine (Literal["rdkit", "openbabel"]):
+                The engine to generate the SDF block. default is "rdkit".
         Returns:
             str: The absolute path of the SDF file.
         """
         _file_path = self._check_path(file_path, ".sdf")
+        sdf_block = self.to_SDF_block(engine=engine)
+        if sdf_block is None:
+            return ""
         with open(_file_path, "w") as f:
             f.write(self.to_SDF_block())
         f.close()
@@ -331,6 +336,8 @@ class BaseMolFrameParser(BaseMolFrame):
             str: The path to the ChemDraw file.
         """
         _file_path = self._check_path(file_path, ".cdxml")
+        if self.rdmol is None:
+            return ""
         if not keep3D:
             temp_rdmol = Chem.RWMol(self.rdmol)
             temp_rdmol.RemoveAllConformers()
@@ -595,7 +602,8 @@ class BaseMolFrameParser(BaseMolFrame):
                 "frame_index": self.frame_id,
                 "charge": self.charge,
                 "multiplicity": self.multiplicity,
-                "SMILES": self.to_standard_SMILES(),
+                "SMILES": self.to_SMILES(),
+                "Canonical SMILES": self.to_canonical_SMILES(),
             }
         )
 
@@ -815,7 +823,8 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
                 "frame_index": self.frame_id,
                 "charge": self.charge,
                 "multiplicity": self.multiplicity,
-                "SMILES": self.to_standard_SMILES(),
+                "SMILES": self.to_SMILES(),
+                "Canonical SMILES": self.to_canonical_SMILES(),
                 "keywords": self.keywords,
                 "method": self.method,
                 "functional": self.functional,

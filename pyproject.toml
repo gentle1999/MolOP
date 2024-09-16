@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "molop"
-version = "0.1.32.3"
+version = "0.1.32.4"
 description = "Molcule OPerator"
 authors = ["tmj <mj_t@zju.edu.cn>"]
 license = "MIT"
@@ -32,6 +32,7 @@ mordred = { version = "^1.2", optional = true }
 dscribe = { version = "^2.1", optional = true }
 ase = { version = "^3.22", optional = true }
 
+rmsd = "^1.5.1"
 [tool.poetry.group.dev]
 optional = true
 

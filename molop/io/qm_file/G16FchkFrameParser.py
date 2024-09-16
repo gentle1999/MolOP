@@ -192,12 +192,8 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
             beta_occ = alpha_occ
         if len(alpha_orbitals_energy):
             self.molecular_orbitals = MolecularOrbitals(
-                alpha_energies=np.array(alpha_orbitals_energy)
-                * atom_ureg.hartree
-                / atom_ureg.particle,
-                beta_energies=np.array(beta_orbitals_energy)
-                * atom_ureg.hartree
-                / atom_ureg.particle,
+                alpha_energies=np.array(alpha_orbitals_energy) * atom_ureg.hartree,
+                beta_energies=np.array(beta_orbitals_energy) * atom_ureg.hartree,
                 alpha_occupancies=alpha_occ,
                 beta_occupancies=beta_occ,
             )
@@ -247,7 +243,7 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
                 IR_intensities=np.array(
                     [freqs[idx + num_freqs * 3] for idx in range(num_freqs)]
                 )
-                * atom_ureg.kmol
+                * atom_ureg.km
                 / atom_ureg.mol,
                 vibration_mode=[
                     np.array(

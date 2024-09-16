@@ -9,15 +9,15 @@ Description: 请填写简介
 import os
 from collections import OrderedDict
 from collections.abc import MutableMapping
-from typing import Dict, List, Union
+from typing import Dict, List, Union, overload
 
 import pandas as pd
 from joblib import Parallel, cpu_count, delayed
 from tqdm import tqdm
 
 from molop.config import molopconfig
-from molop.io.bases.BaseMolFrameParser import MolFrameType
 from molop.io.bases.BaseMolFileParser import BaseMolFileParser
+from molop.io.bases.BaseMolFrameParser import MolFrameType
 from molop.io.coords_file.GJFFileParser import GJFFileParser
 from molop.io.coords_file.SDFFileParser import SDFFileParser
 from molop.io.coords_file.XYZFileParser import XYZFileParser
@@ -147,6 +147,15 @@ class FileParserBatch(MutableMapping):
         else:
             return key in self.__parsers.values()
 
+    @overload
+    def __getitem__(self, key: int) -> PARSERTYPES: ...
+
+    @overload
+    def __getitem__(self, key: slice) -> "FileParserBatch": ...
+
+    @overload
+    def __getitem__(self, key: str) -> PARSERTYPES: ...
+
     def __getitem__(self, key: Union[int, str, slice]) -> PARSERTYPES:
         if isinstance(key, int):
             return list(self.__parsers.values())[key]
@@ -157,9 +166,13 @@ class FileParserBatch(MutableMapping):
             return self.__parsers[key]
 
     def __setitem__(self, key: str, value: PARSERTYPES):
+        if not isinstance(key, str):
+            raise TypeError(f"key should be a string, got {type(key)}")
         self.__parsers[key] = value
 
     def __delitem__(self, key: str):
+        if not isinstance(key, str):
+            raise TypeError(f"key should be a string, got {type(key)}")
         del self.__parsers[key]
 
     def __len__(self) -> int:
@@ -636,25 +649,42 @@ class FileParserBatch(MutableMapping):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({len(self)})"
 
-    def to_summary_df(self, full: bool = False, with_units: bool = True) -> pd.DataFrame:
+    def to_summary_df(
+        self, full: bool = False, with_units: bool = True, *, frameID=-1
+    ) -> pd.DataFrame:
         return pd.concat(
-            [parser[-1].to_summary_series(full, with_units) for parser in self], axis=1
+            [parser[frameID].to_summary_series(full, with_units) for parser in self],
+            axis=1,
         ).T
 
-    def to_summary_csv(self, file_path: str = None, full: bool = False, with_units: bool = True):
+    def to_summary_csv(
+        self,
+        file_path: str = None,
+        full: bool = False,
+        with_units: bool = True,
+        *,
+        frameID=-1,
+    ):
         if not file_path:
             file_path = os.path.join(os.path.curdir, "summary.csv")
         if os.path.isdir(file_path):
             file_path = os.path.join(file_path, "summary.csv")
-        self.to_summary_df(full, with_units).to_csv(file_path)
+        self.to_summary_df(full, with_units, frameID=frameID).to_csv(file_path)
         moloplogger.info(f"summary csv saved to {os.path.abspath(file_path)}")
 
-    def to_summary_excel(self, file_path: str = None, full: bool = False, with_units: bool = True):
+    def to_summary_excel(
+        self,
+        file_path: str = None,
+        full: bool = False,
+        with_units: bool = True,
+        *,
+        frameID=-1,
+    ):
         if not file_path:
             file_path = os.path.join(os.path.curdir, "summary.xlsx")
         if os.path.isdir(file_path):
             file_path = os.path.join(file_path, "summary.xlsx")
-        self.to_summary_df(full, with_units).to_excel(file_path)
+        self.to_summary_df(full, with_units, frameID=frameID).to_excel(file_path)
         moloplogger.info(f"summary xlsx saved to {os.path.abspath(file_path)}")
 
     def geometry_analysis(
