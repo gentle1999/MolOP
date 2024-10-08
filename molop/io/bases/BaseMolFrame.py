@@ -28,7 +28,7 @@ from molop.structure.structure import (
     get_formal_charges,
     get_formal_num_radicals,
 )
-from molop.structure.structure_recovery import omol_to_rdmol, xyz_block_to_omol
+from molop.structure.structure_recovery_alter import xyz2rdmol, rdmol_to_omol
 from molop.unit import atom_ureg
 from molop.utils.types import RdMol
 
@@ -140,34 +140,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Returns:
             pybel.Molecule: The openbabel molecule object.
         """
-        if len(self.bonds):
-            omol = pybel.readstring("xyz", self.to_XYZ_block())
-            kekulized_rdmol = Chem.RWMol(self.rdmol)
-            Chem.KekulizeIfPossible(kekulized_rdmol, clearAromaticFlags=True)
-            for bond in ob.OBMolBondIter(omol.OBMol):
-                omol.OBMol.DeleteBond(bond)
-            for bond in kekulized_rdmol.GetBonds():
-                bond_order = bond_list.index(bond.GetBondType())
-                if bond_order > 3:
-                    bond_order = 1
-                omol.OBMol.AddBond(
-                    bond.GetBeginAtomIdx() + 1, bond.GetEndAtomIdx() + 1, bond_order
-                )
-                omol.OBMol.GetBond(
-                    omol.OBMol.GetAtomById(bond.GetBeginAtomIdx()),
-                    omol.OBMol.GetAtomById(bond.GetEndAtomIdx()),
-                ).SetBondOrder(bond_order)
-            for atom, charge, radical in zip(
-                omol.atoms, self.formal_charges, self.formal_num_radicals
-            ):
-                atom.OBAtom.SetFormalCharge(charge)
-            return omol
-        try:
-            return xyz_block_to_omol(
-                self.to_XYZ_block(), self.charge, int(self.multiplicity) - 1
-            )
-        except Exception as e:
-            raise RuntimeError(f"{self.file_path}: {e}")
+        return rdmol_to_omol(self.rdmol)
 
     @property
     def rdmol(self) -> Chem.rdchem.Mol:
@@ -197,16 +170,8 @@ class BaseMolFrame(BaseDataClassWithUnit):
                     )
                     # If failed, use MolOP implementation
                     try:
-                        omol = self.omol
-                    except Exception as e:
-                        moloplogger.error(
-                            f"{self.file_path}: MolOP structure recovery failed. {e}"
-                        )
-                        return None
-
-                    try:
-                        self._rdmol = omol_to_rdmol(
-                            omol, self.charge, self.multiplicity - 1
+                        self._rdmol = xyz2rdmol(
+                            self.to_XYZ_block(), self.charge, self.multiplicity - 1
                         )
                     except Exception as e:
                         moloplogger.error(
@@ -487,8 +452,8 @@ class BaseMolFrame(BaseDataClassWithUnit):
         other: "BaseMolFrame",
         *,
         ignore_H: bool = False,
-        centroid_align: bool = False,
-        rotate_align: Literal["None", "kabsch", "quaternion"] = "none",
+        centroid_align: bool = True,
+        rotate_align: Literal["None", "kabsch", "quaternion"] = "kabsch",
         atom_idxs: Union[Sequence[int], None] = None,
     ) -> float:
         """
