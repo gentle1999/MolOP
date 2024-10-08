@@ -1,3 +1,10 @@
+'''
+Author: TMJ
+Date: 2024-02-17 15:17:37
+LastEditors: TMJ
+LastEditTime: 2024-10-08 12:41:09
+Description: 请填写简介
+'''
 """
 This module contains functions for recovering the structure of the molecule.
 
@@ -1535,7 +1542,7 @@ def fix_under_bonded_with_negative(omol: pybel.Molecule, charge_to_be_allocated:
                 atom.OBAtom.SetFormalCharge(under_valence)
                 charge_to_be_allocated -= abs(under_valence)
 
-            # Step 2.3.2: Try to find the heteroatom with negative charge first.
+    # Step 2.3.2: Try to find the heteroatom with negative charge first.
     smarts = pybel.Smarts("[#6v3+0]")
     while charge_to_be_allocated > 0 and (res := smarts.findall(omol)):
         idxs = res.pop(0)

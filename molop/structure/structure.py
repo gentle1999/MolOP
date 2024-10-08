@@ -3,15 +3,17 @@ Including functions related to the structure of molecules
 """
 
 import itertools
-from typing import List, Tuple, Union, Sequence
+from typing import List, Sequence, Tuple, Union
 
 import numpy as np
+from openbabel import openbabel as ob
+from openbabel import pybel
 from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem, rdMolTransforms, SanitizeMol
+from rdkit.Chem import AllChem, SanitizeMol, rdMolTransforms
 from rdkit.Chem.rdDistGeom import EmbedMolecule
 
-from molop.structure import geometry
 from molop.logger.logger import moloplogger
+from molop.structure import geometry
 from molop.utils.types import RdMol
 
 DEBUG_TAG = "[STRUCTURE]"
@@ -248,11 +250,50 @@ def get_sub_mol(origin_mol: RdMol, scale: List[int]) -> RdMol:
     raise ValueError("Sub-molecule is not valid.")
 
 
-def get_under_bonded_number(atom: Chem.Atom) -> int:
+def get_under_bonded_number(atom: ob.OBAtom) -> int:
     """
-    Get the number of under-bonded electrons of atom.
+    Get the number of atoms under the given atom.
+    Suppose the atom is not a metal and follows the Octet rate (Suitable for most small organic molecules)
+
+    Parameters:
+        atom (ob.OBAtom): The atom to be checked.
+    Returns:
+        int: The number of atoms under the given atom.
     """
-    return atom.GetNumRadicalElectrons()
+    if atom.IsMetal():
+        return 0
+    if atom.GetAtomicNum() <= 2:
+        return (
+            2
+            - pt.GetNOuterElecs(atom.GetAtomicNum())
+            - atom.GetTotalValence()
+            + atom.GetFormalCharge()
+        )
+    if atom.GetAtomicNum() == 5 and atom.GetTotalValence() < 4:
+        return (
+            6
+            - -pt.GetNOuterElecs(atom.GetAtomicNum())
+            - atom.GetTotalValence()
+            + atom.GetFormalCharge()
+        )
+    return (
+        8
+        - pt.GetNOuterElecs(atom.GetAtomicNum())
+        - atom.GetTotalValence()
+        + atom.GetFormalCharge()
+    )
+
+
+def get_radical_number(atom: ob.OBAtom) -> int:
+    if atom.IsMetal():
+        return 0
+    under_bonded_number = get_under_bonded_number(atom)
+    if under_bonded_number <= 0:
+        return 0
+    if atom.GetFormalCharge() > 0:
+        return under_bonded_number - atom.GetFormalCharge() * 2
+    else:
+        return under_bonded_number
 
 
 def transform_replacement_index(
@@ -278,10 +319,10 @@ def transform_replacement_index(
     Returns:
         RdMol: The transformed molecule.
     """
-    if get_under_bonded_number(mol.GetAtomWithIdx(0)) == 1:
+    if mol.GetAtomWithIdx(0).GetNumRadicalElectrons() == 1:
         return mol
     radical_idxs = [
-        atom.GetIdx() for atom in mol.GetAtoms() if get_under_bonded_number(atom) == 1
+        atom.GetIdx() for atom in mol.GetAtoms() if atom.GetNumRadicalElectrons() == 1
     ]
     if absolute_idx is None:
         absolute_idx = radical_idxs[relative_idx]
@@ -760,3 +801,43 @@ def reset_atom_index(mol: Chem.rdchem.Mol, mapping: Sequence[int]) -> Chem.rdche
         idx for idx, atom in enumerate(mol.GetAtoms()) if idx not in mapping
     ]
     return Chem.RenumberAtoms(mol, new_idx)
+
+
+def omol_to_rdmol_by_graph(omol: pybel.Molecule) -> Chem.rdchem.Mol:
+    """
+    Convert a pybel molecule to a rdkit molecule by graph.
+    Parameters:
+        omol (pybel.Molecule): The pybel molecule to be converted.
+    Returns:
+        Chem.rdchem.Mol: The rdkit molecule.
+    """
+    bonds = [
+        (bond.GetBeginAtomIdx() - 1, bond.GetEndAtomIdx() - 1, bond.GetBondOrder())
+        for bond in ob.OBMolBondIter(omol.OBMol)
+    ]
+    formal_charges = [atom.GetFormalCharge() for atom in ob.OBMolAtomIter(omol.OBMol)]
+    formal_radicals = [
+        get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol)
+    ]
+    rwmol = Chem.RWMol(Chem.MolFromXYZBlock(omol.write("xyz")))
+    for bond in bonds:
+        rwmol.AddBond(bond[0], bond[1], bond_list[bond[2]])
+    for atom, charge, radical in zip(rwmol.GetAtoms(), formal_charges, formal_radicals):
+        atom.SetNoImplicit(True)
+        atom.SetFormalCharge(charge)
+        atom.SetNumRadicalElectrons(radical)
+    rdmol = Chem.MolFromMolBlock(Chem.MolToMolBlock(rwmol), removeHs=False)
+    if rdmol is None:
+        return None
+    return rdmol
+
+
+def rdmol_to_omol(rdmol: Chem.rdchem.Mol) -> pybel.Molecule:
+    """
+    Convert a rdkit molecule to a pybel molecule.
+    Parameters:
+        rdmol (Chem.rdchem.Mol): The rdkit molecule to be converted.
+    Returns:
+        pybel.Molecule: The pybel molecule.
+    """
+    return pybel.readstring("sdf", Chem.MolToMolBlock(rdmol, forceV3000=True))

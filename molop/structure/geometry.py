@@ -507,8 +507,8 @@ def calculate_rmsd(
     mol2: RdMol,
     *,
     ignore_H: bool = False,
-    centroid_align: bool = False,
-    rotate_align: Literal["None", "kabsch", "quaternion"] = "none",
+    centroid_align: bool = True,
+    rotate_align: Literal["None", "kabsch", "quaternion"] = "kabsch",
     atom_idxs: Union[Sequence[int], None] = None
 ) -> float:
     """
