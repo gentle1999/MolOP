@@ -144,6 +144,14 @@ def pre_clean(omol: pybel.Molecule) -> pybel.Molecule:
         omol.OBMol.DeleteBond(omol.OBMol.GetBond(amine_n, butyl_c))
         moloplogger.debug(f"{DEBUG_TAG} | Fix N-BCP: {amine_n} - {butyl_c}")
 
+    smarts = pybel.Smarts("[Siv5]-[O,F]")
+    while res := smarts.findall(omol):
+        idxs = res.pop(0)
+        omol.OBMol.DeleteBond(omol.OBMol.GetBond(idxs[0], idxs[1]))
+        moloplogger.debug(
+            f"{DEBUG_TAG} | Remove Over bonding Si: {idxs[0]} - {idxs[1]}"
+        )
+
     return omol
 
 
@@ -246,17 +254,29 @@ def structure_score(rwmol: Chem.rdchem.RWMol) -> float:
     total_valence = sum(atom.GetTotalValence() for atom in rwmol.GetAtoms())
     # the less formal charge the better
     total_formal_charge = sum(abs(atom.GetFormalCharge()) for atom in rwmol.GetAtoms())
+    total_num_radical = sum(atom.GetNumRadicalElectrons() for atom in rwmol.GetAtoms())
+    num_fragments = len(Chem.GetMolFrags(rwmol))
     metal_atoms = [atom for atom in rwmol.GetAtoms() if is_metal(atom.GetAtomicNum())]
     metal_score = 0
     for atom in metal_atoms:
         if atom.GetFormalCharge() in metal_valence_avialable_prior[atom.GetSymbol()]:
-            metal_score += 5 / (
-                metal_valence_avialable_prior[atom.GetSymbol()].index(
-                    atom.GetFormalCharge()
-                )
-                + 1
-            )
-    return total_valence + 10 / (total_formal_charge + 1) + metal_score
+            metal_score += 50
+        if atom.GetFormalCharge() < 0:
+            metal_score += atom.GetFormalCharge() * 100
+
+    score = (
+        10 * total_valence
+        + 10 / (total_formal_charge + 1)
+        + 20 / (total_num_radical + 1)
+        + 50 / (num_fragments + 1)
+        + metal_score
+    )
+    """moloplogger.info(
+        f"{Chem.CanonSmiles(Chem.MolToSmiles(rwmol))} score: {score}, "
+        f"total valence: {total_valence}, total formal charge: {total_formal_charge},"
+        f"total radical: {total_num_radical}, num fragments: {num_fragments}, metal score: {metal_score}"
+    )"""
+    return score
 
 
 def clean_carbine_neighbor_unsaturated(omol: pybel.Molecule) -> pybel.Molecule:
@@ -413,7 +433,7 @@ def break_one_bond(
     """
     # Check if there are any unsatisfied valence states and if there is an allowed charge
     # or given radical
-    smarts = pybel.Smarts("[*]#,=[*]")
+    smarts = pybel.Smarts("[*+0]#,=[*+0]")
     # Loop to find suitable bonds
     while res := smarts.findall(omol):
         if (
@@ -530,13 +550,14 @@ def get_one_step_resonance(omol: pybel.Molecule) -> List[pybel.Molecule]:
     result = []
     for idxs in res:
         if get_radical_number(omol.OBMol.GetAtom(idxs[0])) >= 1:
-            new_omol = pybel.Molecule(omol)
-            new_omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
-                new_omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1
-            )
+            new_omol = rdmol_to_omol(omol_to_rdmol_by_graph(omol))
             new_omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(
                 new_omol.OBMol.GetBond(idxs[1], idxs[2]).GetBondOrder() - 1
             )
+            new_omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
+                new_omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1
+            )
+
             result.append(new_omol)
     return result
 
@@ -709,7 +730,7 @@ def clean_resonances_1(omol: pybel.Molecule) -> pybel.Molecule:
             omol.OBMol.GetBond(idxs[1], idxs[2]).GetBondOrder() - 1
         )
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
-            omol.OBMol.GetBond(idxs[1], idxs[2]).GetBondOrder() + 1
+            omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1
         )
         omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(
             omol.OBMol.GetAtom(idxs[0]).GetFormalCharge() + 1
@@ -1010,10 +1031,6 @@ def clean_resonances(omol: pybel.Molecule) -> pybel.Molecule:
     return omol
 
 
-def clean_unconnected_fragments(omol: pybel.Molecule) -> pybel.Molecule:
-    return omol
-
-
 def xyz2omol(
     xyz_block: str, total_charge: int = 0, total_radical_electrons: int = 0
 ) -> Union[pybel.Molecule, None]:
@@ -1021,7 +1038,13 @@ def xyz2omol(
         f"{DEBUG_TAG} | Structure recovery started"
         f" with total charge {total_charge} and total radical {total_radical_electrons}"
     )
+    if total_radical_electrons < 0:
+        moloplogger.debug(
+            f"{DEBUG_TAG} | Cannot recover the structure with negative radical"
+        )
+        return None
     omol = pybel.readstring("xyz", xyz_block)
+    moloplogger.debug(f"{DEBUG_TAG} | Input smiles: {omol.write('smi')}")
     for atom in omol.atoms:
         atom.OBAtom.SetFormalCharge(0)
     omol = make_connections(omol)
@@ -1038,7 +1061,6 @@ def xyz2omol(
 
     omol, given_charge = eliminate_NNN(omol, given_charge)
     omol, given_charge = eliminate_high_positive_charge_atoms(omol, given_charge)
-    omol = clean_unconnected_fragments(omol)
     omol, given_charge = eliminate_CN_in_doubt(omol, given_charge)
     omol, given_charge = eliminate_carboxyl(omol, given_charge)
     omol = clean_carbine_neighbor_unsaturated(omol)
@@ -1046,12 +1068,11 @@ def xyz2omol(
     omol = clean_neighbor_radicals(omol)
     omol = clean_carbine_neighbor_unsaturated(omol)
     omol, given_charge = eliminate_charge_spliting(omol, given_charge)
+    omol = break_one_bond(omol, given_charge, total_radical_electrons)
 
     moloplogger.debug(
         f"{DEBUG_TAG} | Given charge: {given_charge}, total charge: {total_charge}, smiles: {omol.write('smi')}"
     )
-    omol = break_one_bond(omol, given_charge, total_radical_electrons)
-
     possible_resonances = get_radical_resonances(omol)
     moloplogger.debug(
         f"{DEBUG_TAG} | Possible resonance structures number: {len(possible_resonances)}"
@@ -1171,7 +1192,7 @@ def xyz2rwmol(
         if possible_rwmols:
             possible_rwmols = sorted(possible_rwmols, key=structure_score, reverse=True)
             smiles_list = "\n".join(
-                Chem.MolToSmiles(rwmol) for rwmol in possible_rwmols
+                Chem.CanonSmiles(Chem.MolToSmiles(rwmol)) for rwmol in possible_rwmols
             )
             moloplogger.debug(
                 f"{DEBUG_TAG} | Possible resonance structures: \n{smiles_list}"
@@ -1212,7 +1233,7 @@ def xyz2rwmol(
         if possible_rwmols:
             possible_rwmols = sorted(possible_rwmols, key=structure_score, reverse=True)
             smiles_list = "\n".join(
-                Chem.MolToSmiles(rwmol) for rwmol in possible_rwmols
+                Chem.CanonSmiles(Chem.MolToSmiles(rwmol)) for rwmol in possible_rwmols
             )
             moloplogger.debug(
                 f"{DEBUG_TAG} | Possible resonance structures: \n{smiles_list}"
@@ -1230,9 +1251,7 @@ def xyz2rwmol(
     return None
 
 
-def make_dative_bonds(
-    rwmol: Chem.rdchem.RWMol, ratio=1.3, shuffle_times=5
-) -> Chem.rdchem.RWMol:
+def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
     """
     Make dative bonds between the metal atoms and the non-metal atoms.
     Parameters:
@@ -1323,7 +1342,7 @@ def make_dative_bonds(
         remained_negative_atoms = [
             atom.GetIdx()
             for atom in temp_rwmol.GetAtoms()
-            if atom.GetFormalCharge() < 0
+            if atom.GetFormalCharge() < 0 and not is_metal(atom.GetAtomicNum())
         ]
         for remained_negative_atom in remained_negative_atoms:
             metal_atoms = [
