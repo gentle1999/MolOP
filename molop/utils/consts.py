@@ -129,26 +129,23 @@ cutoff_epsilon_sigma_dict = {
 d_electrons_spin = [
     [0],
     [1],
-    [2],
-    [3],
-    [4, 2],
-    [5, 1],
-    [4, 0],
+    [2, 0],
     [3, 1],
-    [2],
+    [4, 2, 0],
+    [5, 3, 1],
+    [4, 2, 0],
+    [3, 1],
+    [2, 0],
     [1],
     [0],
 ]
 
 metal_f_d_s_p_electrons = {
-    "He": [0, 0, 0, 0],
     "Li": [0, 0, 1, 0],
     "Be": [0, 0, 2, 0],
-    "Ne": [0, 0, 2, 0],
     "Na": [0, 0, 1, 0],
     "Mg": [0, 0, 2, 0],
     "Al": [0, 0, 2, 1],
-    "Ar": [0, 0, 0, 0],
     "K": [0, 0, 1, 0],
     "Ca": [0, 0, 2, 0],
     "Sc": [0, 1, 2, 0],
@@ -163,7 +160,6 @@ metal_f_d_s_p_electrons = {
     "Zn": [0, 10, 2, 0],
     "Ga": [0, 10, 2, 1],
     "Ge": [0, 10, 2, 2],
-    "Kr": [0, 0, 0, 0],
     "Rb": [0, 0, 1, 0],
     "Sr": [0, 0, 2, 0],
     "Y": [0, 1, 2, 0],
@@ -179,7 +175,6 @@ metal_f_d_s_p_electrons = {
     "In": [0, 10, 2, 1],
     "Sn": [0, 10, 2, 2],
     "Sb": [0, 10, 2, 3],
-    "Xe": [0, 0, 0, 0],
     "Cs": [0, 0, 1, 0],
     "Ba": [0, 0, 2, 0],
     "La": [0, 1, 2, 0],
@@ -347,8 +342,11 @@ metal_valence_avialable_minor = {
 
 
 def get_possible_metal_radicals(metal: str, valence: int):
-    idx = metal_f_d_s_p_electrons_keys.index(metal)
-    similar_metal = metal_f_d_s_p_electrons_keys[idx - valence]
-    f, d, s, p = metal_f_d_s_p_electrons[similar_metal]
-
-    return [f % 2 + s % 2 + p % 2 + dd for dd in d_electrons_spin[d]] + [0]
+    f, d, s, p = metal_f_d_s_p_electrons[metal]
+    if valence <= s + p:
+        return set([(f + s + p - valence) % 2 + dd for dd in d_electrons_spin[d]] + [0])
+    if valence <= s + p + d:
+        return set([f % 2 + dd for dd in d_electrons_spin[d - valence + s + p]] + [0])
+    if valence <= s + p + d + f:
+        return set([f % 2] + [0])
+    raise ValueError("Valence is too high for this metal")
