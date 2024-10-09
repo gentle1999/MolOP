@@ -414,23 +414,6 @@ def eliminate_NNN(
         atom3.SetFormalCharge(atom3.GetFormalCharge() - 1)
         given_charge += 1
         moloplogger.debug(f"{DEBUG_TAG} | Fix NNN-: {idxs[0]}, {idxs[1]}, {idxs[2]}")
-    smarts = pybel.Smarts("[#7v1+0]-[#7v2+0]-[#7v1+0]")
-    while res := smarts.findall(omol):
-        idxs = res.pop(0)
-        atom1 = omol.OBMol.GetAtom(idxs[0])
-        atom2 = omol.OBMol.GetAtom(idxs[1])
-        atom3 = omol.OBMol.GetAtom(idxs[2])
-        omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
-            int(omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1)
-        )
-        omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(
-            int(omol.OBMol.GetBond(idxs[1], idxs[2]).GetBondOrder() + 1)
-        )
-        atom1.SetFormalCharge(atom1.GetFormalCharge() - 1)
-        atom2.SetFormalCharge(atom2.GetFormalCharge() + 1)
-        atom3.SetFormalCharge(atom3.GetFormalCharge() - 1)
-        given_charge += 1
-        moloplogger.debug(f"{DEBUG_TAG} | Fix NNN-: {idxs[0]}, {idxs[1]}, {idxs[2]}")
     return omol, given_charge
 
 
@@ -450,7 +433,7 @@ def break_one_bond(
     """
     # Check if there are any unsatisfied valence states and if there is an allowed charge
     # or given radical
-    smarts = pybel.Smarts("[*v0]#,=[*v0]")
+    smarts = pybel.Smarts("[*+0]#,=[*+0]")
     # Loop to find suitable bonds
     while res := smarts.findall(omol):
         if (
