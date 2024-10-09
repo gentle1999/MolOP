@@ -550,13 +550,14 @@ def get_one_step_resonance(omol: pybel.Molecule) -> List[pybel.Molecule]:
     result = []
     for idxs in res:
         if get_radical_number(omol.OBMol.GetAtom(idxs[0])) >= 1:
-            new_omol = pybel.Molecule(omol)
-            new_omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
-                new_omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1
-            )
+            new_omol = rdmol_to_omol(omol_to_rdmol_by_graph(omol))
             new_omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(
                 new_omol.OBMol.GetBond(idxs[1], idxs[2]).GetBondOrder() - 1
             )
+            new_omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
+                new_omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1
+            )
+
             result.append(new_omol)
     return result
 
@@ -1030,10 +1031,6 @@ def clean_resonances(omol: pybel.Molecule) -> pybel.Molecule:
     return omol
 
 
-def clean_unconnected_fragments(omol: pybel.Molecule) -> pybel.Molecule:
-    return omol
-
-
 def xyz2omol(
     xyz_block: str, total_charge: int = 0, total_radical_electrons: int = 0
 ) -> Union[pybel.Molecule, None]:
@@ -1064,7 +1061,6 @@ def xyz2omol(
 
     omol, given_charge = eliminate_NNN(omol, given_charge)
     omol, given_charge = eliminate_high_positive_charge_atoms(omol, given_charge)
-    omol = clean_unconnected_fragments(omol)
     omol, given_charge = eliminate_CN_in_doubt(omol, given_charge)
     omol, given_charge = eliminate_carboxyl(omol, given_charge)
     omol = clean_carbine_neighbor_unsaturated(omol)
@@ -1072,12 +1068,11 @@ def xyz2omol(
     omol = clean_neighbor_radicals(omol)
     omol = clean_carbine_neighbor_unsaturated(omol)
     omol, given_charge = eliminate_charge_spliting(omol, given_charge)
+    omol = break_one_bond(omol, given_charge, total_radical_electrons)
 
     moloplogger.debug(
         f"{DEBUG_TAG} | Given charge: {given_charge}, total charge: {total_charge}, smiles: {omol.write('smi')}"
     )
-    omol = break_one_bond(omol, given_charge, total_radical_electrons)
-
     possible_resonances = get_radical_resonances(omol)
     moloplogger.debug(
         f"{DEBUG_TAG} | Possible resonance structures number: {len(possible_resonances)}"
