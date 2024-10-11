@@ -78,6 +78,7 @@ nav:
       - Read a file and extract info: read_file_and_extract_info.md
       - Transform in gjf: transform_in_gjf.md
       - Command line interface: command_line_interface.md
+      - Tutorial for replacemnt: tutorial_for_replacement.md
   - API: 
     - io:
       - bases:

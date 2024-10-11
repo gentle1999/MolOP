@@ -14,6 +14,7 @@ from rdkit.Chem.rdDistGeom import EmbedMolecule
 
 from molop.logger.logger import moloplogger
 from molop.structure import geometry
+from molop.utils.functions import is_metal
 from molop.utils.types import RdMol
 
 DEBUG_TAG = "[STRUCTURE]"
@@ -553,8 +554,8 @@ def replace_mol(
     atom_idxs = list(range(rmol.GetNumAtoms()))
     mapping = (
         atom_idxs[replacement.GetNumAtoms() :] + atom_idxs[: replacement.GetNumAtoms()]
-    )
-    return reset_atom_index(rmol, mapping)
+    ) 
+    return make_dative_bonds(reset_atom_index(rmol, mapping))
 
 
 def check_crowding(mol: RdMol, threshold=0.6) -> bool:
@@ -841,3 +842,148 @@ def rdmol_to_omol(rdmol: Chem.rdchem.Mol) -> pybel.Molecule:
         pybel.Molecule: The pybel molecule.
     """
     return pybel.readstring("sdf", Chem.MolToMolBlock(rdmol, forceV3000=True))
+
+
+def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
+    """
+    Make dative bonds between the metal atoms and the non-metal atoms.
+    Parameters:
+        rwmol (Chem.rdchem.RWMol): The editable rdkit molecule.
+
+    Returns:
+        Chem.rdchem.RWMol: The editable rdkit molecule with dative bonds.
+    """
+    Chem.Kekulize(rwmol, clearAromaticFlags=True)
+    for atom in rwmol.GetAtoms():
+        atom.SetNoImplicit(True)
+    exp_ratio = {
+        "N": 1.45,
+        "O": ratio,
+        "S": ratio,
+        "P": ratio,
+    }
+    metal_atoms = [
+        atom.GetIdx() for atom in rwmol.GetAtoms() if is_metal(atom.GetAtomicNum())
+    ]
+    datived_rwmol = []
+    for shuffled_metal_atoms in itertools.permutations(metal_atoms, len(metal_atoms)):
+        temp_rwmol = Chem.RWMol(rwmol)
+        for metal_atom in shuffled_metal_atoms:
+            negative_atoms = [
+                atom.GetIdx()
+                for atom in temp_rwmol.GetAtoms()
+                if atom.GetIdx() != metal_atom
+                and atom.GetFormalCharge() < 0
+                and temp_rwmol.GetConformer()
+                .GetAtomPosition(atom.GetIdx())
+                .Distance(temp_rwmol.GetConformer().GetAtomPosition(metal_atom))
+                <= ratio
+                * (
+                    pt.GetRcovalent(
+                        temp_rwmol.GetAtomWithIdx(metal_atom).GetAtomicNum()
+                    )
+                    + pt.GetRcovalent(
+                        temp_rwmol.GetAtomWithIdx(atom.GetIdx()).GetAtomicNum()
+                    )
+                )
+            ]
+            negative_atoms.sort(
+                key=lambda x: temp_rwmol.GetConformer()
+                .GetAtomPosition(x)
+                .Distance(temp_rwmol.GetConformer().GetAtomPosition(metal_atom))
+            )
+            while (
+                temp_rwmol.GetAtomWithIdx(metal_atom).GetFormalCharge() > 0
+                and negative_atoms
+            ):
+                negative_atom = negative_atoms.pop(0)
+                temp_rwmol.AddBond(
+                    metal_atom,
+                    negative_atom,
+                    bond_list[
+                        -temp_rwmol.GetAtomWithIdx(negative_atom).GetFormalCharge()
+                    ],
+                )
+                temp_rwmol.GetAtomWithIdx(metal_atom).SetFormalCharge(
+                    temp_rwmol.GetAtomWithIdx(metal_atom).GetFormalCharge()
+                    + temp_rwmol.GetAtomWithIdx(negative_atom).GetFormalCharge()
+                )
+                temp_rwmol.GetAtomWithIdx(negative_atom).SetFormalCharge(0)
+        for metal_atom in metal_atoms:
+            for dative_atom in [
+                idxs[0]
+                for idxs in temp_rwmol.GetSubstructMatches(
+                    Chem.MolFromSmarts("[Ov2+0,Sv2+0,Nv3+0,Pv3+0]")
+                )
+            ]:
+                if not temp_rwmol.GetBondBetweenAtoms(metal_atom, dative_atom):
+                    if temp_rwmol.GetConformer().GetAtomPosition(metal_atom).Distance(
+                        temp_rwmol.GetConformer().GetAtomPosition(dative_atom)
+                    ) < exp_ratio[
+                        temp_rwmol.GetAtomWithIdx(dative_atom).GetSymbol()
+                    ] * (
+                        pt.GetRcovalent(
+                            temp_rwmol.GetAtomWithIdx(metal_atom).GetAtomicNum()
+                        )
+                        + pt.GetRcovalent(
+                            temp_rwmol.GetAtomWithIdx(dative_atom).GetAtomicNum()
+                        )
+                    ):
+                        temp_rwmol.AddBond(
+                            dative_atom, metal_atom, Chem.BondType.DATIVE
+                        )
+        remained_negative_atoms = [
+            atom.GetIdx()
+            for atom in temp_rwmol.GetAtoms()
+            if atom.GetFormalCharge() < 0 and not is_metal(atom.GetAtomicNum())
+        ]
+        for remained_negative_atom in remained_negative_atoms:
+            metal_atoms = [
+                atom.GetIdx()
+                for atom in temp_rwmol.GetAtoms()
+                if is_metal(atom.GetAtomicNum())
+            ]
+            if not metal_atoms:
+                continue
+            metal_atoms.sort(
+                key=lambda x: temp_rwmol.GetConformer()
+                .GetAtomPosition(x)
+                .Distance(
+                    temp_rwmol.GetConformer().GetAtomPosition(remained_negative_atom)
+                )
+            )
+            if temp_rwmol.GetConformer().GetAtomPosition(metal_atoms[0]).Distance(
+                temp_rwmol.GetConformer().GetAtomPosition(remained_negative_atom)
+            ) <= ratio * (
+                pt.GetRcovalent(
+                    temp_rwmol.GetAtomWithIdx(metal_atoms[0]).GetAtomicNum()
+                )
+                + pt.GetRcovalent(
+                    temp_rwmol.GetAtomWithIdx(remained_negative_atom).GetAtomicNum()
+                )
+            ):
+                temp_rwmol.AddBond(
+                    remained_negative_atom,
+                    metal_atoms[0],
+                    bond_list[
+                        -temp_rwmol.GetAtomWithIdx(
+                            remained_negative_atom
+                        ).GetFormalCharge()
+                    ],
+                )
+                temp_rwmol.GetAtomWithIdx(metal_atoms[0]).SetFormalCharge(
+                    temp_rwmol.GetAtomWithIdx(metal_atoms[0]).GetFormalCharge()
+                    + temp_rwmol.GetAtomWithIdx(
+                        remained_negative_atom
+                    ).GetFormalCharge()
+                )
+                temp_rwmol.GetAtomWithIdx(remained_negative_atom).SetFormalCharge(0)
+        datived_rwmol.append(temp_rwmol)
+    datived_rwmol_smiles = [Chem.MolToSmiles(rwmol) for rwmol in datived_rwmol]
+    moloplogger.debug(
+        f"{DEBUG_TAG} | Possible resonance structures with dative bonds: \n{datived_rwmol_smiles}"
+    )
+    return sorted(
+        datived_rwmol,
+        key=lambda x: sum(abs(atom.GetFormalCharge()) for atom in x.GetAtoms()),
+    )[0]

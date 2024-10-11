@@ -1,14 +1,15 @@
+# The Docker image that will be used to build your app
+image: python:3.8-bullseye
+cache:                      # Pip's cache doesn't store the python packages
+  paths:                    # https://pip.pypa.io/en/stable/topics/caching/
+    - .cache/pip
+# Functions that should be executed before the build script is run
+before_script:
+  - pip install mkdocs-material mkdocs-heti-plugin mkdocstrings[python] nbconvert notebook==6.4.12 jupyter_contrib_nbextensions mkdocs-static-i18n
 pages:
-  tags:
-    - pages-builder
-  stage: deploy
   script:
-    - pip install mkdocs-material mkdocs-heti-plugin mkdocstrings[python] nbconvert notebook==6.4.12 jupyter_contrib_nbextensions mkdocs-static-i18n
     - jupyter nbconvert --to markdown docs/*/*.ipynb
     - mkdocs build --verbose
-  variables:
-    BUILDER: 'mkdocs'
-    WORKING_DIR: ''
   artifacts:
     paths:
       # The folder that contains the files to be exposed at the Page URL
