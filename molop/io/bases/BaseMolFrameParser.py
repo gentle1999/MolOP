@@ -8,7 +8,7 @@ Description: 请填写简介
 
 import os
 import re
-from typing import List, Sequence, Tuple, TypeVar, Union, Literal
+from typing import List, Literal, Sequence, Tuple, TypeVar, Union
 
 import numpy as np
 import pandas as pd
@@ -155,7 +155,9 @@ class BaseMolFrameParser(BaseMolFrame):
         f.close()
         return os.path.abspath(_file_path)
 
-    def to_SDF_file(self, file_path: str = None, engine: Literal["rdkit", "openbabel"] = "rdkit") -> str:
+    def to_SDF_file(
+        self, file_path: str = None, engine: Literal["rdkit", "openbabel"] = "rdkit"
+    ) -> str:
         """
         Write the SDF file.
 
@@ -184,6 +186,7 @@ class BaseMolFrameParser(BaseMolFrame):
         template: str = None,
         prefix: str = "",
         suffix="",
+        title_card: str = "",
         chk: bool = True,
         oldchk: bool = False,
     ) -> str:
@@ -203,6 +206,8 @@ class BaseMolFrameParser(BaseMolFrame):
                 prefix to add to the beginning of the gjf file, priority is higher than template.
             suffix (str):
                 suffix to add to the end of the gjf file, priority is higher than template.
+            title_card (str):
+                title card.
             chk (bool):
                 If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
             oldchk (bool):
@@ -237,6 +242,10 @@ class BaseMolFrameParser(BaseMolFrame):
             _prefix = prefix
         if suffix != "":
             _suffix = suffix
+        if title_card != "":
+            _title_card = title_card.replace("\n", " ")
+        else:
+            _title_card = f"Title: {self.pure_filename}"
         _suffix = "".join(_suffix)
         link, route = _prefix.split("#")
         link = link.replace("\n", " ")
@@ -259,7 +268,7 @@ class BaseMolFrameParser(BaseMolFrame):
             link0_lines
             + route
             + "\n\n"
-            + f" Title: {self.pure_filename}\n\n"
+            + f"{_title_card}\n\n"
             + f"{charge if charge else self.charge} {multiplicity if multiplicity else self.multiplicity}\n"
             + "\n".join(
                 [
@@ -419,6 +428,7 @@ class BaseMolFrameParser(BaseMolFrame):
         *,
         replacement_relative_idx: int = 0,
         replacement_absolute_idx: Union[int, None] = None,
+        prefer_ZE: str = "Z",
     ) -> "BaseMolFrameParser":
         """
         Replace the substituent with the given SMARTS. The substituent is defined by the query_smi,
@@ -463,6 +473,11 @@ class BaseMolFrameParser(BaseMolFrame):
                 transformed to the first atom.
                 If None, the function will try to find the first atom in the replacement
                 molecule that is a radical atom.
+            prefer_ZE (str):
+                The preferred stereochemistry of the bond to be replaced.
+                If "Z", the function will try to replace the bond with Z stereochemistry.
+                If "E", the function will try to replace the bond with E stereochemistry.
+                only works for bond type DOUBLE.
 
         Returns:
             BaseMolFrameParser: The new parser.
@@ -482,6 +497,7 @@ class BaseMolFrameParser(BaseMolFrame):
             end_idx=end_idx,
             replacement_relative_idx=replacement_relative_idx,
             replacement_absolute_idx=replacement_absolute_idx,
+            prefer_ZE=prefer_ZE,
         )
         return self.rebuild_parser(
             new_mol, path=os.path.splitext(self.file_path)[0] + f"_{rebuild_type}.xyz"
@@ -581,7 +597,9 @@ class BaseMolFrameParser(BaseMolFrame):
         """
         return self.geometry_optimization_status.geometry_optimized
 
-    def to_summary_series(self, full: bool = False, with_units: bool = True) -> pd.Series:
+    def to_summary_series(
+        self, full: bool = False, with_units: bool = True
+    ) -> pd.Series:
         """
         Generate a summary series for the current frame.
 
@@ -803,7 +821,9 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
             block_parsers[-1].rdmol.RemoveAllConformers()
         return block_parsers[0].rdmol, block_parsers[-1].rdmol
 
-    def to_summary_series(self, full: bool = False, with_units: bool = True) -> pd.Series:
+    def to_summary_series(
+        self, full: bool = False, with_units: bool = True
+    ) -> pd.Series:
         """
         Generate a summary series for the current frame.
 
@@ -815,22 +835,23 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
             pd.Series: A summary series for the current frame.
         """
         brief_dict = {
-                "parser": self.__class__.__name__,
-                "file_path": self.file_path,
-                "file_name": self.filename,
-                "file_format": self.file_format,
-                "version": self.qm_software_version,
-                "frame_index": self.frame_id,
-                "charge": self.charge,
-                "multiplicity": self.multiplicity,
-                "SMILES": self.to_SMILES(),
-                "Canonical SMILES": self.to_canonical_SMILES(),
-                "keywords": self.keywords,
-                "method": self.method,
-                "functional": self.functional,
-                "basis": self.basis,
-                "solvent_model": self.solvent_model,
-                "solvent": self.solvent,}
+            "parser": self.__class__.__name__,
+            "file_path": self.file_path,
+            "file_name": self.filename,
+            "file_format": self.file_format,
+            "version": self.qm_software_version,
+            "frame_index": self.frame_id,
+            "charge": self.charge,
+            "multiplicity": self.multiplicity,
+            "SMILES": self.to_SMILES(),
+            "Canonical SMILES": self.to_canonical_SMILES(),
+            "keywords": self.keywords,
+            "method": self.method,
+            "functional": self.functional,
+            "basis": self.basis,
+            "solvent_model": self.solvent_model,
+            "solvent": self.solvent,
+        }
         if with_units:
             brief_dict = {
                 **brief_dict,

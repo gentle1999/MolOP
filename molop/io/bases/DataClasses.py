@@ -29,30 +29,6 @@ from molop.unit import atom_ureg, unit_transform
 class BaseDataClassWithUnit(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
-    # @model_serializer
-    # def serialize_model(self):
-    #    """
-    #    Serialize the model to a dictionary.
-    #    If the field is a Quantity, serialize it as a dictionary without units.
-    #    """
-    #    fields = {
-    #        k: (
-    #            getattr(self, k).magnitude
-    #            if isinstance(getattr(self, k), PlainQuantity)
-    #            else getattr(self, k)
-    #        )
-    #        for k in self.model_computed_fields
-    #    }
-    #    computed_fields = {
-    #        k: (
-    #            getattr(self, k).magnitude
-    #            if isinstance(getattr(self, k), PlainQuantity)
-    #            else getattr(self, k)
-    #        )
-    #        for k in self.model_fields
-    #    }
-    #    return {**fields, **computed_fields}
-
     @staticmethod
     def __unitless_dump(item):
         if isinstance(item, PlainQuantity):
@@ -60,6 +36,8 @@ class BaseDataClassWithUnit(BaseModel):
                 return item.m.tolist()
             else:
                 return item.m
+        if isinstance(item, np.ndarray):
+            return item.tolist()
         if isinstance(item, list):
             return [BaseDataClassWithUnit.__unitless_dump(i) for i in item]
         if isinstance(item, tuple):
@@ -68,13 +46,11 @@ class BaseDataClassWithUnit(BaseModel):
             return {
                 k: BaseDataClassWithUnit.__unitless_dump(v) for k, v in item.items()
             }
-        if isinstance(item, np.ndarray):
-            return item.tolist()
         if hasattr(item, "to_unitless_dump"):
             return item.to_unitless_dump()
         return item
 
-    def to_unitless_dump(self, **kwargs):
+    def to_unitless_dump(self, **kwargs) -> dict:
         return {
             k: BaseDataClassWithUnit.__unitless_dump(getattr(self, k))
             for k, v in self.model_dump(**kwargs).items()
@@ -104,27 +80,27 @@ class Energies(BaseDataClassWithUnit):
     # energies
     electronic_energy: Union[PlainQuantity, None] = Field(
         default=None,
-        description="Electronic energy of the molecule, unit is `hartree/particle`",
+        description="Electronic energy of the molecule, unit is `hartree`",
     )
     scf_energy: Union[PlainQuantity, None] = Field(
         default=None,
-        description="SCF energy of the molecule, unit is `hartree/particle`",
+        description="SCF energy of the molecule, unit is `hartree`",
     )
     mp2_energy: Union[PlainQuantity, None] = Field(
         default=None,
-        description="MP2 energy of the molecule, unit is `hartree/particle`",
+        description="MP2 energy of the molecule, unit is `hartree`",
     )
     mp3_energy: Union[PlainQuantity, None] = Field(
         default=None,
-        description="MP3 energy of the molecule, unit is `hartree/particle`",
+        description="MP3 energy of the molecule, unit is `hartree`",
     )
     mp4_energy: Union[PlainQuantity, None] = Field(
         default=None,
-        description="MP4 energy of the molecule, unit is `hartree/particle`",
+        description="MP4 energy of the molecule, unit is `hartree`",
     )
     ccsd_energy: Union[PlainQuantity, None] = Field(
         default=None,
-        description="CCSD energy of the molecule, unit is `hartree/particle`",
+        description="CCSD energy of the molecule, unit is `hartree`",
     )
 
     @property
@@ -142,34 +118,24 @@ class Energies(BaseDataClassWithUnit):
             if getattr(self, f"{energy_type}_energy") is not None
         }
 
-    @computed_field(description="Total energy, unit is `hartree/particle`")
+    @computed_field(description="Total energy, unit is `hartree`")
     @property
     def total_energy(self) -> Union[PlainQuantity, None]:
         keys = list(self.energy.keys())
         if len(keys) > 0:
-            return self.energy[keys[0]].to(atom_ureg.hartree / atom_ureg.particle)
+            return self.energy[keys[0]].to(atom_ureg.hartree)
         else:
             return None
 
     def _set_default_units(self):
         self.electronic_energy = unit_transform(
-            self.electronic_energy, atom_ureg.hartree / atom_ureg.particle
+            self.electronic_energy, atom_ureg.hartree
         )
-        self.scf_energy = unit_transform(
-            self.scf_energy, atom_ureg.hartree / atom_ureg.particle
-        )
-        self.mp2_energy = unit_transform(
-            self.mp2_energy, atom_ureg.hartree / atom_ureg.particle
-        )
-        self.mp3_energy = unit_transform(
-            self.mp3_energy, atom_ureg.hartree / atom_ureg.particle
-        )
-        self.mp4_energy = unit_transform(
-            self.mp4_energy, atom_ureg.hartree / atom_ureg.particle
-        )
-        self.ccsd_energy = unit_transform(
-            self.ccsd_energy, atom_ureg.hartree / atom_ureg.particle
-        )
+        self.scf_energy = unit_transform(self.scf_energy, atom_ureg.hartree)
+        self.mp2_energy = unit_transform(self.mp2_energy, atom_ureg.hartree)
+        self.mp3_energy = unit_transform(self.mp3_energy, atom_ureg.hartree)
+        self.mp4_energy = unit_transform(self.mp4_energy, atom_ureg.hartree)
+        self.ccsd_energy = unit_transform(self.ccsd_energy, atom_ureg.hartree)
 
 
 class ThermalEnergies(BaseDataClassWithUnit):
@@ -262,12 +228,8 @@ class MoleculeOrbital(BaseDataClassWithUnit):
     )
 
     def _set_default_units(self):
-        self.alpha_energy = unit_transform(
-            self.alpha_energy, atom_ureg.hartree 
-        )
-        self.beta_energy = unit_transform(
-            self.beta_energy, atom_ureg.hartree 
-        )
+        self.alpha_energy = unit_transform(self.alpha_energy, atom_ureg.eV)
+        self.beta_energy = unit_transform(self.beta_energy, atom_ureg.eV)
 
 
 class MolecularOrbitals(BaseDataClassWithUnit):
@@ -291,12 +253,8 @@ class MolecularOrbitals(BaseDataClassWithUnit):
     )
 
     def _set_default_units(self):
-        self.alpha_energies = unit_transform(
-            self.alpha_energies, atom_ureg.hartree
-        )
-        self.beta_energies = unit_transform(
-            self.beta_energies, atom_ureg.hartree 
-        )
+        self.alpha_energies = unit_transform(self.alpha_energies, atom_ureg.eV)
+        self.beta_energies = unit_transform(self.beta_energies, atom_ureg.eV)
 
     @computed_field(
         description="HOMO orbital idx",
@@ -457,6 +415,18 @@ class MolecularOrbitals(BaseDataClassWithUnit):
 
     def __len__(self) -> int:
         return len(self.alpha_energies)
+
+    @property
+    def HOMO(self) -> MoleculeOrbital:
+        if self.HOMO_id is None:
+            return None
+        return self[self.HOMO_id]
+
+    @property
+    def LUMO(self) -> MoleculeOrbital:
+        if self.LUMO_id is None:
+            return None
+        return self[self.LUMO_id]
 
 
 class Vibration(BaseDataClassWithUnit):

@@ -230,9 +230,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
         e_match = xtboutpatterns["total_energy"].search(block)
         while e_match:
             energies["scf_energy"] = (
-                round(float(e_match.group(1)), 6)
-                * atom_ureg.hartree
-                / atom_ureg.particle
+                round(float(e_match.group(1)), 6) * atom_ureg.hartree
             )
             block = block[e_match.end() :]
             e_match = xtboutpatterns["total_energy"].search(block)
@@ -240,9 +238,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
         e_match = xtboutpatterns["total_E"].search(block)
         while e_match:
             energies["scf_energy"] = (
-                round(float(e_match.group(2)), 6)
-                * atom_ureg.hartree
-                / atom_ureg.particle
+                round(float(e_match.group(2)), 6) * atom_ureg.hartree
             )
             block = block[e_match.end() :]
             e_match = xtboutpatterns["total_E"].search(block)

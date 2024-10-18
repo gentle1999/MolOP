@@ -116,23 +116,17 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
         energies = {}
         total_energy = g16fchkpatterns["total energy"].search(self.__block)
         if total_energy:
-            energies["total_energy"] = (
-                float(total_energy.group(1)) * atom_ureg.hartree / atom_ureg.particle
-            )
+            energies["total_energy"] = float(total_energy.group(1)) * atom_ureg.hartree
         scf_energy = g16fchkpatterns["scf energy"].search(self.__block)
         if scf_energy:
-            energies["scf_energy"] = (
-                float(scf_energy.group(1)) * atom_ureg.hartree / atom_ureg.particle
-            )
+            energies["scf_energy"] = float(scf_energy.group(1)) * atom_ureg.hartree
         for matches in g16fchkpatterns["mp2-4"].finditer(self.__block):
             energies[f"{matches.group(1).lower()}_energy"] = (
-                float(matches.group(2)) * atom_ureg.hartree / atom_ureg.particle
+                float(matches.group(2)) * atom_ureg.hartree
             )
         cluster_energy = g16fchkpatterns["cluster energy"].search(self.__block)
         if cluster_energy:
-            energies["ccsd_energy"] = (
-                float(cluster_energy.group(1)) * atom_ureg.hartree / atom_ureg.particle
-            )
+            energies["ccsd_energy"] = float(cluster_energy.group(1)) * atom_ureg.hartree
         if len(energies):
             self.energies = Energies.model_validate(energies)
 
