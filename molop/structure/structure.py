@@ -22,31 +22,56 @@ DEBUG_TAG = "[STRUCTURE]"
 RDLogger.DisableLog("rdApp.*")
 
 pt = Chem.GetPeriodicTable()
+bond_stereo_mapping = {
+    "Z": Chem.rdchem.BondStereo.STEREOZ,
+    "E": Chem.rdchem.BondStereo.STEREOE,
+}
+bond_type_mapping = {
+    Chem.rdchem.BondType.SINGLE: 1,
+    Chem.rdchem.BondType.DATIVE: 1,
+    Chem.rdchem.BondType.DATIVEL: 1,
+    Chem.rdchem.BondType.DATIVER: 1,
+    Chem.rdchem.BondType.DATIVEONE: 1,
+    Chem.rdchem.BondType.DOUBLE: 2,
+    Chem.rdchem.BondType.TRIPLE: 3,
+}
 
-bond_list = [
-    Chem.rdchem.BondType.UNSPECIFIED,
-    Chem.rdchem.BondType.SINGLE,
-    Chem.rdchem.BondType.DOUBLE,
-    Chem.rdchem.BondType.TRIPLE,
-    Chem.rdchem.BondType.QUADRUPLE,
-    Chem.rdchem.BondType.QUINTUPLE,
-    Chem.rdchem.BondType.HEXTUPLE,
-    Chem.rdchem.BondType.ONEANDAHALF,
-    Chem.rdchem.BondType.TWOANDAHALF,
-    Chem.rdchem.BondType.THREEANDAHALF,
-    Chem.rdchem.BondType.FOURANDAHALF,
-    Chem.rdchem.BondType.FIVEANDAHALF,
-    Chem.rdchem.BondType.AROMATIC,
-    Chem.rdchem.BondType.IONIC,
-    Chem.rdchem.BondType.HYDROGEN,
-    Chem.rdchem.BondType.THREECENTER,
-    Chem.rdchem.BondType.DATIVEONE,
-    Chem.rdchem.BondType.DATIVE,
-    Chem.rdchem.BondType.DATIVEL,
-    Chem.rdchem.BondType.DATIVER,
-    Chem.rdchem.BondType.OTHER,
-    Chem.rdchem.BondType.ZERO,
-]
+bond_list = list(Chem.rdchem.BondType.values.values())
+
+
+def estimate_bond_length(
+    begin_atomic_num: int,
+    end_atomic_num: int,
+    bond_type: Chem.rdchem.BondType = Chem.rdchem.BondType.SINGLE,
+) -> float:
+    """
+    Estimate the bond length between two atoms based on their atomic numbers and bond type.
+    Parameters:
+        begin_atomic_num (int):
+            The atomic number of the first atom.
+        end_atomic_num (int):
+            The atomic number of the second atom.
+        bond_type (Chem.rdchem.BondType):
+            The bond type between the two atoms.
+    Returns:
+        float:
+            The estimated bond length between the two atoms.
+    """
+    single_length = pt.GetRcovalent(begin_atomic_num) + pt.GetRcovalent(end_atomic_num)
+    if bond_type in (
+        Chem.rdchem.BondType.SINGLE,
+        Chem.rdchem.BondType.DATIVE,
+        Chem.rdchem.BondType.DATIVEL,
+        Chem.rdchem.BondType.DATIVER,
+        Chem.rdchem.BondType.DATIVEONE,
+    ):
+        return single_length
+    elif bond_type == Chem.rdchem.BondType.DOUBLE:
+        return single_length / 1.15
+    elif bond_type == Chem.rdchem.BondType.TRIPLE:
+        return single_length / 1.15 / 1.1
+    else:
+        raise ValueError("Unsupported bond type.")
 
 
 def canonical_smiles(smiles: str):
@@ -299,6 +324,7 @@ def get_radical_number(atom: ob.OBAtom) -> int:
 
 def transform_replacement_index(
     mol: RdMol,
+    bond_tag: Chem.rdchem.BondType,
     *,
     relative_idx: int = 0,
     absolute_idx: Union[int, None] = None,
@@ -309,6 +335,8 @@ def transform_replacement_index(
     Parameters:
         mol (RdMol):
             The input molecule
+        bond_tag (Chem.rdchem.BondType):
+            The bond type of the bond to be replaced.
         relative_idx (int):
             The relative index of the radical atom in the molecule to be transformed to the first atom.
         absolute_idx (Union[int, None]):
@@ -320,31 +348,77 @@ def transform_replacement_index(
     Returns:
         RdMol: The transformed molecule.
     """
-    if mol.GetAtomWithIdx(0).GetNumRadicalElectrons() == 1:
-        return mol
-    radical_idxs = [
-        atom.GetIdx() for atom in mol.GetAtoms() if atom.GetNumRadicalElectrons() == 1
-    ]
-    if absolute_idx is None:
-        absolute_idx = radical_idxs[relative_idx]
-    elif absolute_idx not in radical_idxs:
-        raise ValueError("Absolute index is not a radical atom.")
-    return reset_atom_index(mol, [absolute_idx])
+    if bond_tag in (Chem.rdchem.BondType.SINGLE,):
+        radical_idxs = [
+            atom.GetIdx()
+            for atom in mol.GetAtoms()
+            if atom.GetNumRadicalElectrons() >= 1
+        ]
+        if absolute_idx is None:
+            if relative_idx >= len(radical_idxs):
+                raise ValueError("Relative index is out of range.")
+            absolute_idx = radical_idxs[relative_idx]
+        elif absolute_idx not in radical_idxs:
+            raise ValueError("Absolute index is not a radical atom.")
+        return reset_atom_index(mol, [absolute_idx])
+    elif bond_tag in (
+        Chem.rdchem.BondType.DATIVE,
+        Chem.rdchem.BondType.DATIVEL,
+        Chem.rdchem.BondType.DATIVER,
+        Chem.rdchem.BondType.DATIVEONE,
+    ):
+        idxs = [atom.GetIdx() for atom in mol.GetAtoms()]
+        if absolute_idx is None:
+            if relative_idx >= len(idxs):
+                raise ValueError("Relative index is out of range.")
+            absolute_idx = idxs[relative_idx]
+        elif absolute_idx not in idxs:
+            raise ValueError("Absolute index is not a legal atom.")
+        return reset_atom_index(mol, [absolute_idx])
+    elif bond_tag in (Chem.rdchem.BondType.DOUBLE,):
+        radical_idxs = [
+            atom.GetIdx()
+            for atom in mol.GetAtoms()
+            if atom.GetNumRadicalElectrons() >= 2
+        ]
+        if absolute_idx is None:
+            if relative_idx >= len(radical_idxs):
+                raise ValueError("Relative index is out of range.")
+            absolute_idx = radical_idxs[relative_idx]
+        elif absolute_idx not in radical_idxs:
+            raise ValueError("Absolute index is not a radical atom.")
+        return reset_atom_index(mol, [absolute_idx])
+    elif bond_tag in (Chem.rdchem.BondType.TRIPLE,):
+        radical_idxs = [
+            atom.GetIdx()
+            for atom in mol.GetAtoms()
+            if atom.GetNumRadicalElectrons() >= 3
+        ]
+        if absolute_idx is None:
+            if relative_idx >= len(radical_idxs):
+                raise ValueError("Relative index is out of range.")
+            absolute_idx = radical_idxs[relative_idx]
+        elif absolute_idx not in radical_idxs:
+            raise ValueError("Absolute index is not a radical atom.")
+        return reset_atom_index(mol, [absolute_idx])
+    else:
+        raise ValueError(f"Unsupported bond type: {bond_tag}.")
 
 
 def replace_mol(
     mol: RdMol,
     replacement_mol: RdMol,
     query_mol: Union[RdMol, None] = None,
-    bind_idx: int = None,
+    bind_idx: Union[int, None] = None,
     threshold=0.75,
     angle_split=10,
     randomSeed=114514,
-    start_idx: int = None,
-    end_idx: int = None,
+    start_idx: Union[int, None] = None,
+    end_idx: Union[int, None] = None,
     *,
     replacement_relative_idx: int = 0,
     replacement_absolute_idx: Union[int, None] = None,
+    prefer_ZE: str = "Z",
 ) -> RdMol:
     """
     Replace the query_mol with replacement_mol in mol.
@@ -355,8 +429,7 @@ def replace_mol(
         replacement_mol (RdMol):
             The replacement molecule
         query_mol (Union[RdMol, None]):
-            The query molecule to be replaced. If None, the function will try to find
-            the first substructure match of replacement_mol in mol.
+            The query molecule to be replaced.
         bind_idx (int):
             The index of the atom in query_mol to be bound to the replacement_mol.
             If None, the function will try to find the first atom in query_mol that
@@ -371,12 +444,12 @@ def replace_mol(
         start_idx (int):
             The index of the atom in the main structure to be replaced. If None, the
             function will try to find the first atom in the main structure that is
-            bonded to the end atom of the bond to be replaced and has a single bond.
+            bonded to the end atom of the bond to be replaced.
         end_idx (int):
             The index of the atom in the main structure that is bonded to the start
             atom of the bond to be replaced. If None, the function will try to find
             the first atom in the main structure that is bonded to the start atom of
-            the bond to be replaced and has a single bond.
+            the bond to be replaced.
         replacement_relative_idx (int):
             The relative index of the radical atom in the replacement molecule to be
             transformed to the first atom.
@@ -386,6 +459,11 @@ def replace_mol(
             transformed to the first atom.
             If None, the function will try to find the first atom in the replacement
             molecule that is a radical atom.
+        prefer_ZE (str):
+            The preferred stereochemistry of the bond to be replaced.
+            If "Z", the function will try to replace the bond with Z stereochemistry.
+            If "E", the function will try to replace the bond with E stereochemistry.
+            only works for bond type DOUBLE.
 
     Returns:
         RdMol:
@@ -394,19 +472,18 @@ def replace_mol(
     if start_idx and end_idx:
         if (
             mol.GetBondBetweenAtoms(start_idx, end_idx)
-            and mol.GetBondBetweenAtoms(start_idx, end_idx).GetBondType()
-            == Chem.BondType.SINGLE
             and not mol.GetBondBetweenAtoms(start_idx, end_idx).IsInRing()
         ):
             end = end_idx
             start = start_idx
+            bond_tag = mol.GetBondBetweenAtoms(start, end).GetBondType()
         else:
             raise ValueError(
-                "start_idx and end_idx should be bonded with single but not in a ring."
+                "start_idx and end_idx should be bonded but not in a ring."
             )
     else:
         if query_mol is None:
-            raise ValueError("start_idx and end_idx should be provided.")
+            raise ValueError("start_idx and end_idx or query_mol should be provided.")
         else:
             query_mol_ = Chem.MolFromSmarts(Chem.MolToSmarts(query_mol))
             queried_idx_list = mol.GetSubstructMatches(query_mol_)
@@ -424,33 +501,237 @@ def replace_mol(
                 unique_queried_idx = queried_idx_list[0]
             # print(unique_queried_idx)
             for atom in mol.GetAtomWithIdx(unique_queried_idx[0]).GetNeighbors():
-                if (
-                    atom.GetIdx() not in mol.GetSubstructMatch(query_mol_)
-                    and mol.GetBondBetweenAtoms(
-                        atom.GetIdx(), unique_queried_idx[0]
-                    ).GetBondType()
-                    == Chem.BondType.SINGLE
-                ):
+                if atom.GetIdx() not in mol.GetSubstructMatch(query_mol_):
                     start = atom.GetIdx()
                     end = unique_queried_idx[0]
+                    bond_tag = mol.GetBondBetweenAtoms(start, end).GetBondType()
                     break
-            else:
-                raise ValueError("Bond between skeleton and replacement is not single.")
-    moloplogger.debug(f"{DEBUG_TAG}: Initial check of structure replacement passed")
+
+    moloplogger.debug(
+        f"{DEBUG_TAG}: Initial check of structure replacement passed,"
+        f" start: {start} and end: {end} atom found. Bond tag: {bond_tag}."
+    )
 
     # start: the idx of atom that bind to the substruct to be replaced
     # end: the idx of atom in substruct to be replaced, and bind to the main structure
     origin_mol = Chem.RWMol(mol)
-    geometry.standard_orient(origin_mol, [start, end])
-    rdMolTransforms.SetBondLength(
-        origin_mol.GetConformer(),
-        start,
-        end,
-        pt.GetRcovalent(origin_mol.GetAtomWithIdx(start).GetAtomicNum())
-        + pt.GetRcovalent(replacement_mol.GetAtomWithIdx(0).GetAtomicNum()),
+
+    if bond_tag in (
+        Chem.rdchem.BondType.SINGLE,
+        Chem.rdchem.BondType.DATIVE,
+        Chem.rdchem.BondType.DATIVEL,
+        Chem.rdchem.BondType.DATIVER,
+        Chem.rdchem.BondType.DATIVEONE,
+    ):
+        geometry.standard_orient(origin_mol, [start, end])
+        # build skeleton with queried substruct removed
+        # considering the original mol may have been split into frags
+        skeleton = get_skeleton(origin_mol=origin_mol, start=start, end=end)
+
+        # build replacement conformer
+        replacement = build_replacement(
+            replacement_mol=replacement_mol,
+            bond_tag=bond_tag,
+            randomSeed=randomSeed,
+            replacement_relative_idx=replacement_relative_idx,
+            replacement_absolute_idx=replacement_absolute_idx,
+            start_atomicnum=mol.GetAtomWithIdx(start).GetAtomicNum(),
+        )
+        # combine skeleton and replacement
+        new_start, rmol = combine_skeleton_replacement(
+            skeleton=skeleton, replacement=replacement, start=start, bond_tag=bond_tag
+        )
+        set_best_dihedral(
+            rmol=rmol,
+            threshold=threshold,
+            angle_split=angle_split,
+            start=new_start,
+            end=0,
+        )
+    if bond_tag in (Chem.rdchem.BondType.DOUBLE,):
+        # rotate the double bond to put on a plane (if necessary)
+        for atom in origin_mol.GetAtomWithIdx(start).GetNeighbors():
+            if atom.GetIdx() != end:
+                neighbor_idx = atom.GetIdx()
+                geometry.standard_orient(origin_mol, [start, end, neighbor_idx])
+                break
+        else:
+            geometry.standard_orient(origin_mol, [start, end])
+        skeleton = get_skeleton(origin_mol=origin_mol, start=start, end=end)
+        replacement = build_replacement(
+            replacement_mol=replacement_mol,
+            bond_tag=bond_tag,
+            randomSeed=randomSeed,
+            replacement_relative_idx=replacement_relative_idx,
+            replacement_absolute_idx=replacement_absolute_idx,
+            start_atomicnum=mol.GetAtomWithIdx(start).GetAtomicNum(),
+        )
+        anchors = [
+            atom.GetIdx()
+            for atom in replacement.GetAtomWithIdx(0).GetNeighbors()
+            if atom.GetIdx() != 0
+        ]
+        replacements = []
+        if len(anchors) == 0:
+            replacement_ = Chem.RWMol(replacement)
+            idx = replacement_.AddAtom(Chem.Atom(1))
+            geometry.standard_orient(replacement_, [idx, 0])
+            replacement_.RemoveAtom(idx)
+            replacements.append(replacement_)
+        else:
+            for anchor in anchors:
+                replacement_ = Chem.RWMol(replacement)
+                idx = replacement_.AddAtom(Chem.Atom(1))
+                geometry.standard_orient(replacement_, [idx, 0, anchor])
+                replacement_.RemoveAtom(idx)
+                replacements.append(replacement_)
+        for replacement in replacements:
+            new_start, rmol = combine_skeleton_replacement(
+                skeleton=skeleton,
+                replacement=replacement,
+                start=start,
+                bond_tag=bond_tag,
+            )
+            temp_mol = Chem.MolFromMolBlock(
+                Chem.MolToV3KMolBlock(rmol, includeStereo=False), removeHs=False
+            )
+            Chem.SanitizeMol(temp_mol)
+            Chem.DetectBondStereochemistry(temp_mol)
+            if (
+                temp_mol.GetBondBetweenAtoms(new_start, 0).GetStereo()
+                == bond_stereo_mapping[prefer_ZE]
+            ):
+                break
+        for anchor in rmol.GetAtomWithIdx(0).GetNeighbors():
+            if anchor.GetIdx() != new_start:
+                set_best_dihedral(
+                    rmol=rmol,
+                    threshold=threshold,
+                    angle_split=angle_split,
+                    start=0,
+                    end=anchor.GetIdx(),
+                )
+    if bond_tag in (Chem.rdchem.BondType.TRIPLE,):
+        geometry.standard_orient(origin_mol, [start, end])
+        skeleton = get_skeleton(origin_mol=origin_mol, start=start, end=end)
+        # build replacement conformer
+        replacement = build_replacement(
+            replacement_mol=replacement_mol,
+            bond_tag=bond_tag,
+            randomSeed=randomSeed,
+            replacement_relative_idx=replacement_relative_idx,
+            replacement_absolute_idx=replacement_absolute_idx,
+            start_atomicnum=mol.GetAtomWithIdx(start).GetAtomicNum(),
+        )
+        # combine skeleton and replacement
+        new_start, rmol = combine_skeleton_replacement(
+            skeleton=skeleton, replacement=replacement, start=start, bond_tag=bond_tag
+        )
+        for anchor in rmol.GetAtomWithIdx(0).GetNeighbors():
+            if anchor.GetIdx() != new_start:
+                set_best_dihedral(
+                    rmol=rmol,
+                    threshold=threshold,
+                    angle_split=angle_split,
+                    start=0,
+                    end=anchor.GetIdx(),
+                )
+    geometry.standard_orient(rmol, [0, 1])
+    # recover the original atom index of the skeleton
+    atom_idxs = list(range(rmol.GetNumAtoms()))
+    mapping = (
+        atom_idxs[replacement.GetNumAtoms() :] + atom_idxs[: replacement.GetNumAtoms()]
     )
-    # build skeleton with queried substruct removed
-    # considering the original mol may have been split into frags
+    return make_dative_bonds(reset_atom_index(rmol, mapping))
+
+
+def set_best_dihedral(
+    rmol: Chem.RWMol,
+    threshold: float,
+    angle_split: int,
+    start: int,
+    end: int,
+):
+    assert rmol.GetBondBetweenAtoms(start, end) is not None, "The bond is not found."
+    assert rmol.GetBondBetweenAtoms(start, end).GetBondType() in (
+        Chem.rdchem.BondType.SINGLE,
+        Chem.rdchem.BondType.DATIVE,
+        Chem.rdchem.BondType.DATIVEL,
+        Chem.rdchem.BondType.DATIVER,
+        Chem.rdchem.BondType.DATIVEONE,
+    ), "The selected bond type should be rotatable."
+    first_atom_idx, forth_atom_idx = None, None
+    for first_atom in rmol.GetAtomWithIdx(start).GetNeighbors():
+        if first_atom.GetIdx() != end:
+            first_atom_idx = first_atom.GetIdx()
+            break
+
+    for forth_atom in rmol.GetAtomWithIdx(end).GetNeighbors():
+        if forth_atom.GetIdx() != start:
+            forth_atom_idx = forth_atom.GetIdx()
+            break
+    if first_atom_idx and forth_atom_idx:
+        moloplogger.debug(
+            f"{DEBUG_TAG}: Rotating the bond between {start} and {end} to the best angle."
+        )
+        Chem.SanitizeMol(rmol)
+        best_angle, best_crowding_score = 0, 0
+        for angle in np.linspace(0, 2 * np.pi, angle_split):
+            rdMolTransforms.SetDihedralRad(
+                rmol.GetConformer(),
+                first_atom_idx,
+                start,
+                end,
+                forth_atom_idx,
+                angle,
+            )
+            crowding_score = get_crowding_socre(rmol, threshold=threshold)
+            if crowding_score > best_crowding_score:
+                best_angle = angle
+                best_crowding_score = crowding_score
+        rdMolTransforms.SetDihedralRad(
+            rmol.GetConformer(),
+            first_atom_idx,
+            start,
+            end,
+            forth_atom_idx,
+            best_angle,
+        )
+
+
+def combine_skeleton_replacement(
+    skeleton: Union[Chem.RWMol, RdMol],
+    replacement: Union[Chem.RWMol, RdMol],
+    start: int,
+    bond_tag: Chem.rdchem.BondType,
+):
+    new_mol = Chem.CombineMols(replacement, skeleton)
+    # find the new index mapping of start and end (end in the replacement now)
+    new_start = start + replacement.GetNumAtoms()
+    rmol = Chem.RWMol(new_mol)
+    rmol.AddBond(0, new_start, bond_tag)
+    rmol.GetAtomWithIdx(new_start).SetNumRadicalElectrons(
+        max(
+            0,
+            rmol.GetAtomWithIdx(new_start).GetNumRadicalElectrons()
+            - bond_type_mapping[bond_tag],
+        )
+    )
+    rmol.GetAtomWithIdx(0).SetNumRadicalElectrons(
+        max(
+            0,
+            rmol.GetAtomWithIdx(0).GetNumRadicalElectrons()
+            - bond_type_mapping[bond_tag],
+        )
+    )
+    moloplogger.debug(
+        f"{DEBUG_TAG}: Skeleton and Replacement combination of structure replacement passed"
+    )
+
+    return new_start, rmol
+
+
+def get_skeleton(origin_mol: Chem.RWMol, start: int, end: int):
     origin_mol.RemoveBond(start, end)
     frags, frag_idxs = (
         Chem.GetMolFrags(origin_mol, asMols=True),
@@ -466,96 +747,47 @@ def replace_mol(
     for frag, frag_idx in ske_frags[1:]:
         skeleton = Chem.CombineMols(skeleton, frag)
         init_mapping.extend(frag_idx)
+    moloplogger.debug(f"{DEBUG_TAG}: initial mapping: {init_mapping}.")
     mapping = list(
         map(lambda x: x[0], sorted(list(enumerate(init_mapping)), key=lambda x: x[1]))
     )
     skeleton = reset_atom_index(skeleton, mapping)
     moloplogger.debug(
         f"{DEBUG_TAG}: Skeleton initialization of structure replacement passed"
+        f" with mapping: {mapping}. SMILES: {Chem.MolToSmiles(skeleton)}."
     )
+    return skeleton
 
-    # build replacement conformer
+
+def build_replacement(
+    replacement_mol: Chem.Mol,
+    bond_tag: Chem.rdchem.BondType,
+    randomSeed: int,
+    start_atomicnum: int,
+    replacement_relative_idx: Union[int, None] = None,
+    replacement_absolute_idx: Union[int, None] = None,
+):
     replacement = Chem.AddHs(replacement_mol, addCoords=True)
     if replacement.GetNumConformers() == 0:
         EmbedMolecule(replacement, randomSeed=randomSeed)
     replacement = transform_replacement_index(
         replacement,
+        bond_tag=bond_tag,
         relative_idx=replacement_relative_idx,
         absolute_idx=replacement_absolute_idx,
     )
     replacement.GetAtomWithIdx(0).SetNumRadicalElectrons(0)
     rr = fix_geometry(
         replacement,
-        bind_type=mol.GetAtomWithIdx(start).GetAtomicNum(),
+        bond_tag=bond_tag,
+        bind_type=start_atomicnum,
         randomSeed=randomSeed,
     )
     moloplogger.debug(
         f"{DEBUG_TAG}: Replacement initialization of structure replacement passed"
     )
 
-    # combine skeleton and replacement
-    new_mol = Chem.CombineMols(rr, skeleton)
-    # find the new index mapping of start and end (end in the replacement now)
-    lines_idx = [
-        (idx, x)
-        for idx, (x, y, z) in enumerate(new_mol.GetConformer().GetPositions())
-        if abs(y - 0) <= 0.001 and abs(z - 0) <= 0.001
-    ]
-    lines_idx.sort(key=lambda x: x[1])
-    rmol = Chem.RWMol(new_mol)
-    rmol.AddBond(lines_idx[0][0], 0, Chem.rdchem.BondType.SINGLE)
-    skeleton.GetAtomWithIdx(
-        lines_idx[0][0] - len([atom for atom in rr.GetAtoms()])
-    ).SetNumRadicalElectrons(mol.GetAtomWithIdx(start).GetNumRadicalElectrons())
-    rmol.GetAtomWithIdx(lines_idx[0][0]).SetNumRadicalElectrons(
-        mol.GetAtomWithIdx(start).GetNumRadicalElectrons()
-    )
-    replacement.GetAtomWithIdx(0).SetNumRadicalElectrons(0)
-    moloplogger.debug(
-        f"{DEBUG_TAG}: Skeleton and Replacement combination of structure replacement passed"
-    )
-
-    # find the idx list of replacement
-    idx_list = [atom.GetIdx() for atom in rr.GetAtoms()]
-    if replacement.GetNumAtoms() >= 2:
-        for forth_atom in rmol.GetAtomWithIdx(0).GetNeighbors():
-            if forth_atom.GetIdx() in idx_list:
-                forth_atom_idx = forth_atom.GetIdx()
-                break
-        for first_atom in rmol.GetAtomWithIdx(lines_idx[0][0]).GetNeighbors():
-            if first_atom.GetIdx() not in idx_list:
-                first_atom_idx = first_atom.GetIdx()
-                break
-        Chem.SanitizeMol(rmol)
-        best_angle, best_crowding_score = 0, 0
-        for angle in np.linspace(0, 2 * np.pi, angle_split):
-            rdMolTransforms.SetDihedralRad(
-                rmol.GetConformer(),
-                first_atom_idx,
-                lines_idx[0][0],
-                0,
-                forth_atom_idx,
-                angle,
-            )
-            crowding_score = get_crowding_socre(rmol, threshold=threshold)
-            if crowding_score > best_crowding_score:
-                best_angle = angle
-                best_crowding_score = crowding_score
-        rdMolTransforms.SetDihedralRad(
-            rmol.GetConformer(),
-            first_atom_idx,
-            lines_idx[0][0],
-            0,
-            forth_atom_idx,
-            best_angle,
-        )
-    geometry.standard_orient(rmol, [0, 1, 2])
-    # recover the original atom index of the skeleton
-    atom_idxs = list(range(rmol.GetNumAtoms()))
-    mapping = (
-        atom_idxs[replacement.GetNumAtoms() :] + atom_idxs[: replacement.GetNumAtoms()]
-    ) 
-    return make_dative_bonds(reset_atom_index(rmol, mapping))
+    return rr
 
 
 def check_crowding(mol: RdMol, threshold=0.6) -> bool:
@@ -576,9 +808,10 @@ def check_crowding(mol: RdMol, threshold=0.6) -> bool:
     for start_atom, end_atom in itertools.combinations(mol.GetAtoms(), 2):
         if mol.GetBondBetweenAtoms(start_atom.GetIdx(), end_atom.GetIdx()):
             continue
-        if distances[start_atom.GetIdx()][end_atom.GetIdx()] < threshold * (
-            pt.GetRcovalent(start_atom.GetAtomicNum())
-            + pt.GetRcovalent(end_atom.GetAtomicNum())
+        if distances[start_atom.GetIdx()][
+            end_atom.GetIdx()
+        ] < threshold * estimate_bond_length(
+            start_atom.GetAtomicNum(), end_atom.GetAtomicNum()
         ):
             return False
     return True
@@ -601,8 +834,8 @@ def get_crowding_socre(mol: RdMol, threshold: float) -> float:
     for start_atom, end_atom in itertools.combinations(mol.GetAtoms(), 2):
         if mol.GetBondBetweenAtoms(start_atom.GetIdx(), end_atom.GetIdx()):
             continue
-        ideal_distance = pt.GetRcovalent(start_atom.GetAtomicNum()) + pt.GetRcovalent(
-            end_atom.GetAtomicNum()
+        ideal_distance = estimate_bond_length(
+            start_atom.GetAtomicNum(), end_atom.GetAtomicNum()
         )
         distance = distances[start_atom.GetIdx()][end_atom.GetIdx()]
         if distance < threshold * ideal_distance:
@@ -618,7 +851,7 @@ def get_crowding_socre(mol: RdMol, threshold: float) -> float:
 def attempt_replacement(
     mol,
     query: Union[str, RdMol],
-    replacement: Union[str, RdMol] = None,
+    replacement: Union[str, RdMol],
     bind_idx: int = None,
     replace_all=False,
     attempt_num=10,
@@ -630,6 +863,7 @@ def attempt_replacement(
     *,
     replacement_relative_idx: int = 0,
     replacement_absolute_idx: Union[int, None] = None,
+    prefer_ZE: str = "Z",
 ):
     """
     Attempt to replace the query with the replacement in the input molecule.
@@ -672,6 +906,11 @@ def attempt_replacement(
             transformed to the first atom.
             If None, the function will try to find the first atom in the replacement
             molecule that is a radical atom.
+        prefer_ZE (str):
+            The preferred stereochemistry of the bond to be replaced.
+            If "Z", the function will try to replace the bond with Z stereochemistry.
+            If "E", the function will try to replace the bond with E stereochemistry.
+            only works for bond type DOUBLE.
 
     Returns:
         RdMol: The new molecule with the replacement.
@@ -705,6 +944,7 @@ def attempt_replacement(
                 randomSeed=random_seed,
                 replacement_relative_idx=replacement_relative_idx,
                 replacement_absolute_idx=replacement_absolute_idx,
+                prefer_ZE=prefer_ZE,
             )
             while new_mol.HasSubstructMatch(query_mol):
                 # print(new_mol.GetSubstructMatches(query_mol))
@@ -718,6 +958,7 @@ def attempt_replacement(
                     randomSeed=random_seed,
                     replacement_relative_idx=replacement_relative_idx,
                     replacement_absolute_idx=replacement_absolute_idx,
+                    prefer_ZE=prefer_ZE,
                 )
         else:
             new_mol = replace_mol(
@@ -732,6 +973,7 @@ def attempt_replacement(
                 end_idx=end_idx,
                 replacement_relative_idx=replacement_relative_idx,
                 replacement_absolute_idx=replacement_absolute_idx,
+                prefer_ZE=prefer_ZE,
             )
         if check_crowding(new_mol, threshold=crowding_threshold):
             Chem.SanitizeMol(new_mol)
@@ -744,6 +986,7 @@ def attempt_replacement(
 
 def fix_geometry(
     replacement: RdMol,
+    bond_tag: Chem.rdchem.BondType,
     bind_type: int,
     randomSeed=114514,
 ):
@@ -762,8 +1005,20 @@ def fix_geometry(
         RdMol: The fixed replacement molecule.
     """
     r = Chem.RWMol(replacement)
-    idx = r.AddAtom(Chem.Atom("At"))
-    r.AddBond(0, idx, Chem.BondType.SINGLE)
+    if bond_tag in (Chem.rdchem.BondType.SINGLE,):
+        idx = r.AddAtom(Chem.Atom("At"))
+        r.AddBond(0, idx, Chem.BondType.SINGLE)
+    elif bond_tag in (Chem.rdchem.BondType.DOUBLE,):
+        idx = r.AddAtom(Chem.Atom("Po"))
+        r.AddBond(0, idx, Chem.BondType.DOUBLE)
+    elif bond_tag in (Chem.rdchem.BondType.TRIPLE,):
+        idx = r.AddAtom(Chem.Atom("Bi"))
+        r.AddBond(0, idx, Chem.BondType.TRIPLE)
+    elif bond_tag in (Chem.rdchem.BondType.DATIVE,):
+        idx = r.AddAtom(Chem.Atom("Rf"))
+        r.AddBond(0, idx, Chem.BondType.DATIVE)
+    else:
+        raise ValueError(f"Unsupported bond type: {bond_tag}")
     r.UpdatePropertyCache()
     Chem.SanitizeMol(r)
     cmap = {
@@ -776,8 +1031,7 @@ def fix_geometry(
         r.GetConformer(),
         idx,
         0,
-        pt.GetRcovalent(r.GetAtomWithIdx(0).GetAtomicNum())
-        + pt.GetRcovalent(bind_type),
+        estimate_bond_length(r.GetAtomWithIdx(0).GetAtomicNum(), bind_type, bond_tag),
     )
     r.RemoveAtom(idx)
     return r
@@ -878,13 +1132,10 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                 .GetAtomPosition(atom.GetIdx())
                 .Distance(temp_rwmol.GetConformer().GetAtomPosition(metal_atom))
                 <= ratio
-                * (
-                    pt.GetRcovalent(
-                        temp_rwmol.GetAtomWithIdx(metal_atom).GetAtomicNum()
-                    )
-                    + pt.GetRcovalent(
-                        temp_rwmol.GetAtomWithIdx(atom.GetIdx()).GetAtomicNum()
-                    )
+                * estimate_bond_length(
+                    temp_rwmol.GetAtomWithIdx(metal_atom).GetAtomicNum(),
+                    temp_rwmol.GetAtomWithIdx(atom.GetIdx()).GetAtomicNum(),
+                    Chem.rdchem.BondType.DATIVE,
                 )
             ]
             negative_atoms.sort(
@@ -897,18 +1148,19 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                 and negative_atoms
             ):
                 negative_atom = negative_atoms.pop(0)
-                temp_rwmol.AddBond(
-                    metal_atom,
-                    negative_atom,
-                    bond_list[
-                        -temp_rwmol.GetAtomWithIdx(negative_atom).GetFormalCharge()
-                    ],
-                )
-                temp_rwmol.GetAtomWithIdx(metal_atom).SetFormalCharge(
-                    temp_rwmol.GetAtomWithIdx(metal_atom).GetFormalCharge()
-                    + temp_rwmol.GetAtomWithIdx(negative_atom).GetFormalCharge()
-                )
-                temp_rwmol.GetAtomWithIdx(negative_atom).SetFormalCharge(0)
+                if temp_rwmol.GetBondBetweenAtoms(metal_atom, negative_atom) is None:
+                    temp_rwmol.AddBond(
+                        metal_atom,
+                        negative_atom,
+                        bond_list[
+                            -temp_rwmol.GetAtomWithIdx(negative_atom).GetFormalCharge()
+                        ],
+                    )
+                    temp_rwmol.GetAtomWithIdx(metal_atom).SetFormalCharge(
+                        temp_rwmol.GetAtomWithIdx(metal_atom).GetFormalCharge()
+                        + temp_rwmol.GetAtomWithIdx(negative_atom).GetFormalCharge()
+                    )
+                    temp_rwmol.GetAtomWithIdx(negative_atom).SetFormalCharge(0)
         for metal_atom in metal_atoms:
             for dative_atom in [
                 idxs[0]
@@ -921,13 +1173,10 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                         temp_rwmol.GetConformer().GetAtomPosition(dative_atom)
                     ) < exp_ratio[
                         temp_rwmol.GetAtomWithIdx(dative_atom).GetSymbol()
-                    ] * (
-                        pt.GetRcovalent(
-                            temp_rwmol.GetAtomWithIdx(metal_atom).GetAtomicNum()
-                        )
-                        + pt.GetRcovalent(
-                            temp_rwmol.GetAtomWithIdx(dative_atom).GetAtomicNum()
-                        )
+                    ] * estimate_bond_length(
+                        temp_rwmol.GetAtomWithIdx(metal_atom).GetAtomicNum(),
+                        temp_rwmol.GetAtomWithIdx(dative_atom).GetAtomicNum(),
+                        Chem.rdchem.BondType.DATIVE,
                     ):
                         temp_rwmol.AddBond(
                             dative_atom, metal_atom, Chem.BondType.DATIVE
@@ -954,30 +1203,33 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
             )
             if temp_rwmol.GetConformer().GetAtomPosition(metal_atoms[0]).Distance(
                 temp_rwmol.GetConformer().GetAtomPosition(remained_negative_atom)
-            ) <= ratio * (
-                pt.GetRcovalent(
-                    temp_rwmol.GetAtomWithIdx(metal_atoms[0]).GetAtomicNum()
-                )
-                + pt.GetRcovalent(
-                    temp_rwmol.GetAtomWithIdx(remained_negative_atom).GetAtomicNum()
-                )
+            ) <= ratio * estimate_bond_length(
+                temp_rwmol.GetAtomWithIdx(metal_atoms[0]).GetAtomicNum(),
+                temp_rwmol.GetAtomWithIdx(remained_negative_atom).GetAtomicNum(),
+                Chem.rdchem.BondType.DATIVE,
             ):
-                temp_rwmol.AddBond(
-                    remained_negative_atom,
-                    metal_atoms[0],
-                    bond_list[
-                        -temp_rwmol.GetAtomWithIdx(
+                if (
+                    temp_rwmol.GetBondBetweenAtoms(
+                        metal_atoms[0], remained_negative_atom
+                    )
+                    is None
+                ):
+                    temp_rwmol.AddBond(
+                        remained_negative_atom,
+                        metal_atoms[0],
+                        bond_list[
+                            -temp_rwmol.GetAtomWithIdx(
+                                remained_negative_atom
+                            ).GetFormalCharge()
+                        ],
+                    )
+                    temp_rwmol.GetAtomWithIdx(metal_atoms[0]).SetFormalCharge(
+                        temp_rwmol.GetAtomWithIdx(metal_atoms[0]).GetFormalCharge()
+                        + temp_rwmol.GetAtomWithIdx(
                             remained_negative_atom
                         ).GetFormalCharge()
-                    ],
-                )
-                temp_rwmol.GetAtomWithIdx(metal_atoms[0]).SetFormalCharge(
-                    temp_rwmol.GetAtomWithIdx(metal_atoms[0]).GetFormalCharge()
-                    + temp_rwmol.GetAtomWithIdx(
-                        remained_negative_atom
-                    ).GetFormalCharge()
-                )
-                temp_rwmol.GetAtomWithIdx(remained_negative_atom).SetFormalCharge(0)
+                    )
+                    temp_rwmol.GetAtomWithIdx(remained_negative_atom).SetFormalCharge(0)
         datived_rwmol.append(temp_rwmol)
     datived_rwmol_smiles = [Chem.MolToSmiles(rwmol) for rwmol in datived_rwmol]
     moloplogger.debug(

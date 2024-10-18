@@ -247,29 +247,21 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         if scf_energy_match := g16logpatterns["scf_energy"].search(self.__block):
             self.__block = self.__block[scf_energy_match.start() :]
             energies["scf_energy"] = (
-                float(scf_energy_match.group(1))
-                * atom_ureg.hartree
-                / atom_ureg.particle
+                float(scf_energy_match.group(1)) * atom_ureg.hartree
             )
             self.status.scf_converged = True
         mp2_4_energy_match = g16logpatterns["mp2-4"].findall(self.__block)
         for mp_energy in mp2_4_energy_match:
             energies[f"{mp_energy[0].lower()}_energy"] = (
-                float(mp_energy[1].replace("D", "E"))
-                * atom_ureg.hartree
-                / atom_ureg.particle
+                float(mp_energy[1].replace("D", "E")) * atom_ureg.hartree
             )
         if ccsd_energy_match := g16logpatterns["ccsd"].search(self.__block):
             energies["ccsd_energy"] = (
-                float(ccsd_energy_match.group(1))
-                * atom_ureg.hartree
-                / atom_ureg.particle
+                float(ccsd_energy_match.group(1)) * atom_ureg.hartree
             )
         if ccsd_energy_match := g16logpatterns["ccsd(t)"].search(self.__block):
             energies["ccsd_energy"] = (
-                float(ccsd_energy_match.group(1).replace("D", "E"))
-                * atom_ureg.hartree
-                / atom_ureg.particle
+                float(ccsd_energy_match.group(1).replace("D", "E")) * atom_ureg.hartree
             )
         moloplogger.debug(f"Energies: {energies}")
         return Energies.model_validate(energies)
@@ -296,7 +288,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             self.basis = basis
         energies_match = g16logpatterns["tail_match"].findall(tail)
         for e, v in energies_match:
-            energies_value = float(v) * atom_ureg.hartree / atom_ureg.particle
+            energies_value = float(v) * atom_ureg.hartree
             if "HF" in e:
                 energies["scf_energy"] = energies_value
             if "MP2" in e:
