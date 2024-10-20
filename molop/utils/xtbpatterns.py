@@ -1,8 +1,8 @@
 """
 Author: TMJ
-Date: 2024-03-23 21:07:37
+Date: 2024-10-19 09:57:26
 LastEditors: TMJ
-LastEditTime: 2024-08-28 23:14:51
+LastEditTime: 2024-10-19 21:37:34
 Description: 请填写简介
 """
 
@@ -25,7 +25,7 @@ xtboutpatterns: Dict[str, re.Pattern] = {
     ),
     "charge": re.compile(r"charge\s+:\s+([-+0-9]+)"),
     "multiplicity": re.compile(r"(--uhf|-u)\s+(\d+)"),
-    "total charge": re.compile(r"total charge\s+([\-\+0-9]+)"),
+    "total charge": re.compile(r"total charge\s+([\-\+\d]+.\d+)"),
     "parameter": re.compile(r"program call\s+:\s+([0-9a-zA-Z\\/_\-\s\.]+)\n"),
     "n atoms": re.compile(r"number of atoms\s+:\s+(\d+)"),
     "geometric_optimization_state": re.compile(r"GEOMETRY OPTIMIZATION CONVERGED"),

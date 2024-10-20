@@ -93,7 +93,7 @@ class XTBFileParser(BaseQMMolFileParser[XTBFrameParser]):
     def _parse_multi(self, full_text: str):
         multi_match = re.search(xtboutpatterns["multiplicity"], full_text)
         if multi_match:
-            multi = int(float(multi_match.group(2))) + 1
+            multi = round(float(multi_match.group(2))) + 1
         else:
             multi = 1
         return multi
@@ -103,7 +103,7 @@ class XTBFileParser(BaseQMMolFileParser[XTBFrameParser]):
         if charge_match is None:
             charge_match = re.search(xtboutpatterns["total charge"], full_text)
         if charge_match:
-            charge = int(float(charge_match.group(1)))
+            charge = round(float(charge_match.group(1)))
         else:
             charge = 0
         return charge
