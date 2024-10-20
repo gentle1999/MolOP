@@ -9,7 +9,7 @@ import numpy as np
 from openbabel import openbabel as ob
 from openbabel import pybel
 from rdkit import Chem, RDLogger
-from rdkit.Chem import AllChem, SanitizeMol, rdMolTransforms
+from rdkit.Chem import AllChem, SanitizeMol, rdForceFieldHelpers, rdMolTransforms
 from rdkit.Chem.rdDistGeom import EmbedMolecule
 
 from molop.logger.logger import moloplogger
@@ -675,7 +675,7 @@ def set_best_dihedral(
             f"{DEBUG_TAG}: Rotating the bond between {start} and {end} to the best angle."
         )
         Chem.SanitizeMol(rmol)
-        best_angle, best_crowding_score = 0, 0
+        best_angle, best_crowding_score = 0, float("-inf")
         for angle in np.linspace(0, 2 * np.pi, angle_split):
             rdMolTransforms.SetDihedralRad(
                 rmol.GetConformer(),
@@ -685,10 +685,13 @@ def set_best_dihedral(
                 forth_atom_idx,
                 angle,
             )
-            crowding_score = get_crowding_socre(rmol, threshold=threshold)
-            if crowding_score > best_crowding_score:
+            crowding_score = get_crowding_socre(rmol)
+            if crowding_score > best_crowding_score and check_crowding(rmol, threshold):
                 best_angle = angle
                 best_crowding_score = crowding_score
+                moloplogger.debug(
+                    f"{DEBUG_TAG}: The best angle is {best_angle} with crowding score {best_crowding_score}."
+                )
         rdMolTransforms.SetDihedralRad(
             rmol.GetConformer(),
             first_atom_idx,
@@ -817,35 +820,18 @@ def check_crowding(mol: RdMol, threshold=0.6) -> bool:
     return True
 
 
-def get_crowding_socre(mol: RdMol, threshold: float) -> float:
+def get_crowding_socre(mol: RdMol) -> float:
     """
     Calculate the crowding score of the input molecule.
 
     Parameters:
         mol (RdMol):
             The input molecule.
-        threshold (float):
-            The threshold of crowding. If too crowded
     Returns:
         float: The crowding score of the input molecule.
     """
-    score = 0
-    distances = Chem.Get3DDistanceMatrix(mol)
-    for start_atom, end_atom in itertools.combinations(mol.GetAtoms(), 2):
-        if mol.GetBondBetweenAtoms(start_atom.GetIdx(), end_atom.GetIdx()):
-            continue
-        ideal_distance = estimate_bond_length(
-            start_atom.GetAtomicNum(), end_atom.GetAtomicNum()
-        )
-        distance = distances[start_atom.GetIdx()][end_atom.GetIdx()]
-        if distance < threshold * ideal_distance:
-            moloplogger.debug(
-                f"{DEBUG_TAG}: Distance between {start_atom.GetIdx()} and {end_atom.GetIdx()}"
-                f" is {distance} and ideal distance is {ideal_distance}"
-            )
-            return -float("inf")
-        score += np.log(distance / ideal_distance)
-    return score
+    Chem.SanitizeMol(mol)
+    return -rdForceFieldHelpers.UFFGetMoleculeForceField(mol).CalcEnergy()
 
 
 def attempt_replacement(
@@ -1021,11 +1007,7 @@ def fix_geometry(
         raise ValueError(f"Unsupported bond type: {bond_tag}")
     r.UpdatePropertyCache()
     Chem.SanitizeMol(r)
-    cmap = {
-        atom_idx: replacement.GetConformer().GetAtomPosition(atom_idx)
-        for atom_idx in range(replacement.GetNumAtoms())
-    }
-    EmbedMolecule(r, randomSeed=randomSeed, coordMap=cmap)
+    EmbedMolecule(r, randomSeed=randomSeed)
     geometry.standard_orient(r, [idx, 0])
     rdMolTransforms.SetBondLength(
         r.GetConformer(),

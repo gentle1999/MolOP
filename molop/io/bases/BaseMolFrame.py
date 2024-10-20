@@ -179,7 +179,6 @@ class BaseMolFrame(BaseDataClassWithUnit):
                         )
                     finally:
                         self.__get_topology()
-                        return self._rdmol
             else:
                 assert (
                     self.formal_charges and self.formal_num_radicals
@@ -193,6 +192,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
                     atom.SetFormalCharge(charge)
                     atom.SetNumRadicalElectrons(spin)
                 self._rdmol = rwmol.GetMol()
+        Chem.SanitizeMol(self._rdmol)
         return self._rdmol
 
     @property
