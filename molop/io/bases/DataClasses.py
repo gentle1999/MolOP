@@ -22,6 +22,7 @@ from pydantic import (
 )
 from typing_extensions import Self
 
+from molop.config import molopconfig
 from molop.logger.logger import moloplogger
 from molop.unit import atom_ureg, unit_transform
 
@@ -58,8 +59,11 @@ class BaseDataClassWithUnit(BaseModel):
 
     @model_validator(mode="after")
     def __parse_frame__(self) -> Self:
-        self._set_default_units()
-        moloplogger.debug(f"Data class {self.__class__.__name__} parsed.\n" f"{self}")
+        if molopconfig.force_unit_transform:
+            self._set_default_units()
+            moloplogger.debug(
+                f"Data class {self.__class__.__name__} parsed.\n" f"{self}"
+            )
         return self
 
     @abstractmethod

@@ -70,7 +70,7 @@ class G16LogFileParser(BaseQMMolFileParser[G16LogFrameParser]):
                     only_extract_structure=self.only_extract_structure,
                 ),
             )
-        self._get_running_time(full_text)
+        self._get_running_time()
 
     def _get_n_atoms(self, full_text: str):
         n_atom_match = re.search(g16logpatterns["n atoms"], full_text)
@@ -182,20 +182,8 @@ class G16LogFileParser(BaseQMMolFileParser[G16LogFrameParser]):
                 f"{self.functional}-{self.route_params['empiricaldispersion']}"
             )
 
-    def _get_running_time(self, full_text: str):
-        if total_time := g16logpatterns["total_time"].findall(full_text):
-            self.running_time = (
-                sum(
-                    float(day) * 24 * 60 * 60
-                    + float(hour) * 60 * 60
-                    + float(minute) * 60
-                    + float(second)
-                    for day, hour, minute, second in total_time
-                )
-                * atom_ureg.second
-            )
-        else:
-            self.running_time = sum(frame.running_time for frame in self.frames)
+    def _get_running_time(self):
+        self.running_time = sum(frame.running_time for frame in self.frames)
 
     @property
     def link0(self) -> dict:

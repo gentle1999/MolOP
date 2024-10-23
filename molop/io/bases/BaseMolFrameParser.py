@@ -32,6 +32,7 @@ from molop.io.bases.DataClasses import (
     TotalSpin,
     Vibrations,
 )
+from molop.config import molopconfig
 from molop.logger.logger import moloplogger
 from molop.structure.geometry import standard_orient
 from molop.structure.structure import (
@@ -70,7 +71,8 @@ class BaseMolFrameParser(BaseMolFrame):
         if len(self.atoms) > 0:
             return self
         self._parse()
-        self._set_default_units()
+        if molopconfig.force_unit_transform:
+            self._set_default_units()
         return self
 
     def _set_default_units(self):

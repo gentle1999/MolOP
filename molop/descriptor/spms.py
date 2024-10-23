@@ -9,10 +9,10 @@ Spherical Projection](https://www.thieme-connect.de/products/ejournals/abstract/
 GitHub repository: https://github.com/licheng-xu-echo/SPMS.git
 """
 
-from typing import List, Sequence, Union, Tuple
+from typing import List, Literal, Sequence, Tuple, Union
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field, computed_field, PrivateAttr
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field
 from rdkit import Chem
 from rdkit.Chem.rdMolTransforms import ComputeCentroid
 from rdkit.Geometry import Point3D
@@ -89,6 +89,11 @@ class SPMSCalculator(BaseModel):
         description="Sphere radius. Default is None to use the largest possible radius for each input "
         "molecule. If you want to use a fixed radius, set this parameter to a float value.",
     )
+    atom_radius: Literal["vdw", "covalent"] = Field(
+        default="vdw",
+        description="Atom radius type. Default is 'vdw', which means using Van der Waals radii as atom "
+        "radii. If you want to use covalent radii, set this parameter to 'covalent'.",
+    )
     latitudinal_resolution: int = Field(
         default=40,
         description="Number of splits on the latitudinal axis. Default is 40.",
@@ -123,9 +128,18 @@ class SPMSCalculator(BaseModel):
         Returns:
             np.ndarray: List of atom radii.
         """
-        return np.array(
-            [pt.GetRvdw(atom.GetAtomicNum()) for atom in self.rdmol.GetAtoms()]
-        )
+        if self.atom_radius == "vdw":
+            return np.array(
+                [pt.GetRvdw(atom.GetAtomicNum()) for atom in self.rdmol.GetAtoms()]
+            )
+        elif self.atom_radius == "covalent":
+            return np.array(
+                [pt.GetRcovalent(atom.GetAtomicNum()) for atom in self.rdmol.GetAtoms()]
+            )
+        else:
+            raise ValueError(
+                f"Invalid atom radius type: {self.atom_radius}. Only 'vdw' and 'covalent' are supported."
+            )
 
     @property
     def rdmol_oriented(self) -> Chem.rdchem.Mol:
@@ -268,11 +282,19 @@ class SPMSCalculator(BaseModel):
         self,
     ) -> Tuple[float, float, float, float]:
         spms = self.SPMS
-        
-        left_top_desc_sum = spms[: self.latitudinal_resolution // 2, : self.latitudinal_resolution].sum()
-        right_top_desc_sum = spms[: self.latitudinal_resolution // 2, self.latitudinal_resolution :].sum()
-        left_bottom_desc_sum = spms[self.latitudinal_resolution // 2 :, : self.latitudinal_resolution].sum()
-        right_bottom_desc_sum = spms[self.latitudinal_resolution // 2 :, self.latitudinal_resolution :].sum()
+
+        left_top_desc_sum = spms[
+            : self.latitudinal_resolution // 2, : self.latitudinal_resolution
+        ].sum()
+        right_top_desc_sum = spms[
+            : self.latitudinal_resolution // 2, self.latitudinal_resolution :
+        ].sum()
+        left_bottom_desc_sum = spms[
+            self.latitudinal_resolution // 2 :, : self.latitudinal_resolution
+        ].sum()
+        right_bottom_desc_sum = spms[
+            self.latitudinal_resolution // 2 :, self.latitudinal_resolution :
+        ].sum()
 
         _sum = spms.sum()
 

@@ -622,11 +622,21 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         if start and end:
             block = self.__block[start.end() :]
             self.__block = self.__block[end.start() :]
-            freqs = g16logpatterns["freq"].findall(block)
-            red_masses = g16logpatterns["freq red. masses"].findall(block)
-            frc_consts = g16logpatterns["freq frc consts"].findall(block)
-            ir_intens = g16logpatterns["freq IR Inten"].findall(block)
-            freq_modes = g16logpatterns["freq mode"].findall(block)
+            freqs = np.array(
+                g16logpatterns["freq"].findall(block), dtype=np.float32
+            ).flatten()
+            red_masses = np.array(
+                g16logpatterns["freq red. masses"].findall(block), dtype=np.float32
+            ).flatten()
+            frc_consts = np.array(
+                g16logpatterns["freq frc consts"].findall(block), dtype=np.float32
+            ).flatten()
+            ir_intens = np.array(
+                g16logpatterns["freq IR Inten"].findall(block), dtype=np.float32
+            ).flatten()
+            freq_modes = np.array(
+                g16logpatterns["freq mode"].findall(block), dtype=np.float32
+            )
             freq_modes_reindex = []
             for i in range(0, len(freq_modes), 3 * self.n_atom):
                 freq_modes_reindex.append(freq_modes[i : i + 3 * self.n_atom : 3])
@@ -637,26 +647,12 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                     freq_modes[i + 2 : i + 2 + 3 * self.n_atom : 3]
                 )
             self.vibrations = Vibrations(
-                frequencies=np.array(list(map(float, chain.from_iterable(freqs))))
-                * atom_ureg.cm_1,
-                reduced_masses=np.array(
-                    list(map(float, chain.from_iterable(red_masses)))
-                )
-                * atom_ureg.amu,
-                force_constants=np.array(
-                    list(map(float, chain.from_iterable(frc_consts)))
-                )
-                * atom_ureg.mdyne
-                / atom_ureg.angstrom,
-                IR_intensities=np.array(
-                    list(map(float, chain.from_iterable(ir_intens)))
-                )
-                * atom_ureg.km
-                / atom_ureg.mol,
+                frequencies=freqs * atom_ureg.cm_1,
+                reduced_masses=red_masses * atom_ureg.amu,
+                force_constants=frc_consts * atom_ureg.mdyne / atom_ureg.angstrom,
+                IR_intensities=ir_intens * atom_ureg.km / atom_ureg.mol,
                 vibration_modes=[
-                    np.array([list(map(float, row)) for row in vib])
-                    * atom_ureg.angstrom
-                    for vib in freq_modes_reindex
+                    vib * atom_ureg.angstrom for vib in freq_modes_reindex
                 ],
             )
 

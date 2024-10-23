@@ -1,11 +1,12 @@
 """
 Author: TMJ
-Date: 2024-02-14 14:40:02
+Date: 2024-10-19 09:57:26
 LastEditors: TMJ
-LastEditTime: 2024-06-26 23:17:51
+LastEditTime: 2024-10-23 15:01:26
 Description: 请填写简介
 """
 
+import os
 from glob import glob
 from typing import Union
 
@@ -48,8 +49,11 @@ def AutoParser(
     parser = AutoParser("/path/to/files/*.log") # return FileParserBatch
     ```
     """
-    files = glob(file_path)
-    files.sort()
+    if os.path.isfile(file_path) and os.path.exists(file_path):
+        files = [file_path]
+    else:
+        files = glob(file_path)
+        files.sort()
     if len(files) > 0:
         batch = FileParserBatch(
             n_jobs=n_jobs,
