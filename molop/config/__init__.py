@@ -1,8 +1,8 @@
 """
 Author: TMJ
-Date: 2024-02-14 14:40:02
+Date: 2024-10-19 09:57:26
 LastEditors: TMJ
-LastEditTime: 2024-09-13 21:32:11
+LastEditTime: 2024-10-23 21:20:28
 Description: 请填写简介
 """
 
@@ -39,6 +39,7 @@ class MolOPConfig:
         self.strict_structure_recovery = False
         self.max_structure_recovery_time = 10
         self.allow_spin_change = False
+        self.force_unit_transform = False
 
     def quiet(self):
         """

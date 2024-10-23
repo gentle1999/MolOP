@@ -20,7 +20,7 @@ from rdkit.Chem import rdDetermineBonds
 from molop.descriptor.spms import SPMSCalculator
 from molop.io.bases.DataClasses import BaseDataClassWithUnit
 from molop.logger.logger import moloplogger
-from molop.structure.geometry import get_geometry_info, calculate_rmsd
+from molop.structure.geometry import calculate_rmsd, get_geometry_info
 from molop.structure.structure import (
     bond_list,
     canonical_smiles,
@@ -28,7 +28,7 @@ from molop.structure.structure import (
     get_formal_charges,
     get_formal_num_radicals,
 )
-from molop.structure.structure_recovery_alter import xyz2rdmol, rdmol_to_omol
+from molop.structure.structure_recovery_alter import rdmol_to_omol, xyz2rdmol
 from molop.unit import atom_ureg
 from molop.utils.types import RdMol
 
@@ -373,6 +373,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         self,
         anchor_list: Union[Sequence[int], None] = None,
         sphere_radius: Union[float, None] = None,
+        atom_radius: Literal["vdw", "covalent"] = "vdw",
         latitudinal_resolution: int = 40,
         longitude_resolution: int = 40,
         precision: int = 8,
@@ -391,14 +392,15 @@ class BaseMolFrame(BaseDataClassWithUnit):
                 The anchor atoms for SPMS calculation. If None, the default anchor atoms will be used.
             sphere_radius (float | None):
                 The radius of the sphere for SPMS calculation. If None, the default sphere radius will be used.
-
+            atom_radius:
+                Atom radius type. Default is 'vdw', which means using Van der Waals radii as atom radii. 
+                If you want to use covalent radii, set this parameter to 'covalent'
             latitudinal_resolution (int):
                 The number of latitudinal divisions for SPMS calculation.
             longitude_resolution (int):
                 The number of longitudinal divisions for SPMS calculation.
             precision (int):
                 The precision of the SPMS calculation.
-
             custom_first_anchors (Sequence[int] | None):
                 The custom anchor atoms for SPMS calculation. If None, the default anchor atoms will be used.
             custom_second_anchors (Sequence[int] | None):
@@ -413,6 +415,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
             rdmol=self.rdmol,
             anchor_list=anchor_list,
             sphere_radius=sphere_radius,
+            atom_radius=atom_radius,
             latitudinal_resolution=latitudinal_resolution,
             longitude_resolution=longitude_resolution,
             precision=precision,
