@@ -263,7 +263,6 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             energies["ccsd_energy"] = (
                 float(ccsd_energy_match.group(1).replace("D", "E")) * atom_ureg.hartree
             )
-        moloplogger.debug(f"Energies: {energies}")
         return Energies.model_validate(energies)
 
     def _parse_tail_energies(self) -> Energies:
