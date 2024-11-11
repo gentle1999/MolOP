@@ -16,8 +16,10 @@ from openbabel import pybel
 from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr, computed_field, model_validator
 from rdkit import Chem
+from rdkit.Chem import rdForceFieldHelpers
 from typing_extensions import Self
 
+from molop.config import molopconfig
 from molop.io.bases.BaseMolFrame import BaseMolFrame
 from molop.io.bases.DataClasses import (
     BondOrders,
@@ -32,11 +34,11 @@ from molop.io.bases.DataClasses import (
     TotalSpin,
     Vibrations,
 )
-from molop.config import molopconfig
 from molop.logger.logger import moloplogger
 from molop.structure.geometry import standard_orient
 from molop.structure.structure import (
     attempt_replacement,
+    check_crowding,
     get_bond_pairs,
     get_formal_charges,
     get_formal_num_radicals,
@@ -44,7 +46,7 @@ from molop.structure.structure import (
     get_total_multiplicity,
     reset_atom_index,
 )
-from molop.structure.structure_recovery import xyz_block_to_rdmol
+from molop.structure.structure_recovery_alter import xyz2rdmol
 from molop.unit import atom_ureg, unit_transform
 from molop.utils.g16patterns import link0_parser
 from molop.utils.types import RdMol
@@ -737,9 +739,19 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         self.temperature = self.temperature.to(atom_ureg.K)
         self.electron_temperature = self.electron_temperature.to(atom_ureg.K)
 
-    def ts_vibration(self) -> List[BaseMolFrameParser]:
+    def ts_vibration(
+        self, ratio: float = 1.75, steps: int = 15, ignore_dative=True
+    ) -> List[BaseMolFrameParser]:
         """
         Generate a list of base block parsers for transition state vibration calculations.
+
+        Parameters:
+            ratio (float):
+                The ratio to force the geometry to vibrate.
+            steps (int):
+                The number of steps to generate.
+            ignore_dative (bool):
+                Whether to ignore dative bonds.
 
         Returns:
             List[BaseMolFrameParser]: A list of base block parsers for transition state vibration calculations.
@@ -750,16 +762,16 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         block_parsers = []  # Initialize a list of base block parsers
 
         # Iterate over a list of ratios
-        for ratio in (-1.75, -1.5, -1.25, -1, 1, 1.25, 1.5, 1.75):
+        for r in np.linspace(-ratio, ratio, num=steps, endpoint=True):
             # Calculate extreme coordinates based on current ratio
             extreme_coords = (
                 self.coords.m
-                - self.vibrations.imaginary_vibrations[0].vibration_mode.m * ratio
+                - self.vibrations.imaginary_vibrations[0].vibration_mode.m * r
             )
 
             try:
                 # Convert extreme coordinates to openbabel molecule object
-                rdmol = xyz_block_to_rdmol(
+                rdmol = xyz2rdmol(
                     f"{len(self.atoms)}\n"
                     + f"charge {self.charge} multiplicity {self.multiplicity}\n"
                     + "\n".join(
@@ -769,9 +781,15 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
                         ]
                     ),
                     total_charge=self.charge,
-                    total_radical=self.multiplicity - 1,
+                    total_radical_electrons=self.multiplicity - 1,
+                    make_dative=not ignore_dative,
                 )
                 # Rebuild parser using the openbabel molecule object
+                if rdmol is None:
+                    continue
+                if not check_crowding(rdmol):
+                    continue
+                Chem.SanitizeMol(rdmol)
                 block_parser = self.rebuild_parser(rdmol)
             except Exception as e:
                 moloplogger.warning(
@@ -781,16 +799,30 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
 
             # Check if the molecule satisfies crowding conditions and append it to the list
             block_parsers.append(block_parser)
-
+        moloplogger.info(f"Generated {len(block_parsers)} TS vibration calculations")
         return block_parsers
 
-    def ts_vibration_to_SDF_file(self, file_path: str = None) -> str:
+    def ts_vibration_to_SDF_file(
+        self,
+        file_path: str = None,
+        *,
+        ratio: float = 1.75,
+        steps: int = 15,
+        ignore_dative=True,
+    ) -> str:
         """
         Write the TS vibration calculations to an SDF file.
 
         Parameters:
             file_path (str):
                 The file path. If not specified, will be generated in situ.
+            ratio (float):
+                The ratio to force the geometry to vibrate.
+            steps (int):
+                The number of steps to generate.
+            ignore_dative (bool):
+                Whether to ignore dative bonds.
+
         Returns:
             str: The absolute path of the SDF file.
         """
@@ -799,25 +831,41 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         if os.path.isdir(file_path):
             raise IsADirectoryError(f"{file_path} is a directory.")
         file_path = os.path.splitext(file_path)[0] + ".sdf"
-        block_parsers = self.ts_vibration()
+        block_parsers = self.ts_vibration(
+            ratio=ratio, steps=steps, ignore_dative=ignore_dative
+        )
         with open(file_path, "w") as f:
             f.write("$$$$\n".join([frame.to_SDF_block() for frame in block_parsers]))
         f.close()
         return file_path
 
     def possible_pre_post_ts(
-        self, show_3D=False
+        self,
+        show_3D=False,
+        *,
+        ratio: float = 1.75,
+        steps: int = 15,
+        ignore_dative=True,
     ) -> Tuple[Chem.rdchem.Mol, Chem.rdchem.Mol]:
         """
         This method returns the possible pre- and post-transition state molecules.
 
         Parameters:
-            show_3D (bool): Whether to show 3D coordinates. Defaults to False.
+            show_3D (bool): 
+                Whether to show 3D coordinates. Defaults to False.
+            ratio (float): 
+                The ratio to force the geometry to vibrate. Defaults to 1.75.
+            steps (int): 
+                The number of steps to generate. Defaults to 15.
+            ignore_dative (bool): 
+                Whether to ignore dative bonds. Defaults to True.
 
         Returns:
             Tuple[Chem.rdchem.Mol, Chem.rdchem.Mol]: A tuple containing the possible pre- and post-transition state molecules.
         """
-        block_parsers = self.ts_vibration()
+        block_parsers = self.ts_vibration(
+            ratio=ratio, steps=steps, ignore_dative=ignore_dative
+        )
         if not show_3D:
             block_parsers[0].rdmol.RemoveAllConformers()
             block_parsers[-1].rdmol.RemoveAllConformers()

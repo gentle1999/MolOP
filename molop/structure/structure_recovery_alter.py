@@ -232,7 +232,16 @@ def omol_score(omol_tuple: Tuple[pybel.Molecule, int, int]) -> int:
         sum(abs(get_radical_number(atom.OBAtom)) for atom in omol_tuple[0].atoms)
         - omol_tuple[2]
     )
-    score += sum(abs(atom.OBAtom.GetFormalCharge()) for atom in omol_tuple[0].atoms)
+    score += sum(
+        abs(atom.OBAtom.GetFormalCharge())
+        for atom in omol_tuple[0].atoms
+        if not is_metal(atom.OBAtom.GetAtomicNum())
+    )
+    score -= sum(
+        abs(atom.OBAtom.GetFormalCharge())
+        for atom in omol_tuple[0].atoms
+        if is_metal(atom.OBAtom.GetAtomicNum())
+    )
     return score
 
 
@@ -253,7 +262,16 @@ def structure_score(rwmol: Chem.rdchem.RWMol) -> float:
     Chem.SanitizeMol(rwmol)
     total_valence = sum(atom.GetTotalValence() for atom in rwmol.GetAtoms())
     # the less formal charge the better
-    total_formal_charge = sum(abs(atom.GetFormalCharge()) for atom in rwmol.GetAtoms())
+    total_formal_charge = sum(
+        abs(atom.GetFormalCharge())
+        for atom in rwmol.GetAtoms()
+        if not is_metal(atom.GetAtomicNum())
+    )
+    total_metal_charge = sum(
+        abs(atom.GetFormalCharge())
+        for atom in rwmol.GetAtoms()
+        if is_metal(atom.GetAtomicNum())
+    )
     total_num_radical = sum(atom.GetNumRadicalElectrons() for atom in rwmol.GetAtoms())
     num_fragments = len(Chem.GetMolFrags(rwmol))
     metal_atoms = [atom for atom in rwmol.GetAtoms() if is_metal(atom.GetAtomicNum())]
@@ -267,6 +285,7 @@ def structure_score(rwmol: Chem.rdchem.RWMol) -> float:
     score = (
         10 * total_valence
         + 10 / (total_formal_charge + 1)
+        + 10 * total_metal_charge
         + 20 / (total_num_radical + 1)
         + 50 / (num_fragments + 1)
         + metal_score

@@ -809,8 +809,6 @@ def check_crowding(mol: RdMol, threshold=0.6) -> bool:
     """
     distances = Chem.Get3DDistanceMatrix(mol)
     for start_atom, end_atom in itertools.combinations(mol.GetAtoms(), 2):
-        if mol.GetBondBetweenAtoms(start_atom.GetIdx(), end_atom.GetIdx()):
-            continue
         if distances[start_atom.GetIdx()][
             end_atom.GetIdx()
         ] < threshold * estimate_bond_length(
