@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-10-19 09:57:26
 LastEditors: TMJ
-LastEditTime: 2024-10-23 21:20:28
+LastEditTime: 2024-11-11 22:01:18
 Description: 请填写简介
 """
 
@@ -13,13 +13,13 @@ from openbabel import pybel
 from pint.errors import UnitStrippedWarning
 from rdkit import RDLogger
 from rdkit.Chem.rdFingerprintGenerator import (
-    GetMorganGenerator,
     GetAtomPairGenerator,
+    GetMorganGenerator,
     GetRDKitFPGenerator,
     GetTopologicalTorsionGenerator,
 )
 
-from molop.logger.logger import moloplogger, file_handler, stream_handler
+from molop.logger.logger import moloplogger, stream_handler
 
 warnings.simplefilter("ignore", UnitStrippedWarning)
 
@@ -59,13 +59,15 @@ class MolOPConfig:
         """
         Turn off log messages to file.
         """
-        moloplogger.removeHandler(file_handler)
+        pass
+        # moloplogger.removeHandler(file_handler)
 
     def log_on(self):
         """
         Turn on log messages to file.
         """
-        moloplogger.addHandler(file_handler)
+        pass
+        # moloplogger.addHandler(file_handler)
 
     def set_log_level(self, level: str):
         moloplogger.setLevel(level)

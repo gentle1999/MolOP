@@ -192,7 +192,8 @@ class BaseMolFrame(BaseDataClassWithUnit):
                     atom.SetFormalCharge(charge)
                     atom.SetNumRadicalElectrons(spin)
                 self._rdmol = rwmol.GetMol()
-        Chem.SanitizeMol(self._rdmol)
+        if self._rdmol is not None:
+            Chem.SanitizeMol(self._rdmol)
         return self._rdmol
 
     @property

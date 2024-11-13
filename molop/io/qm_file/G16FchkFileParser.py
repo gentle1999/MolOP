@@ -1,7 +1,15 @@
+"""
+Author: TMJ
+Date: 2024-10-19 09:57:26
+LastEditors: TMJ
+LastEditTime: 2024-11-12 14:41:29
+Description: 请填写简介
+"""
+
 import re
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from molop.io.bases.BaseMolFileParser import BaseQMMolFileParser
 from molop.io.qm_file.G16FchkFrameParser import G16FchkFrameParser
@@ -54,6 +62,7 @@ class G16FchkFileParser(BaseQMMolFileParser[G16FchkFrameParser]):
     def _parse_functional_basis(self, full_text: str):
         for idx, line in enumerate(full_text.splitlines()):
             if idx == 1:
+                self.__task_type = line.split()[0].lower()
                 self.functional = line.split()[1].lower()
                 self.basis = line.split()[2]
                 break
@@ -65,3 +74,12 @@ class G16FchkFileParser(BaseQMMolFileParser[G16FchkFrameParser]):
     @property
     def dieze_tag(self) -> Literal["#N", "#P", "#T"]:
         return self.__dieze_tag
+
+    @computed_field
+    @property
+    def task_type(self) -> Literal["sp", "opt", "freq"]:
+        if "opt" in self.__task_type:
+            return "opt"
+        if "freq" in self.__task_type:
+            return "freq"
+        return "sp"

@@ -323,7 +323,31 @@ class FileParserBatch(MutableMapping):
         oldchk: bool = False,
         frameID=-1,
     ) -> None:
-        """file_path should be a directory, prefix and suffix are optional"""
+        """
+        Write the GJF file.
+
+        Parameters:
+            file_path (str):
+                The path to write the GJF file. If not specified, will be generated in situ.
+            charge (int):
+                The forced charge. If specified, will be used to overwrite the charge in the gjf file.
+            multiplicity (int):
+                The forced multiplicity. If specified, will be used to overwrite the multiplicity in the gjf file.
+            template (str):
+                path to read a gjf file as a template.
+            prefix (str):
+                prefix to add to the beginning of the gjf file, priority is higher than template.
+            suffix (str):
+                suffix to add to the end of the gjf file, priority is higher than template.
+            chk (bool):
+                If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
+            oldchk (bool):
+                If true, add the oldchk keyword to the link0 section. Will use the file name as the chk file name.
+            frameID (int):
+                The frame ID to write.
+        Returns:
+            str: The path to the GJF file.
+        """
         if file_path is None:
             file_path = os.path.curdir
         if not os.path.isdir(file_path):
@@ -649,9 +673,83 @@ class FileParserBatch(MutableMapping):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({len(self)})"
 
+    def hong_style_summary(self, frameID=-1) -> pd.DataFrame:
+        total_df = pd.concat(
+            [parser[frameID].hong_style_summary_series() for parser in self], axis=1
+        ).T
+        sp_sub_df_index = total_df.apply(
+            lambda x: x["file_name"].endswith("Sp"), axis=1
+        )
+        sp_sub_df = total_df[sp_sub_df_index & total_df["sp_normal terminated"] == True]
+        sp_error_terminated_df = sp_sub_df[sp_sub_df["sp_normal terminated"] == False]
+        if sp_error_terminated_df.shape[0] > 0:
+            moloplogger.warning(
+                f"The following files have terminated with error in SP calculation:\n{sp_error_terminated_df['file_name'].tolist()}"
+            )
+        opt_sub_df_index = total_df.apply(
+            lambda x: x["file_name"].endswith("Opt"), axis=1
+        )
+        opt_sub_df = total_df[
+            opt_sub_df_index & total_df["opt_normal terminated"] == True
+        ]
+        opt_error_terminated_df = opt_sub_df[
+            opt_sub_df["opt_normal terminated"] == False
+        ]
+        if opt_error_terminated_df.shape[0] > 0:
+            moloplogger.warning(
+                f"The following files have terminated with error in OPT calculation:\n{opt_error_terminated_df['file_name'].tolist()}"
+            )
+        if sp_sub_df.shape[0] == 0 or opt_sub_df.shape[0] == 0:
+            return pd.DataFrame()
+        sp_file_names = sp_sub_df["file_name"].map(lambda x: x[:-2])
+        opt_file_names = opt_sub_df["file_name"].map(lambda x: x[:-3])
+        pub_opt_index = opt_file_names.isin(sp_file_names)
+        pub_sp_index = sp_file_names.isin(opt_file_names)
+        if pub_sp_index.sum() == 0 or pub_opt_index.sum() == 0:
+            return pd.DataFrame()
+        pub_sp_df = (
+            sp_sub_df[pub_sp_index]
+            .reset_index(drop=True)
+            .sort_values("file_name")
+            .drop(
+                [
+                    "file_name",
+                    "file_format",
+                    "charge",
+                    "multiplicity",
+                    "Canonical SMILES",
+                    "solvent_model",
+                    "solvent",
+                ],
+                axis=1,
+            )
+            .dropna(how="all", axis=1)
+        )
+        pub_opt_df = (
+            opt_sub_df[pub_opt_index]
+            .reset_index(drop=True)
+            .sort_values("file_name")
+            .dropna(how="all", axis=1)
+        )
+        pub_opt_df["SP(hartree)"] = pub_sp_df["SP(hartree)"]
+        pub_opt_df["H-Sum(kcal/mol)"] = (
+            pub_opt_df["SP(hartree)"] * 627.5095 + pub_opt_df["TCH(kcal/mol)"]
+        )
+        pub_opt_df["G-Sum(kcal/mol)"] = (
+            pub_opt_df["SP(hartree)"] * 627.5095 + pub_opt_df["TCG(kcal/mol)"]
+        )
+        return pub_opt_df
+
     def to_summary_df(
-        self, full: bool = False, with_units: bool = True, *, frameID=-1
+        self,
+        full: bool = False,
+        with_units: bool = True,
+        *,
+        frameID=-1,
+        use_hong_style: bool = False,
     ) -> pd.DataFrame:
+        if use_hong_style:
+            return self.hong_style_summary(frameID)
         return pd.concat(
             [parser[frameID].to_summary_series(full, with_units) for parser in self],
             axis=1,
@@ -664,12 +762,15 @@ class FileParserBatch(MutableMapping):
         with_units: bool = True,
         *,
         frameID=-1,
+        use_hong_style: bool = False,
     ):
         if not file_path:
             file_path = os.path.join(os.path.curdir, "summary.csv")
         if os.path.isdir(file_path):
             file_path = os.path.join(file_path, "summary.csv")
-        self.to_summary_df(full, with_units, frameID=frameID).to_csv(file_path)
+        self.to_summary_df(
+            full, with_units, frameID=frameID, use_hong_style=use_hong_style
+        ).to_csv(file_path)
         moloplogger.info(f"summary csv saved to {os.path.abspath(file_path)}")
 
     def to_summary_excel(
@@ -679,12 +780,15 @@ class FileParserBatch(MutableMapping):
         with_units: bool = True,
         *,
         frameID=-1,
+        ues_hong_style: bool = False,
     ):
         if not file_path:
             file_path = os.path.join(os.path.curdir, "summary.xlsx")
         if os.path.isdir(file_path):
             file_path = os.path.join(file_path, "summary.xlsx")
-        self.to_summary_df(full, with_units, frameID=frameID).to_excel(file_path)
+        self.to_summary_df(
+            full, with_units, frameID=frameID, use_hong_style=ues_hong_style
+        ).to_excel(file_path)
         moloplogger.info(f"summary xlsx saved to {os.path.abspath(file_path)}")
 
     def geometry_analysis(

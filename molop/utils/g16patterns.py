@@ -38,8 +38,11 @@ def parameter_comment_parser(
         parameter_comment (str): The parameter comment from the G16 log file.
 
     Returns:
-        - route_params (Dict): A dictionary containing parameter-value pairs extracted from the route section of the parameter comment.
-        - dieze_tag (str): The dieze tag extracted from the route section of the parameter comment.
+        route_params (Dict): 
+            A dictionary containing parameter-value pairs extracted from the route section of the parameter comment.
+            
+        dieze_tag (str): 
+            The dieze tag extracted from the route section of the parameter comment.
     """
     _route = (
         route.replace(" =", "=")
@@ -150,7 +153,7 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "input_coords_start": re.compile(r"Input orientation:"),
     "standard_coords_start": re.compile(r"Standard orientation:"),
     "coords_end": re.compile(
-        r"(Basis read|Standard basis|Rotational constants \(GHZ\)|Symmetry turned off)"
+        r"(Basis read|Standard basis|Rotational constants \(GHZ\)|Symmetry turned off|The archive entry for this job was punched.)"
     ),
     "coords": re.compile(
         r"\s+\d+\s+(\d+)\s+\d+\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)\s+([\s\-]\d+\.\d+)"
@@ -181,7 +184,7 @@ g16logpatterns: Dict[str, re.Pattern] = {
     "ccsd(t)": re.compile(r"CCSD\(T\)\s*=\s*(-*\d+.\d+D[+-]\d+)"),
     "Pseudopotential": re.compile(r"Pseudopotential Parameters"),
     "spins": re.compile(r"<S\*\*2>=([\s\-\d.]+)\s+S=([\s\-\d.]+)"),
-    "orbital_start": re.compile(r"Population analysis using the SCF Density"),
+    "orbital_start": re.compile(r"Population analysis using the SCF [Dd]ensity."),
     "orbital_end": re.compile(r"Condensed to atoms"),
     "orbital": re.compile(r"(Alpha|Beta)\s*(occ.|virt.)\s*eigenvalues -- (.*)"),
     "mulliken start": re.compile(
