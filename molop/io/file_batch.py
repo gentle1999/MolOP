@@ -711,6 +711,12 @@ class FileParserBatch(MutableMapping):
             sp_sub_df[pub_sp_index]
             .reset_index(drop=True)
             .sort_values("file_name")
+            .dropna(how="all", axis=1)
+        )
+        pub_opt_df = (
+            opt_sub_df[pub_opt_index]
+            .reset_index(drop=True)
+            .sort_values("file_name")
             .drop(
                 [
                     "file_name",
@@ -718,17 +724,9 @@ class FileParserBatch(MutableMapping):
                     "charge",
                     "multiplicity",
                     "Canonical SMILES",
-                    "solvent_model",
-                    "solvent",
                 ],
                 axis=1,
             )
-            .dropna(how="all", axis=1)
-        )
-        pub_opt_df = (
-            opt_sub_df[pub_opt_index]
-            .reset_index(drop=True)
-            .sort_values("file_name")
             .dropna(how="all", axis=1)
         )
         pub_opt_df["SP(hartree)"] = pub_sp_df["SP(hartree)"]
@@ -738,7 +736,7 @@ class FileParserBatch(MutableMapping):
         pub_opt_df["G-Sum(kcal/mol)"] = (
             pub_opt_df["SP(hartree)"] * 627.5095 + pub_opt_df["TCG(kcal/mol)"]
         )
-        return pub_opt_df
+        return pd.concat([pub_sp_df.drop("SP(hartree)", axis=1), pub_opt_df], axis=1)
 
     def to_summary_df(
         self,

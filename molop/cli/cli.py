@@ -39,8 +39,6 @@ class MolOPCLI:
         """
         self._file_batch = AutoParser(r"*.log")
         self.temp_batch.to_summary_csv(use_hong_style=hong)
-        self.temp_batch.to_SDF_file()
-        return self
 
     def read(
         self,
