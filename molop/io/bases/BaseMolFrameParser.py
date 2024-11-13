@@ -1038,8 +1038,6 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
             "charge": self.charge,
             "multiplicity": self.multiplicity,
             "Canonical SMILES": self.to_canonical_SMILES(),
-            "solvent_model": self.solvent_model,
-            "solvent": self.solvent,
         }
         if self.task_type == "sp":
             return pd.Series(
@@ -1047,10 +1045,11 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
                     **basic_info,
                     "sp_software": self.qm_software,
                     "sp_version": self.qm_software_version,
-                    "sp_keywords": self.keywords,
                     "sp_method": self.method,
                     "sp_functional": self.functional,
                     "sp_basis": self.basis,
+                    "sp_solvent_model": self.solvent_model,
+                    "sp_solvent": self.solvent,
                     "sp_normal terminated": self.status.normal_terminated,
                     "SP(hartree)": self.energies.to_unitless_dump().get("total_energy"),
                 }
@@ -1072,10 +1071,11 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
                     **basic_info,
                     "opt_software": self.qm_software,
                     "opt_version": self.qm_software_version,
-                    "opt_keywords": self.keywords,
                     "opt_method": self.method,
                     "opt_functional": self.functional,
                     "opt_basis": self.basis,
+                    "opt_solvent_model": self.solvent_model,
+                    "opt_solvent": self.solvent,
                     "opt_normal terminated": self.status.normal_terminated,
                     "SP(hartree)": self.energies.to_unitless_dump().get("total_energy"),
                     "ZPE(kcal/mol)": thermal_energies.get("ZPVE"),
