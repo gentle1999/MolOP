@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-17 15:17:37
 LastEditors: TMJ
-LastEditTime: 2024-10-08 12:41:09
+LastEditTime: 2024-11-11 22:11:57
 Description: 请填写简介
 '''
 """
@@ -25,7 +25,6 @@ of both approaches.
 
 import itertools
 
-# TODO SMARTS
 import time
 from typing import List, Tuple
 

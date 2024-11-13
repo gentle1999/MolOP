@@ -9,7 +9,7 @@ Description: 请填写简介
 import re
 from typing import Literal
 
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from molop.io.bases.BaseMolFileParser import BaseQMMolFileParser
 from molop.io.qm_file.G16LogFrameParser import G16LogFrameParser
@@ -196,3 +196,13 @@ class G16LogFileParser(BaseQMMolFileParser[G16LogFrameParser]):
     @property
     def dieze_tag(self) -> Literal["#N", "#P", "#T"]:
         return self.__dieze_tag
+
+    @computed_field
+    @property
+    def task_type(self) -> Literal["sp", "opt", "freq"]:
+        if self.route_params:
+            if "opt" in self.route_params:
+                return "opt"
+            if "freq" in self.route_params:
+                return "freq"
+        return "sp"

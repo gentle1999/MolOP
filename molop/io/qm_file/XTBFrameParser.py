@@ -8,6 +8,7 @@ Description: 请填写简介
 
 import os
 import re
+from typing import Literal
 
 import numpy as np
 from openbabel import pybel
@@ -440,3 +441,12 @@ class XTBFrameParser(BaseQMMolFrameParser):
             single_property["fukui_negative"] = fukui_minus
             single_property["fukui_zero"] = fukui_zero
         return SinglePointProperties.model_validate(single_property)
+
+    @computed_field
+    @property
+    def task_type(self) -> Literal["sp", "opt", "freq"]:
+        if "hess" in self.keywords.lower():
+            return "freq"
+        if "opt" in self.keywords.lower():
+            return "opt"
+        return "sp"

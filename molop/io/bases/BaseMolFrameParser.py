@@ -1,11 +1,3 @@
-"""
-Author: TMJ
-Date: 2024-06-18 13:04:26
-LastEditors: TMJ
-LastEditTime: 2024-06-21 21:19:20
-Description: 请填写简介
-"""
-
 import os
 import re
 from typing import List, Literal, Sequence, Tuple, TypeVar, Union
@@ -16,7 +8,6 @@ from openbabel import pybel
 from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr, computed_field, model_validator
 from rdkit import Chem
-from rdkit.Chem import rdForceFieldHelpers
 from typing_extensions import Self
 
 from molop.config import molopconfig
@@ -32,6 +23,7 @@ from molop.io.bases.DataClasses import (
     Status,
     ThermalEnergies,
     TotalSpin,
+    Vibration,
     Vibrations,
 )
 from molop.logger.logger import moloplogger
@@ -651,7 +643,8 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
     )
     method: str = Field(
         default="",
-        description="QM method used to perform the calculation. e.g. DFT or GFN2-xTB",
+        description="QM method used to perform the calculation. "
+        "e.g. DFT or SEMI-EMPIRICAL or HF et. al.",
     )
     basis: str = Field(
         default="",
@@ -739,6 +732,85 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         self.temperature = self.temperature.to(atom_ureg.K)
         self.electron_temperature = self.electron_temperature.to(atom_ureg.K)
 
+    def vibrate(
+        self,
+        vibration_id: Union[int, None] = None,
+        vibration: Union[Vibration, None] = None,
+        *,
+        ratio: float = 1.75,
+        steps: int = 15,
+        ignore_dative=True,
+    ) -> List[BaseMolFrameParser]:
+        """
+        Generate a list of base block parsers for vibration calculations.
+
+        Parameters:
+            vibration_id (Union[int, None]):
+                The index of the vibration to be calculated. If not specified, the first vibration will be used.
+            vibration (Union[Vibration, None]):
+                The Vibration object to be calculated. If not specified, the first vibration will be used.
+            ratio (float):
+                The ratio to force the geometry to vibrate.
+            steps (int):
+                The number of steps to generate.
+            ignore_dative (bool):
+                Whether to ignore dative bonds.
+
+        Returns:
+            List[BaseMolFrameParser]: A list of base block parsers for vibration calculations.
+        """
+
+        if vibration_id is None and vibration is None:
+            vibration_id = 0
+        if vibration_id is not None:
+            assert (
+                len(self.vibrations) > vibration_id
+            ), f"Invalid vibration id {vibration_id}"
+            vibration = self.vibrations[vibration_id]
+        assert (
+            vibration.vibration_mode.m.shape == self.coords.m.shape
+        ), "Invalid vibration mode"
+
+        block_parsers = []  # Initialize a list of base block parsers
+
+        # Iterate over a list of ratios
+        for r in np.linspace(-ratio, ratio, num=steps, endpoint=True):
+            # Calculate extreme coordinates based on current ratio
+            extreme_coords = self.coords.m - vibration.vibration_mode.m * r
+
+            try:
+                # Convert extreme coordinates to rdkit molecule object
+                rdmol = xyz2rdmol(
+                    f"{len(self.atoms)}\n"
+                    + f"charge {self.charge} multiplicity {self.multiplicity}\n"
+                    + "\n".join(
+                        [
+                            f"{Chem.Atom(atom).GetSymbol():10s}{x:10.5f}{y:10.5f}{z:10.5f}"
+                            for atom, x, y, z in zip(self.atoms, *zip(*extreme_coords))
+                        ]
+                    ),
+                    total_charge=self.charge,
+                    total_radical_electrons=self.multiplicity - 1,
+                    make_dative=not ignore_dative,
+                )
+                # Rebuild parser using the rdkit molecule object
+                if rdmol is None:
+                    continue
+                if not check_crowding(rdmol):
+                    continue
+                Chem.SanitizeMol(rdmol)
+                block_parser = self.rebuild_parser(rdmol)
+            except Exception as e:
+                moloplogger.warning(
+                    f"Failed to rebuild for {self.to_SMILES()} with error {e}"
+                )
+                continue
+
+            # Check if the molecule satisfies crowding conditions and append it to the list
+            block_parsers.append(block_parser)
+        moloplogger.info(f"Generated {len(block_parsers)} TS vibration calculations")
+        return block_parsers
+
     def ts_vibration(
         self, ratio: float = 1.75, steps: int = 15, ignore_dative=True
     ) -> List[BaseMolFrameParser]:
@@ -759,48 +831,59 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         if not self.is_TS:
             raise RuntimeError("This is not a TS")
 
-        block_parsers = []  # Initialize a list of base block parsers
+        return self.vibrate(
+            vibration_id=0,
+            ratio=ratio,
+            steps=steps,
+            ignore_dative=ignore_dative,
+        )
 
-        # Iterate over a list of ratios
-        for r in np.linspace(-ratio, ratio, num=steps, endpoint=True):
-            # Calculate extreme coordinates based on current ratio
-            extreme_coords = (
-                self.coords.m
-                - self.vibrations.imaginary_vibrations[0].vibration_mode.m * r
-            )
+    def vibrate_to_SDF_file(
+        self,
+        file_path: str = None,
+        *,
+        vibration_id: Union[int, None] = None,
+        vibration: Union[Vibration, None] = None,
+        ratio: float = 1.75,
+        steps: int = 15,
+        ignore_dative=True,
+    ) -> str:
+        """
+        Write the vibration calculations to an SDF file.
 
-            try:
-                # Convert extreme coordinates to openbabel molecule object
-                rdmol = xyz2rdmol(
-                    f"{len(self.atoms)}\n"
-                    + f"charge {self.charge} multiplicity {self.multiplicity}\n"
-                    + "\n".join(
-                        [
-                            f"{Chem.Atom(atom).GetSymbol():10s}{x:10.5f}{y:10.5f}{z:10.5f}"
-                            for atom, x, y, z in zip(self.atoms, *zip(*extreme_coords))
-                        ]
-                    ),
-                    total_charge=self.charge,
-                    total_radical_electrons=self.multiplicity - 1,
-                    make_dative=not ignore_dative,
-                )
-                # Rebuild parser using the openbabel molecule object
-                if rdmol is None:
-                    continue
-                if not check_crowding(rdmol):
-                    continue
-                Chem.SanitizeMol(rdmol)
-                block_parser = self.rebuild_parser(rdmol)
-            except Exception as e:
-                moloplogger.warning(
-                    f"Failed to rebuild for {self.to_SMILES()} with error {e}"
-                )
-                continue
+        Parameters:
+            file_path (str):
+                The file path. If not specified, will be generated in situ.
+            vibration_id (Union[int, None]):
+                The index of the vibration to be calculated. If not specified, the first vibration will be used.
+            vibration (Union[Vibration, None]):
+                The Vibration object to be calculated. If not specified, the first vibration will be used.
+            ratio (float):
+                The ratio to force the geometry to vibrate.
+            steps (int):
+                The number of steps to generate.
+            ignore_dative (bool):
+                Whether to ignore dative bonds.
 
-            # Check if the molecule satisfies crowding conditions and append it to the list
-            block_parsers.append(block_parser)
-        moloplogger.info(f"Generated {len(block_parsers)} TS vibration calculations")
-        return block_parsers
+        Returns:
+            str: The absolute path of the SDF file.
+        """
+        if file_path is None:
+            file_path = self.file_path
+        if os.path.isdir(file_path):
+            raise IsADirectoryError(f"{file_path} is a directory.")
+        file_path = os.path.splitext(file_path)[0] + ".sdf"
+        block_parsers = self.vibrate(
+            vibration_id=vibration_id,
+            vibration=vibration,
+            ratio=ratio,
+            steps=steps,
+            ignore_dative=ignore_dative,
+        )
+        with open(file_path, "w") as f:
+            f.write("$$$$\n".join([frame.to_SDF_block() for frame in block_parsers]))
+        f.close()
+        return file_path
 
     def ts_vibration_to_SDF_file(
         self,
@@ -826,17 +909,16 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         Returns:
             str: The absolute path of the SDF file.
         """
-        if file_path is None:
-            file_path = self.file_path
-        if os.path.isdir(file_path):
-            raise IsADirectoryError(f"{file_path} is a directory.")
-        file_path = os.path.splitext(file_path)[0] + ".sdf"
-        block_parsers = self.ts_vibration(
-            ratio=ratio, steps=steps, ignore_dative=ignore_dative
+        if not self.is_TS:
+            raise RuntimeError("This is not a TS")
+
+        self.vibrate_to_SDF_file(
+            file_path=file_path,
+            vibration_id=0,
+            ratio=ratio,
+            steps=steps,
+            ignore_dative=ignore_dative,
         )
-        with open(file_path, "w") as f:
-            f.write("$$$$\n".join([frame.to_SDF_block() for frame in block_parsers]))
-        f.close()
         return file_path
 
     def possible_pre_post_ts(
@@ -851,13 +933,13 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         This method returns the possible pre- and post-transition state molecules.
 
         Parameters:
-            show_3D (bool): 
+            show_3D (bool):
                 Whether to show 3D coordinates. Defaults to False.
-            ratio (float): 
+            ratio (float):
                 The ratio to force the geometry to vibrate. Defaults to 1.75.
-            steps (int): 
+            steps (int):
                 The number of steps to generate. Defaults to 15.
-            ignore_dative (bool): 
+            ignore_dative (bool):
                 Whether to ignore dative bonds. Defaults to True.
 
         Returns:
@@ -948,6 +1030,76 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
                     "running_time": self.running_time.m,
                 }
         return pd.Series(brief_dict)
+
+    def hong_style_summary_series(self) -> pd.Series:
+        basic_info = {
+            "file_name": self.pure_filename,
+            "file_format": self.file_format,
+            "charge": self.charge,
+            "multiplicity": self.multiplicity,
+            "Canonical SMILES": self.to_canonical_SMILES(),
+            "solvent_model": self.solvent_model,
+            "solvent": self.solvent,
+        }
+        if self.task_type == "sp":
+            return pd.Series(
+                {
+                    **basic_info,
+                    "sp_software": self.qm_software,
+                    "sp_version": self.qm_software_version,
+                    "sp_keywords": self.keywords,
+                    "sp_method": self.method,
+                    "sp_functional": self.functional,
+                    "sp_basis": self.basis,
+                    "sp_normal terminated": self.status.normal_terminated,
+                    "SP(hartree)": self.energies.to_unitless_dump().get("total_energy"),
+                }
+            )
+        if self.task_type == "opt" or self.task_type == "freq":
+            thermal_energies = self.thermal_energies.model_copy(deep=True)
+            thermal_energies._transform_units(
+                {
+                    "ZPVE": atom_ureg.kcal / atom_ureg.mol,
+                    "TCH": atom_ureg.kcal / atom_ureg.mol,
+                    "TCG": atom_ureg.kcal / atom_ureg.mol,
+                    "H_T": atom_ureg.kcal / atom_ureg.mol,
+                    "G_T": atom_ureg.kcal / atom_ureg.mol,
+                }
+            )
+            thermal_energies = thermal_energies.to_unitless_dump()
+            return pd.Series(
+                {
+                    **basic_info,
+                    "opt_software": self.qm_software,
+                    "opt_version": self.qm_software_version,
+                    "opt_keywords": self.keywords,
+                    "opt_method": self.method,
+                    "opt_functional": self.functional,
+                    "opt_basis": self.basis,
+                    "opt_normal terminated": self.status.normal_terminated,
+                    "SP(hartree)": self.energies.to_unitless_dump().get("total_energy"),
+                    "ZPE(kcal/mol)": thermal_energies.get("ZPVE"),
+                    "TCH(kcal/mol)": thermal_energies.get("TCH"),
+                    "TCG(kcal/mol)": thermal_energies.get("TCG"),
+                    "H-Opt(kcal/mol)": thermal_energies.get("H_T"),
+                    "G-Opt(kcal/mol)": thermal_energies.get("G_T"),
+                    "Freq1(cm-1)": (
+                        self.vibrations[0].frequency.m
+                        if self.vibrations[0].frequency
+                        else None
+                    ),
+                    "Freq2(cm-1)": (
+                        self.vibrations[1].frequency.m
+                        if self.vibrations[1].frequency
+                        else None
+                    ),
+                },
+            )
+
+    @computed_field
+    @property
+    def task_type(self) -> Literal["sp", "opt", "freq"]:
+        return "sp"
 
     @computed_field
     @property

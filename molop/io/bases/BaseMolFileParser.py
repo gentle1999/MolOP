@@ -7,7 +7,7 @@ Description: 请填写简介
 """
 
 import os
-from typing import Generic, List, Sequence, Tuple, Union
+from typing import Generic, List, Literal, Sequence, Tuple, Union
 
 import pandas as pd
 from pint.facets.plain import PlainQuantity
@@ -635,3 +635,25 @@ class BaseQMMolFileParser(BaseMolFileParser[QMMolFrameType]):
             QMMolFrameType: The frame with the closest optimization status to the optimized state.
         """
         return self.sort_by_optimization[0]
+
+    def draw_energy_curve(self):
+        try:
+            import seaborn as sns
+        except ImportError:
+            raise ImportError(
+                "Seaborn is required for drawing energy curve. Please install it first by `pip install seaborn`."
+            )
+        energies = {
+            frame.frame_id: frame.energies.total_energy.m
+            for frame in self.frames
+            if frame.energies.total_energy is not None
+        }
+        temp_df = pd.DataFrame(
+            {"frame_id": list(energies.keys()), "total_energy": list(energies.values())}
+        )
+        return sns.lineplot(x="frame_id", y="total_energy", data=temp_df)
+
+    @computed_field
+    @property
+    def task_type(self) -> Literal["sp", "opt", "freq"]:
+        return "sp"

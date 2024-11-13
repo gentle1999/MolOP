@@ -781,6 +781,16 @@ class G16LogFrameParser(BaseQMMolFrameParser):
 
     @computed_field
     @property
+    def task_type(self) -> Literal["sp", "opt", "freq"]:
+        if self.route_params:
+            if "opt" in self.route_params:
+                return "opt"
+            if "freq" in self.route_params:
+                return "freq"
+        return "sp"
+
+    @computed_field
+    @property
     def is_error(self) -> bool:
         """
         Check if the current frame is an error frame

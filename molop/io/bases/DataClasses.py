@@ -70,6 +70,11 @@ class BaseDataClassWithUnit(BaseModel):
     def _set_default_units(self):
         raise NotImplementedError
 
+    def _transform_units(self, unit_dict: Dict[str, str]):
+        for key, unit in unit_dict.items():
+            if hasattr(self, key):
+                setattr(self, key, unit_transform(getattr(self, key), unit))
+
     def model_dump_without_none(self, **kwargs) -> Dict:
         return {k: v for k, v in self.model_dump(**kwargs).items() if v is not None}
 
@@ -132,14 +137,16 @@ class Energies(BaseDataClassWithUnit):
             return None
 
     def _set_default_units(self):
-        self.electronic_energy = unit_transform(
-            self.electronic_energy, atom_ureg.hartree
+        self._transform_units(
+            {
+                "electronic_energy": atom_ureg.hartree,
+                "scf_energy": atom_ureg.hartree,
+                "mp2_energy": atom_ureg.hartree,
+                "mp3_energy": atom_ureg.hartree,
+                "mp4_energy": atom_ureg.hartree,
+                "ccsd_energy": atom_ureg.hartree,
+            }
         )
-        self.scf_energy = unit_transform(self.scf_energy, atom_ureg.hartree)
-        self.mp2_energy = unit_transform(self.mp2_energy, atom_ureg.hartree)
-        self.mp3_energy = unit_transform(self.mp3_energy, atom_ureg.hartree)
-        self.mp4_energy = unit_transform(self.mp4_energy, atom_ureg.hartree)
-        self.ccsd_energy = unit_transform(self.ccsd_energy, atom_ureg.hartree)
 
 
 class ThermalEnergies(BaseDataClassWithUnit):
@@ -197,19 +204,19 @@ class ThermalEnergies(BaseDataClassWithUnit):
     )
 
     def _set_default_units(self):
-        self.ZPVE = unit_transform(self.ZPVE, atom_ureg.hartree / atom_ureg.particle)
-        self.U_0 = unit_transform(self.U_0, atom_ureg.hartree / atom_ureg.particle)
-        self.TCE = unit_transform(self.TCE, atom_ureg.hartree / atom_ureg.particle)
-        self.TCH = unit_transform(self.TCH, atom_ureg.hartree / atom_ureg.particle)
-        self.TCG = unit_transform(self.TCG, atom_ureg.hartree / atom_ureg.particle)
-        self.U_T = unit_transform(self.U_T, atom_ureg.hartree / atom_ureg.particle)
-        self.H_T = unit_transform(self.H_T, atom_ureg.hartree / atom_ureg.particle)
-        self.G_T = unit_transform(self.G_T, atom_ureg.hartree / atom_ureg.particle)
-        self.S = unit_transform(
-            self.S, atom_ureg.calorie / atom_ureg.mol / atom_ureg.kelvin
-        )
-        self.C_V = unit_transform(
-            self.C_V, atom_ureg.calorie / atom_ureg.mol / atom_ureg.kelvin
+        self._transform_units(
+            {
+                "ZPVE": atom_ureg.hartree / atom_ureg.particle,
+                "U_0": atom_ureg.hartree / atom_ureg.particle,
+                "TCE": atom_ureg.hartree / atom_ureg.particle,
+                "TCH": atom_ureg.hartree / atom_ureg.particle,
+                "TCG": atom_ureg.hartree / atom_ureg.particle,
+                "U_T": atom_ureg.hartree / atom_ureg.particle,
+                "H_T": atom_ureg.hartree / atom_ureg.particle,
+                "G_T": atom_ureg.hartree / atom_ureg.particle,
+                "S": atom_ureg.calorie / atom_ureg.mol / atom_ureg.kelvin,
+                "C_V": atom_ureg.calorie / atom_ureg.mol / atom_ureg.kelvin,
+            }
         )
 
 
@@ -232,8 +239,12 @@ class MoleculeOrbital(BaseDataClassWithUnit):
     )
 
     def _set_default_units(self):
-        self.alpha_energy = unit_transform(self.alpha_energy, atom_ureg.eV)
-        self.beta_energy = unit_transform(self.beta_energy, atom_ureg.eV)
+        self._transform_units(
+            {
+                "alpha_energy": atom_ureg.hartree,
+                "beta_energy": atom_ureg.hartree,
+            }
+        )
 
 
 class MolecularOrbitals(BaseDataClassWithUnit):
@@ -257,8 +268,12 @@ class MolecularOrbitals(BaseDataClassWithUnit):
     )
 
     def _set_default_units(self):
-        self.alpha_energies = unit_transform(self.alpha_energies, atom_ureg.eV)
-        self.beta_energies = unit_transform(self.beta_energies, atom_ureg.eV)
+        self._transform_units(
+            {
+                "alpha_energies": atom_ureg.hartree,
+                "beta_energies": atom_ureg.hartree,
+            }
+        )
 
     @computed_field(
         description="HOMO orbital idx",
@@ -456,15 +471,15 @@ class Vibration(BaseDataClassWithUnit):
     )
 
     def _set_default_units(self):
-        self.frequency = unit_transform(self.frequency, atom_ureg.cm_1)
-        self.reduced_mass = unit_transform(self.reduced_mass, atom_ureg.amu)
-        self.force_constant = unit_transform(
-            self.force_constant, atom_ureg.mdyne / atom_ureg.angstrom
+        self._transform_units(
+            {
+                "frequency": atom_ureg.cm_1,
+                "reduced_mass": atom_ureg.amu,
+                "force_constant": atom_ureg.mdyne / atom_ureg.angstrom,
+                "IR_intensity": atom_ureg.km / atom_ureg.mol,
+                "vibration_mode": atom_ureg.angstrom,
+            }
         )
-        self.IR_intensity = unit_transform(
-            self.IR_intensity, atom_ureg.km / atom_ureg.mol
-        )
-        self.vibration_mode = unit_transform(self.vibration_mode, atom_ureg.angstrom)
 
     @computed_field
     @property
@@ -499,13 +514,13 @@ class Vibrations(BaseDataClassWithUnit):
     )
 
     def _set_default_units(self):
-        self.frequencies = unit_transform(self.frequencies, atom_ureg.cm_1)
-        self.reduced_masses = unit_transform(self.reduced_masses, atom_ureg.amu)
-        self.force_constants = unit_transform(
-            self.force_constants, atom_ureg.mdyne / atom_ureg.angstrom
-        )
-        self.IR_intensities = unit_transform(
-            self.IR_intensities, atom_ureg.km / atom_ureg.mol
+        self._transform_units(
+            {
+                "frequencies": atom_ureg.cm_1,
+                "reduced_masses": atom_ureg.amu,
+                "force_constants": atom_ureg.mdyne / atom_ureg.angstrom,
+                "IR_intensities": atom_ureg.km / atom_ureg.mol,
+            }
         )
         for i, vibration_mode in enumerate(self.vibration_modes):
             if vibration_mode is not None:
@@ -626,8 +641,7 @@ class ChargeSpinPopulations(BaseDataClassWithUnit):
         description="NPA charges",
     )
 
-    def _set_default_units(self):
-        pass
+    def _set_default_units(self): ...
 
 
 class TotalSpin(BaseDataClassWithUnit):
@@ -640,8 +654,7 @@ class TotalSpin(BaseDataClassWithUnit):
         description="Spin quantum number of the molecule",
     )
 
-    def _set_default_units(self):
-        pass
+    def _set_default_units(self): ...
 
 
 class Polarizability(BaseDataClassWithUnit):
@@ -684,30 +697,18 @@ class Polarizability(BaseDataClassWithUnit):
     )
 
     def _set_default_units(self):
-        self.electronic_spatial_extent = unit_transform(
-            self.electronic_spatial_extent, atom_ureg.bohr**2
-        )
-        self.isotropic_polarizability = unit_transform(
-            self.isotropic_polarizability, atom_ureg.bohr**3
-        )
-        self.anisotropic_polarizability = unit_transform(
-            self.anisotropic_polarizability, atom_ureg.bohr**3
-        )
-        self.polarizability_tensor = unit_transform(
-            self.polarizability_tensor, atom_ureg.bohr**3
-        )
-        self.electric_dipole_moment = unit_transform(
-            self.electric_dipole_moment, atom_ureg.debye
-        )
-        self.dipole = unit_transform(self.dipole, atom_ureg.debye)
-        self.quadrupole = unit_transform(
-            self.quadrupole, atom_ureg.debye * atom_ureg.angstrom
-        )
-        self.octapole = unit_transform(
-            self.octapole, atom_ureg.debye * atom_ureg.angstrom**2
-        )
-        self.hexadecapole = unit_transform(
-            self.hexadecapole, atom_ureg.debye * atom_ureg.angstrom**3
+        self._transform_units(
+            {
+                "electronic_spatial_extent": atom_ureg.bohr**2,
+                "isotropic_polarizability": atom_ureg.bohr**3,
+                "anisotropic_polarizability": atom_ureg.bohr**3,
+                "polarizability_tensor": atom_ureg.bohr**3,
+                "electric_dipole_moment": atom_ureg.debye,
+                "dipole": atom_ureg.debye,
+                "quadrupole": atom_ureg.debye * atom_ureg.angstrom,
+                "octapole": atom_ureg.debye * atom_ureg.angstrom**2,
+                "hexadecapole": atom_ureg.debye * atom_ureg.angstrom**3,
+            }
         )
 
 
@@ -733,8 +734,7 @@ class BondOrders(BaseDataClassWithUnit):
         description="NBO bond order",
     )
 
-    def _set_default_units(self):
-        pass
+    def _set_default_units(self): ...
 
 
 class Dispersions(BaseDataClassWithUnit):
@@ -748,8 +748,12 @@ class Dispersions(BaseDataClassWithUnit):
     )
 
     def _set_default_units(self):
-        self.C6AA = unit_transform(self.C6AA, atom_ureg.bohr**6)
-        self.C8AA = unit_transform(self.C8AA, atom_ureg.bohr**8)
+        self._transform_units(
+            {
+                "C6AA": atom_ureg.bohr**6,
+                "C8AA": atom_ureg.bohr**8,
+            }
+        )
 
 
 class SinglePointProperties(BaseDataClassWithUnit):
@@ -787,9 +791,13 @@ class SinglePointProperties(BaseDataClassWithUnit):
     )
 
     def _set_default_units(self):
-        self.vip = unit_transform(self.vip, atom_ureg.eV / atom_ureg.particle)
-        self.vea = unit_transform(self.vea, atom_ureg.eV / atom_ureg.particle)
-        self.gei = unit_transform(self.gei, atom_ureg.eV / atom_ureg.particle)
+        self._transform_units(
+            {
+                "vip": atom_ureg.eV / atom_ureg.particle,
+                "vea": atom_ureg.eV / atom_ureg.particle,
+                "gei": atom_ureg.eV / atom_ureg.particle,
+            }
+        )
 
 
 class GeometryOptimizationStatus(BaseDataClassWithUnit):
@@ -833,8 +841,7 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
         default=float("inf"), description="Maximum displacement"
     )
 
-    def _set_default_units(self):
-        pass
+    def _set_default_units(self): ...
 
     @computed_field()
     @property
@@ -962,5 +969,4 @@ class Status(BaseDataClassWithUnit):
         default=False, description="Whether the calculation has terminated normally"
     )
 
-    def _set_default_units(self):
-        pass
+    def _set_default_units(self): ...

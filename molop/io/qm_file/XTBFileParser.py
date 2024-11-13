@@ -7,9 +7,10 @@ Description: 请填写简介
 """
 
 import re
+from typing import Literal
 
 from packaging.version import Version
-from pydantic import Field
+from pydantic import Field, computed_field
 
 from molop.io.bases.BaseMolFileParser import BaseQMMolFileParser
 from molop.io.qm_file.XTBFrameParser import XTBFrameParser
@@ -123,3 +124,13 @@ class XTBFileParser(BaseQMMolFileParser[XTBFrameParser]):
         self.running_time = sum(
             frame.running_time for frame in self.frames
         )
+
+    
+    @computed_field
+    @property
+    def task_type(self) -> Literal["sp", "opt", "freq"]:
+        if "hess" in self.keywords.lower():
+            return "freq"
+        if "opt" in self.keywords.lower():
+            return "opt"
+        return "sp"

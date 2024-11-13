@@ -9,8 +9,8 @@ Description: 请填写简介
 import fire
 
 from molop import AutoParser
-from molop.io import FileParserBatch
 from molop.config import molopconfig
+from molop.io import FileParserBatch
 
 
 class MolOPCLI:
@@ -33,12 +33,12 @@ class MolOPCLI:
         else:
             return self._temp_batch
 
-    def auto(self):
+    def auto(self, hong=True):
         """
         Auto process the current directory.
         """
         self._file_batch = AutoParser(r"*.log")
-        self.temp_batch.to_summary_csv()
+        self.temp_batch.to_summary_csv(use_hong_style=hong)
         self.temp_batch.to_SDF_file()
         return self
 
@@ -76,16 +76,36 @@ class MolOPCLI:
         )
         return self
 
-    def summary(self, file_dir: str = None, full: bool = True, with_units: bool = True):
+    def summary(
+        self,
+        file_dir: str = None,
+        full: bool = True,
+        with_units: bool = True,
+        use_hong_style=False,
+    ):
         """
         Save the summary csv file.
+
+        Parameters:
+            file_dir str:
+                the directory to save the summary csv file.
+            full bool:
+                if True, save all the information, else save only the essential information.
+            with_units bool:
+                if True, save the information with units, else save the information without units.
         """
-        self.temp_batch.to_summary_csv(file_dir, full, with_units)
+        self.temp_batch.to_summary_csv(
+            file_dir, full, with_units, use_hong_style=use_hong_style
+        )
         return self
 
     def xyz(self, file_dir: str = None):
         """
         Save the XYZ file of all frames of each file.
+
+        Parameters:
+            file_dir str:
+                the directory to save the XYZ file.
         """
         self.temp_batch.to_XYZ_file(file_dir)
         return self
@@ -93,6 +113,10 @@ class MolOPCLI:
     def sdf(self, file_dir: str = None):
         """
         Save the SDF file of all frames of each file.
+
+        Parameters:
+            file_dir str:
+                the directory to save the SDF file.
         """
         self.temp_batch.to_SDF_file(file_dir)
         return self
@@ -100,6 +124,14 @@ class MolOPCLI:
     def chemdraw(self, file_dir: str = None, frameID=-1, keep3D=True):
         """
         Save the cdxml file of specified frames of each file.
+
+        Parameters:
+            file_dir str:
+                the directory to save the cdxml file.
+            frameID int:
+                the frame ID to save, -1 means the last frame.
+            keep3D bool:
+                if True, keep the 3D information, else remove the 3D information.
         """
         self.temp_batch.to_chemdraw(file_dir, frameID, keep3D)
         return self
@@ -117,7 +149,29 @@ class MolOPCLI:
         frameID: int = -1,
     ):
         """
-        Save the GJF file of any frame of each file.
+        Write the GJF file.
+
+        Parameters:
+            file_path (str):
+                The path to write the GJF file. If not specified, will be generated in situ.
+            charge (int):
+                The forced charge. If specified, will be used to overwrite the charge in the gjf file.
+            multiplicity (int):
+                The forced multiplicity. If specified, will be used to overwrite the multiplicity in the gjf file.
+            template (str):
+                path to read a gjf file as a template.
+            prefix (str):
+                prefix to add to the beginning of the gjf file, priority is higher than template.
+            suffix (str):
+                suffix to add to the end of the gjf file, priority is higher than template.
+            chk (bool):
+                If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
+            oldchk (bool):
+                If true, add the oldchk keyword to the link0 section. Will use the file name as the chk file name.
+            frameID (int):
+                The frame ID to write.
+        Returns:
+            str: The path to the GJF file.
         """
         self.temp_batch.to_GJF_file(
             file_dir,
@@ -132,17 +186,28 @@ class MolOPCLI:
         )
         return self
 
-    def smiles(self):
+    def smiles(self, frameID: int = -1):
         """
-        Print the SMILES of last frame of each files.
+        Print the SMILES of the specified frame of each files.
+
+        Parameters:
+            frameID int:
+                the frame ID to print, -1 means the last frame.
         """
         for _file in self.temp_batch:
-            print(_file[-1].to_canonical_SMILES())
+            try:
+                print(_file[frameID].to_canonical_SMILES())
+            except AttributeError:
+                print(f"No SMILES found in {_file.file_path} frame {frameID}")
         return self
 
     def charge(self, charge: int):
         """
         Filter the file batch by charge.
+
+        Parameters:
+            charge int:
+                the charge to filter.
         """
         self._temp_batch = self.temp_batch.filter_by_charge(charge)
         return self
@@ -150,6 +215,10 @@ class MolOPCLI:
     def multi(self, multiplicity: int):
         """
         Filter the file batch by multiplicity.
+
+        Parameters:
+            multiplicity int:
+                the multiplicity to filter.
         """
         self._temp_batch = self.temp_batch.filter_by_multi(multiplicity)
         return self
@@ -202,21 +271,21 @@ class MolOPCLI:
         """
         molopconfig.quiet()
         return self
-    
+
     def verbose(self):
         """
         Verbose the command chain, print logs.
         """
         molopconfig.verbose()
         return self
-    
+
     def log_off(self):
         """
         Turn off the log.
         """
         molopconfig.log_off()
         return self
-    
+
     def log_on(self):
         """
         Turn on the log.

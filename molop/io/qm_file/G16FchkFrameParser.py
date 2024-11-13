@@ -90,6 +90,7 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
     def _parse_functional_basis(self):
         for idx, line in enumerate(self.__block.splitlines()):
             if idx == 1:
+                self.__task_type = line.split()[0].lower()
                 self.functional = line.split()[1].lower()
                 self.basis = line.split()[2].lower()
                 break
@@ -274,6 +275,15 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
         self.status.scf_converged = self.energies.total_energy is not None
         if "opt" in self.route_params and not self.is_error:
             self.geometry_optimization_status.geometry_optimized = True
+
+    @computed_field
+    @property
+    def task_type(self) -> Literal["sp", "opt", "freq"]:
+        if "opt" in self.__task_type:
+            return "opt"
+        if "freq" in self.__task_type:
+            return "freq"
+        return "sp"
 
     @computed_field
     @property
