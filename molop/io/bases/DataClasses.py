@@ -7,11 +7,12 @@ Description: 请填写简介
 """
 
 from abc import abstractmethod
-from typing import Dict, List, Sequence, Union, overload
+from typing import Any, Dict, List, Sequence, Union, overload
 
 import numpy as np
 import pandas as pd
 from pint.facets.plain import PlainQuantity
+from pint.facets.plain.quantity import Magnitude
 from pydantic import (
     BaseModel,
     ConfigDict,
@@ -30,8 +31,51 @@ from molop.unit import atom_ureg, unit_transform
 class BaseDataClassWithUnit(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
 
+    @overload
+    def __unitless_dump__(item: PlainQuantity[np.ndarray]) -> list: ...
+
+    @overload
+    def __unitless_dump__(item: PlainQuantity[Magnitude]) -> float: ...
+
+    @overload
+    def __unitless_dump__(item: np.ndarray) -> list: ...
+
+    @overload
+    def __unitless_dump__(item: float) -> float: ...
+
+    @overload
+    def __unitless_dump__(item: int) -> int: ...
+
+    @overload
+    def __unitless_dump__(item: str) -> str: ...
+
+    @overload
+    def __unitless_dump__(item: list) -> list: ...
+
+    @overload
+    def __unitless_dump__(item: tuple) -> tuple: ...
+
+    @overload
+    def __unitless_dump__(item: dict) -> dict: ...
+
+    @overload
+    def __unitless_dump__(item: "BaseDataClassWithUnit") -> "BaseDataClassWithUnit": ...
+
     @staticmethod
-    def __unitless_dump(item):
+    def __unitless_dump__(
+        item: Union[
+            PlainQuantity[np.ndarray],
+            PlainQuantity[Magnitude],
+            np.ndarray,
+            float,
+            int,
+            str,
+            list,
+            tuple,
+            dict,
+            "BaseDataClassWithUnit",
+        ]
+    ) -> Union[float, int, str, list, tuple, dict]:
         if isinstance(item, PlainQuantity):
             if isinstance(item.m, np.ndarray):
                 return item.m.tolist()
@@ -40,20 +84,22 @@ class BaseDataClassWithUnit(BaseModel):
         if isinstance(item, np.ndarray):
             return item.tolist()
         if isinstance(item, list):
-            return [BaseDataClassWithUnit.__unitless_dump(i) for i in item]
+            return [BaseDataClassWithUnit.__unitless_dump__(i) for i in item]
         if isinstance(item, tuple):
-            return tuple(BaseDataClassWithUnit.__unitless_dump(i) for i in item)
+            return tuple(BaseDataClassWithUnit.__unitless_dump__(i) for i in item)
         if isinstance(item, dict):
             return {
-                k: BaseDataClassWithUnit.__unitless_dump(v) for k, v in item.items()
+                k: BaseDataClassWithUnit.__unitless_dump__(v) for k, v in item.items()
             }
-        if hasattr(item, "to_unitless_dump"):
+        if isinstance(item, BaseDataClassWithUnit):
             return item.to_unitless_dump()
         return item
 
-    def to_unitless_dump(self, **kwargs) -> dict:
+    def to_unitless_dump(
+        self, **kwargs
+    ) -> Dict[str, Union[float, int, str, list, tuple, dict]]:
         return {
-            k: BaseDataClassWithUnit.__unitless_dump(getattr(self, k))
+            k: BaseDataClassWithUnit.__unitless_dump__(getattr(self, k))
             for k, v in self.model_dump(**kwargs).items()
         }
 
@@ -74,9 +120,6 @@ class BaseDataClassWithUnit(BaseModel):
         for key, unit in unit_dict.items():
             if hasattr(self, key):
                 setattr(self, key, unit_transform(getattr(self, key), unit))
-
-    def model_dump_without_none(self, **kwargs) -> Dict:
-        return {k: v for k, v in self.model_dump(**kwargs).items() if v is not None}
 
 
 class WaveFunction(BaseDataClassWithUnit): ...
@@ -297,6 +340,27 @@ class MolecularOrbitals(BaseDataClassWithUnit):
         )
 
     @computed_field(
+        description="beta HOMO orbital idx",
+    )
+    @property
+    def beta_HOMO_id(self) -> int:
+        for i, beta_occ in enumerate(self.beta_occupancies):
+            if beta_occ == 0:
+                return i - 1
+        return 0
+
+    @computed_field(
+        description="beta LUMO orbital idx",
+    )
+    @property
+    def beta_LUMO_id(self) -> int:
+        return max(
+            0,
+            self.beta_HOMO_id + 1,
+            min(len(self.beta_occupancies) - 1, sum(self.beta_occupancies)),
+        )
+
+    @computed_field(
         description="SOMO orbital idx",
     )
     @property
@@ -377,6 +441,70 @@ class MolecularOrbitals(BaseDataClassWithUnit):
         self.__index = 0
         return self
 
+    @computed_field(
+        description="beta HOMO energy",
+    )
+    @property
+    def beta_HOMO_energy(self) -> Union[PlainQuantity, None]:
+        try:
+            return self.beta_energies[self.beta_HOMO_id]
+        except:
+            return None
+
+    @computed_field(
+        description="beta LUMO energy",
+    )
+    @property
+    def beta_LUMO_energy(self) -> Union[PlainQuantity, None]:
+        try:
+            return self.beta_energies[self.beta_LUMO_id]
+        except:
+            return None
+
+    @computed_field(
+        description="beta HOMO-LUMO gap",
+    )
+    @property
+    def beta_HOMO_LUMO_gap(self) -> Union[PlainQuantity, None]:
+        try:
+            return self.beta_LUMO_energy - self.beta_HOMO_energy
+        except:
+            return None
+
+    @computed_field(
+        description="beta NHOMO orbital idx",
+    )
+    @property
+    def beta_NHOMO_id(self) -> int:
+        return max(0, self.beta_HOMO_id - 1)
+
+    @computed_field(
+        description="beta NHOMO energy",
+    )
+    @property
+    def beta_NHOMO_energy(self) -> Union[PlainQuantity, None]:
+        try:
+            return self.beta_energies[self.beta_NHOMO_id]
+        except:
+            return None
+
+    @computed_field(
+        description="beta SLUMO orbital idx",
+    )
+    @property
+    def beta_SLUMO_id(self) -> int:
+        return min(len(self.beta_occupancies) - 1, self.beta_LUMO_id + 1)
+
+    @computed_field(
+        description="beta SLUMO energy",
+    )
+    @property
+    def beta_SLUMO_energy(self) -> Union[PlainQuantity, None]:
+        try:
+            return self.beta_energies[self.beta_SLUMO_id]
+        except:
+            return None
+
     def __next__(
         self,
     ) -> MoleculeOrbital:
@@ -446,6 +574,22 @@ class MolecularOrbitals(BaseDataClassWithUnit):
         if self.LUMO_id is None:
             return None
         return self[self.LUMO_id]
+
+    @property
+    def beta_HOMO(self) -> MoleculeOrbital:
+        if self.beta_HOMO_id is None:
+            return None
+        return self[self.beta_HOMO_id]
+
+    @property
+    def beta_LUMO(self) -> MoleculeOrbital:
+        if self.beta_LUMO_id is None:
+            return None
+        return self[self.beta_LUMO_id]
+    
+    @property
+    def SOMOs(self) -> List[MoleculeOrbital]:
+        return self[self.SOMO_ids]
 
 
 class Vibration(BaseDataClassWithUnit):
@@ -970,3 +1114,6 @@ class Status(BaseDataClassWithUnit):
     )
 
     def _set_default_units(self): ...
+
+
+# TODO: add NMR dataclass

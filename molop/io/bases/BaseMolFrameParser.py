@@ -381,7 +381,7 @@ class BaseMolFrameParser(BaseMolFrame):
             return self._prev_frame
 
     @classmethod
-    def rebuild_parser(
+    def rebuild_frame(
         cls,
         new_mol: Chem.rdchem.Mol,
         path: str = os.path.join(os.getcwd(), "temp.xyz"),
@@ -495,7 +495,7 @@ class BaseMolFrameParser(BaseMolFrame):
             replacement_absolute_idx=replacement_absolute_idx,
             prefer_ZE=prefer_ZE,
         )
-        return self.rebuild_parser(
+        return self.rebuild_frame(
             new_mol, path=os.path.splitext(self.file_path)[0] + f"_{rebuild_type}.xyz"
         )
 
@@ -523,7 +523,7 @@ class BaseMolFrameParser(BaseMolFrame):
             )
         mapping = mapping[0]
         rdmol = reset_atom_index(self.rdmol, mapping)
-        return self.rebuild_parser(
+        return self.rebuild_frame(
             rdmol, path=os.path.splitext(self.file_path)[0] + f"_{rebuild_type}.xyz"
         )
 
@@ -553,7 +553,7 @@ class BaseMolFrameParser(BaseMolFrame):
         rebuild_type = "transform"
         mol = Chem.RWMol(self.rdmol)
         standard_orient(mol, anchor_list)
-        return self.rebuild_parser(
+        return self.rebuild_frame(
             mol, path=os.path.splitext(self.file_path)[0] + f"_{rebuild_type}.xyz"
         )
 
@@ -799,7 +799,7 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
                 if not check_crowding(rdmol):
                     continue
                 Chem.SanitizeMol(rdmol)
-                block_parser = self.rebuild_parser(rdmol)
+                block_parser = self.rebuild_frame(rdmol)
             except Exception as e:
                 moloplogger.warning(
                     f"Failed to rebuild for {self.to_SMILES()} with error {e}"
@@ -1034,7 +1034,6 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
     def hong_style_summary_series(self) -> pd.Series:
         basic_info = {
             "file_name": self.pure_filename,
-            "file_format": self.file_format,
             "charge": self.charge,
             "multiplicity": self.multiplicity,
             "Canonical SMILES": self.to_canonical_SMILES(),

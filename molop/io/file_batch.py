@@ -674,69 +674,208 @@ class FileParserBatch(MutableMapping):
         return f"{self.__class__.__name__}({len(self)})"
 
     def hong_style_summary(self, frameID=-1) -> pd.DataFrame:
+        empty_df = pd.DataFrame(
+            [],
+            columns=[
+                "file_name",
+                "charge",
+                "multiplicity",
+                "Canonical SMILES",
+                "opt_software",
+                "opt_version",
+                "opt_method",
+                "opt_functional",
+                "opt_basis",
+                "opt_solvent_model",
+                "opt_solvent",
+                "opt_normal terminated",
+                "sp_software",
+                "sp_version",
+                "sp_method",
+                "sp_functional",
+                "sp_basis",
+                "sp_solvent_model",
+                "sp_solvent",
+                "sp_normal terminated",
+                "SP(hartree)",
+                "ZPE(kcal/mol)",
+                "TCH(kcal/mol)",
+                "TCG(kcal/mol)",
+                "H-Opt(kcal/mol)",
+                "G-Opt(kcal/mol)",
+                "Freq1(cm-1)",
+                "Freq2(cm-1)",
+                "H-Sum(kcal/mol)",
+                "G-Sum(kcal/mol)",
+            ],
+        )
         total_df = pd.concat(
             [parser[frameID].hong_style_summary_series() for parser in self], axis=1
         ).T
-        sp_sub_df_index = total_df.apply(
-            lambda x: x["file_name"].endswith("Sp"), axis=1
-        )
-        sp_sub_df = total_df[sp_sub_df_index & total_df["sp_normal terminated"] == True]
-        sp_error_terminated_df = sp_sub_df[sp_sub_df["sp_normal terminated"] == False]
-        if sp_error_terminated_df.shape[0] > 0:
-            moloplogger.warning(
-                f"The following files have terminated with error in SP calculation:\n{sp_error_terminated_df['file_name'].tolist()}"
+        if "sp_normal terminated" in total_df.columns:
+            sp_sub_df_index = total_df.apply(
+                lambda x: x["file_name"].lower().endswith("sp"), axis=1
             )
-        opt_sub_df_index = total_df.apply(
-            lambda x: x["file_name"].endswith("Opt"), axis=1
-        )
-        opt_sub_df = total_df[
-            opt_sub_df_index & total_df["opt_normal terminated"] == True
-        ]
-        opt_error_terminated_df = opt_sub_df[
-            opt_sub_df["opt_normal terminated"] == False
-        ]
-        if opt_error_terminated_df.shape[0] > 0:
-            moloplogger.warning(
-                f"The following files have terminated with error in OPT calculation:\n{opt_error_terminated_df['file_name'].tolist()}"
+            sp_sub_df = total_df[
+                sp_sub_df_index & (total_df["sp_normal terminated"] == True)
+            ]
+            sp_error_terminated_df = total_df[
+                sp_sub_df_index & (total_df["sp_normal terminated"] == False)
+            ]
+            if sp_error_terminated_df.shape[0] > 0:
+                moloplogger.warning(
+                    f"The following files have terminated with error in SP calculation:\n{sp_error_terminated_df['file_name'].tolist()}"
+                )
+        else:
+            sp_sub_df = empty_df.copy()
+        if "opt_normal terminated" in total_df.columns:
+            opt_sub_df_index = total_df.apply(
+                lambda x: x["file_name"].lower().endswith("opt"), axis=1
             )
-        if sp_sub_df.shape[0] == 0 or opt_sub_df.shape[0] == 0:
-            return pd.DataFrame()
-        sp_file_names = sp_sub_df["file_name"].map(lambda x: x[:-2])
-        opt_file_names = opt_sub_df["file_name"].map(lambda x: x[:-3])
-        pub_opt_index = opt_file_names.isin(sp_file_names)
-        pub_sp_index = sp_file_names.isin(opt_file_names)
-        if pub_sp_index.sum() == 0 or pub_opt_index.sum() == 0:
-            return pd.DataFrame()
-        pub_sp_df = (
-            sp_sub_df[pub_sp_index]
-            .reset_index(drop=True)
-            .sort_values("file_name")
-            .dropna(how="all", axis=1)
-        )
-        pub_opt_df = (
-            opt_sub_df[pub_opt_index]
-            .reset_index(drop=True)
-            .sort_values("file_name")
-            .drop(
+            opt_sub_df = total_df[
+                opt_sub_df_index & (total_df["opt_normal terminated"] == True)
+            ]
+            opt_error_terminated_df = total_df[
+                opt_sub_df_index & (total_df["opt_normal terminated"] == False)
+            ]
+            if opt_error_terminated_df.shape[0] > 0:
+                moloplogger.warning(
+                    f"The following files have terminated with error in OPT calculation:\n{opt_error_terminated_df['file_name'].tolist()}"
+                )
+        else:
+            opt_sub_df = empty_df.copy()
+        if opt_sub_df.shape[0] != 0:
+            opt_sub_df.loc[:, "file_name"] = opt_sub_df["file_name"].map(
+                lambda x: x[:-4]
+            )
+        if sp_sub_df.shape[0] != 0:
+            sp_sub_df.loc[:, "file_name"] = sp_sub_df["file_name"].map(lambda x: x[:-3])
+
+        def clac_sum(row: pd.Series):
+            if (
+                pd.isna(row["SP(hartree)"])
+                or pd.isna(row["TCH(kcal/mol)"])
+                or pd.isna(row["TCG(kcal/mol)"])
+            ):
+                return row
+            else:
+                row["H-Sum(kcal/mol)"] = (
+                    row["SP(hartree)"] * 627.5095 + row["TCH(kcal/mol)"]
+                )
+                row["G-Sum(kcal/mol)"] = (
+                    row["SP(hartree)"] * 627.5095 + row["TCG(kcal/mol)"]
+                )
+                return row
+
+        if opt_sub_df.shape[0] != 0 and sp_sub_df.shape[0] != 0:
+            df = pd.merge(
+                pd.concat(
+                    [
+                        sp_sub_df.iloc[:, :4],
+                        sp_sub_df.iloc[:, 4:].dropna(how="all", axis=1),
+                    ],
+                    axis=1,
+                ),
+                pd.concat(
+                    [
+                        opt_sub_df.iloc[:, :4],
+                        opt_sub_df.iloc[:, 4:]
+                        .drop("SP(hartree)", axis=1)
+                        .dropna(how="all", axis=1),
+                    ],
+                    axis=1,
+                ),
+                on=["file_name", "charge", "multiplicity", "Canonical SMILES"],
+                how="outer",
+            )
+        elif opt_sub_df.shape[0] != 0 and sp_sub_df.shape[0] == 0:
+            df = pd.concat(
                 [
-                    "file_name",
-                    "file_format",
-                    "charge",
-                    "multiplicity",
-                    "Canonical SMILES",
+                    opt_sub_df,
+                    empty_df[
+                        [
+                            "sp_software",
+                            "sp_version",
+                            "sp_method",
+                            "sp_functional",
+                            "sp_basis",
+                            "sp_solvent_model",
+                            "sp_solvent",
+                            "sp_normal terminated",
+                        ]
+                    ],
                 ],
                 axis=1,
             )
-            .dropna(how="all", axis=1)
+        elif opt_sub_df.shape[0] == 0 and sp_sub_df.shape[0] != 0:
+            df = pd.concat(
+                [
+                    sp_sub_df,
+                    empty_df[
+                        [
+                            "opt_software",
+                            "opt_version",
+                            "opt_method",
+                            "opt_functional",
+                            "opt_basis",
+                            "opt_solvent_model",
+                            "opt_solvent",
+                            "opt_normal terminated",
+                            "ZPE(kcal/mol)",
+                            "TCH(kcal/mol)",
+                            "TCG(kcal/mol)",
+                            "H-Opt(kcal/mol)",
+                            "G-Opt(kcal/mol)",
+                            "Freq1(cm-1)",
+                            "Freq2(cm-1)",
+                            "H-Sum(kcal/mol)",
+                            "G-Sum(kcal/mol)",
+                        ]
+                    ],
+                ],
+                axis=1,
+            )
+        else:
+            df = empty_df.copy()
+        return (
+            df.apply(clac_sum, axis=1)
+            .reset_index(drop=True)[
+                [
+                    "file_name",
+                    "charge",
+                    "multiplicity",
+                    "Canonical SMILES",
+                    "opt_software",
+                    "opt_version",
+                    "opt_method",
+                    "opt_functional",
+                    "opt_basis",
+                    "opt_solvent_model",
+                    "opt_solvent",
+                    "opt_normal terminated",
+                    "sp_software",
+                    "sp_version",
+                    "sp_method",
+                    "sp_functional",
+                    "sp_basis",
+                    "sp_solvent_model",
+                    "sp_solvent",
+                    "sp_normal terminated",
+                    "SP(hartree)",
+                    "ZPE(kcal/mol)",
+                    "TCH(kcal/mol)",
+                    "TCG(kcal/mol)",
+                    "H-Opt(kcal/mol)",
+                    "G-Opt(kcal/mol)",
+                    "Freq1(cm-1)",
+                    "Freq2(cm-1)",
+                    "H-Sum(kcal/mol)",
+                    "G-Sum(kcal/mol)",
+                ]
+            ]
+            .sort_values(["file_name"])
+            .reset_index(drop=True)
         )
-        pub_opt_df["SP(hartree)"] = pub_sp_df["SP(hartree)"]
-        pub_opt_df["H-Sum(kcal/mol)"] = (
-            pub_opt_df["SP(hartree)"] * 627.5095 + pub_opt_df["TCH(kcal/mol)"]
-        )
-        pub_opt_df["G-Sum(kcal/mol)"] = (
-            pub_opt_df["SP(hartree)"] * 627.5095 + pub_opt_df["TCG(kcal/mol)"]
-        )
-        return pd.concat([pub_sp_df.drop("SP(hartree)", axis=1), pub_opt_df], axis=1)
 
     def to_summary_df(
         self,
