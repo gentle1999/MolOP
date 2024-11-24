@@ -486,7 +486,7 @@ def replace_mol(
             raise ValueError("start_idx and end_idx or query_mol should be provided.")
         else:
             query_mol_ = Chem.MolFromSmarts(Chem.MolToSmarts(query_mol))
-            queried_idx_list = mol.GetSubstructMatches(query_mol_)
+            queried_idx_list = mol.GetSubstructMatches(query_mol_, uniquify=False)
             # print(queried_idx_list)
             if len(queried_idx_list) == 0:
                 raise ValueError("No substruct match found.")
@@ -526,7 +526,7 @@ def replace_mol(
         geometry.standard_orient(origin_mol, [start, end])
         # build skeleton with queried substruct removed
         # considering the original mol may have been split into frags
-        skeleton = get_skeleton(origin_mol=origin_mol, start=start, end=end)
+        skeleton, new_start = get_skeleton(origin_mol=origin_mol, start=start, end=end)
 
         # build replacement conformer
         replacement = build_replacement(
@@ -539,7 +539,7 @@ def replace_mol(
         )
         # combine skeleton and replacement
         new_start, rmol = combine_skeleton_replacement(
-            skeleton=skeleton, replacement=replacement, start=start, bond_tag=bond_tag
+            skeleton=skeleton, replacement=replacement, start=new_start, bond_tag=bond_tag
         )
         set_best_dihedral(
             rmol=rmol,
@@ -557,7 +557,7 @@ def replace_mol(
                 break
         else:
             geometry.standard_orient(origin_mol, [start, end])
-        skeleton = get_skeleton(origin_mol=origin_mol, start=start, end=end)
+        skeleton, new_start = get_skeleton(origin_mol=origin_mol, start=start, end=end)
         replacement = build_replacement(
             replacement_mol=replacement_mol,
             bond_tag=bond_tag,
@@ -589,7 +589,7 @@ def replace_mol(
             new_start, rmol = combine_skeleton_replacement(
                 skeleton=skeleton,
                 replacement=replacement,
-                start=start,
+                start=new_start,
                 bond_tag=bond_tag,
             )
             temp_mol = Chem.MolFromMolBlock(
@@ -613,7 +613,7 @@ def replace_mol(
                 )
     if bond_tag in (Chem.rdchem.BondType.TRIPLE,):
         geometry.standard_orient(origin_mol, [start, end])
-        skeleton = get_skeleton(origin_mol=origin_mol, start=start, end=end)
+        skeleton, new_start = get_skeleton(origin_mol=origin_mol, start=start, end=end)
         # build replacement conformer
         replacement = build_replacement(
             replacement_mol=replacement_mol,
@@ -625,7 +625,7 @@ def replace_mol(
         )
         # combine skeleton and replacement
         new_start, rmol = combine_skeleton_replacement(
-            skeleton=skeleton, replacement=replacement, start=start, bond_tag=bond_tag
+            skeleton=skeleton, replacement=replacement, start=new_start, bond_tag=bond_tag
         )
         for anchor in rmol.GetAtomWithIdx(0).GetNeighbors():
             if anchor.GetIdx() != new_start:
@@ -751,6 +751,7 @@ def get_skeleton(origin_mol: Chem.RWMol, start: int, end: int):
         skeleton = Chem.CombineMols(skeleton, frag)
         init_mapping.extend(frag_idx)
     moloplogger.debug(f"{DEBUG_TAG}: initial mapping: {init_mapping}.")
+    new_start = init_mapping.index(start)
     mapping = list(
         map(lambda x: x[0], sorted(list(enumerate(init_mapping)), key=lambda x: x[1]))
     )
@@ -759,7 +760,7 @@ def get_skeleton(origin_mol: Chem.RWMol, start: int, end: int):
         f"{DEBUG_TAG}: Skeleton initialization of structure replacement passed"
         f" with mapping: {mapping}. SMILES: {Chem.MolToSmiles(skeleton)}."
     )
-    return skeleton
+    return skeleton, new_start
 
 
 def build_replacement(

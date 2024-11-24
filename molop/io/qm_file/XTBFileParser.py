@@ -119,13 +119,10 @@ class XTBFileParser(BaseQMMolFileParser[XTBFrameParser]):
             version = "unknown"
         self.qm_software_version = version
         return version
-    
-    def _parse_time(self):
-        self.running_time = sum(
-            frame.running_time for frame in self.frames
-        )
 
-    
+    def _parse_time(self):
+        self.running_time = sum(frame.running_time for frame in self.frames)
+
     @computed_field
     @property
     def task_type(self) -> Literal["sp", "opt", "freq"]:

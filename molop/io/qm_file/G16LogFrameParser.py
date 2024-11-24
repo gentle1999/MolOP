@@ -130,17 +130,21 @@ class G16LogFrameParser(BaseQMMolFrameParser):
 
         self.energies = Energies.model_validate(
             {
-                **energies.model_dump_without_none(exclude_unset=True),
-                **self._parse_tail_energies().model_dump_without_none(
-                    exclude_unset=True
+                **energies.model_dump(
+                    exclude_unset=True, exclude_none=True, exclude_defaults=True
+                ),
+                **self._parse_tail_energies().model_dump(
+                    exclude_unset=True, exclude_none=True, exclude_defaults=True
                 ),
             }
         )
         self.thermal_energies = ThermalEnergies.model_validate(
             {
-                **thermal_energies.model_dump_without_none(exclude_unset=True),
-                **self._parse_tail_thermal_energies().model_dump_without_none(
-                    exclude_unset=True
+                **thermal_energies.model_dump(
+                    exclude_unset=True, exclude_none=True, exclude_defaults=True
+                ),
+                **self._parse_tail_thermal_energies().model_dump(
+                    exclude_unset=True, exclude_none=True, exclude_defaults=True
                 ),
             }
         )

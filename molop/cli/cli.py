@@ -37,7 +37,7 @@ class MolOPCLI:
         """
         Auto process the current directory.
         """
-        self._file_batch = AutoParser(r"*.log")
+        self._file_batch = AutoParser(r"*.log", only_last_frame=True)
         self.temp_batch.to_summary_csv(use_hong_style=hong)
 
     def read(

@@ -175,7 +175,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
                         )
                     except Exception as e:
                         moloplogger.error(
-                            f"{self.file_path}: RDKit structure recovery failed. {e}"
+                            f"{self.file_path}: MolOP structure recovery failed. {e}"
                         )
                     finally:
                         self.__get_topology()
@@ -193,7 +193,12 @@ class BaseMolFrame(BaseDataClassWithUnit):
                     atom.SetNumRadicalElectrons(spin)
                 self._rdmol = rwmol.GetMol()
         if self._rdmol is not None:
-            Chem.SanitizeMol(self._rdmol)
+            try:
+                Chem.SanitizeMol(self._rdmol)
+            except:
+                moloplogger.error(
+                    f"{self.file_path}: MolOP structure recovery failed. RDKit sanitization failed."
+                )
         return self._rdmol
 
     @property
@@ -274,7 +279,11 @@ class BaseMolFrame(BaseDataClassWithUnit):
         """
         if self.rdmol is None:
             return ""
-        return Chem.MolToSmiles(self.rdmol)
+        smi = Chem.MolToSmiles(self.rdmol)
+        if Chem.MolFromSmiles(smi) is None:
+            moloplogger.error(f"{self.file_path}: SMILES building failed.")
+            return ""
+        return smi
 
     def to_canonical_SMILES(self) -> str:
         """
@@ -394,7 +403,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
             sphere_radius (float | None):
                 The radius of the sphere for SPMS calculation. If None, the default sphere radius will be used.
             atom_radius:
-                Atom radius type. Default is 'vdw', which means using Van der Waals radii as atom radii. 
+                Atom radius type. Default is 'vdw', which means using Van der Waals radii as atom radii.
                 If you want to use covalent radii, set this parameter to 'covalent'
             latitudinal_resolution (int):
                 The number of latitudinal divisions for SPMS calculation.

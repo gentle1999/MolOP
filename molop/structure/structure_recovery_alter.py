@@ -1138,7 +1138,7 @@ def rdmol_structure_recovery(
     omol = xyz2omol(xyz_block, total_charge, total_radical_electrons)
     if omol is None:
         return None
-    rdmol = omol_to_rdmol_by_graph(omol)
+    rdmol = omol_to_rdmol(omol)
     if rdmol is None:
         return None
     rwmol = Chem.RWMol(rdmol)
@@ -1305,6 +1305,11 @@ def rdmol_check(
     charge = 0
     radical = 0
     has_metal = False
+    try:
+        Chem.SanitizeMol(rdmol)
+    except Exception as e:
+        return False
+
     if rdmol.GetNumAtoms() != total_atom_num:
         return False
     for atom in rdmol.GetAtoms():
@@ -1337,14 +1342,16 @@ def omol_to_rdmol(
         Chem.rdchem.Mol: The rdkit molecule.
     """
     total_atom_num = omol.OBMol.NumAtoms()
-    moloplogger.debug("try tranform by mol2")
+    moloplogger.debug(f"{DEBUG_TAG} | try tranform by mol2")
     rdmol = Chem.MolFromMol2Block(omol.write("mol2"), removeHs=False)
     if rdmol is not None:
         if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
+            moloplogger.debug(f"{DEBUG_TAG} | success by mol2, smiles: {Chem.MolToSmiles(rdmol)}")
             return rdmol
-    moloplogger.debug("try tranform by graph")
+    moloplogger.debug(f"{DEBUG_TAG} | try tranform by graph")
     rdmol = omol_to_rdmol_by_graph(omol)
     if rdmol is not None:
         if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
+            moloplogger.debug(f"{DEBUG_TAG} | success by graph, smiles: {Chem.MolToSmiles(rdmol)}")
             return rdmol
     return None
