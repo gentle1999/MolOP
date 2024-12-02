@@ -211,7 +211,7 @@ class FileParserBatch(MutableMapping):
                 continue
             file_paths.append(os.path.abspath(file_path))
 
-        arguments_list = [
+        arguments_list_small_files = [
             {
                 "file_path": file_path,
                 "charge": charge,
@@ -220,40 +220,76 @@ class FileParserBatch(MutableMapping):
                 "only_last_frame": only_last_frame,
             }
             for file_path in file_paths
+            if os.path.getsize(file_path) < molopconfig.parallel_max_size
+        ]
+        arguments_list_large_files = [
+            {
+                "file_path": file_path,
+                "charge": charge,
+                "multiplicity": multiplicity,
+                "only_extract_structure": only_extract_structure,
+                "only_last_frame": only_last_frame,
+            }
+            for file_path in file_paths
+            if os.path.getsize(file_path) >= molopconfig.parallel_max_size
         ]
         if self.__n_jobs > 1 and len(file_paths) > self.__n_jobs:
             if molopconfig.show_progress_bar:
                 self.__parsers.update(
                     {
-                        parser.file_path: parser
-                        for parser in tqdm(
-                            Parallel(
-                                return_as="generator",
-                                n_jobs=self.__n_jobs,
-                                pre_dispatch="1.5*n_jobs",
-                            )(
-                                delayed(singlefile_parser)(**arguments)
-                                for arguments in arguments_list
-                            ),
-                            total=len(arguments_list),
-                            desc=f"MolOP parsing with {self.__n_jobs} jobs",
-                        )
-                        if parser is not None and len(parser) > 0
+                        **{
+                            parser.file_path: parser
+                            for parser in tqdm(
+                                Parallel(
+                                    return_as="generator",
+                                    n_jobs=self.__n_jobs,
+                                    pre_dispatch="1.5*n_jobs",
+                                )(
+                                    delayed(singlefile_parser)(**arguments)
+                                    for arguments in arguments_list_small_files
+                                ),
+                                total=len(arguments_list_small_files),
+                                desc=f"MolOP parsing with {self.__n_jobs} jobs",
+                            )
+                            if parser is not None and len(parser) > 0
+                        },
+                        **{
+                            parser.file_path: parser
+                            for parser in tqdm(
+                                (
+                                    singlefile_parser(**arguments)
+                                    for arguments in (arguments_list_large_files)
+                                ),
+                                total=len(arguments_list_large_files),
+                                desc=f"MolOP parsing with single thread for large files",
+                            )
+                            if parser is not None and len(parser) > 0
+                        },
                     }
                 )
             else:
                 self.__parsers.update(
                     {
-                        parser.file_path: parser
-                        for parser in Parallel(
-                            return_as="generator",
-                            n_jobs=self.__n_jobs,
-                            pre_dispatch="1.5*n_jobs",
-                        )(
-                            delayed(singlefile_parser)(**arguments)
-                            for arguments in arguments_list
-                        )
-                        if parser is not None and len(parser) > 0
+                        **{
+                            parser.file_path: parser
+                            for parser in Parallel(
+                                return_as="generator",
+                                n_jobs=self.__n_jobs,
+                                pre_dispatch="1.5*n_jobs",
+                            )(
+                                delayed(singlefile_parser)(**arguments)
+                                for arguments in arguments_list_small_files
+                            )
+                            if parser is not None and len(parser) > 0
+                        },
+                        **{
+                            parser.file_path: parser
+                            for parser in (
+                                singlefile_parser(**arguments)
+                                for arguments in (arguments_list_large_files)
+                            )
+                            if parser is not None and len(parser) > 0
+                        },
                     }
                 )
         else:
@@ -264,9 +300,14 @@ class FileParserBatch(MutableMapping):
                         for parser in tqdm(
                             (
                                 singlefile_parser(**arguments)
-                                for arguments in arguments_list
+                                for arguments in (
+                                    arguments_list_small_files
+                                    + arguments_list_large_files
+                                )
                             ),
-                            total=len(arguments_list),
+                            total=len(
+                                arguments_list_small_files + arguments_list_large_files
+                            ),
                             desc=f"MolOP parsing with single thread",
                         )
                         if parser is not None and len(parser) > 0
@@ -278,11 +319,14 @@ class FileParserBatch(MutableMapping):
                         parser.file_path: parser
                         for parser in (
                             singlefile_parser(**arguments)
-                            for arguments in arguments_list
+                            for arguments in (
+                                arguments_list_small_files + arguments_list_large_files
+                            )
                         )
                         if parser is not None and len(parser) > 0
                     }
                 )
+        self.__parsers = OrderedDict(sorted(self.__parsers.items()))
 
         moloplogger.info(
             f"{len(file_paths) - len(self.__parsers)} files failed to parse, {len(self.__parsers)} successfully parsed"

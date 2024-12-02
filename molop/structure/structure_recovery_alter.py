@@ -42,7 +42,7 @@ def has_bridge(omol: pybel.Molecule, atom_idx_1: int, atom_idx_2: int) -> bool:
     return False
 
 
-def make_connections(omol: pybel.Molecule, factor: float = 1.45) -> pybel.Molecule:
+def make_connections(omol: pybel.Molecule, factor: float = 1.3) -> pybel.Molecule:
     """
     Make connections between atoms in the pybel molecule.
     Parameters:
@@ -112,6 +112,13 @@ def pre_clean(omol: pybel.Molecule) -> pybel.Molecule:
         pybel.Molecule: The cleaned pybel molecule.
     """
     smarts = pybel.Smarts("[Cv5,Nv5,Pv5]=,#[*]")
+    while res := smarts.findall(omol):
+        idxs = res.pop(0)
+        omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
+            omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() - 1
+        )
+
+    smarts = pybel.Smarts("[S,P]=[*]")
     while res := smarts.findall(omol):
         idxs = res.pop(0)
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
@@ -452,7 +459,7 @@ def break_one_bond(
     """
     # Check if there are any unsatisfied valence states and if there is an allowed charge
     # or given radical
-    smarts = pybel.Smarts("[*+0]#,=[*+0]")
+    smarts = pybel.Smarts("[*+0]#,=,:[*+0]")
     # Loop to find suitable bonds
     while res := smarts.findall(omol):
         if (
@@ -1063,11 +1070,11 @@ def xyz2omol(
         )
         return None
     omol = pybel.readstring("xyz", xyz_block)
-    moloplogger.debug(f"{DEBUG_TAG} | Input smiles: {omol.write('smi')}")
     for atom in omol.atoms:
         atom.OBAtom.SetFormalCharge(0)
     omol = make_connections(omol)
     omol = pre_clean(omol)
+    moloplogger.debug(f"{DEBUG_TAG} | Input smiles: {omol.write('smi')}")
 
     for atom in omol.atoms:
         if get_under_bonded_number(atom.OBAtom) < 0:
@@ -1090,7 +1097,8 @@ def xyz2omol(
     omol = break_one_bond(omol, given_charge, total_radical_electrons)
 
     moloplogger.debug(
-        f"{DEBUG_TAG} | Given charge: {given_charge}, total charge: {total_charge}, smiles: {omol.write('smi')}"
+        f"{DEBUG_TAG} | Given charge: {given_charge}, total charge: {total_charge}, actual charge: "
+        f"{sum(atom.OBAtom.GetFormalCharge() for atom in omol.atoms)}, smiles: {omol.write('smi')}"
     )
     possible_resonances = get_radical_resonances(omol)
     moloplogger.debug(
@@ -1138,7 +1146,9 @@ def rdmol_structure_recovery(
     omol = xyz2omol(xyz_block, total_charge, total_radical_electrons)
     if omol is None:
         return None
-    rdmol = omol_to_rdmol(omol)
+    rdmol = omol_to_rdmol(
+        omol, total_charge=total_charge, total_radical=total_radical_electrons
+    )
     if rdmol is None:
         return None
     rwmol = Chem.RWMol(rdmol)
@@ -1342,16 +1352,20 @@ def omol_to_rdmol(
         Chem.rdchem.Mol: The rdkit molecule.
     """
     total_atom_num = omol.OBMol.NumAtoms()
-    moloplogger.debug(f"{DEBUG_TAG} | try tranform by mol2")
-    rdmol = Chem.MolFromMol2Block(omol.write("mol2"), removeHs=False)
-    if rdmol is not None:
-        if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
-            moloplogger.debug(f"{DEBUG_TAG} | success by mol2, smiles: {Chem.MolToSmiles(rdmol)}")
-            return rdmol
+    # moloplogger.debug(f"{DEBUG_TAG} | try tranform by mol2")
+    # rdmol = Chem.MolFromMol2Block(omol.write("mol2"), removeHs=False)
+    # if rdmol is not None:
+    #     if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
+    #         moloplogger.debug(
+    #             f"{DEBUG_TAG} | success by mol2, smiles: {Chem.MolToSmiles(rdmol)}"
+    #         )
+    #         return rdmol
     moloplogger.debug(f"{DEBUG_TAG} | try tranform by graph")
     rdmol = omol_to_rdmol_by_graph(omol)
     if rdmol is not None:
         if rdmol_check(rdmol, total_atom_num, total_charge, total_radical):
-            moloplogger.debug(f"{DEBUG_TAG} | success by graph, smiles: {Chem.MolToSmiles(rdmol)}")
+            moloplogger.debug(
+                f"{DEBUG_TAG} | success by graph, smiles: {Chem.MolToSmiles(rdmol)}"
+            )
             return rdmol
     return None

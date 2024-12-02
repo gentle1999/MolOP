@@ -298,7 +298,7 @@ def get_under_bonded_number(atom: ob.OBAtom) -> int:
     if atom.GetAtomicNum() == 5 and atom.GetTotalValence() < 4:
         return (
             6
-            - -pt.GetNOuterElecs(atom.GetAtomicNum())
+            - pt.GetNOuterElecs(atom.GetAtomicNum())
             - atom.GetTotalValence()
             + atom.GetFormalCharge()
         )
@@ -539,7 +539,10 @@ def replace_mol(
         )
         # combine skeleton and replacement
         new_start, rmol = combine_skeleton_replacement(
-            skeleton=skeleton, replacement=replacement, start=new_start, bond_tag=bond_tag
+            skeleton=skeleton,
+            replacement=replacement,
+            start=new_start,
+            bond_tag=bond_tag,
         )
         set_best_dihedral(
             rmol=rmol,
@@ -625,7 +628,10 @@ def replace_mol(
         )
         # combine skeleton and replacement
         new_start, rmol = combine_skeleton_replacement(
-            skeleton=skeleton, replacement=replacement, start=new_start, bond_tag=bond_tag
+            skeleton=skeleton,
+            replacement=replacement,
+            start=new_start,
+            bond_tag=bond_tag,
         )
         for anchor in rmol.GetAtomWithIdx(0).GetNeighbors():
             if anchor.GetIdx() != new_start:
@@ -1107,7 +1113,8 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
             negative_atoms = [
                 atom.GetIdx()
                 for atom in temp_rwmol.GetAtoms()
-                if atom.GetIdx() != metal_atom
+                if not (atom.GetAtomicNum() == 5 and atom.GetTotalValence() == 4)
+                and atom.GetIdx() != metal_atom
                 and atom.GetFormalCharge() < 0
                 and temp_rwmol.GetConformer()
                 .GetAtomPosition(atom.GetIdx())
@@ -1165,7 +1172,9 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
         remained_negative_atoms = [
             atom.GetIdx()
             for atom in temp_rwmol.GetAtoms()
-            if atom.GetFormalCharge() < 0 and not is_metal(atom.GetAtomicNum())
+            if not (atom.GetAtomicNum() == 5 and atom.GetTotalValence() == 4)
+            and atom.GetFormalCharge() < 0
+            and not is_metal(atom.GetAtomicNum())
         ]
         for remained_negative_atom in remained_negative_atoms:
             metal_atoms = [
