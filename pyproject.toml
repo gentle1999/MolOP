@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "molop"
-version = "0.1.33.3.2"
+version = "0.1.33.3.3"
 description = "Molcule OPerator"
 authors = ["tmj <mj_t@zju.edu.cn>"]
 license = "MIT"
