@@ -1,17 +1,13 @@
 import itertools
-import time
-from random import shuffle
 from typing import List, Tuple, Union
 
 from openbabel import openbabel as ob
 from openbabel import pybel
 from rdkit import Chem
-from rdkit.Chem import rdDetermineBonds
 
-from molop.config import molopconfig
 from molop.logger.logger import moloplogger
 from molop.structure.structure import (
-    get_bond_pairs,
+    estimate_bond_length,
     get_radical_number,
     get_under_bonded_number,
     make_dative_bonds,
@@ -42,7 +38,7 @@ def has_bridge(omol: pybel.Molecule, atom_idx_1: int, atom_idx_2: int) -> bool:
     return False
 
 
-def make_connections(omol: pybel.Molecule, factor: float = 1.3) -> pybel.Molecule:
+def make_connections(omol: pybel.Molecule, factor: float = 1.4) -> pybel.Molecule:
     """
     Make connections between atoms in the pybel molecule.
     Parameters:
@@ -252,7 +248,7 @@ def omol_score(omol_tuple: Tuple[pybel.Molecule, int, int]) -> int:
     return score
 
 
-def structure_score(rwmol: Chem.rdchem.RWMol) -> float:
+def structure_score(rwmol: Chem.rdchem.RWMol, ratio: float = 1.3) -> float:
     """
     Calculate the score of the given rdkit molecule.
 
@@ -285,17 +281,35 @@ def structure_score(rwmol: Chem.rdchem.RWMol) -> float:
     metal_score = 0
     for atom in metal_atoms:
         if atom.GetFormalCharge() in metal_valence_avialable_prior[atom.GetSymbol()]:
-            metal_score += 50
+            metal_score += 50 * (
+                len(metal_valence_avialable_prior[atom.GetSymbol()])
+                - metal_valence_avialable_prior[atom.GetSymbol()].index(
+                    atom.GetFormalCharge()
+                )
+            )
         if atom.GetFormalCharge() < 0:
             metal_score += atom.GetFormalCharge() * 100
+
+    dative_count = 0
+    negative_atoms = [atom for atom in rwmol.GetAtoms() if atom.GetFormalCharge() < 0]
+    for metal_atom, negative_atom in itertools.product(metal_atoms, negative_atoms):
+        if rwmol.GetConformer().GetAtomPosition(negative_atom.GetIdx()).Distance(
+            rwmol.GetConformer().GetAtomPosition(metal_atom.GetIdx())
+        ) <= ratio * estimate_bond_length(
+            rwmol.GetAtomWithIdx(metal_atom.GetIdx()).GetAtomicNum(),
+            rwmol.GetAtomWithIdx(negative_atom.GetIdx()).GetAtomicNum(),
+            Chem.rdchem.BondType.DATIVE,
+        ):
+            dative_count += 1
 
     score = (
         10 * total_valence
         + 10 / (total_formal_charge + 1)
-        + 10 * total_metal_charge
+        + 2 * total_metal_charge
         + 20 / (total_num_radical + 1)
         + 50 / (num_fragments + 1)
         + metal_score
+        + 2 * dative_count
     )
     """moloplogger.info(
         f"{Chem.CanonSmiles(Chem.MolToSmiles(rwmol))} score: {score}, "
@@ -443,6 +457,64 @@ def eliminate_NNN(
     return omol, given_charge
 
 
+def break_deformed_ene(
+    omol: pybel.Molecule, given_charge: int = 0, given_radical: int = 0, tolerance=5
+):
+    """
+    Break deformed ene.
+
+    This function checks if there are any unsatisfied valence states in the molecule,
+    and based on the charge and radical conditions, finds and breaks an deformed ene.
+
+    Parameters:
+        omol (pybel.Molecule): The molecule to break bonds in.
+        given_charge (int, optional): The allowed charge. Defaults to 0.
+        given_radical (int, optional): The given radical. Defaults to 0.
+        tolerance (int, optional): The tolerance for the torsion angle. Defaults to 5.
+    """
+    smarts = pybel.Smarts("[*]~[*+0]=,:[*+0]~[*]")
+    res = list(smarts.findall(omol))
+    while len(res):
+        if (
+            sum(get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol))
+            >= abs(given_charge) + given_radical
+        ):
+            return omol
+        idxs = res.pop(0)
+        bond = omol.OBMol.GetBond(idxs[0], idxs[1])
+        if bond.IsRotor() or bond.GetBondOrder() == 1:
+            continue
+        torsion_angle = abs(omol.OBMol.GetTorsion(*idxs))
+        torsion_angle = min(torsion_angle, 180 - torsion_angle)
+        if torsion_angle > tolerance:
+            moloplogger.debug(
+                f"{DEBUG_TAG} | torsion angle: {torsion_angle}, tolerance: {tolerance}"
+            )
+            moloplogger.debug(f"{DEBUG_TAG} | break bond {idxs[0]} and {idxs[1]}")
+            bond.SetBondOrder(bond.GetBondOrder() - 1)
+    smarts = pybel.Smarts("[*]~[*+0](=,:[*+0])~[*]")
+    res = list(smarts.findall(omol))
+    while len(res):
+        if (
+            sum(get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol))
+            >= abs(given_charge) + given_radical
+        ):
+            return omol
+        idxs = res.pop(0)
+        bond = omol.OBMol.GetBond(idxs[0], idxs[1])
+        if bond.IsRotor() or bond.GetBondOrder() == 1:
+            continue
+        torsion_angle = abs(omol.OBMol.GetTorsion(*idxs))
+        torsion_angle = min(torsion_angle, 180 - torsion_angle)
+        if torsion_angle > tolerance:
+            moloplogger.debug(
+                f"{DEBUG_TAG} | torsion angle: {torsion_angle}, tolerance: {tolerance}"
+            )
+            moloplogger.debug(f"{DEBUG_TAG} | break bond {idxs[0]} and {idxs[1]}")
+            bond.SetBondOrder(bond.GetBondOrder() - 1)
+    return omol
+
+
 def break_one_bond(
     omol: pybel.Molecule, given_charge: int = 0, given_radical: int = 0
 ) -> pybel.Molecule:
@@ -459,7 +531,7 @@ def break_one_bond(
     """
     # Check if there are any unsatisfied valence states and if there is an allowed charge
     # or given radical
-    smarts = pybel.Smarts("[*+0]#,=,:[*+0]")
+    smarts = pybel.Smarts("[*+0]#,=[*+0]")
     # Loop to find suitable bonds
     while res := smarts.findall(omol):
         if (
@@ -1094,6 +1166,7 @@ def xyz2omol(
     omol = clean_neighbor_radicals(omol)
     omol = clean_carbine_neighbor_unsaturated(omol)
     omol, given_charge = eliminate_charge_spliting(omol, given_charge)
+    omol = break_deformed_ene(omol, given_charge, total_radical_electrons)
     omol = break_one_bond(omol, given_charge, total_radical_electrons)
 
     moloplogger.debug(

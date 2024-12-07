@@ -181,7 +181,7 @@ class BaseMolFrameParser(BaseMolFrame):
         multiplicity: int = None,
         template: str = None,
         prefix: str = "",
-        suffix="",
+        suffix: str = "",
         title_card: str = "",
         chk: bool = True,
         oldchk: bool = False,
@@ -284,7 +284,8 @@ class BaseMolFrameParser(BaseMolFrame):
         multiplicity: int = None,
         template: str = None,
         prefix: str = "",
-        suffix="",
+        suffix: str = "",
+        title_card: str = "",
         chk: bool = True,
         oldchk: bool = False,
     ) -> str:
@@ -304,6 +305,8 @@ class BaseMolFrameParser(BaseMolFrame):
                 prefix to add to the beginning of the gjf file, priority is higher than template.
             suffix (str):
                 suffix to add to the end of the gjf file, priority is higher than template.
+            title_card (str):
+                title card.
             chk (bool):
                 If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
             oldchk (bool):
@@ -321,6 +324,7 @@ class BaseMolFrameParser(BaseMolFrame):
                     template=template,
                     prefix=prefix,
                     suffix=suffix,
+                    title_card=title_card,
                     chk=chk,
                     oldchk=oldchk,
                 )

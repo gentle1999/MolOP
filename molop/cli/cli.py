@@ -108,15 +108,17 @@ class MolOPCLI:
         self.temp_batch.to_XYZ_file(file_dir)
         return self
 
-    def sdf(self, file_dir: str = None):
+    def sdf(self, file_dir: str = None, n_jobs=-1):
         """
         Save the SDF file of all frames of each file.
 
         Parameters:
             file_dir str:
                 the directory to save the SDF file.
+            n_jobs int:
+                the number of jobs to use for parallel processing.
         """
-        self.temp_batch.to_SDF_file(file_dir)
+        self.temp_batch.to_SDF_file(file_dir, n_jobs)
         return self
 
     def chemdraw(self, file_dir: str = None, frameID=-1, keep3D=True):

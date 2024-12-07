@@ -9,7 +9,7 @@ Description: 请填写简介
 import os
 from collections import OrderedDict
 from collections.abc import MutableMapping
-from typing import Dict, List, Union, overload
+from typing import Dict, List, Sequence, Union, overload
 
 import pandas as pd
 from joblib import Parallel, cpu_count, delayed
@@ -210,6 +210,8 @@ class FileParserBatch(MutableMapping):
             if file_path.endswith("molop.log"):
                 continue
             file_paths.append(os.path.abspath(file_path))
+        if len(file_paths) == 0:
+            moloplogger.warning("No valid input files found.")
 
         arguments_list_small_files = [
             {
@@ -234,10 +236,10 @@ class FileParserBatch(MutableMapping):
             if os.path.getsize(file_path) >= molopconfig.parallel_max_size
         ]
         if self.__n_jobs > 1 and len(file_paths) > self.__n_jobs:
-            if molopconfig.show_progress_bar:
-                self.__parsers.update(
-                    {
-                        **{
+            if only_last_frame:
+                if molopconfig.show_progress_bar:
+                    self.__parsers.update(
+                        {
                             parser.file_path: parser
                             for parser in tqdm(
                                 Parallel(
@@ -246,31 +248,23 @@ class FileParserBatch(MutableMapping):
                                     pre_dispatch="1.5*n_jobs",
                                 )(
                                     delayed(singlefile_parser)(**arguments)
-                                    for arguments in arguments_list_small_files
+                                    for arguments in (
+                                        arguments_list_small_files
+                                        + arguments_list_large_files
+                                    )
                                 ),
-                                total=len(arguments_list_small_files),
+                                total=len(
+                                    arguments_list_small_files
+                                    + arguments_list_large_files
+                                ),
                                 desc=f"MolOP parsing with {self.__n_jobs} jobs",
                             )
                             if parser is not None and len(parser) > 0
-                        },
-                        **{
-                            parser.file_path: parser
-                            for parser in tqdm(
-                                (
-                                    singlefile_parser(**arguments)
-                                    for arguments in (arguments_list_large_files)
-                                ),
-                                total=len(arguments_list_large_files),
-                                desc=f"MolOP parsing with single thread for large files",
-                            )
-                            if parser is not None and len(parser) > 0
-                        },
-                    }
-                )
-            else:
-                self.__parsers.update(
-                    {
-                        **{
+                        }
+                    )
+                else:
+                    self.__parsers.update(
+                        {
                             parser.file_path: parser
                             for parser in Parallel(
                                 return_as="generator",
@@ -278,20 +272,77 @@ class FileParserBatch(MutableMapping):
                                 pre_dispatch="1.5*n_jobs",
                             )(
                                 delayed(singlefile_parser)(**arguments)
-                                for arguments in arguments_list_small_files
+                                for arguments in (
+                                    arguments_list_small_files
+                                    + arguments_list_large_files
+                                )
                             )
                             if parser is not None and len(parser) > 0
-                        },
-                        **{
-                            parser.file_path: parser
-                            for parser in (
-                                singlefile_parser(**arguments)
-                                for arguments in (arguments_list_large_files)
-                            )
-                            if parser is not None and len(parser) > 0
-                        },
-                    }
-                )
+                        }
+                    )
+            else:
+                if len(arguments_list_small_files) > 0:
+                    if molopconfig.show_progress_bar:
+                        self.__parsers.update(
+                            {
+                                parser.file_path: parser
+                                for parser in tqdm(
+                                    Parallel(
+                                        return_as="generator",
+                                        n_jobs=self.__n_jobs,
+                                        pre_dispatch="1.5*n_jobs",
+                                    )(
+                                        delayed(singlefile_parser)(**arguments)
+                                        for arguments in arguments_list_small_files
+                                    ),
+                                    total=len(arguments_list_small_files),
+                                    desc=f"MolOP parsing with {self.__n_jobs} jobs",
+                                )
+                                if parser is not None and len(parser) > 0
+                            }
+                        )
+                    else:
+                        self.__parsers.update(
+                            {
+                                parser.file_path: parser
+                                for parser in Parallel(
+                                    return_as="generator",
+                                    n_jobs=self.__n_jobs,
+                                    pre_dispatch="1.5*n_jobs",
+                                )(
+                                    delayed(singlefile_parser)(**arguments)
+                                    for arguments in arguments_list_small_files
+                                )
+                                if parser is not None and len(parser) > 0
+                            }
+                        )
+                if len(arguments_list_large_files) > 0:
+                    if molopconfig.show_progress_bar:
+                        self.__parsers.update(
+                            {
+                                parser.file_path: parser
+                                for parser in tqdm(
+                                    (
+                                        singlefile_parser(**arguments)
+                                        for arguments in (arguments_list_large_files)
+                                    ),
+                                    total=len(arguments_list_large_files),
+                                    desc=f"MolOP parsing with single thread for large files",
+                                )
+                                if parser is not None and len(parser) > 0
+                            }
+                        )
+                    else:
+                        self.__parsers.update(
+                            {
+                                parser.file_path: parser
+                                for parser in (
+                                    singlefile_parser(**arguments)
+                                    for arguments in (arguments_list_large_files)
+                                )
+                                if parser is not None and len(parser) > 0
+                            }
+                        )
         else:
             if molopconfig.show_progress_bar:
                 self.__parsers.update(
@@ -357,56 +408,133 @@ class FileParserBatch(MutableMapping):
 
     def to_GJF_file(
         self,
-        file_path: str = None,
-        charge: int = None,
-        multiplicity: int = None,
-        prefix: str = "",
-        suffix="",
-        template: str = None,
-        chk: bool = True,
-        oldchk: bool = False,
-        frameID=-1,
+        file_path: Union[str, Sequence[str], None] = None,
+        charge: Union[int, Sequence[int], None] = None,
+        multiplicity: Union[int, Sequence[int], None] = None,
+        prefix: Union[str, Sequence[str]] = "",
+        suffix: Union[str, Sequence[str]] = "",
+        title_card: Union[str, Sequence[str]] = "",
+        template: Union[str, Sequence[str], None] = None,
+        chk: Union[bool, Sequence[bool]] = True,
+        oldchk: Union[bool, Sequence[bool]] = False,
+        frameID: Union[int, Sequence[int]] = -1,
     ) -> None:
         """
         Write the GJF file.
 
         Parameters:
-            file_path (str):
-                The path to write the GJF file. If not specified, will be generated in situ.
-            charge (int):
-                The forced charge. If specified, will be used to overwrite the charge in the gjf file.
-            multiplicity (int):
-                The forced multiplicity. If specified, will be used to overwrite the multiplicity in the gjf file.
-            template (str):
-                path to read a gjf file as a template.
-            prefix (str):
-                prefix to add to the beginning of the gjf file, priority is higher than template.
-            suffix (str):
-                suffix to add to the end of the gjf file, priority is higher than template.
-            chk (bool):
-                If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
-            oldchk (bool):
-                If true, add the oldchk keyword to the link0 section. Will use the file name as the chk file name.
+            file_path (str, Sequence[str], None):
+                The path to write the GJF file. If None, write to the current directory.
+                If a list of file_path is provided, the length should be the same as the batch,
+                and each file will be written to the corresponding directory.
+            charge (int, Sequence[int], None):
+                 The charge of the molecule. If None, use the charge of the frame.
+                 If a list of charge is provided, the length should be the same as the batch,
+                 and each charge will be used for the corresponding file.
+            multiplicity (int, Sequence[int], None):
+                The spin multiplicity of the molecule. If None, use the multiplicity of the frame.
+                If a list of multiplicity is provided, the length should be the same as the batch,
+                and each multiplicity will be used for the corresponding file.
+            prefix (str, Sequence[str]):
+                The prefix of the GJF file.
+                If a list of prefix is provided, the length should be the same as the batch,
+                and each prefix will be used for the corresponding file.
+            suffix (str, Sequence[str]):
+                The suffix of the GJF file.
+                If a list of suffix is provided, the length should be the same as the batch,
+                and each suffix will be used for the corresponding file.
+            title_card (str, Sequence[str]):
+                The title card of the GJF file.
+                If a list of title_card is provided, the length should be the same as the batch,
+                and each title_card will be used for the corresponding file.
+            template (str, Sequence[str], None):
+                The template of the GJF file. If None, no template used.
+                If a list of template is provided, the length should be the same as the batch,
+                and each template will be used for the corresponding file.
+            chk (bool, Sequence[bool]):
+                Whether to write the chk file.
+                If a list of chk is provided, the length should be the same as the batch,
+                and each chk will be used for the corresponding file.
+            oldchk (bool, Sequence[bool]):
+                Whether to write the oldchk file.
+                If a list of oldchk is provided, the length should be the same as the batch,
+                and each oldchk will be used for the corresponding file.
             frameID (int):
                 The frame ID to write.
+                If a list of frameID is provided, the length should be the same as the batch,
+                and each frameID will be used for the corresponding file.
         Returns:
             str: The path to the GJF file.
         """
+
+        def check_and_convert_to_list(arg, arg_type, arg_name, length: int):
+            if arg is None:
+                return [None] * length
+            elif isinstance(arg, arg_type):
+                return [arg] * length
+            elif isinstance(arg, Sequence):
+                assert len(arg) == length, (
+                    f"if you pass a list of {arg_name}, "
+                    f"it should have length {length} as the batch"
+                )
+
         if file_path is None:
             file_path = os.path.curdir
         if not os.path.isdir(file_path):
             raise NotADirectoryError(f"{file_path} is not a directory")
-        for parser in self:
+        file_path_list = check_and_convert_to_list(
+            file_path, str, "file_path", len(self)
+        )
+        charge_list = check_and_convert_to_list(charge, int, "charge", len(self))
+        multiplicity_list = check_and_convert_to_list(
+            multiplicity, int, "multiplicity", len(self)
+        )
+        prefix_list = check_and_convert_to_list(prefix, str, "prefix", len(self))
+        suffix_list = check_and_convert_to_list(suffix, str, "suffix", len(self))
+        title_card_list = check_and_convert_to_list(
+            title_card, str, "title_card", len(self)
+        )
+        template_list = check_and_convert_to_list(template, str, "template", len(self))
+        chk_list = check_and_convert_to_list(chk, bool, "chk", len(self))
+        oldchk_list = check_and_convert_to_list(oldchk, bool, "oldchk", len(self))
+        frameID_list = check_and_convert_to_list(frameID, int, "frameID", len(self))
+
+        for (
+            parser,
+            file_path_,
+            charge_,
+            multiplicity_,
+            prefix_,
+            suffix_,
+            title_card_,
+            template_,
+            chk_,
+            oldchk_,
+            frameID_,
+        ) in zip(
+            self,
+            file_path_list,
+            charge_list,
+            multiplicity_list,
+            prefix_list,
+            suffix_list,
+            title_card_list,
+            template_list,
+            chk_list,
+            oldchk_list,
+            frameID_list,
+        ):
             parser.to_GJF_file(
-                os.path.join(file_path, parser.pure_filename + ".gjf"),
-                charge=charge,
-                multiplicity=multiplicity,
-                prefix=prefix,
-                suffix=suffix,
-                template=template,
-                chk=chk,
-                oldchk=oldchk,
-                frameID=frameID,
+                os.path.join(file_path_, parser.pure_filename + ".gjf"),
+                charge=charge_,
+                multiplicity=multiplicity_,
+                prefix=prefix_,
+                suffix=suffix_,
+                title_card=title_card_,
+                template=template_,
+                chk=chk_,
+                oldchk=oldchk_,
+                frameID=frameID_,
             )
         moloplogger.info(f"gjf files saved to {os.path.abspath(file_path)}")
 
@@ -419,13 +547,61 @@ class FileParserBatch(MutableMapping):
             parser.to_XYZ_file(os.path.join(file_path, parser.pure_filename + ".xyz"))
         moloplogger.info(f"xyz files saved to {os.path.abspath(file_path)}")
 
-    def to_SDF_file(self, file_path: str = None) -> None:
+    def to_SDF_file(self, file_path: str = None, n_jobs: int = 1) -> None:
         if file_path is None:
             file_path = os.path.curdir
         if not os.path.isdir(file_path):
             raise NotADirectoryError(f"{file_path} is not a directory")
-        for parser in self:
-            parser.to_SDF_file(os.path.join(file_path, parser.pure_filename + ".sdf"))
+        _n_jobs = self._set_n_jobs(n_jobs)
+        total_sdf_paths = []
+        if _n_jobs > 1 and len(self) > _n_jobs:
+            if molopconfig.show_progress_bar:
+                for sdf_path in tqdm(
+                    Parallel(
+                        return_as="generator",
+                        n_jobs=_n_jobs,
+                        pre_dispatch="1.5*n_jobs",
+                    )(
+                        delayed(parser.to_SDF_file)(
+                            os.path.join(file_path, parser.pure_filename + ".sdf")
+                        )
+                        for parser in self
+                    ),
+                    total=len(self),
+                    desc=f"MolOP sdf writing with {_n_jobs} jobs",
+                ):
+                    total_sdf_paths.append(sdf_path)
+            else:
+                for sdf_path in Parallel(
+                    return_as="generator",
+                    n_jobs=self.__n_jobs,
+                    pre_dispatch="1.5*n_jobs",
+                )(
+                    delayed(parser.to_SDF_file)(
+                        os.path.join(file_path, parser.pure_filename + ".sdf")
+                    )
+                    for parser in self
+                ):
+                    total_sdf_paths.append(sdf_path)
+        else:
+            if molopconfig.show_progress_bar:
+                for parser in tqdm(
+                    self,
+                    total=len(self),
+                    desc=f"MolOP sdf writing with single jobs",
+                ):
+                    total_sdf_paths.append(
+                        parser.to_SDF_file(
+                            os.path.join(file_path, parser.pure_filename + ".sdf")
+                        )
+                    )
+            else:
+                for parser in self:
+                    total_sdf_paths.append(
+                        parser.to_SDF_file(
+                            os.path.join(file_path, parser.pure_filename + ".sdf")
+                        )
+                    )
         moloplogger.info(f"sdf files saved to {os.path.abspath(file_path)}")
 
     def to_chemdraw(self, file_path: str = None, frameID=-1, keep3D=True) -> None:
