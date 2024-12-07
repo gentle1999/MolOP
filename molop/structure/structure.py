@@ -1108,8 +1108,14 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
     ]
     datived_rwmol = []
     for shuffled_metal_atoms in itertools.permutations(metal_atoms, len(metal_atoms)):
+        moloplogger.debug(f"{DEBUG_TAG} | Metal atoms order: {shuffled_metal_atoms}")
         temp_rwmol = Chem.RWMol(rwmol)
+
+        # set covalent bonds between metal atoms and negative atoms
         for metal_atom in shuffled_metal_atoms:
+            # find negative atoms
+            # not BX4-
+            # distance <= ratio * estimate_bond_length
             negative_atoms = [
                 atom.GetIdx()
                 for atom in temp_rwmol.GetAtoms()
@@ -1123,25 +1129,39 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                 * estimate_bond_length(
                     temp_rwmol.GetAtomWithIdx(metal_atom).GetAtomicNum(),
                     temp_rwmol.GetAtomWithIdx(atom.GetIdx()).GetAtomicNum(),
-                    Chem.rdchem.BondType.DATIVE,
+                    bond_list[
+                        abs(temp_rwmol.GetAtomWithIdx(atom.GetIdx()).GetFormalCharge())
+                    ],
                 )
             ]
+            # sort negative atoms by distance to metal atom
             negative_atoms.sort(
                 key=lambda x: temp_rwmol.GetConformer()
                 .GetAtomPosition(x)
                 .Distance(temp_rwmol.GetConformer().GetAtomPosition(metal_atom))
             )
+            moloplogger.debug(f"{DEBUG_TAG} | Negative atoms: {negative_atoms}")
+            # add covalent bonds between metal atom and negative atoms
+            # until the metal atom has no more positive charge or no more negative atoms
             while (
                 temp_rwmol.GetAtomWithIdx(metal_atom).GetFormalCharge() > 0
                 and negative_atoms
             ):
                 negative_atom = negative_atoms.pop(0)
-                if temp_rwmol.GetBondBetweenAtoms(metal_atom, negative_atom) is None:
+                if temp_rwmol.GetBondBetweenAtoms(negative_atom, metal_atom) is None:
+                    moloplogger.debug(
+                        f"{DEBUG_TAG} | Trying to add dative bond between "
+                        f"{metal_atom} and {negative_atom}"
+                    )
                     temp_rwmol.AddBond(
                         metal_atom,
                         negative_atom,
                         bond_list[
-                            -temp_rwmol.GetAtomWithIdx(negative_atom).GetFormalCharge()
+                            abs(
+                                temp_rwmol.GetAtomWithIdx(
+                                    negative_atom
+                                ).GetFormalCharge()
+                            )
                         ],
                     )
                     temp_rwmol.GetAtomWithIdx(metal_atom).SetFormalCharge(
@@ -1149,13 +1169,17 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                         + temp_rwmol.GetAtomWithIdx(negative_atom).GetFormalCharge()
                     )
                     temp_rwmol.GetAtomWithIdx(negative_atom).SetFormalCharge(0)
+
+        # set dative bonds between metal atoms and dative atoms
         for metal_atom in metal_atoms:
-            for dative_atom in [
+            dative_atoms = [
                 idxs[0]
                 for idxs in temp_rwmol.GetSubstructMatches(
-                    Chem.MolFromSmarts("[Ov2+0,Sv2+0,Nv3+0,Pv3+0]")
+                    Chem.MolFromSmarts("[OX2+0,OX3+0,SX2+0,SX3+0,SX3+1,NX3+0,PX3+0]")
                 )
-            ]:
+            ]
+            moloplogger.debug(f"{DEBUG_TAG} | possible dative atoms: {dative_atoms}")
+            for dative_atom in dative_atoms:
                 if not temp_rwmol.GetBondBetweenAtoms(metal_atom, dative_atom):
                     if temp_rwmol.GetConformer().GetAtomPosition(metal_atom).Distance(
                         temp_rwmol.GetConformer().GetAtomPosition(dative_atom)
@@ -1166,9 +1190,34 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                         temp_rwmol.GetAtomWithIdx(dative_atom).GetAtomicNum(),
                         Chem.rdchem.BondType.DATIVE,
                     ):
+                        moloplogger.debug(
+                            f"{DEBUG_TAG} | Trying to add dative bond between "
+                            f"{metal_atom} and {dative_atom}"
+                        )
+                        neighbour_atoms = [
+                            neighbor.GetIdx()
+                            for neighbor in temp_rwmol.GetAtomWithIdx(
+                                dative_atom
+                            ).GetNeighbors()
+                        ]
                         temp_rwmol.AddBond(
                             dative_atom, metal_atom, Chem.BondType.DATIVE
                         )
+                        # avoid unusual angle
+                        for neighbor_atom in neighbour_atoms:
+                            if (
+                                rdMolTransforms.GetAngleDeg(
+                                    rwmol.GetConformer(),
+                                    metal_atom,
+                                    dative_atom,
+                                    neighbor_atom,
+                                )
+                                < 100
+                            ):
+                                temp_rwmol.RemoveBond(dative_atom, metal_atom)
+                    Chem.SanitizeMol(temp_rwmol)
+
+        # set covalent bonds between metal atoms and negative atoms that are not metals
         remained_negative_atoms = [
             atom.GetIdx()
             for atom in temp_rwmol.GetAtoms()
@@ -1176,6 +1225,9 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
             and atom.GetFormalCharge() < 0
             and not is_metal(atom.GetAtomicNum())
         ]
+        moloplogger.debug(
+            f"{DEBUG_TAG} | Remained negative atoms: {remained_negative_atoms}"
+        )
         for remained_negative_atom in remained_negative_atoms:
             metal_atoms = [
                 atom.GetIdx()
@@ -1191,19 +1243,29 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                     temp_rwmol.GetConformer().GetAtomPosition(remained_negative_atom)
                 )
             )
-            if temp_rwmol.GetConformer().GetAtomPosition(metal_atoms[0]).Distance(
-                temp_rwmol.GetConformer().GetAtomPosition(remained_negative_atom)
-            ) <= ratio * estimate_bond_length(
+            distance = (
+                temp_rwmol.GetConformer()
+                .GetAtomPosition(metal_atoms[0])
+                .Distance(
+                    temp_rwmol.GetConformer().GetAtomPosition(remained_negative_atom)
+                )
+            )
+            tolerance = ratio * estimate_bond_length(
                 temp_rwmol.GetAtomWithIdx(metal_atoms[0]).GetAtomicNum(),
                 temp_rwmol.GetAtomWithIdx(remained_negative_atom).GetAtomicNum(),
                 Chem.rdchem.BondType.DATIVE,
-            ):
+            )
+            if distance <= tolerance:
                 if (
                     temp_rwmol.GetBondBetweenAtoms(
                         metal_atoms[0], remained_negative_atom
                     )
                     is None
                 ):
+                    moloplogger.debug(
+                        f"{DEBUG_TAG} | Trying to add dative bond between "
+                        f"{metal_atoms[0]} and {remained_negative_atom}"
+                    )
                     temp_rwmol.AddBond(
                         remained_negative_atom,
                         metal_atoms[0],

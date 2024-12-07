@@ -193,7 +193,8 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         charge: int = None,
         multiplicity: int = None,
         prefix: str = "",
-        suffix="",
+        suffix: str = "",
+        title_card: str = "",
         template: str = None,
         chk: bool = True,
         oldchk: bool = False,
@@ -215,6 +216,8 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
                 prefix to add to the beginning of the gjf file, priority is higher than template.
             suffix (str):
                 suffix to add to the end of the gjf file, priority is higher than template.
+            title_card (str):
+                title card.
             chk (bool):
                 If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
             oldchk (bool):
@@ -229,6 +232,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
             multiplicity=multiplicity,
             prefix=prefix,
             suffix=suffix,
+            title_card=title_card,
             template=template,
             chk=chk,
             oldchk=oldchk,
@@ -276,7 +280,8 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         multiplicity: int = None,
         template: str = None,
         prefix: str = "",
-        suffix="",
+        suffix: str = "",
+        title_card: str = "",
         chk: bool = True,
         oldchk: bool = False,
         frameID=-1,
@@ -297,6 +302,8 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
                 prefix to add to the beginning of the gjf file, priority is higher than template.
             suffix (str):
                 suffix to add to the end of the gjf file, priority is higher than template.
+            title_card (str):
+                title card.
             chk (bool):
                 If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
             oldchk (bool):
@@ -315,6 +322,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
                     multiplicity=multiplicity,
                     prefix=prefix,
                     suffix=suffix,
+                    title_card=title_card,
                     template=template,
                     chk=chk,
                     oldchk=oldchk,
