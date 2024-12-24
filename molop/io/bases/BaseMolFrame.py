@@ -28,7 +28,7 @@ from molop.structure.structure import (
     get_formal_charges,
     get_formal_num_radicals,
 )
-from molop.structure.structure_recovery_alter import rdmol_to_omol, xyz2rdmol
+from molop.structure.structure_recovery import rdmol_to_omol, xyz2rdmol
 from molop.unit import atom_ureg
 from molop.utils.types import RdMol
 
@@ -143,12 +143,15 @@ class BaseMolFrame(BaseDataClassWithUnit):
         return rdmol_to_omol(self.rdmol)
 
     @property
-    def rdmol(self) -> Chem.rdchem.Mol:
+    def rdmol(self) -> Union[Chem.rdchem.Mol, None]:
         """
         Get the rdkit molecule object.
 
+        If reconstruction failed, return None.
+
         Returns:
-            Chem.rdchem.Mol: The rdkit molecule object.
+            Union[Chem.rdchem.Mol, None]: 
+                The rdkit molecule object. If reconstruction failed, return None.
         """
         if self._rdmol is None:
             if len(self.bonds) == 0:

@@ -21,7 +21,11 @@ from pydantic import (
 from typing_extensions import Self
 
 from molop.io.bases.BaseMolFrameParser import MolFrameType, QMMolFrameType
-from molop.io.bases.DataClasses import BaseDataClassWithUnit
+from molop.io.bases.DataClasses import (
+    BaseDataClassWithUnit,
+    GeometryOptimizationStatus,
+    Status,
+)
 from molop.unit import atom_ureg, unit_transform
 from molop.utils.types import RdMol
 
@@ -40,8 +44,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
     def _parse(self):
         raise NotImplementedError
 
-    def _set_default_units(self):
-        pass
+    def _set_default_units(self): ...
 
     @model_validator(mode="after")
     def __parse_file__(self) -> Self:
@@ -618,10 +621,23 @@ class BaseQMMolFileParser(BaseMolFileParser[QMMolFrameType]):
         description="Running time of the QM calculation, unit is `second`",
     )
 
+    status: Status = Field(default=Status(), description="Status of the last frame")
+    geometry_optimization_status: GeometryOptimizationStatus = Field(
+        default=GeometryOptimizationStatus(),
+        description="Geometry optimization status of the last frame",
+    )
+
     def _set_default_units(self):
         self.temperature = unit_transform(self.temperature, "K")
         self.electron_temperature = unit_transform(self.electron_temperature, "K")
         self.running_time = unit_transform(self.running_time, "s")
+
+    @model_validator(mode="after")
+    def __parse_file__(self) -> Self:
+        self._parse()
+        self.status = self[-1].status
+        self.geometry_optimization_status = self[-1].geometry_optimization_status
+        return self
 
     @property
     def sort_by_optimization(self) -> List[QMMolFrameType]:
@@ -665,3 +681,13 @@ class BaseQMMolFileParser(BaseMolFileParser[QMMolFrameType]):
     @property
     def task_type(self) -> Literal["sp", "opt", "freq"]:
         return "sp"
+
+    @computed_field
+    @property
+    def is_error(self) -> bool:
+        """
+        Abstrcact method to check if the current frame is an error. The details are implemented in the derived classes.
+        """
+        if self[-1].energies.total_energy is None:
+            return True
+        return not self.status.normal_terminated
