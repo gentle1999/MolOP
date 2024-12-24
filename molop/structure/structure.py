@@ -1175,7 +1175,7 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
             dative_atoms = [
                 idxs[0]
                 for idxs in temp_rwmol.GetSubstructMatches(
-                    Chem.MolFromSmarts("[OX2+0,OX3+0,SX2+0,SX3+0,SX3+1,NX3+0,PX3+0]")
+                    Chem.MolFromSmarts("[#8v2+0,#8v3+0,#16v2+0,#16v3+0,#16v3+1,#7v3+0,#15v3+0]")
                 )
             ]
             moloplogger.debug(f"{DEBUG_TAG} | possible dative atoms: {dative_atoms}")

@@ -38,7 +38,7 @@ from molop.structure.structure import (
     get_total_multiplicity,
     reset_atom_index,
 )
-from molop.structure.structure_recovery_alter import xyz2rdmol
+from molop.structure.structure_recovery import xyz2rdmol
 from molop.unit import atom_ureg, unit_transform
 from molop.utils.g16patterns import link0_parser
 from molop.utils.types import RdMol
@@ -384,9 +384,8 @@ class BaseMolFrameParser(BaseMolFrame):
         ):
             return self._prev_frame
 
-    @classmethod
+    @staticmethod
     def rebuild_frame(
-        cls,
         new_mol: Chem.rdchem.Mol,
         path: str = os.path.join(os.getcwd(), "temp.xyz"),
     ) -> "BaseMolFrameParser":
@@ -401,7 +400,7 @@ class BaseMolFrameParser(BaseMolFrame):
         Returns:
             BaseMolFrameParser: The new parser.
         """
-        return cls(
+        return BaseMolFrameParser(
             atoms=[atom.GetAtomicNum() for atom in new_mol.GetAtoms()],
             coords=new_mol.GetConformer().GetPositions() * atom_ureg.angstrom,
             file_path=path,
@@ -1055,6 +1054,8 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
                     "sp_solvent": self.solvent,
                     "sp_normal terminated": self.status.normal_terminated,
                     "SP(hartree)": self.energies.to_unitless_dump().get("total_energy"),
+                    "sp_spin_square": self.total_spin.spin_square,
+                    "sp_spin_quantum_number": self.total_spin.spin_quantum_number
                 }
             )
         if self.task_type == "opt" or self.task_type == "freq":
