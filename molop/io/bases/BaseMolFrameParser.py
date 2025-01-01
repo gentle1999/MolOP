@@ -1055,7 +1055,7 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
                     "sp_normal terminated": self.status.normal_terminated,
                     "SP(hartree)": self.energies.to_unitless_dump().get("total_energy"),
                     "sp_spin_square": self.total_spin.spin_square,
-                    "sp_spin_quantum_number": self.total_spin.spin_quantum_number
+                    "sp_spin_quantum_number": self.total_spin.spin_quantum_number,
                 }
             )
         if self.task_type == "opt" or self.task_type == "freq":
@@ -1081,6 +1081,8 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
                     "opt_solvent_model": self.solvent_model,
                     "opt_solvent": self.solvent,
                     "opt_normal terminated": self.status.normal_terminated,
+                    "opt_spin_square": self.total_spin.spin_square,
+                    "opt_spin_quantum_number": self.total_spin.spin_quantum_number,
                     "SP(hartree)": self.energies.to_unitless_dump().get("total_energy"),
                     "ZPE(kcal/mol)": thermal_energies.get("ZPVE"),
                     "TCH(kcal/mol)": thermal_energies.get("TCH"),

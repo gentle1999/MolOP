@@ -31,6 +31,7 @@ dscribe = { version = "^2.1", optional = true }
 ase = { version = "^3.22", optional = true }
 
 rmsd = "^1.5.1"
+joblib = "^1.4.2"
 [tool.poetry.group.dev]
 optional = true
 
