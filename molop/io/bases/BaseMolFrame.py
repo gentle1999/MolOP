@@ -150,7 +150,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         If reconstruction failed, return None.
 
         Returns:
-            Union[Chem.rdchem.Mol, None]: 
+            Union[Chem.rdchem.Mol,None]: 
                 The rdkit molecule object. If reconstruction failed, return None.
         """
         if self._rdmol is None:

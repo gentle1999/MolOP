@@ -1116,7 +1116,7 @@ i18n = ["Babel (>=2.7)"]
 name = "joblib"
 version = "1.4.2"
 description = "Lightweight pipelining with Python functions"
-optional = true
+optional = false
 python-versions = ">=3.8"
 files = [
     {file = "joblib-1.4.2-py3-none-any.whl", hash = "sha256:06d478d5674cbc267e7496a410ee875abd68e4340feff4490bcb7afb88060ae6"},
@@ -3966,4 +3966,4 @@ full = ["ase", "dscribe", "mordred"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.8"
-content-hash = "3a5d7f432d746642586bfc4f2e0c7826939921d67bee1b48c4715866ff0b1367"
+content-hash = "3c2b316ea16ae6e6e2cad83a739512e26676896f6e2c40c78700de5919e2dd39"

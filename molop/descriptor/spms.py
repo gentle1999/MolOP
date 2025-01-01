@@ -48,6 +48,8 @@ def check_dependencies():
 pt = Chem.GetPeriodicTable()
 
 
+# TODO no rdmol necessary
+
 class SPMSCalculator(BaseModel):
     """
     SPMS descriptor calculator.
