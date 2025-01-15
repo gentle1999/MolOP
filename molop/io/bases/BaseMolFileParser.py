@@ -37,8 +37,8 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
     multiplicity: int = Field(default=1, description="multiplicity")
     only_extract_structure: bool = Field(default=False, exclude=True, repr=False)
     only_last_frame: bool = Field(default=False, exclude=True, repr=False)
-    _allowed_formats: Tuple[str] = PrivateAttr(default=())
-    __frames: List[MolFrameType] = PrivateAttr(default=[])
+    _allowed_formats: Tuple[str] = PrivateAttr(default_factory=tuple)
+    __frames: List[MolFrameType] = PrivateAttr(default_factory=list)
     __index: int = PrivateAttr(default=0)
 
     def _parse(self):

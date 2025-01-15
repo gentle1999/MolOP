@@ -1,8 +1,8 @@
 """
 Author: TMJ
-Date: 2024-06-20 22:47:44
+Date: 2024-10-19 09:57:26
 LastEditors: TMJ
-LastEditTime: 2024-06-27 22:09:54
+LastEditTime: 2025-01-14 20:35:34
 Description: 请填写简介
 """
 
@@ -78,6 +78,8 @@ class GJFFileParser(BaseMolFileParser[GJFFrameParser]):
             if re.match(r"^\s*[\+\-\d]+\s+\d+$", line):
                 block_start = idx
                 charge, multi = map(int, line.split())
+                self.charge = charge
+                self.multiplicity = multi
                 self.keywords = "".join(lines[: idx - 2])
 
             if re.search(

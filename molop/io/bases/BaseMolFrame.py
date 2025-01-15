@@ -36,6 +36,7 @@ pt = Chem.GetPeriodicTable()
 
 
 class BaseMolFrame(BaseDataClassWithUnit):
+    
     atoms: List[int] = Field(
         default=[],
         description="atom numbers",
@@ -150,7 +151,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         If reconstruction failed, return None.
 
         Returns:
-            Union[Chem.rdchem.Mol,None]: 
+            Union[Chem.rdchem.Mol,None]:
                 The rdkit molecule object. If reconstruction failed, return None.
         """
         if self._rdmol is None:
@@ -259,6 +260,9 @@ class BaseMolFrame(BaseDataClassWithUnit):
         else:
             raise ValueError(f"Unsupported engine: {engine}")
 
+    def to_SDF_file(self):
+        raise NotImplementedError
+
     def to_CML_block(self) -> str:
         """
         Get the CML block.
@@ -351,6 +355,9 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Returns:
             Dict[str,np.ndarray]: The dictionary of the descriptors.
         """
+        assert desc_names is None or all(
+            name in ["SOAP", "ACSF", "MBTR", "LMBTR"] for name in desc_names
+        ), "Unsupported descriptor names."
         from molop.descriptor.descriptor import calc_dscribe_descs
 
         self.to_SDF_file(".temp.sdf")
@@ -401,25 +408,29 @@ class BaseMolFrame(BaseDataClassWithUnit):
         GitHub repository: https://github.com/licheng-xu-echo/SPMS.git
 
         Parameters:
-            anchor_list (Sequence[int] | None):
-                The anchor atoms for SPMS calculation. If None, the default anchor atoms will be used.
-            sphere_radius (float | None):
-                The radius of the sphere for SPMS calculation. If None, the default sphere radius will be used.
-            atom_radius:
-                Atom radius type. Default is 'vdw', which means using Van der Waals radii as atom radii.
-                If you want to use covalent radii, set this parameter to 'covalent'
+            anchor_list (Sequence[int]):
+                List of anchor atom ids to keep the invariance of 3D geometry. Default is None, which means using Centroid to
+                origin and the atom nearest to the centroid to Z axis, and the atom farthest from the centroid to ZY face. If
+                user provides a list of anchor atom ids, use the center of those atoms as the anchor, and do the same rotation -
+                the atom nearest to the centroid to Z axis, and the atom farthest from the centroid to ZY face.
+            sphere_radius (Union[float, None]):
+                Sphere radius. Default is None to use the largest possible radius for each input molecule.
+                If you want to use a fixed radius, set this parameter to a float value.
+            atom_radius (Literal["vdw", "covalent"]):
+                Atom radius type. Default is 'vdw', which means using Van der Waals radii as atom radii. If you want to use
+                covalent radii, set this parameter to 'covalent'.
             latitudinal_resolution (int):
-                The number of latitudinal divisions for SPMS calculation.
+                Number of splits on the latitudinal axis. Default is 40.
             longitude_resolution (int):
-                The number of longitudinal divisions for SPMS calculation.
+                Number of splits on the longitude axis. Default is 40.
             precision (int):
-                The precision of the SPMS calculation.
-            custom_first_anchors (Sequence[int] | None):
-                The custom anchor atoms for SPMS calculation. If None, the default anchor atoms will be used.
-            custom_second_anchors (Sequence[int] | None):
-                The custom anchor atoms for SPMS calculation. If None, the default anchor atoms will be used.
-            custom_third_anchors (Sequence[int] | None):
-                The custom anchor atoms for SPMS calculation. If None, the default anchor atoms will be used.
+                Precision of the SPMS descriptor. Default is 8.
+            custom_first_anchors (Union[Sequence[int], None]):
+                List of atom ids to use as the first anchor. Default is None.
+            custom_second_anchors (Union[Sequence[int], None]):
+                List of atom ids to use as the second anchor. Default is None.
+            custom_third_anchors (Union[Sequence[int], None]):
+                List of atom ids to use as the third anchor. Default is None.
 
         Returns:
             SPMSCalculator: The SPMS calculator object.

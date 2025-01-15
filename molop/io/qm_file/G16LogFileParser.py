@@ -14,7 +14,6 @@ from pydantic import Field, computed_field
 from molop.io.bases.BaseMolFileParser import BaseQMMolFileParser
 from molop.io.qm_file.G16LogFrameParser import G16LogFrameParser
 from molop.logger.logger import moloplogger
-from molop.unit import atom_ureg
 from molop.utils.g16patterns import (
     g16logpatterns,
     get_solvent,

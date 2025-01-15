@@ -3,7 +3,7 @@ Including functions related to the three-dimensional structure of molecules
 """
 
 from copy import deepcopy
-from typing import Iterable, List, Literal, Sequence, Union
+from typing import Iterable, List, Literal, Sequence, Union, overload
 
 import numpy as np
 import pandas as pd
@@ -216,85 +216,92 @@ def translate_sub_mol(
     return mol_copy
 
 
-def translate_anchor(mol: RdMol, idx: int, conformer_id=0):
+@overload
+def translate_anchor(pos: np.ndarray, idx: int) -> np.ndarray: ...
+@overload
+def translate_anchor(pos: np.ndarray, idx: Sequence[int]) -> np.ndarray: ...
+
+
+def translate_anchor(pos: np.ndarray, idx: Union[int, Sequence[int]]) -> np.ndarray:
+    if isinstance(idx, (int, np.integer)):
+        return pos - pos[idx]
+    elif isinstance(idx, Sequence):
+        for i in idx:
+            assert isinstance(
+                i, (int, np.integer)
+            ), "idx must be int or sequence of int"
+        return pos - np.mean(pos[idx], axis=0)
+    else:
+        raise TypeError("idx must be int or sequence of int")
+
+
+def translate_mol_anchor(mol: RdMol, idx: Union[int, Sequence[int]], conformer_id=0):
     """
     Translate the entire molecule such that the atomic coordinates of the specified index are the origin
 
     Parameters:
         mol (RdMol):
             Molecule to be translated
-        idx (int):
+        idx (int | Sequence[int]):
             The index of the anchor atom
         conformer_id (int):
             The conformer of id to be translated
     """
-    vector = mol.GetConformer(conformer_id).GetAtomPosition(idx) * -1.0
-    translate_mol(mol, vector, conformer_id)
-
-
-def translate_anchors(mol: RdMol, idxs: Sequence[int], conformer_id=0):
-    """
-    Translate the entire molecule such that the atomic coordinates of the specified index are the origin
-
-    Parameters:
-        mol (RdMol):
-            Molecule to be translated
-        idxs (Sequence[int]):
-            The indexes of the anchor atoms, use the mean of the coordinates as the anchor
-        conformer_id (int):
-            The conformer of id to be translated
-    """
-    vector = (
-        np.mean(
-            [mol.GetConformer(conformer_id).GetAtomPosition(idx) for idx in idxs],
-            axis=0,
-        )
-        * -1.0
+    set_conformer_position(
+        mol,
+        translate_anchor(mol.GetConformer(conformer_id).GetPositions(), idx),
+        conformer_id,
     )
-    translate_mol(mol, vector, conformer_id)
+
+
+@overload
+def rotate_anchor_to_axis(
+    pos: np.ndarray, idx: int, axis: Literal["x", "y", "z"]
+) -> np.ndarray: ...
+@overload
+def rotate_anchor_to_axis(
+    pos: np.ndarray, idx: Sequence[int], axis: Literal["x", "y", "z"]
+) -> np.ndarray: ...
 
 
 def rotate_anchor_to_axis(
-    mol: RdMol, idx: int, axis: Literal["x", "y", "z"] = "x", conformer_id=0
-):
-    """
-    Suppose the specified atom is A, and by rotating along two axes, point A is rotated to the positive half of the other axis.
-
-    Parameters:
-        mol (RdMol):
-            Molecule to be rotated
-        idx (int):
-            The index of the anchor atom
-        axis (Literal["x", "y", "z"]):
-            The axis to rotate along
-        conformer_id (int):
-            The conformer of id to be rotated
-    """
-    axis = axis.lower()
-    original_positions = mol.GetConformer(conformer_id).GetPositions()
-    point = original_positions[idx]
+    pos: np.ndarray, idx: Union[int, Sequence[int]], axis: Literal["x", "y", "z"]
+) -> np.ndarray:
+    if isinstance(idx, (int, np.integer)):
+        point = pos[idx]
+    elif isinstance(idx, Sequence):
+        for i in idx:
+            assert isinstance(
+                i, (int, np.integer)
+            ), "idx must be int or sequence of int"
+        point = np.mean(pos[idx], axis=0)
+    else:
+        raise TypeError("idx must be int or sequence of int")
     if axis == "x":
         r1 = R.from_euler("z", -np.arctan2(point[1], point[0]))
-        positions = r1.apply(original_positions)
+        positions = r1.apply(pos)
         r2 = R.from_euler("y", np.arctan2(positions[idx][2], positions[idx][0]))
         positions = r2.apply(positions)
     elif axis == "y":
         r1 = R.from_euler("x", -np.arctan2(point[2], point[1]))
-        positions = r1.apply(original_positions)
+        positions = r1.apply(pos)
         r2 = R.from_euler("z", np.arctan2(positions[idx][0], positions[idx][1]))
         positions = r2.apply(positions)
     elif axis == "z":
         r1 = R.from_euler("x", np.arctan2(point[1], point[2]))
-        positions = r1.apply(original_positions)
+        positions = r1.apply(pos)
         r2 = R.from_euler("y", -np.arctan2(positions[idx][0], positions[idx][2]))
         positions = r2.apply(positions)
     else:
         raise ValueError("axis must be one of 'x', 'y', or 'z'")
-    set_conformer_position(mol, positions, conformer_id)
+    return positions
 
 
-def rotate_anchors_to_axis(
-    mol: RdMol, idxs: Sequence[int], axis: Literal["x", "y", "z"] = "x", conformer_id=0
+def rotate_mol_anchor_to_axis(
+    mol: RdMol,
+    idx: Union[int, Sequence[int]],
+    axis: Literal["x", "y", "z"] = "x",
+    conformer_id=0,
 ):
     """
     Suppose the specified atom is A, and by rotating along two axes, point A is rotated to the positive half of the other axis.
@@ -302,40 +309,67 @@ def rotate_anchors_to_axis(
     Parameters:
         mol (RdMol):
             Molecule to be rotated
-        idxs (Sequence[int]):
-            The indexes of the anchor atoms, use the mean of the coordinates as the anchor
+        idx (int):
+            The index of the anchor atom
         axis (Literal["x", "y", "z"]):
             The axis to rotate along
         conformer_id (int):
             The conformer of id to be rotated
     """
     axis = axis.lower()
-    original_positions = mol.GetConformer(conformer_id).GetPositions()
-    point = np.mean([original_positions[idx] for idx in idxs], axis=0)
-    if axis == "x":
-        r1 = R.from_euler("z", -np.arctan2(point[1], point[0]))
-        positions = r1.apply(original_positions)
-        point = np.mean([positions[idx] for idx in idxs], axis=0)
-        r2 = R.from_euler("y", np.arctan2(point[2], point[0]))
-        positions = r2.apply(positions)
-    elif axis == "y":
-        r1 = R.from_euler("x", -np.arctan2(point[2], point[1]))
-        positions = r1.apply(original_positions)
-        point = np.mean([positions[idx] for idx in idxs], axis=0)
-        r2 = R.from_euler("z", np.arctan2(point[0], point[1]))
-        positions = r2.apply(positions)
-    elif axis == "z":
-        r1 = R.from_euler("x", np.arctan2(point[1], point[2]))
-        positions = r1.apply(original_positions)
-        point = np.mean([positions[idx] for idx in idxs], axis=0)
-        r2 = R.from_euler("y", -np.arctan2(point[0], point[2]))
-        positions = r2.apply(positions)
-    else:
-        raise ValueError("axis must be one of 'x', 'y', or 'z'")
-    set_conformer_position(mol, positions, conformer_id)
+    set_conformer_position(
+        mol,
+        rotate_anchor_to_axis(mol.GetConformer(conformer_id).GetPositions(), idx, axis),
+        conformer_id,
+    )
+
+
+@overload
+def rotate_anchor_to_plane(
+    pos: np.ndarray, idx: int, plane: Literal["xy", "yz", "zx", "yx", "zy", "xz"]
+) -> np.ndarray: ...
+@overload
+def rotate_anchor_to_plane(
+    pos: np.ndarray,
+    idx: Sequence[int],
+    plane: Literal["xy", "yz", "zx", "yx", "zy", "xz"],
+) -> np.ndarray: ...
 
 
 def rotate_anchor_to_plane(
+    pos: np.ndarray,
+    idx: Union[int, Sequence[int]],
+    plane: Literal["xy", "yz", "zx", "yx", "zy", "xz"],
+):
+    if isinstance(idx, (int, np.integer)):
+        point = pos[idx]
+    elif isinstance(idx, Sequence):
+        for i in idx:
+            assert isinstance(
+                i, (int, np.integer)
+            ), "idx must be int or sequence of int"
+        point = np.mean(pos[idx], axis=0)
+    else:
+        raise TypeError("idx must be int or sequence of int")
+    if plane == "xy":
+        r = R.from_euler("x", -np.arctan2(point[2], point[1]))
+    elif plane == "yx":
+        r = R.from_euler("y", -np.arctan2(point[2], point[0]))
+    elif plane == "yz":
+        r = R.from_euler("y", -np.arctan2(point[0], point[2]))
+    elif plane == "zy":
+        r = R.from_euler("z", np.arctan2(point[0], point[1]))
+    elif plane == "zx":
+        r = R.from_euler("z", -np.arctan2(point[1], point[0]))
+    elif plane == "xz":
+        r = R.from_euler("x", -np.arctan2(point[1], point[2]))
+    else:
+        raise ValueError("plane must be one of 'xy', 'yz', 'zx', 'yx', 'zy', or 'xz'")
+    positions = r.apply(pos)
+    return positions
+
+
+def rotate_mol_anchor_to_plane(
     mol: RdMol,
     idx: int,
     plane: Literal["xy", "yz", "zx", "yx", "zy", "xz"] = "xy",
@@ -356,65 +390,13 @@ def rotate_anchor_to_plane(
             The conformer of id to be rotated
     """
     plane = plane.lower()
-    original_positions = mol.GetConformer(conformer_id).GetPositions()
-    point = original_positions[idx]
-    if plane == "xy":
-        r = R.from_euler("x", -np.arctan2(point[2], point[1]))
-    elif plane == "yx":
-        r = R.from_euler("y", -np.arctan2(point[2], point[0]))
-    elif plane == "yz":
-        r = R.from_euler("y", -np.arctan2(point[0], point[2]))
-    elif plane == "zy":
-        r = R.from_euler("z", np.arctan2(point[0], point[1]))
-    elif plane == "zx":
-        r = R.from_euler("z", -np.arctan2(point[1], point[0]))
-    elif plane == "xz":
-        r = R.from_euler("x", -np.arctan2(point[1], point[2]))
-    else:
-        raise ValueError("plane must be one of 'xy', 'yz', 'zx', 'yx', 'zy', or 'xz'")
-    positions = r.apply(original_positions)
-    set_conformer_position(mol, positions, conformer_id)
-
-
-def rotate_anchors_to_plane(
-    mol: RdMol,
-    idxs: Sequence[int],
-    plane: Literal["xy", "yz", "zx", "yx", "zy", "xz"] = "xy",
-    conformer_id=0,
-):
-    """
-    Suppose the specified atom is A and rotates along the X-axis, rotating point A to the XY plane.
-    And the other two axes are rotated to the positive half of the X-axis and Y-axis, respectively.
-
-    Parameters:
-        mol (RdMol):
-            Molecule to be rotated
-        idxs (Sequence[int]):
-            The indexes of the anchor atoms, use the mean of the coordinates as the anchor
-        plane (Literal["xy", "yz", "zx", "yx", "zy", "xz"]):
-            The plane to rotate along
-        conformer_id (int):
-            The conformer of id to be rotated
-    """
-    plane = plane.lower()
-    original_positions = mol.GetConformer(conformer_id).GetPositions()
-    point = np.mean([original_positions[idx] for idx in idxs], axis=0)
-    if plane == "xy":
-        r = R.from_euler("x", -np.arctan2(point[2], point[1]))
-    elif plane == "yx":
-        r = R.from_euler("y", -np.arctan2(point[2], point[0]))
-    elif plane == "yz":
-        r = R.from_euler("y", -np.arctan2(point[0], point[2]))
-    elif plane == "zy":
-        r = R.from_euler("z", np.arctan2(point[0], point[1]))
-    elif plane == "zx":
-        r = R.from_euler("z", -np.arctan2(point[1], point[0]))
-    elif plane == "xz":
-        r = R.from_euler("x", -np.arctan2(point[1], point[2]))
-    else:
-        raise ValueError("plane must be one of 'xy', 'yz', 'zx', 'yx', 'zy', or 'xz'")
-    positions = r.apply(original_positions)
-    set_conformer_position(mol, positions, conformer_id)
+    set_conformer_position(
+        mol,
+        rotate_anchor_to_plane(
+            mol.GetConformer(conformer_id).GetPositions(), idx, plane
+        ),
+        conformer_id,
+    )
 
 
 def standard_orient(mol: RdMol, idx_list: Sequence[int], conformer_id=0):
@@ -430,7 +412,11 @@ def standard_orient(mol: RdMol, idx_list: Sequence[int], conformer_id=0):
         conformer_id (int):
             The conformer of id to be oriented
     """
-    methods = [translate_anchor, rotate_anchor_to_axis, rotate_anchor_to_plane]
+    methods = (
+        translate_mol_anchor,
+        rotate_mol_anchor_to_axis,
+        rotate_mol_anchor_to_plane,
+    )
     for method, idx in zip(methods, idx_list):
         method(mol, idx, conformer_id=conformer_id)
 

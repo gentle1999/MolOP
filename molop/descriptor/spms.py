@@ -19,11 +19,9 @@ from rdkit.Geometry import Point3D
 
 from molop.logger.logger import moloplogger
 from molop.structure.geometry import (
-    rotate_anchor_to_axis,
-    rotate_anchor_to_plane,
-    rotate_anchors_to_axis,
-    rotate_anchors_to_plane,
-    translate_anchors,
+    rotate_mol_anchor_to_axis,
+    rotate_mol_anchor_to_plane,
+    translate_mol_anchor,
     translate_mol,
 )
 
@@ -49,6 +47,7 @@ pt = Chem.GetPeriodicTable()
 
 
 # TODO no rdmol necessary
+
 
 class SPMSCalculator(BaseModel):
     """
@@ -401,9 +400,9 @@ def geometry_initialize(
             custom_third_anchors,
         ]
     ):
-        translate_anchors(rwmol, custom_first_anchors)
-        rotate_anchors_to_axis(rwmol, custom_second_anchors, "z")
-        rotate_anchors_to_plane(rwmol, custom_third_anchors, "zy")
+        translate_mol_anchor(rwmol, custom_first_anchors)
+        rotate_mol_anchor_to_axis(rwmol, custom_second_anchors, "z")
+        rotate_mol_anchor_to_plane(rwmol, custom_third_anchors, "zy")
         return rwmol.GetMol()
 
     if anchor_list is None:
@@ -425,9 +424,9 @@ def geometry_initialize(
     # put the centroid to origin
     translate_mol(rwmol, center * -1)
     # rotate the nearest atom to Z axis
-    rotate_anchor_to_axis(rwmol, nearest_atom, "z")
+    rotate_mol_anchor_to_axis(rwmol, nearest_atom, "z")
     # rotate the farthest atom to ZY plane
-    rotate_anchor_to_plane(rwmol, farthest_atom, "zy")
+    rotate_mol_anchor_to_plane(rwmol, farthest_atom, "zy")
     return rwmol.GetMol()
 
 

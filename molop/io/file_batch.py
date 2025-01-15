@@ -893,7 +893,7 @@ class FileParserBatch(MutableMapping):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({len(self)})"
 
-    def hong_style_summary(self, frameID=-1) -> pd.DataFrame:
+    def hong_style_summary(self, frameID: int = -1) -> pd.DataFrame:
         empty_df = pd.DataFrame(
             [],
             columns=[
@@ -995,17 +995,54 @@ class FileParserBatch(MutableMapping):
             df = pd.merge(
                 pd.concat(
                     [
-                        sp_sub_df.iloc[:, :4],
-                        sp_sub_df.iloc[:, 4:].dropna(how="all", axis=1),
+                        sp_sub_df[
+                            [
+                                "file_name",
+                                "charge",
+                                "multiplicity",
+                                "Canonical SMILES",
+                                "sp_spin_square",
+                                "sp_spin_quantum_number",
+                            ]
+                        ],
+                        sp_sub_df.drop(
+                            [
+                                "file_name",
+                                "charge",
+                                "multiplicity",
+                                "Canonical SMILES",
+                                "sp_spin_square",
+                                "sp_spin_quantum_number",
+                            ],
+                            axis=1,
+                        ).dropna(how="all", axis=1),
                     ],
                     axis=1,
                 ),
                 pd.concat(
                     [
-                        opt_sub_df.iloc[:, :4],
-                        opt_sub_df.iloc[:, 4:]
-                        .drop("SP(hartree)", axis=1)
-                        .dropna(how="all", axis=1),
+                        opt_sub_df[
+                            [
+                                "file_name",
+                                "charge",
+                                "multiplicity",
+                                "Canonical SMILES",
+                                "opt_spin_square",
+                                "opt_spin_quantum_number",
+                            ]
+                        ],
+                        opt_sub_df.drop(
+                            [
+                                "file_name",
+                                "charge",
+                                "multiplicity",
+                                "Canonical SMILES",
+                                "opt_spin_square",
+                                "opt_spin_quantum_number",
+                                "SP(hartree)",
+                            ],
+                            axis=1,
+                        ).dropna(how="all", axis=1),
                     ],
                     axis=1,
                 ),

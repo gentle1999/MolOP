@@ -506,6 +506,9 @@ def replace_mol(
                     end = unique_queried_idx[0]
                     bond_tag = mol.GetBondBetweenAtoms(start, end).GetBondType()
                     break
+    assert any(
+        atom.GetNumRadicalElectrons() for atom in replacement_mol.GetAtoms()
+    ), "replacement_mol should have at least one radical atom."
 
     moloplogger.debug(
         f"{DEBUG_TAG}: Initial check of structure replacement passed,"
@@ -741,11 +744,14 @@ def combine_skeleton_replacement(
 
 
 def get_skeleton(origin_mol: Chem.RWMol, start: int, end: int):
+    original_frags = Chem.GetMolFrags(origin_mol, asMols=True)  
     origin_mol.RemoveBond(start, end)
     frags, frag_idxs = (
         Chem.GetMolFrags(origin_mol, asMols=True),
         Chem.GetMolFrags(origin_mol),
     )
+    if len(frags) <= len(original_frags):
+        raise RuntimeError("query_mol should not be in a ring")
     ske_frags = [
         (frag, frag_idx)
         for frag, frag_idx in zip(frags, frag_idxs)
@@ -924,7 +930,6 @@ def attempt_replacement(
                 raise RuntimeError(
                     f"Endless loop: replacement '{Chem.MolToSmiles(replacement_mol)}' contains query '{Chem.MolToSmiles(query_mol)}'"
                 )
-
             new_mol = replace_mol(
                 mol=mol,
                 query_mol=query_mol,
@@ -1175,7 +1180,9 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
             dative_atoms = [
                 idxs[0]
                 for idxs in temp_rwmol.GetSubstructMatches(
-                    Chem.MolFromSmarts("[#8v2+0,#8v3+0,#16v2+0,#16v3+0,#16v3+1,#7v3+0,#15v3+0]")
+                    Chem.MolFromSmarts(
+                        "[#8v2+0,#8v3+0,#16v2+0,#16v3+0,#16v3+1,#7v3+0,#15v3+0]"
+                    )
                 )
             ]
             moloplogger.debug(f"{DEBUG_TAG} | possible dative atoms: {dative_atoms}")

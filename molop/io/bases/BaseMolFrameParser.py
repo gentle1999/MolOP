@@ -1,3 +1,10 @@
+'''
+Author: TMJ
+Date: 2024-10-19 09:57:26
+LastEditors: TMJ
+LastEditTime: 2025-01-03 12:04:55
+Description: 请填写简介
+'''
 import os
 import re
 from typing import List, Literal, Sequence, Tuple, TypeVar, Union
