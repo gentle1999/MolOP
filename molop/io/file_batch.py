@@ -149,21 +149,28 @@ class FileParserBatch(MutableMapping):
 
     @overload
     def __getitem__(self, key: int) -> PARSERTYPES: ...
-
-    @overload
-    def __getitem__(self, key: slice) -> "FileParserBatch": ...
-
     @overload
     def __getitem__(self, key: str) -> PARSERTYPES: ...
+    @overload
+    def __getitem__(self, key: slice) -> "FileParserBatch": ...
+    @overload
+    def __getitem__(self, key: Sequence[Union[int, str]]) -> "FileParserBatch": ...
 
-    def __getitem__(self, key: Union[int, str, slice]) -> PARSERTYPES:
+    def __getitem__(
+        self, key: Union[int, str, slice, Sequence[Union[int, str]]]
+    ) -> Union[PARSERTYPES, "FileParserBatch"]:
         if isinstance(key, int):
             return list(self.__parsers.values())[key]
+        if isinstance(key, str):
+            return self.__parsers[key]
         if isinstance(key, slice):
             slicedkeys = list(self.__parsers.keys())[key]
             return self.__new_batch([self.__parsers[k] for k in slicedkeys])
-        else:
-            return self.__parsers[key]
+        if isinstance(key, Sequence):
+            return self.__new_batch([self[k] for k in key])
+        raise TypeError(
+            f"key should be an int, str, slice or Sequence[Union[int, str]], got {type(key)}"
+        )
 
     def __setitem__(self, key: str, value: PARSERTYPES):
         if not isinstance(key, str):

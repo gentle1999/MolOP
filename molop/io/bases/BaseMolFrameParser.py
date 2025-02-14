@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-10-19 09:57:26
 LastEditors: TMJ
-LastEditTime: 2025-01-03 12:04:55
+LastEditTime: 2025-02-13 19:23:50
 Description: 请填写简介
 '''
 import os
@@ -421,7 +421,7 @@ class BaseMolFrameParser(BaseMolFrame):
 
     def replace_substituent(
         self,
-        query: Union[str, RdMol],
+        query: Union[str, RdMol], 
         replacement: Union[str, RdMol] = None,
         bind_idx: int = None,
         replace_all=False,

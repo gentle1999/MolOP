@@ -7,7 +7,7 @@ Description: 请填写简介
 """
 
 import os
-from typing import Generic, List, Literal, Sequence, Tuple, Union
+from typing import Generic, List, Literal, Sequence, Tuple, Union, overload
 
 import pandas as pd
 from pint.facets.plain import PlainQuantity
@@ -124,8 +124,21 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
             self.__index += 1
             return self.__frames[self.__index - 1]
 
-    def __getitem__(self, frameID: int) -> MolFrameType:
-        return self.__frames[frameID]
+    @overload
+    def __getitem__(self, frameID: int) -> MolFrameType: ...
+    @overload
+    def __getitem__(self, frameID: slice) -> List[MolFrameType]: ...
+    @overload
+    def __getitem__(self, frameID: Sequence[int]) -> List[MolFrameType]: ...
+
+    def __getitem__(self, frameID: Union[int, slice, Sequence[int]]) -> MolFrameType:
+        if isinstance(frameID, int):
+            return self.__frames[frameID]
+        if isinstance(frameID, slice):
+            return self.__frames[frameID]
+        if isinstance(frameID, Sequence):
+            return [self[i] for i in frameID]
+        raise TypeError("Invalid index type. Only int, slice, and Sequence[int] are allowed.")
 
     def __len__(self) -> int:
         return len(self.__frames)

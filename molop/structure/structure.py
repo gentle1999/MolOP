@@ -487,7 +487,6 @@ def replace_mol(
         else:
             query_mol_ = Chem.MolFromSmarts(Chem.MolToSmarts(query_mol))
             queried_idx_list = mol.GetSubstructMatches(query_mol_, uniquify=False)
-            # print(queried_idx_list)
             if len(queried_idx_list) == 0:
                 raise ValueError("No substruct match found.")
             if bind_idx:
@@ -499,9 +498,8 @@ def replace_mol(
                     raise ValueError(f"No substruct mapping to bind_idx {bind_idx}.")
             else:
                 unique_queried_idx = queried_idx_list[0]
-            # print(unique_queried_idx)
             for atom in mol.GetAtomWithIdx(unique_queried_idx[0]).GetNeighbors():
-                if atom.GetIdx() not in mol.GetSubstructMatch(query_mol_):
+                if atom.GetIdx() not in unique_queried_idx:
                     start = atom.GetIdx()
                     end = unique_queried_idx[0]
                     bond_tag = mol.GetBondBetweenAtoms(start, end).GetBondType()
@@ -554,7 +552,7 @@ def replace_mol(
             start=new_start,
             end=0,
         )
-    if bond_tag in (Chem.rdchem.BondType.DOUBLE,):
+    elif bond_tag in (Chem.rdchem.BondType.DOUBLE,):
         # rotate the double bond to put on a plane (if necessary)
         for atom in origin_mol.GetAtomWithIdx(start).GetNeighbors():
             if atom.GetIdx() != end:
@@ -591,6 +589,8 @@ def replace_mol(
                 geometry.standard_orient(replacement_, [idx, 0, anchor])
                 replacement_.RemoveAtom(idx)
                 replacements.append(replacement_)
+        if len(replacements) == 0:
+            raise ValueError("No valid replacement found.")
         for replacement in replacements:
             new_start, rmol = combine_skeleton_replacement(
                 skeleton=skeleton,
@@ -617,7 +617,7 @@ def replace_mol(
                     start=0,
                     end=anchor.GetIdx(),
                 )
-    if bond_tag in (Chem.rdchem.BondType.TRIPLE,):
+    elif bond_tag in (Chem.rdchem.BondType.TRIPLE,):
         geometry.standard_orient(origin_mol, [start, end])
         skeleton, new_start = get_skeleton(origin_mol=origin_mol, start=start, end=end)
         # build replacement conformer
@@ -645,6 +645,8 @@ def replace_mol(
                     start=0,
                     end=anchor.GetIdx(),
                 )
+    else:
+        raise ValueError(f"Unsupported bond type: {bond_tag}.")
     geometry.standard_orient(rmol, [0, 1])
     # recover the original atom index of the skeleton
     atom_idxs = list(range(rmol.GetNumAtoms()))
@@ -744,12 +746,26 @@ def combine_skeleton_replacement(
 
 
 def get_skeleton(origin_mol: Chem.RWMol, start: int, end: int):
-    original_frags = Chem.GetMolFrags(origin_mol, asMols=True)  
+    # Avoiding Aromaticity Determination Problems Associated with Hetero-Hydrogen Bond 
+    # Substitution in Heterocyclic Aromatic Hydrocarbons
+    Chem.Kekulize(origin_mol)
+    bond_type = origin_mol.GetBondBetweenAtoms(start, end).GetBondType()
+    original_frags = Chem.GetMolFrags(origin_mol, asMols=True)
     origin_mol.RemoveBond(start, end)
+    origin_mol.GetAtomWithIdx(start).SetNumRadicalElectrons(
+        origin_mol.GetAtomWithIdx(start).GetNumRadicalElectrons()
+        + bond_type_mapping[bond_type]
+    )
+    origin_mol.GetAtomWithIdx(end).SetNumRadicalElectrons(
+        origin_mol.GetAtomWithIdx(end).GetNumRadicalElectrons()
+        + bond_type_mapping[bond_type]
+    )
+    # get all frags 
     frags, frag_idxs = (
         Chem.GetMolFrags(origin_mol, asMols=True),
         Chem.GetMolFrags(origin_mol),
     )
+    # check if the query_mol is in a ring
     if len(frags) <= len(original_frags):
         raise RuntimeError("query_mol should not be in a ring")
     ske_frags = [
