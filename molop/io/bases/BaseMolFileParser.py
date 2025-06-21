@@ -7,6 +7,7 @@ Description: 请填写简介
 """
 
 import os
+import tempfile
 from typing import Generic, List, Literal, Sequence, Tuple, Union, overload
 
 import pandas as pd
@@ -31,15 +32,25 @@ from molop.utils.types import RdMol
 
 
 class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
-    file_path: str = Field(default="", description="File path")
+    # allowed file formats defined in subclasses
+    _allowed_formats_: Tuple[str] = PrivateAttr(default_factory=tuple)
+    # inside frames parsed from the file
+    _frames_: List[MolFrameType] = PrivateAttr(default_factory=list)
+    _index_: int = PrivateAttr(default=0)
+
+    file_content: str = Field(
+        default="",
+        description="File content. If specified, will use this content instead of reading from file.",
+    )
+    file_path: str = Field(
+        default="",
+        description="File path. If not specified, will use a temporary file.",
+    )
 
     charge: int = Field(default=0, description="charge")
     multiplicity: int = Field(default=1, description="multiplicity")
     only_extract_structure: bool = Field(default=False, exclude=True, repr=False)
     only_last_frame: bool = Field(default=False, exclude=True, repr=False)
-    _allowed_formats: Tuple[str] = PrivateAttr(default_factory=tuple)
-    __frames: List[MolFrameType] = PrivateAttr(default_factory=list)
-    __index: int = PrivateAttr(default=0)
 
     def _parse(self):
         raise NotImplementedError
@@ -66,16 +77,22 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
             ValueError: If the file format is not allowed.
         """
         if file_path == "":
-            return ""
+            # if file_path is not specified, allocate a temporary file path
+            return os.path.abspath(
+                tempfile.mkdtemp(suffix=cls._allowed_formats_.default[0])
+            )
         if not os.path.exists(file_path):
+            # if file_path does not exist, raise FileNotFoundError
             raise FileNotFoundError(f"{file_path} not found.")
         elif not os.path.isfile(file_path):
+            # if file_path is a directory, raise IsADirectoryError
             raise IsADirectoryError(f"{file_path} is not a file.")
         else:
+            # check the file format, otherwise raise ValueError
             _, file_format = os.path.splitext(file_path)
-            if file_format not in cls._allowed_formats.default:
+            if file_format not in cls._allowed_formats_.default:
                 raise ValueError(
-                    f"File format {file_format} not in {cls._allowed_formats}"
+                    f"File format {file_format} not in {cls._allowed_formats_}"
                 )
         return os.path.abspath(file_path)
 
@@ -100,7 +117,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
                 The file format.
 
         Returns:
-            strThe absolute path of the file.
+            str: The absolute path of the file.
         """
         if file_path is None:
             return os.path.splitext(self.file_path)[0] + format
@@ -112,17 +129,17 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         return file_path
 
     def __iter__(self):
-        self.__index = 0
+        self._index_ = 0
         return self
 
     def __next__(
         self,
     ) -> MolFrameType:
-        if self.__index >= len(self):
+        if self._index_ >= len(self):
             raise StopIteration
         else:
-            self.__index += 1
-            return self.__frames[self.__index - 1]
+            self._index_ += 1
+            return self._frames_[self._index_ - 1]
 
     @overload
     def __getitem__(self, frameID: int) -> MolFrameType: ...
@@ -131,17 +148,23 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
     @overload
     def __getitem__(self, frameID: Sequence[int]) -> List[MolFrameType]: ...
 
-    def __getitem__(self, frameID: Union[int, slice, Sequence[int]]) -> MolFrameType:
-        if isinstance(frameID, int):
-            return self.__frames[frameID]
-        if isinstance(frameID, slice):
-            return self.__frames[frameID]
-        if isinstance(frameID, Sequence):
-            return [self[i] for i in frameID]
-        raise TypeError("Invalid index type. Only int, slice, and Sequence[int] are allowed.")
+    def __getitem__(
+        self, frameID: Union[int, slice, Sequence[int]]
+    ) -> Union[MolFrameType, List[MolFrameType]]:
+        try:
+            if isinstance(frameID, int):
+                return self._frames_[frameID]
+            if isinstance(frameID, slice):
+                return self._frames_[frameID]
+            if isinstance(frameID, Sequence):
+                return [self[i] for i in frameID]
+        except IndexError:
+            raise IndexError(
+                "Invalid index type. Only `int`, `slice`, and `Sequence[int]` are allowed."
+            )
 
     def __len__(self) -> int:
-        return len(self.__frames)
+        return len(self._frames_)
 
     @property
     def file_name(self) -> str:
@@ -167,7 +190,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Returns:
             List[MolFrameType]: The list of parsed frames.
         """
-        return self.__frames
+        return self._frames_
 
     def __append__(
         self,
@@ -179,11 +202,11 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Parameters:
             frame (MolFrameType): The frame to be appended.
         """
-        frame.frame_id = len(self.__frames)
+        frame.frame_id = len(self._frames_)
         if frame.frame_id > 0:
-            self.__frames[frame.frame_id - 1]._next_frame = frame
-            frame._prev_frame = self.__frames[frame.frame_id - 1]
-        self.__frames.append(frame)
+            self._frames_[frame.frame_id - 1]._next_frame = frame
+            frame._prev_frame = self._frames_[frame.frame_id - 1]
+        self._frames_.append(frame)
 
     def to_XYZ_block(self) -> str:
         """
@@ -192,7 +215,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Returns:
             str: The string representation of the object in XYZ format.
         """
-        return "\n".join([frame.to_XYZ_block() for frame in self.__frames])
+        return "\n".join([frame.to_XYZ_block() for frame in self._frames_])
 
     def to_SDF_block(self) -> str:
         """
@@ -201,7 +224,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Returns:
            str: The string representation in SDF format.
         """
-        return "$$$$\n".join([frame.to_SDF_block() for frame in self.__frames])
+        return "$$$$\n".join([frame.to_SDF_block() for frame in self._frames_])
 
     def to_GJF_block(
         self,
@@ -242,7 +265,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Returns:
             str: A modified GJF block.
         """
-        return self.__frames[frameID].to_GJF_block(
+        return self._frames_[frameID].to_GJF_block(
             file_path=file_path,
             charge=charge,
             multiplicity=multiplicity,
@@ -253,6 +276,19 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
             chk=chk,
             oldchk=oldchk,
         )
+
+    def save(self, file_path: str = None):
+        """
+        Save the file content to the specified file path.
+
+        Parameters:
+            file_path (str): If not specified, will use the original file path.
+        """
+        if file_path is None:
+            file_path = self.file_path
+        with open(file_path, "w") as f:
+            f.write(self.file_content)
+        f.close()
 
     def to_XYZ_file(self, file_path: str = None):
         """
@@ -362,7 +398,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Returns:
             str: The path to the ChemDraw file.
         """
-        return self.__frames[frameID].to_chemdraw(file_path, keep3D=keep3D)
+        return self._frames_[frameID].to_chemdraw(file_path, keep3D=keep3D)
 
     def geometry_analysis_df(
         self, key_atoms: List[List[int]], precision: int = 1, one_start=False
@@ -389,7 +425,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         values = {
             "-".join([str(idx) for idx in atom_idxs]): [
                 round(molblock.geometry_analysis(atom_idxs, one_start), precision)
-                for molblock in self.__frames
+                for molblock in self._frames_
             ]
             for atom_idxs in key_atoms
         }
@@ -485,7 +521,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Returns:
             The new parser.
         """
-        return self.__frames[frameID].replace_substituent(
+        return self._frames_[frameID].replace_substituent(
             query=query,
             replacement=replacement,
             bind_idx=bind_idx,
@@ -515,7 +551,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Returns:
             MolFrameType: The new parser.
         """
-        return self.__frames[frameID].reset_atom_index(mapping_smarts)
+        return self._frames_[frameID].reset_atom_index(mapping_smarts)
 
     def standard_orient(
         self,
@@ -544,7 +580,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         Returns:
             MolFrameType: The new parser.
         """
-        return self.__frames[frameID].standard_orient(anchor_list)
+        return self._frames_[frameID].standard_orient(anchor_list)
 
     def to_summary_df(
         self, full: bool = False, with_units: bool = True
@@ -562,7 +598,7 @@ class BaseMolFileParser(BaseDataClassWithUnit, Generic[MolFrameType]):
         """
         self.recover_structures()
         return pd.concat(
-            [frame.to_summary_series(full, with_units) for frame in self.__frames],
+            [frame.to_summary_series(full, with_units) for frame in self._frames_],
             axis=1,
         ).T
 

@@ -89,7 +89,7 @@ def canonical_smiles(smiles: str):
         return original_smi
 
 
-def get_bond_pairs(mol: RdMol) -> List[Tuple[int]]:
+def get_bond_pairs(mol: RdMol) -> List[Tuple[int, int, int]]:
     """
     Get the list of bond pairs in the molecule.
 
@@ -97,7 +97,7 @@ def get_bond_pairs(mol: RdMol) -> List[Tuple[int]]:
         mol (RdMol):
             The input molecule
     Returns:
-        List[Tuple[int]]:
+        List[Tuple[int, int, int]]:
             The list of bond pairs in the molecule. Each bond pair is represented
             by a tuple of two atom indices and a bond type index.
     """

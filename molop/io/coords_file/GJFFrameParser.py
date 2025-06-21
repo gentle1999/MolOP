@@ -22,6 +22,9 @@ from molop.utils.g16patterns import (
     parameter_comment_parser,
 )
 
+# TODO: constrained optimization
+# like: B 69 11 F
+
 
 class GJFFrameParser(BaseMolFrameParser):
     _frame_type = "G16 GJF"

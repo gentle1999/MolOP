@@ -33,7 +33,7 @@ from molop.utils.g16patterns import (
 )
 
 
-class G16FchkFrameParser(BaseQMMolFrameParser):
+class G16FchkFrameParser(BaseQMMolFrameParser): 
     _frame_type: str = "G16 Fchk"
     qm_software: str = Field(default="Gaussian")
     n_atom: int = Field(default=0, exclude=True, repr=False)
@@ -69,7 +69,6 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
         return parameter_comment_parser(self.route)[1]
 
     def _parse(self):
-        self.__block = self.frame_content
         self._parse_functional_basis()
         self.solvent_model = get_solvent_model(self.route_params)
         self.solvent = get_solvent(self.route_params)
@@ -88,7 +87,7 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
         self._parse_state()
 
     def _parse_functional_basis(self):
-        for idx, line in enumerate(self.__block.splitlines()):
+        for idx, line in enumerate(self._block.splitlines()):
             if idx == 1:
                 self.__task_type = line.split()[0].lower()
                 self.functional = line.split()[1].lower()
@@ -115,24 +114,24 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
 
     def _parse_energy(self) -> Energies:
         energies = {}
-        total_energy = g16fchkpatterns["total energy"].search(self.__block)
+        total_energy = g16fchkpatterns["total energy"].search(self._block)
         if total_energy:
             energies["total_energy"] = float(total_energy.group(1)) * atom_ureg.hartree
-        scf_energy = g16fchkpatterns["scf energy"].search(self.__block)
+        scf_energy = g16fchkpatterns["scf energy"].search(self._block)
         if scf_energy:
             energies["scf_energy"] = float(scf_energy.group(1)) * atom_ureg.hartree
-        for matches in g16fchkpatterns["mp2-4"].finditer(self.__block):
+        for matches in g16fchkpatterns["mp2-4"].finditer(self._block):
             energies[f"{matches.group(1).lower()}_energy"] = (
                 float(matches.group(2)) * atom_ureg.hartree
             )
-        cluster_energy = g16fchkpatterns["cluster energy"].search(self.__block)
+        cluster_energy = g16fchkpatterns["cluster energy"].search(self._block)
         if cluster_energy:
             energies["ccsd_energy"] = float(cluster_energy.group(1)) * atom_ureg.hartree
         if len(energies):
             self.energies = Energies.model_validate(energies)
 
     def _parse_spin(self) -> TotalSpin:
-        matches = g16fchkpatterns["spin"].search(self.__block)
+        matches = g16fchkpatterns["spin"].search(self._block)
         spins = {}
         if matches:
             spins["spin_square"] = float(matches.group(1))
@@ -151,9 +150,9 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
 
     def _parse_orbitals(self):
         alpha_elec_num = int(
-            g16fchkpatterns["alpha_elec"].search(self.__block).group(1)
+            g16fchkpatterns["alpha_elec"].search(self._block).group(1)
         )
-        beta_elec_num = int(g16fchkpatterns["beta_elec"].search(self.__block).group(1))
+        beta_elec_num = int(g16fchkpatterns["beta_elec"].search(self._block).group(1))
         alpha_orbitals_energy = self.__parse_block__(
             "alpha_start", "float_digits", "alpha_end"
         )
@@ -204,7 +203,7 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
         )
 
     def _parse_vibrations(self):
-        freq_num = g16fchkpatterns["freq num"].search(self.__block)
+        freq_num = g16fchkpatterns["freq num"].search(self._block)
         if freq_num:
             num_freqs = int(freq_num.group(1))
             freqs = list(
@@ -268,7 +267,7 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
             self.polarizability = Polarizability.model_validate(polar)
 
     def _parse_state(self):
-        if matches := re.search(g16fchkpatterns["job status"], self.__block):
+        if matches := re.search(g16fchkpatterns["job status"], self._block):
             self.status.normal_terminated = matches.group(1) == "1"
         else:
             self.status.normal_terminated = False
@@ -301,17 +300,17 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
     def __parse_block__(
         self, start_tag: str, item_map: str, end_tag: str = None
     ) -> List[str]:
-        start_match = g16fchkpatterns[start_tag].search(self.__block)
+        start_match = g16fchkpatterns[start_tag].search(self._block)
         temp_list = []
         if start_match:
             num = int(start_match.group(1))
             if end_tag:
-                end_match = g16fchkpatterns[end_tag].search(self.__block)
+                end_match = g16fchkpatterns[end_tag].search(self._block)
                 temp_list = [
                     matches.group(0)
                     for i, matches in enumerate(
                         g16fchkpatterns[item_map].finditer(
-                            self.__block[start_match.end() : end_match.start()]
+                            self._block[start_match.end() : end_match.start()]
                         )
                     )
                     if i < num
@@ -321,7 +320,7 @@ class G16FchkFrameParser(BaseQMMolFrameParser):
                     matches.group(0)
                     for i, matches in enumerate(
                         g16fchkpatterns[item_map].finditer(
-                            self.__block[start_match.end() :]
+                            self._block[start_match.end() :]
                         )
                     )
                     if i < num

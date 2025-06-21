@@ -1,8 +1,8 @@
 """
 Author: TMJ
-Date: 2024-06-20 20:52:50
+Date: 2024-10-19 09:57:26
 LastEditors: TMJ
-LastEditTime: 2024-08-04 21:01:32
+LastEditTime: 2025-04-25 10:32:11
 Description: 请填写简介
 """
 
@@ -12,6 +12,7 @@ from molop.io.bases.BaseMolFileParser import BaseMolFileParser
 from molop.io.coords_file.XYZFrameParser import XYZFrameParser
 
 
+# TODO Enhanced XYZ format support
 class XYZFileParser(BaseMolFileParser[XYZFrameParser]):
     """
     XYZ file parser

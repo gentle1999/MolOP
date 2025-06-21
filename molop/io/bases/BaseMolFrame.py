@@ -10,9 +10,9 @@ import os
 from typing import Dict, List, Literal, Sequence, Tuple, Union
 
 import numpy as np
-from openbabel import openbabel as ob
 from openbabel import pybel
 from pint.facets.plain import PlainQuantity
+from pint.facets.numpy.quantity import NumpyQuantity
 from pydantic import Field, PrivateAttr, computed_field
 from rdkit import Chem
 from rdkit.Chem import rdDetermineBonds
@@ -29,26 +29,26 @@ from molop.structure.structure import (
     get_formal_num_radicals,
 )
 from molop.structure.structure_recovery import rdmol_to_omol, xyz2rdmol
-from molop.unit import atom_ureg
+from molop.unit import atom_ureg, numpy_ureg
 from molop.utils.types import RdMol
 
 pt = Chem.GetPeriodicTable()
 
 
 class BaseMolFrame(BaseDataClassWithUnit):
-    
+
     atoms: List[int] = Field(
-        default=[],
+        default_factory=tuple,
         description="atom numbers",
         title="Atom numbers",
     )
-    coords: Union[PlainQuantity, None] = Field(
-        default=np.array([[]]) * atom_ureg.angstrom,
+    coords: Union[NumpyQuantity, None] = Field(
+        default=np.array([[]]) * numpy_ureg.angstrom,
         description="Atom coordinates, unit is `angstrom`",
         title="Atom coordinates",
     )
-    standard_coords: Union[PlainQuantity, None] = Field(
-        default=np.array([[]]) * atom_ureg.angstrom,
+    standard_coords: Union[NumpyQuantity, None] = Field(
+        default=np.array([[]]) * numpy_ureg.angstrom,
         description="Atom coordinates in standard orientation, default unit is `angstrom`",
     )
     charge: int = Field(default=0, description="Molecule total charge")
@@ -108,7 +108,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         Returns:
             List[str]: A list of element symbols dropped duplicates.
         """
-        return list(set(self.atoms))
+        return list(set(self.atom_symbols))
 
     @property
     def formula(self) -> str:
@@ -260,7 +260,7 @@ class BaseMolFrame(BaseDataClassWithUnit):
         else:
             raise ValueError(f"Unsupported engine: {engine}")
 
-    def to_SDF_file(self):
+    def to_SDF_file(self, **kwargs):
         raise NotImplementedError
 
     def to_CML_block(self) -> str:

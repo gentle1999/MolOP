@@ -586,7 +586,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
         if self.beta_LUMO_id is None:
             return None
         return self[self.beta_LUMO_id]
-    
+
     @property
     def SOMOs(self) -> List[MoleculeOrbital]:
         return self[self.SOMO_ids]
@@ -1081,6 +1081,7 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
         return df
 
     def __le__(self, other: "GeometryOptimizationStatus"):
+        # TODO: more accurate comparison
         if not isinstance(other, GeometryOptimizationStatus):
             raise NotImplementedError
         if self.not_converged_num() > other.not_converged_num():

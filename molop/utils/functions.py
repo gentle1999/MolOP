@@ -32,7 +32,7 @@ def is_metal(number: int):
         return True
 
 
-def fill_symmetric_matrix(one_d_array):
+def fill_symmetric_matrix(one_d_array: np.ndarray) -> np.ndarray:
     # 计算矩阵的大小
     n = int((-1 + np.sqrt(1 + 8 * len(one_d_array))) // 2)
 

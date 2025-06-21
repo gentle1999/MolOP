@@ -546,11 +546,49 @@ def break_one_bond(
             sum(get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol))
             >= abs(given_charge) + given_radical
         ):
-            return omol
+            return omol, given_charge
         # Get the indices of the first suitable bond's atoms
         idxs = res.pop(0)
         # Log debug information indicating the bond to be broken
-        moloplogger.debug(f"{DEBUG_TAG} | break bond {idxs[0]} and {idxs[1]}")
+        moloplogger.debug(
+            f"{DEBUG_TAG} | break bond {idxs[0]} and {idxs[1]}: Double bond or triple bond"
+        )
+        # Get and reduce the bond order of the found bond
+        bond = omol.OBMol.GetBond(idxs[0], idxs[1])
+        bond.SetBondOrder(bond.GetBondOrder() - 1)
+    smarts = pybel.Smarts("[#7+1,#15+1]=[*+0]")
+    # Loop to find suitable bonds
+    while res := smarts.findall(omol):
+        if (
+            sum(get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol))
+            >= abs(given_charge) + given_radical
+        ):
+            return omol, given_charge
+        # Get the indices of the first suitable bond's atoms
+        idxs = res.pop(0)
+        # Log debug information indicating the bond to be broken
+        moloplogger.debug(
+            f"{DEBUG_TAG} | break bond {idxs[0]} and {idxs[1]}: *[N+](*)=[O]"
+        )
+        # Get and reduce the bond order of the found bond
+        bond = omol.OBMol.GetBond(idxs[0], idxs[1])
+        bond.SetBondOrder(bond.GetBondOrder() - 1)
+        omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(
+            int(omol.OBMol.GetAtom(idxs[0]).GetFormalCharge() - 1)
+        )
+        given_charge += 1
+    smarts = pybel.Smarts("[*+0]:[*+0]")
+    # Loop to find suitable bonds, if only aromatic bonds are present
+    while res := smarts.findall(omol):
+        if (
+            sum(get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol))
+            >= abs(given_charge) + given_radical
+        ):
+            return omol, given_charge
+        # Get the indices of the first suitable bond's atoms
+        idxs = res.pop(0)
+        # Log debug information indicating the bond to be broken
+        moloplogger.debug(f"{DEBUG_TAG} | break bond {idxs[0]} and {idxs[1]}: Aromatic")
         # Get and reduce the bond order of the found bond
         bond = omol.OBMol.GetBond(idxs[0], idxs[1])
         bond.SetBondOrder(bond.GetBondOrder() - 1)
@@ -561,9 +599,9 @@ def break_one_bond(
                 sum(get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol))
                 >= abs(given_charge) + given_radical
             ):
-                return omol
+                return omol, given_charge
             omol.OBMol.DeleteBond(bond)
-    return omol
+    return omol, given_charge
 
 
 def clean_neighbor_radicals(omol: pybel.Molecule) -> pybel.Molecule:
@@ -742,21 +780,25 @@ def eliminate_positive_charges(
 def eliminate_negative_charges(
     omol: pybel.Molecule, given_charge: int
 ) -> Tuple[pybel.Molecule, int]:
+    possibile_heteroatoms = []
     for atom in omol.atoms:
-        if given_charge >= 0:
-            break
         if (
             atom.atomicnum in HETEROATOM
             and atom.OBAtom.GetFormalCharge() == 0
             and get_radical_number(atom.OBAtom)
         ):
-            to_add = min(get_radical_number(atom.OBAtom), abs(given_charge))
-            atom.OBAtom.SetFormalCharge(-to_add)
-            given_charge += to_add
-            moloplogger.debug(
-                f"{DEBUG_TAG} | Eliminate negative charge: {atom.OBAtom.GetIdx()} "
-                f"with charge {to_add}"
-            )
+            possibile_heteroatoms.append((atom, HETEROATOM.index(atom.atomicnum)))
+    possibile_heteroatoms.sort(key=lambda x: x[1])
+    for atom, _ in possibile_heteroatoms:
+        if given_charge >= 0:
+            break
+        to_add = min(get_radical_number(atom.OBAtom), abs(given_charge))
+        atom.OBAtom.SetFormalCharge(-to_add)
+        given_charge += to_add
+        moloplogger.debug(
+            f"{DEBUG_TAG} | Eliminate negative charge: {atom.OBAtom.GetIdx()} "
+            f"with charge {to_add}"
+        )
 
     # Step 2.3.2: Try to find the heteroatom with negative charge first.
     smarts = pybel.Smarts("[#6v3+0]")
@@ -1175,12 +1217,19 @@ def xyz2omol(
     omol = clean_carbine_neighbor_unsaturated(omol)
     omol, given_charge = eliminate_charge_spliting(omol, given_charge)
     omol = break_deformed_ene(omol, given_charge, total_radical_electrons)
-    omol = break_one_bond(omol, given_charge, total_radical_electrons)
+    omol, given_charge = break_one_bond(omol, given_charge, total_radical_electrons)
 
     moloplogger.debug(
         f"{DEBUG_TAG} | Given charge: {given_charge}, total charge: {total_charge}, actual charge: "
         f"{sum(atom.OBAtom.GetFormalCharge() for atom in omol.atoms)}, smiles: {omol.write('smi')}"
     )
+    if final_check_omol(omol, total_charge, total_radical_electrons):
+        moloplogger.debug(
+            f"{DEBUG_TAG} | Final charge: {sum(atom.OBAtom.GetFormalCharge() for atom in omol.atoms)} "
+            f"total charge: {total_charge}; Final radical: {get_radical_number(omol.OBMol.GetAtom(1))}"
+            f" total radical: {total_radical_electrons}; Final smiles: {omol.write('smi')}"
+        )
+        return omol
     possible_resonances = get_radical_resonances(omol)
     moloplogger.debug(
         f"{DEBUG_TAG} | Possible resonance structures number: {len(possible_resonances)}"

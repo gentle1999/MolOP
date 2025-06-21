@@ -1,13 +1,14 @@
-'''
+"""
 Author: TMJ
 Date: 2024-10-19 09:57:26
 LastEditors: TMJ
-LastEditTime: 2025-02-13 19:23:50
+LastEditTime: 2025-02-16 20:43:32
 Description: 请填写简介
-'''
+"""
+
 import os
 import re
-from typing import List, Literal, Sequence, Tuple, TypeVar, Union
+from typing import List, Literal, Sequence, Tuple, TypeVar, Union, overload
 
 import numpy as np
 import pandas as pd
@@ -19,6 +20,7 @@ from typing_extensions import Self
 
 from molop.config import molopconfig
 from molop.io.bases.BaseMolFrame import BaseMolFrame
+from molop.io.bases.BasePattern import MolOPPattern
 from molop.io.bases.DataClasses import (
     BondOrders,
     ChargeSpinPopulations,
@@ -64,11 +66,46 @@ class BaseMolFrameParser(BaseMolFrame):
         description="Geometry optimization status",
     )
 
+    _block: str = PrivateAttr(default="")
+
     def _parse(self):
         raise NotImplementedError
 
+    def _parse_part(self, pattern: MolOPPattern) -> str:
+        # If both start and end pattern are None, return the whole block in current.
+        if not pattern.start_pattern and not pattern.end_pattern:
+            return self._block
+        block = self._block
+        temp_block = block
+        # If start pattern is not None, find the start position of the block.
+        if pattern.start_pattern:
+            start_offset = 0
+            while (
+                start_match := pattern.start_pattern_compiled.search(temp_block)
+            ) and start_offset <= pattern.start_offset:
+                start_offset + 1
+                temp_block = temp_block[start_match.end() :]
+            if start_offset == pattern.start_offset:
+                self._block = temp_block
+                block = self._block
+        # If end pattern is not None, find the end position of the block.
+        if pattern.end_pattern:
+            end_offset = 0
+            total_offset = 0
+            while (
+                end_match := pattern.end_pattern_compiled.search(temp_block)
+            ) and end_offset <= pattern.end_offset:
+                end_offset + 1
+                total_offset += end_match.end()
+                temp_block = temp_block[end_match.end() :]
+            if end_offset == pattern.end_offset:
+                block = self._block[:total_offset]
+                self._block = self._block[total_offset:]
+        return block
+
     @model_validator(mode="after")
     def __parse_frame__(self) -> Self:
+        self._block = self.frame_content
         if len(self.atoms) > 0:
             return self
         self._parse()
@@ -421,7 +458,7 @@ class BaseMolFrameParser(BaseMolFrame):
 
     def replace_substituent(
         self,
-        query: Union[str, RdMol], 
+        query: Union[str, RdMol],
         replacement: Union[str, RdMol] = None,
         bind_idx: int = None,
         replace_all=False,
@@ -509,7 +546,12 @@ class BaseMolFrameParser(BaseMolFrame):
             new_mol, path=os.path.splitext(self.file_path)[0] + f"_{rebuild_type}.xyz"
         )
 
-    def reset_atom_index(self, mapping_smarts: str) -> "BaseMolFrameParser":
+    def reset_atom_index(
+        self,
+        mapping_smarts: Union[str, None] = None,
+        *,
+        mapping_indice: Union[Sequence[int], None] = None,
+    ) -> "BaseMolFrameParser":
         """
         Reset the atom index of the molecule according to the mapping SMARTS.
 
@@ -517,25 +559,39 @@ class BaseMolFrameParser(BaseMolFrame):
             mapping_smarts (str):
                 The SMARTS to query the molecule substructure.
                 The queried atoms will be renumbered and placed at the beginning of all atoms according to the order of the atoms in SMARTS. The relative order of the remaining atoms remains unchanged.
-
+            mapping_indice (Sequence[int]):
+                The indices of the atoms to be renumbered. The relative order of the remaining atoms remains unchanged.
+                e.g. atoms = [0, 1, 2, 3, 4, 5]; mapping = [3, 5, 4] means the first atom in the new molecule is mapped to the third atom in the original molecule,
+                the second atom is mapped to the first atom, and the third atom is mapped to the second atom. Result is [3, 5, 4, 0, 1, 2].
         Returns:
             BaseMolFrameParser: The new parser.
         """
         rebuild_type = "reindex"
-        smarts = Chem.MolFromSmarts(mapping_smarts)
-        if not self.rdmol.HasSubstructMatch(smarts):
-            moloplogger.error(f"Failed to match {self.file_path} with {mapping_smarts}")
-            raise ValueError("Failed to match")
-        mapping = self.rdmol.GetSubstructMatches(smarts)
-        if len(mapping) > 1:
-            moloplogger.warning(
-                f"Multiple matches found in {self.file_path} with {mapping_smarts}"
+        if mapping_smarts is not None:
+            smarts = Chem.MolFromSmarts(mapping_smarts)
+            if not self.rdmol.HasSubstructMatch(smarts):
+                moloplogger.error(
+                    f"Failed to match {self.file_path} with {mapping_smarts}"
+                )
+                raise ValueError("Failed to match")
+            mapping = self.rdmol.GetSubstructMatches(smarts)
+            if len(mapping) > 1:
+                moloplogger.warning(
+                    f"Multiple matches found in {self.file_path} with {mapping_smarts}"
+                )
+            mapping = mapping[0]
+            rdmol = reset_atom_index(self.rdmol, mapping)
+            return self.rebuild_frame(
+                rdmol, path=os.path.splitext(self.file_path)[0] + f"_{rebuild_type}.xyz"
             )
-        mapping = mapping[0]
-        rdmol = reset_atom_index(self.rdmol, mapping)
-        return self.rebuild_frame(
-            rdmol, path=os.path.splitext(self.file_path)[0] + f"_{rebuild_type}.xyz"
-        )
+        elif mapping_indice is not None:
+            assert max(mapping_indice) < len(
+                self.rdmol.GetAtoms()
+            ), "Invalid mapping index"
+            rdmol = reset_atom_index(self.rdmol, mapping_indice)
+            return self.rebuild_frame(
+                rdmol, path=os.path.splitext(self.file_path)[0] + f"_{rebuild_type}.xyz"
+            )
 
     def standard_orient(
         self,
@@ -660,6 +716,10 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         default="",
         description="Basis set used in the QM calculation, only for DFT calculations",
     )
+    pseudopotential: str = Field(
+        default="",
+        description="Pseudopotential used in the QM calculation, no more processing",
+    )
     functional: str = Field(
         default="",
         description="Functional used in the QM calculation, only for DFT calculations",
@@ -673,12 +733,12 @@ class BaseQMMolFrameParser(BaseMolFrameParser):
         default="",
         description="Solvent model used in the QM calculation",
     )
-    solvent_epsilon: float = Field(
-        default=0.0,
+    solvent_epsilon: Union[float, None] = Field(
+        default=None,
         description="Solvent dielectric constant used in the QM calculation",
     )
-    solvent_epsilon_infinite: float = Field(
-        default=0.0,
+    solvent_epsilon_infinite: Union[float, None] = Field(
+        default=None,
         description="Solvent epsilon infinite used in the QM calculation",
     )
     # physical settings

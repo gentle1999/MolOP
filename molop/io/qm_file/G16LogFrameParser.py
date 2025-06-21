@@ -8,7 +8,7 @@ Description: 请填写简介
 
 import math
 from itertools import chain
-from typing import Literal, Tuple
+from typing import List, Literal, Tuple
 
 import numpy as np
 from pint.facets.plain import PlainQuantity
@@ -75,16 +75,15 @@ class G16LogFrameParser(BaseQMMolFrameParser):
 
     @property
     def _tail(self) -> str:
-        if (start := g16logpatterns["tail_start"].search(self.__block)) and (
-            end := g16logpatterns["tail_end"].search(self.__block)
+        if (start := g16logpatterns["tail_start"].search(self._block)) and (
+            end := g16logpatterns["tail_end"].search(self._block)
         ):
-            tail = self.__block[start.end() : end.start()]
+            tail = self._block[start.end() : end.start()]
             tail = tail.replace("\n ", "").replace("|", "\\")
             return tail
         return ""
 
     def _parse(self):
-        self.__block = self.frame_content
         self._parse_time()
         self._parse_coords()
         if self.only_extract_structure:
@@ -151,7 +150,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         self._add_em()
 
     def _parse_time(self):
-        if time_match := g16logpatterns["time"].findall(self.__block):
+        if time_match := g16logpatterns["time"].findall(self._block):
             self.running_time = (
                 sum(
                     float(cpu_time) + float(elapsed_time)
@@ -161,13 +160,13 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             )
 
     def _parse_coords(self):
-        if corrds_end := g16logpatterns["coords_end"].search(self.__block):
-            block = self.__block[: corrds_end.end()]
+        if corrds_end := g16logpatterns["coords_end"].search(self._block):
+            block = self._block[: corrds_end.end()]
             if input_coords := g16logpatterns["input_coords_start"].search(block):
                 coords = g16logpatterns["coords"].findall(
                     block,
                 )[: self.n_atom]
-                atoms = []
+                atoms: List[int] = []
                 temp_coords = []
                 for atom_num, x, y, z in coords:
                     atoms.append(int(atom_num))
@@ -187,7 +186,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 self.coords = self.standard_coords
 
     def _parse_rotation_consts(self):
-        if rotational_matches := g16logpatterns["rotation_consts"].search(self.__block):
+        if rotational_matches := g16logpatterns["rotation_consts"].search(self._block):
             rots = []
             for i in range(1, 4):
                 try:
@@ -198,11 +197,11 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             self.rotation_constants = np.array(rots) * atom_ureg.Ghertz
 
     def _parse_functional_basis(self):
-        if functional_match := g16logpatterns["functional"].search(self.__block):
+        if functional_match := g16logpatterns["functional"].search(self._block):
             self.functional = functional_match.group(1).lower()
-        if basis_match := g16logpatterns["basis"].search(self.__block):
+        if basis_match := g16logpatterns["basis"].search(self._block):
             self.basis = basis_match.group(1)
-        if g16logpatterns["Pseudopotential"].search(self.__block):
+        if g16logpatterns["Pseudopotential"].search(self._block):
             self.basis = "pseudopotential"
 
     def _add_em(self):
@@ -214,11 +213,11 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             )
 
     def _parse_solvent(self):
-        solvent_start = g16logpatterns["solvent_start"].search(self.__block)
-        solvent_end = g16logpatterns["solvent_end"].search(self.__block)
+        solvent_start = g16logpatterns["solvent_start"].search(self._block)
+        solvent_end = g16logpatterns["solvent_end"].search(self._block)
         if solvent_start and solvent_end:
-            solvent_block = self.__block[solvent_start.start() : solvent_end.end()]
-            self.__block = self.__block[solvent_end.start() :]
+            solvent_block = self._block[solvent_start.start() : solvent_end.end()]
+            self._block = self._block[solvent_end.start() :]
             solvent_model = (
                 g16logpatterns["solvent_model"].search(solvent_block).group(1)
             )
@@ -248,22 +247,22 @@ class G16LogFrameParser(BaseQMMolFrameParser):
 
     def _parse_energy(self) -> Energies:
         energies = {}
-        if scf_energy_match := g16logpatterns["scf_energy"].search(self.__block):
-            self.__block = self.__block[scf_energy_match.start() :]
+        if scf_energy_match := g16logpatterns["scf_energy"].search(self._block):
+            self._block = self._block[scf_energy_match.start() :]
             energies["scf_energy"] = (
                 float(scf_energy_match.group(1)) * atom_ureg.hartree
             )
             self.status.scf_converged = True
-        mp2_4_energy_match = g16logpatterns["mp2-4"].findall(self.__block)
+        mp2_4_energy_match = g16logpatterns["mp2-4"].findall(self._block)
         for mp_energy in mp2_4_energy_match:
             energies[f"{mp_energy[0].lower()}_energy"] = (
                 float(mp_energy[1].replace("D", "E")) * atom_ureg.hartree
             )
-        if ccsd_energy_match := g16logpatterns["ccsd"].search(self.__block):
+        if ccsd_energy_match := g16logpatterns["ccsd"].search(self._block):
             energies["ccsd_energy"] = (
                 float(ccsd_energy_match.group(1)) * atom_ureg.hartree
             )
-        if ccsd_energy_match := g16logpatterns["ccsd(t)"].search(self.__block):
+        if ccsd_energy_match := g16logpatterns["ccsd(t)"].search(self._block):
             energies["ccsd_energy"] = (
                 float(ccsd_energy_match.group(1).replace("D", "E")) * atom_ureg.hartree
             )
@@ -316,21 +315,21 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             ("Thermal", " to Enthalpy"): "TCH",
             ("Thermal", " to Gibbs Free Energy"): "TCG",
         }
-        matches = g16logpatterns["sum energies"].findall(self.__block)
+        matches = g16logpatterns["sum energies"].findall(self._block)
         if matches:
             for tag, val in matches:
                 thermal_energies[mappings[tag]] = (
                     float(val) * atom_ureg.hartree / atom_ureg.particle
                 )
-        matches = g16logpatterns["corrections"].findall(self.__block)
+        matches = g16logpatterns["corrections"].findall(self._block)
         if matches:
             for tag1, tag2, val in matches:
                 thermal_energies[mappings[(tag1, tag2)]] = (
                     float(val) * atom_ureg.hartree / atom_ureg.particle
                 )
-        thermal_Cv_S_matches = g16logpatterns["thermal_Cv_S_start"].search(self.__block)
+        thermal_Cv_S_matches = g16logpatterns["thermal_Cv_S_start"].search(self._block)
         if thermal_Cv_S_matches:
-            block = self.__block[thermal_Cv_S_matches.end() :]
+            block = self._block[thermal_Cv_S_matches.end() :]
             for line in block.splitlines():
                 if "Total" in line:
                     thermal_energies["C_V"] = (
@@ -378,18 +377,18 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         polar = {}
         if isotropic_polarizability := g16logpatterns[
             "isotropic_polarizability"
-        ].search(self.__block):
+        ].search(self._block):
             polar["isotropic_polarizability"] = (
                 float(isotropic_polarizability.group(1)) * atom_ureg.bohr**3
             )
-        if polarizability := g16logpatterns["polarizability"].search(self.__block):
+        if polarizability := g16logpatterns["polarizability"].search(self._block):
             polar["polarizability"] = (
                 np.array(list(map(float, polarizability.groups()))) * atom_ureg.bohr**3
             )
         if electric_dipole_moment := g16logpatterns["electric_dipole_moment"].search(
-            self.__block
+            self._block
         ):
-            temp_block = self.__block[electric_dipole_moment.start() :].splitlines()
+            temp_block = self._block[electric_dipole_moment.start() :].splitlines()
             polar["electric_dipole_moment"] = (
                 np.array(
                     [
@@ -400,9 +399,9 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 * atom_ureg.debye
             )
         if polarizability_alter := g16logpatterns["polarizability_alter"].search(
-            self.__block
+            self._block
         ):
-            temp_block = self.__block[polarizability_alter.start() :].splitlines()
+            temp_block = self._block[polarizability_alter.start() :].splitlines()
             polar["isotropic_polarizability"] = (
                 float(temp_block[4].split()[1].replace("D", "E")) * atom_ureg.bohr**3
             )
@@ -426,61 +425,61 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         return Polarizability.model_validate(polar)
 
     def _parse_electronic_spatial_extent(self) -> PlainQuantity:
-        ese_match = g16logpatterns["electronic_spatial_extent"].search(self.__block)
+        ese_match = g16logpatterns["electronic_spatial_extent"].search(self._block)
         if ese_match:
             return float(ese_match.group(1)) * atom_ureg.bohr**2
 
     def _parse_dipole(self) -> PlainQuantity:
-        start = g16logpatterns["dipole_start"].search(self.__block)
-        end = g16logpatterns["quadrupole_start"].search(self.__block)
+        start = g16logpatterns["dipole_start"].search(self._block)
+        end = g16logpatterns["quadrupole_start"].search(self._block)
         if start and end:
             dipole = np.array(
                 [
                     float(l)
                     for l in g16logpatterns["dipole"].findall(
-                        self.__block[start.start() : end.end()]
+                        self._block[start.start() : end.end()]
                     )
                 ]
             )
             return dipole * atom_ureg.debye
 
     def _parse_quadrupole(self) -> PlainQuantity:
-        start = g16logpatterns["quadrupole_start"].search(self.__block)
-        end = g16logpatterns["octapole_start"].search(self.__block)
+        start = g16logpatterns["quadrupole_start"].search(self._block)
+        end = g16logpatterns["octapole_start"].search(self._block)
         if start and end:
             quadrupole = np.array(
                 [
                     float(l)
                     for l in g16logpatterns["quadrupole"].findall(
-                        self.__block[start.start() : end.end()]
+                        self._block[start.start() : end.end()]
                     )
                 ]
             )
             return quadrupole * atom_ureg.debye * atom_ureg.angstrom
 
     def _parse_octapole(self) -> PlainQuantity:
-        start = g16logpatterns["octapole_start"].search(self.__block)
-        end = g16logpatterns["hexadecapole_start"].search(self.__block)
+        start = g16logpatterns["octapole_start"].search(self._block)
+        end = g16logpatterns["hexadecapole_start"].search(self._block)
         if start and end:
             octapole = np.array(
                 [
                     float(l)
                     for l in g16logpatterns["octapole"].findall(
-                        self.__block[start.start() : end.end()]
+                        self._block[start.start() : end.end()]
                     )
                 ]
             )
             return octapole * atom_ureg.debye * atom_ureg.angstrom**2
 
     def _parse_hexadecapole(self) -> PlainQuantity:
-        start = g16logpatterns["hexadecapole_start"].search(self.__block)
-        end = g16logpatterns["hexadecapole_end"].search(self.__block)
+        start = g16logpatterns["hexadecapole_start"].search(self._block)
+        end = g16logpatterns["hexadecapole_end"].search(self._block)
         if start and end:
             hexadecapole = np.array(
                 [
                     float(l)
                     for l in g16logpatterns["hexadecapole"].findall(
-                        self.__block[start.start() : end.end()]
+                        self._block[start.start() : end.end()]
                     )
                 ]
             )
@@ -488,7 +487,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
 
     def _parse_total_spin(self) -> TotalSpin:
         total_spin = {}
-        s = g16logpatterns["spins"].search(self.__block)
+        s = g16logpatterns["spins"].search(self._block)
         if s:
             total_spin["spin_square"] = float(s.group(1))
             total_spin["spin_quantum_number"] = float(s.group(2))
@@ -499,11 +498,11 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             self.total_spin = TotalSpin.model_validate(total_spin)
 
     def _parse_orbitals(self):
-        orbital_start = g16logpatterns["orbital_start"].search(self.__block)
-        orbital_end = g16logpatterns["orbital_end"].search(self.__block)
+        orbital_start = g16logpatterns["orbital_start"].search(self._block)
+        orbital_end = g16logpatterns["orbital_end"].search(self._block)
         if orbital_start and orbital_end:
-            block = self.__block[orbital_start.start() : orbital_end.end()]
-            self.__block = self.__block[orbital_end.start() :]
+            block = self._block[orbital_start.start() : orbital_end.end()]
+            self._block = self._block[orbital_end.start() :]
             matches = g16logpatterns["orbital"].findall(block)
             temp_alpha_orbitals = []
             temp_alpha_occupancy = []
@@ -551,56 +550,56 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             )
 
     def _parse_mulliken_charges(self):
-        mulliken_start = g16logpatterns["mulliken start"].search(self.__block)
-        mulliken_end = g16logpatterns["mulliken end"].search(self.__block)
+        mulliken_start = g16logpatterns["mulliken start"].search(self._block)
+        mulliken_end = g16logpatterns["mulliken end"].search(self._block)
         if mulliken_start and mulliken_end:
             charges = g16logpatterns["mulliken match"].findall(
-                self.__block[mulliken_start.start() : mulliken_end.end()]
+                self._block[mulliken_start.start() : mulliken_end.end()]
             )
             return [float(charge) for charge in charges]
         return []
 
     def _parse_mulliken_spin_density(self):
         spin_densities_start = g16logpatterns["mulliken spin density start"].search(
-            self.__block
+            self._block
         )
         spin_densities_end = g16logpatterns["mulliken spin density end"].search(
-            self.__block
+            self._block
         )
         if spin_densities_start and spin_densities_end:
             spin_densities = g16logpatterns["mulliken spin density match"].findall(
-                self.__block[spin_densities_start.start() : spin_densities_end.end()]
+                self._block[spin_densities_start.start() : spin_densities_end.end()]
             )
-            self.__block = self.__block[spin_densities_end.end() :]
+            self._block = self._block[spin_densities_end.end() :]
             return [float(spin_density) for spin_density in spin_densities]
         return []
 
     def _parse_apt_charges(self):
-        apt_charges_start = g16logpatterns["apt_start"].search(self.__block)
-        apt_charges_end = g16logpatterns["apt_end"].search(self.__block)
+        apt_charges_start = g16logpatterns["apt_start"].search(self._block)
+        apt_charges_end = g16logpatterns["apt_end"].search(self._block)
         if apt_charges_start and apt_charges_end:
             apt_charges = g16logpatterns["apt_match"].findall(
-                self.__block[apt_charges_start.start() : apt_charges_end.end()]
+                self._block[apt_charges_start.start() : apt_charges_end.end()]
             )
             return [float(charge) for charge in apt_charges]
         return []
 
     def _parse_lowdin_charges(self):
-        lowdin_charges_start = g16logpatterns["lowdin_start"].search(self.__block)
-        lowdin_charges_end = g16logpatterns["lowdin_end"].search(self.__block)
+        lowdin_charges_start = g16logpatterns["lowdin_start"].search(self._block)
+        lowdin_charges_end = g16logpatterns["lowdin_end"].search(self._block)
         if lowdin_charges_start and lowdin_charges_end:
             lowdin_charges = g16logpatterns["lowdin_match"].findall(
-                self.__block[lowdin_charges_start.start() : lowdin_charges_end.end()]
+                self._block[lowdin_charges_start.start() : lowdin_charges_end.end()]
             )
             return [float(charge) for charge in lowdin_charges]
         return []
 
     def _parse_hirshfeld_spin_charges(self):
-        start = g16logpatterns["hirshfeld_start"].search(self.__block)
-        end = g16logpatterns["hirshfeld_end"].search(self.__block)
+        start = g16logpatterns["hirshfeld_start"].search(self._block)
+        end = g16logpatterns["hirshfeld_end"].search(self._block)
         if start and end:
             hirshfeld = g16logpatterns["hirshfeld"].findall(
-                self.__block[start.start() : end.end()]
+                self._block[start.start() : end.end()]
             )
             return (
                 [float(charge) for charge, _, _ in hirshfeld],
@@ -610,21 +609,21 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         return [], [], []
 
     def _parse_npa_charges(self):
-        start_matches = g16logpatterns[f"npa charge start"].search(self.__block)
-        end_matches = g16logpatterns[f"npa charge end"].search(self.__block)
+        start_matches = g16logpatterns[f"npa charge start"].search(self._block)
+        end_matches = g16logpatterns[f"npa charge end"].search(self._block)
         if start_matches and end_matches:
-            temp_block = self.__block[start_matches.start() : end_matches.end()]
+            temp_block = self._block[start_matches.start() : end_matches.end()]
             return list(
                 map(float, g16logpatterns["npa charge match"].findall(temp_block))
             )
         return []
 
     def _parse_vibrations(self):
-        start = g16logpatterns["freq start"].search(self.__block)
-        end = g16logpatterns["freq end"].search(self.__block)
+        start = g16logpatterns["freq start"].search(self._block)
+        end = g16logpatterns["freq end"].search(self._block)
         if start and end:
-            block = self.__block[start.end() :]
-            self.__block = self.__block[end.start() :]
+            block = self._block[start.end() :]
+            self._block = self._block[end.start() :]
             freqs = np.array(
                 g16logpatterns["freq"].findall(block), dtype=np.float32
             ).flatten()
@@ -660,11 +659,11 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             )
 
     def _parse_forces(self):
-        start = g16logpatterns["forces start"].search(self.__block)
-        end = g16logpatterns["forces end"].search(self.__block)
+        start = g16logpatterns["forces start"].search(self._block)
+        end = g16logpatterns["forces end"].search(self._block)
         if start and end:
             forces = g16logpatterns["forces match"].findall(
-                self.__block[start.start() : end.end()]
+                self._block[start.start() : end.end()]
             )
             temp_forces = [(float(fx), float(fy), float(fz)) for fx, fy, fz in forces]
             self.forces = (
@@ -672,7 +671,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             )
 
     def _parse_temperature(self):
-        temperature_match = g16logpatterns["Temperature"].search(self.__block)
+        temperature_match = g16logpatterns["Temperature"].search(self._block)
         if temperature_match:
             self.temperature = float(temperature_match.group(1)) * atom_ureg.kelvin
 
@@ -684,7 +683,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             "RMS     Displacement": "rms_displacement",
         }
         if "opt" in self.route_params:
-            if matches := g16logpatterns["opt stat"].findall(self.__block):
+            if matches := g16logpatterns["opt stat"].findall(self._block):
                 geometric_metric = {}
                 for key, val, threshold, converged in matches:
                     geometric_metric[feature_mapping[key]] = float(val)
@@ -694,18 +693,19 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                 self.geometry_optimization_status = (
                     GeometryOptimizationStatus.model_validate(geometric_metric)
                 )
-        if matches := g16logpatterns["termination"].findall(self.__block):
+        if matches := g16logpatterns["termination"].findall(self._block):
             self.status.normal_terminated = matches[0] == "Normal"
             self.status.scf_converged = True
             if "opt" in self.route_params:
                 self.geometry_optimization_status.geometry_optimized = True
 
     def _parse_bond_order(self, _type: Literal["wiberg", "atom_atom_overlap", "mo"]):
-        if (
-            start_matches := g16logpatterns[f"{_type}_start"].search(self.__block)
-        ) and (end_matches := g16logpatterns[f"{_type}_end"].search(self.__block)):
-            temp_block = self.__block[start_matches.start() : end_matches.end()]
-            self.__block = self.__block[end_matches.start() :]
+        # TODO: BUG HERE, need to fix the bond order parsing
+        if (start_matches := g16logpatterns[f"{_type}_start"].search(self._block)) and (
+            end_matches := g16logpatterns[f"{_type}_end"].search(self._block)
+        ):
+            temp_block = self._block[start_matches.start() : end_matches.end()]
+            self._block = self._block[end_matches.start() :]
             digits = list(map(float, g16logpatterns["digit"].findall(temp_block)))
             blks = []
             for idx in range(math.ceil(len(digits) / (self.n_atom * 9))):
@@ -725,11 +725,11 @@ class G16LogFrameParser(BaseQMMolFrameParser):
         return np.array([[]])
 
     def _parse_nbo_bond_order(self):
-        start_matches = g16logpatterns[f"nbo summary start"].search(self.__block)
-        end_matches = g16logpatterns[f"nbo summary end"].search(self.__block)
+        start_matches = g16logpatterns[f"nbo summary start"].search(self._block)
+        end_matches = g16logpatterns[f"nbo summary end"].search(self._block)
         if start_matches and end_matches:
-            temp_block = self.__block[start_matches.start() : end_matches.end()]
-            self.__block = self.__block[end_matches.start() :]
+            temp_block = self._block[start_matches.start() : end_matches.end()]
+            self._block = self._block[end_matches.start() :]
             nbo_bond_order = np.zeros((self.n_atom, self.n_atom))
             for idx1, idx2, occ, energy in g16logpatterns["nbo summary match"].findall(
                 temp_block
@@ -756,7 +756,7 @@ class G16LogFrameParser(BaseQMMolFrameParser):
             self.frame_content
         )
         if hessian_in_body_start and hessian_in_body_end:
-            hessians = g16logpatterns["hessian_in_body_match"].findall(
+            hessians: List[str] = g16logpatterns["hessian_in_body_match"].findall(
                 self.frame_content[
                     hessian_in_body_start.start() : hessian_in_body_end.end()
                 ]
@@ -773,7 +773,9 @@ class G16LogFrameParser(BaseQMMolFrameParser):
                     tail[hessian_in_tail_start.end() :]
                 )
                 if hessian_in_tail_end:
-                    hessians = g16logpatterns["hessian_in_tail_match"].findall(
+                    hessians: List[str] = g16logpatterns[
+                        "hessian_in_tail_match"
+                    ].findall(
                         tail[
                             hessian_in_tail_start.end() : hessian_in_tail_start.end()
                             + hessian_in_tail_end.end()
@@ -785,7 +787,23 @@ class G16LogFrameParser(BaseQMMolFrameParser):
 
     @computed_field
     @property
-    def task_type(self) -> Literal["sp", "opt", "freq"]:
+    def task_type(
+        self,
+    ) -> Literal[
+        "sp",
+        "opt",
+        "freq",
+        "irc",
+        "ircmax",
+        "scan",
+        "polar",
+        "admp",
+        "bomd",
+        "eet",
+        "force",
+        "stable",
+        "volume",
+    ]:
         if self.route_params:
             if "opt" in self.route_params:
                 return "opt"
@@ -810,3 +828,5 @@ class G16LogFrameParser(BaseQMMolFrameParser):
     @property
     def is_optimized(self) -> bool:
         return self.geometry_optimization_status.geometry_optimized
+    
+    #TODO: stablity check

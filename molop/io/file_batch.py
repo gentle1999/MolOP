@@ -880,17 +880,34 @@ class FileParserBatch(MutableMapping):
             ]
         )
 
-    def filter_by_charge(self, charge: int) -> "FileParserBatch":
+    def filter_opt(self) -> "FileParserBatch":
+        """
+        Return a new `FileParserBatch` with all the QM parsers that are flagged as optimized.
+
+        Returns:
+            FileParserBatch: The new `FileParserBatch`.
+        """
+        return self.__new_batch(
+            [
+                parser
+                for parser in self
+                if parser.__class__ in qm_parsers
+                and parser[-1].is_normal
+                and parser.closest_optimized_frame.is_optimized
+            ]
+        )
+
+    def filter_by_charge(self, charge: int = 0) -> "FileParserBatch":
         return self.__new_batch(
             [parser for parser in self if parser[-1].charge == charge]
         )
 
-    def filter_by_multi(self, multi: int) -> "FileParserBatch":
+    def filter_by_multi(self, multi: int = 1) -> "FileParserBatch":
         return self.__new_batch(
             [parser for parser in self if parser[-1].multiplicity == multi]
         )
 
-    def filter_by_format(self, format: str) -> "FileParserBatch":
+    def filter_by_format(self, format: str = ".log") -> "FileParserBatch":
         if not format.startswith("."):
             format = "." + format
         return self.__new_batch(

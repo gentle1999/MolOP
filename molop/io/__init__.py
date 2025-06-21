@@ -25,17 +25,17 @@ def AutoParser(
     The Entrypoint of MolOP
 
     Parameters:
-        file_path str:
+        file_path (str):
             use regax to match files.
-        charge int:
+        charge (int):
             forced charge of the molecule, if not given, will use the charge written in the file or 0.
-        multiplicity int:
+        multiplicity (int):
             forced multiplicity of the molecule, if not given, will use the charge written in the file or 1.
-        n_jobs int:
+        n_jobs (int):
             number of jobs to use, if -1, use all cpu.
-        only_extract_structure bool:
+        only_extract_structure (bool):
             if True, only extract the structure, else extract the whole file.
-        only_last_frame bool:
+        only_last_frame (bool):
             if True, only extract the last frame, else extract all frames.
 
     Returns:

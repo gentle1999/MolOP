@@ -38,7 +38,6 @@ class XTBFrameParser(BaseQMMolFrameParser):
     n_atom: int = Field(default=0, exclude=True, repr=False)
 
     def _parse(self):
-        self.__block = self.frame_content
         self._parse_time()
         self._parse_coords()
         if self.only_extract_structure:
@@ -60,7 +59,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
         )
 
     def _parse_time(self):
-        if time_match := xtboutpatterns["time"].findall(self.__block):
+        if time_match := xtboutpatterns["time"].findall(self._block):
             self.running_time = (
                 sum(
                     float(day) * 24 * 60 * 60
@@ -74,7 +73,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
 
     def _parse_coords_attached(self):
         attached_coords_path = re.search(
-            xtboutpatterns["attached_coords"], self.__block
+            xtboutpatterns["attached_coords"], self._block
         )
         if attached_coords_path:
             coords_path = attached_coords_path.group(1)
@@ -112,7 +111,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
         return True
 
     def _parse_coords(self):
-        coords_match = xtboutpatterns["coords_start"].search(self.__block)
+        coords_match = xtboutpatterns["coords_start"].search(self._block)
         if not coords_match:
             if not self._parse_coords_attached():
                 if "--hess" in self.keywords:
@@ -121,11 +120,11 @@ class XTBFrameParser(BaseQMMolFrameParser):
                     )
                 raise RuntimeError("No coordinates found.")
         else:
-            coords_type_match = xtboutpatterns["coords_type"].search(self.__block)
+            coords_type_match = xtboutpatterns["coords_type"].search(self._block)
             if coords_type_match:
                 coords_type = coords_type_match.group(1)
-            coords_end = re.search(xtboutpatterns["coords_end"], self.__block)
-            coords_block = self.__block[coords_match.start() : coords_end.end()]
+            coords_end = re.search(xtboutpatterns["coords_end"], self._block)
+            coords_block = self._block[coords_match.start() : coords_end.end()]
             if coords_type == "xyz":
                 if self.qm_software_version is None:
                     version = Version("0.0.0")
@@ -188,23 +187,23 @@ class XTBFrameParser(BaseQMMolFrameParser):
 
     def _parse_state(self):
         if "opt" in self.keywords:
-            if xtboutpatterns["geometric_optimization_state"].search(self.__block):
+            if xtboutpatterns["geometric_optimization_state"].search(self._block):
                 self.geometry_optimization_status.geometry_optimized = True
-            if match := xtboutpatterns["energy_convergence"].search(self.__block):
+            if match := xtboutpatterns["energy_convergence"].search(self._block):
                 self.geometry_optimization_status.energy_change_threshold = float(
                     match.group(1)
                 )
-            if match := xtboutpatterns["grad_convergence"].search(self.__block):
+            if match := xtboutpatterns["grad_convergence"].search(self._block):
                 self.geometry_optimization_status.max_force_threshold = float(
                     match.group(1)
                 )
-            if match := xtboutpatterns["energy_change"].findall(self.__block):
+            if match := xtboutpatterns["energy_change"].findall(self._block):
                 self.geometry_optimization_status.energy_change = abs(float(match[-1]))
-            if match := xtboutpatterns["grad_norm"].findall(self.__block):
+            if match := xtboutpatterns["grad_norm"].findall(self._block):
                 self.geometry_optimization_status.max_force = abs(float(match[-1]))
         if self.energies.total_energy is not None:
             self.status.scf_converged = True
-        if xtboutpatterns["success_tag"].search(self.__block):
+        if xtboutpatterns["success_tag"].search(self._block):
             self.status.normal_terminated = True
 
     @computed_field
@@ -227,7 +226,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
 
     def _parse_energy(self):
         energies = {}
-        block = self.__block
+        block = self._block
         e_match = xtboutpatterns["total_energy"].search(block)
         while e_match:
             energies["scf_energy"] = (
@@ -235,7 +234,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
             )
             block = block[e_match.end() :]
             e_match = xtboutpatterns["total_energy"].search(block)
-        block = self.__block
+        block = self._block
         e_match = xtboutpatterns["total_E"].search(block)
         while e_match:
             energies["scf_energy"] = (
@@ -248,32 +247,32 @@ class XTBFrameParser(BaseQMMolFrameParser):
 
     def _parse_charges(self):
         charges = {}
-        charges_match = xtboutpatterns["gfn1_charges_start"].search(self.__block)
+        charges_match = xtboutpatterns["gfn1_charges_start"].search(self._block)
         if charges_match:
             mulliken_charges = []
             cm5_charges = []
-            for row in self.__block[charges_match.end() :].splitlines()[: self.n_atom]:
+            for row in self._block[charges_match.end() :].splitlines()[: self.n_atom]:
                 mulliken_charges.append(float(row.split()[1]))
                 cm5_charges.append(float(row.split()[2]))
             charges["mulliken_charges"] = mulliken_charges
             charges["hirshfeld_q_cm5"] = cm5_charges
-        charges_match = xtboutpatterns["gfn2_charges_start"].search(self.__block)
+        charges_match = xtboutpatterns["gfn2_charges_start"].search(self._block)
         if charges_match:
             mulliken_charges = []
-            for row in self.__block[charges_match.end() :].splitlines()[: self.n_atom]:
+            for row in self._block[charges_match.end() :].splitlines()[: self.n_atom]:
                 mulliken_charges.append(float(row.split()[4]))
             charges["mulliken_charges"] = mulliken_charges
         if len(charges):
             self.charge_spin_populations = ChargeSpinPopulations.model_validate(charges)
 
     def _parse_orbitals(self):
-        orbitals_start = xtboutpatterns["orbitals_start"].search(self.__block)
+        orbitals_start = xtboutpatterns["orbitals_start"].search(self._block)
         if orbitals_start:
             orbitals_end = xtboutpatterns["orbitals_end"].search(
-                self.__block[orbitals_start.end() :]
+                self._block[orbitals_start.end() :]
             )
         if orbitals_start and orbitals_end:
-            block = self.__block[
+            block = self._block[
                 orbitals_start.end() : orbitals_start.end() + orbitals_end.start()
             ]
             orbital_energies = []
@@ -308,11 +307,11 @@ class XTBFrameParser(BaseQMMolFrameParser):
 
     def _parse_bond_order(self):
         bond_order = {}
-        start_matches = xtboutpatterns[f"wiberg_start"].search(self.__block)
-        end_matches = xtboutpatterns[f"wiberg_end"].search(self.__block)
+        start_matches = xtboutpatterns[f"wiberg_start"].search(self._block)
+        end_matches = xtboutpatterns[f"wiberg_end"].search(self._block)
         result = np.zeros((self.n_atom, self.n_atom))
         if start_matches:
-            temp_block = self.__block[start_matches.start() : end_matches.end()]
+            temp_block = self._block[start_matches.start() : end_matches.end()]
             for idx, sub_temp_block in enumerate(
                 xtboutpatterns["index"].split(temp_block)[1:]
             ):
@@ -333,10 +332,10 @@ class XTBFrameParser(BaseQMMolFrameParser):
 
     def _parse_polarizability(self):
         polar = {}
-        dipole_start = xtboutpatterns["dipole_start"].search(self.__block)
-        dipole_end = xtboutpatterns["dipole_end"].search(self.__block)
+        dipole_start = xtboutpatterns["dipole_start"].search(self._block)
+        dipole_end = xtboutpatterns["dipole_end"].search(self._block)
         if dipole_start and dipole_end:
-            temp_block = self.__block[dipole_start.start() : dipole_end.end()]
+            temp_block = self._block[dipole_start.start() : dipole_end.end()]
             values = list(map(float, xtboutpatterns["value"].findall(temp_block)))
             polar["dipole"] = (
                 (np.array(values[:3]) + np.array(values[3:6])).astype(np.float32)
@@ -348,26 +347,26 @@ class XTBFrameParser(BaseQMMolFrameParser):
 
     def _parse_thermal(self):
         thermal = {}
-        zpc = xtboutpatterns["zp correct"].search(self.__block)
+        zpc = xtboutpatterns["zp correct"].search(self._block)
         if zpc:
             thermal["ZPVE"] = (
                 float(zpc.group(1)) * atom_ureg.hartree / atom_ureg.particle
             )
-        hc = xtboutpatterns["H correct"].search(self.__block)
+        hc = xtboutpatterns["H correct"].search(self._block)
         if hc:
             thermal["TCH"] = float(hc.group(1)) * atom_ureg.hartree / atom_ureg.particle
-        gc = xtboutpatterns["G correct"].search(self.__block)
+        gc = xtboutpatterns["G correct"].search(self._block)
         if gc:
             thermal["TCG"] = float(gc.group(1)) * atom_ureg.hartree / atom_ureg.particle
-        sh = xtboutpatterns["sum H"].search(self.__block)
+        sh = xtboutpatterns["sum H"].search(self._block)
         if sh:
             thermal["H_T"] = float(sh.group(1)) * atom_ureg.hartree / atom_ureg.particle
-        sg = xtboutpatterns["sum G"].search(self.__block)
+        sg = xtboutpatterns["sum G"].search(self._block)
         if sg:
             thermal["G_T"] = float(sg.group(1)) * atom_ureg.hartree / atom_ureg.particle
-        thermal_Cv_S_match = xtboutpatterns["thermal_Cv_S_start"].search(self.__block)
+        thermal_Cv_S_match = xtboutpatterns["thermal_Cv_S_start"].search(self._block)
         if thermal_Cv_S_match:
-            block = self.__block[thermal_Cv_S_match.end() :]
+            block = self._block[thermal_Cv_S_match.end() :]
             for line in block.splitlines():
                 if "TOT" in line:
                     thermal["C_V"] = (
@@ -387,7 +386,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
             self.thermal_energies = ThermalEnergies.model_validate(thermal)
 
     def _parse_rotation(self):
-        rot = xtboutpatterns["rotation_consts"].search(self.__block)
+        rot = xtboutpatterns["rotation_consts"].search(self._block)
         if rot:
             rots = []
             for i in range(1, 4):
@@ -405,12 +404,12 @@ class XTBFrameParser(BaseQMMolFrameParser):
 
     def _parse_vipea(self):
         single_property = {}
-        vip_match = xtboutpatterns["VIP"].search(self.__block)
+        vip_match = xtboutpatterns["VIP"].search(self._block)
         if vip_match:
             single_property["vip"] = (
                 float(vip_match.group(1)) * atom_ureg.eV / atom_ureg.particle
             )
-        vea_match = xtboutpatterns["VEA"].search(self.__block)
+        vea_match = xtboutpatterns["VEA"].search(self._block)
         if vea_match:
             single_property["vea"] = (
                 float(vea_match.group(1)) * atom_ureg.eV / atom_ureg.particle
@@ -419,7 +418,7 @@ class XTBFrameParser(BaseQMMolFrameParser):
 
     def _parse_gei(self):
         single_property = {}
-        gei_match = xtboutpatterns["GEI"].search(self.__block)
+        gei_match = xtboutpatterns["GEI"].search(self._block)
         if gei_match:
             single_property["gei"] = (
                 float(gei_match.group(1)) * atom_ureg.eV / atom_ureg.particle
@@ -428,12 +427,12 @@ class XTBFrameParser(BaseQMMolFrameParser):
 
     def _parse_fukui_index(self):
         single_property = {}
-        fukui_match = xtboutpatterns["fukui_start"].search(self.__block)
+        fukui_match = xtboutpatterns["fukui_start"].search(self._block)
         fukui_plus = []
         fukui_minus = []
         fukui_zero = []
         if fukui_match:
-            for row in self.__block[fukui_match.end() :].splitlines()[: self.n_atom]:
+            for row in self._block[fukui_match.end() :].splitlines()[: self.n_atom]:
                 fukui_plus.append(float(row.split()[1]))
                 fukui_minus.append(float(row.split()[2]))
                 fukui_zero.append(float(row.split()[3]))
