@@ -12,13 +12,9 @@ jobs:
         uses: http://10.72.201.58:13000/actions/checkout@v3
       - name: set mirror
         run: pip config set global.index-url https://mirrors.zju.edu.cn/pypi/web/simple
-      - name: register to gitea
-        run: | 
-          pip install poetry
-          poetry config repositories.hong http://10.72.201.58:13000/api/packages/${{ secrets.OWNER }}/pypi
-          poetry config http-basic.hong ${{ secrets.OWNER }} ${{ secrets.PASSWORD }}
       - name: Deploy latest
         run: |
-          poetry build
-          poetry publish --repository hong
+          pip install uv
+          uv build --wheel
+          uv publish --index hong --username ${{ secrets.OWNER }} --password ${{ secrets.PASSWORD }}
       - run: echo "🍏 This job's status is ${{ job.status }}."

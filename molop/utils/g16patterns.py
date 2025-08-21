@@ -1,8 +1,8 @@
 """
 Author: TMJ
-Date: 2024-03-23 21:02:58
+Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2024-03-23 21:03:37
+LastEditTime: 2025-08-02 22:43:44
 Description: 请填写简介
 """
 
@@ -12,7 +12,7 @@ from typing import Dict, Tuple
 
 def link0_parser(
     link0: str,
-) -> Dict:
+) -> Dict[str, str]:
     """
     Parse link0 from G16 log file.
 
@@ -30,7 +30,7 @@ def link0_parser(
 
 def parameter_comment_parser(
     route: str,
-) -> Tuple[Dict, str]:
+) -> Tuple[Dict, str | None]:
     """
     Parse parameter comment from G16 log file.
 
@@ -38,10 +38,10 @@ def parameter_comment_parser(
         parameter_comment (str): The parameter comment from the G16 log file.
 
     Returns:
-        route_params (Dict): 
+        route_params (Dict):
             A dictionary containing parameter-value pairs extracted from the route section of the parameter comment.
-            
-        dieze_tag (str): 
+
+        dieze_tag (str):
             The dieze tag extracted from the route section of the parameter comment.
     """
     _route = (

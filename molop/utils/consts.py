@@ -3,7 +3,8 @@ qe = 1.602176634 * 10**-19
 
 
 """
-The cutoff_epsilon_sigma_dict is a copy of [LennardJones612_UniversalShifted.params](https://openkim.org/files/MO_959249795837_003/LennardJones612_UniversalShifted.params)
+The cutoff_epsilon_sigma_dict is a copy of
+[LennardJones612_UniversalShifted.params](https://openkim.org/files/MO_959249795837_003/LennardJones612_UniversalShifted.params)
 """
 cutoff_epsilon_sigma_dict = {
     "H": (2.2094300, 4.4778900, 0.5523570),
@@ -341,12 +342,35 @@ metal_valence_avialable_minor = {
 }
 
 
-def get_possible_metal_radicals(metal: str, valence: int):
+def get_possible_metal_radicals(metal: str, valence: int) -> set[int]:
+    """
+    Get possible radicals for a given metal and valence.
+
+    If the valence is less than or equal to the sum of the s and p electrons,
+    then the possible radicals are the set of electrons with the same spin as the
+    valence minus the sum of the s and p electrons.
+
+    If the valence is less than or equal to the sum of the s, p, and d electrons,
+    then the possible radicals are the set of electrons with the same spin as the
+    valence minus the sum of the s, p, and d electrons.
+
+    If the valence is less than or equal to the sum of the s, p, d, and f electrons,
+    then the possible radicals are the set of electrons with the same spin as the
+    valence minus the sum of the s, p, d, and f electrons.
+
+    Parameters:
+
+        metal (str): The metal symbol.
+        valence (int): The valence of the metal.
+
+    Returns:
+        set[int]: A set of possible radicals.
+    """
     f, d, s, p = metal_f_d_s_p_electrons[metal]
     if valence <= s + p:
         return set([(f + s + p - valence) % 2 + dd for dd in d_electrons_spin[d]] + [0])
     if valence <= s + p + d:
         return set([f % 2 + dd for dd in d_electrons_spin[d - valence + s + p]] + [0])
     if valence <= s + p + d + f:
-        return set([f % 2] + [0])
+        return {f % 2, 0}
     raise ValueError("Valence is too high for this metal")

@@ -1,8 +1,15 @@
 <!--
  * @Author: TMJ
+ * @Date: 2025-01-15 23:03:04
+ * @LastEditors: TMJ
+ * @LastEditTime: 2025-07-26 22:56:34
+ * @Description: 请填写简介
+-->
+<!--
+ * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2024-09-04 11:01:21
+ * @LastEditTime: 2025-07-26 18:03:59
  * @Description: 请填写简介
 -->
 # MolOP
@@ -22,7 +29,7 @@ This repository, **Molecule OPerator**, which is a Pydantic-based molecule infor
     - xTB OUT `Available`
     - ORCA `TODO`
 
-- Offer a [molecular graph recovery algorithm](molop/structure/structure_recovery_alter.py) from the simple coodinates of atoms based on the initial work by [OpenBabel](https://openbabel.org/index.html), which can be easily used in the file reading process. This algorithm is different from the rdDetermineBonds (Original code implemented by [Jensen group](https://github.com/jensengroup/xyz2mol) and integrated in RDKit from the 2022.09 release, which is not suitable for the free radicals and complex containing metal. See [structure_recovery_cases](docs/en/structure_recovery_cases.ipynb) to learn more about the difference).
+- Offer a [molecular graph recovery algorithm](molop/structure/structure_recovery_alter.py) from the simple coodinates of atoms based on the initial work by [OpenBabel](https://openbabel.org/index.html), which can be easily used in the file reading process. This algorithm is different from the rdDetermineBonds (Original code implemented by [Jensen group](https://github.com/jensengroup/xyz2mol) and integrated in RDKit since the 2022.09 release, which is not suitable for the free radicals and complex containing metal. See [structure_recovery_cases](docs/en/structure_recovery_cases.ipynb) to learn more about the difference).
   
   Although our algorithm overcome the free radicals and metal problem and tested on the [test_cases](tutorial/test_cases.ipynb) file, it is still not perfect. There is no denying that, rdDetermineBonds works well for normal organic molecules. Thus, we would give molecule structure recovered by rdDetermineBonds first, if error happens, we will use our algorithm to recover the molecule structure instead. We hope that this strategy can take advantage of both approaches.
 
@@ -77,13 +84,8 @@ pip install -e .
 # clone the repository
 git clone https://github.com/gentle1999/MolOP.git
 cd MolOP
-# create a new environment (conda is not necessary)
-conda create -n molop python=3.8 # The lowest python version is 3.8
-conda activate molop
-# install the dependencies
-pip install poetry
-poetry install --with dev
-poetry install --all-extras
+# create a new environment and install the dependencies
+uv sync
 ```
 
 ## Online Documentation (only avialable in ZJU intranet now)
