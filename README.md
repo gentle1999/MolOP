@@ -1,8 +1,15 @@
 <!--
  * @Author: TMJ
+ * @Date: 2025-01-15 23:03:04
+ * @LastEditors: TMJ
+ * @LastEditTime: 2025-07-26 22:56:34
+ * @Description: 请填写简介
+-->
+<!--
+ * @Author: TMJ
  * @Date: 2023-10-30 13:36:49
  * @LastEditors: TMJ
- * @LastEditTime: 2025-01-05 14:05:07
+ * @LastEditTime: 2025-07-26 18:03:59
  * @Description: 请填写简介
 -->
 # MolOP
@@ -77,13 +84,8 @@ pip install -e .
 # clone the repository
 git clone https://github.com/gentle1999/MolOP.git
 cd MolOP
-# create a new environment (conda is not necessary)
-conda create -n molop python=3.8 # The lowest python version is 3.8
-conda activate molop
-# install the dependencies
-pip install poetry
-poetry install --with dev
-poetry install --all-extras
+# create a new environment and install the dependencies
+uv sync
 ```
 
 ## Online Documentation (only avialable in ZJU intranet now)

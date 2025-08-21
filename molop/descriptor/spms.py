@@ -18,7 +18,7 @@ from rdkit.Chem.rdMolTransforms import ComputeCentroid
 from rdkit.Geometry import Point3D
 
 from molop.logger.logger import moloplogger
-from molop.structure.geometry import (
+from molop.structure.GeometryTransformation import (
     rotate_mol_anchor_to_axis,
     rotate_mol_anchor_to_plane,
     translate_mol_anchor,

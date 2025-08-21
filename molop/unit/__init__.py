@@ -2,36 +2,34 @@
 Author: TMJ
 Date: 2024-10-19 09:57:26
 LastEditors: TMJ
-LastEditTime: 2025-06-16 12:32:15
+LastEditTime: 2025-07-26 20:18:31
 Description: 请填写简介
 """
 
-from typing import Union
+from typing import Optional
 
 from pint import UnitRegistry, set_application_registry
-from pint.facets.numpy import NumpyRegistry
-from pint.facets.plain import PlainQuantity, PlainUnit
+from pint._typing import UnitLike
+from pint.facets.plain import PlainQuantity
 
 si_ureg = UnitRegistry(system="SI")
 atom_ureg = UnitRegistry(system="atomic")
-numpy_ureg = UnitRegistry(system="atomic", force_ndarray=True)
 set_application_registry(si_ureg)
 set_application_registry(atom_ureg)
-set_application_registry(numpy_ureg)
 
 
 def unit_transform(
-    value: Union[PlainQuantity, None], unit: Union[str, PlainUnit]
-) -> Union[PlainQuantity, None]:
+    value: Optional[PlainQuantity], unit: UnitLike
+) -> Optional[PlainQuantity]:
     """
     Transform the unit of a quantity.
 
     Parameters:
-        value (Union[PlainQuantity, None]): The quantity to be transformed.
-        unit (Union[str, PlainUnit]): The target unit.
+        value (Optional[PlainQuantity]): The quantity to be transformed.
+        unit (UnitLike): The target unit.
 
     Returns:
-        Union[PlainQuantity, None]: The transformed quantity.
+        Optional[PlainQuantity]: The transformed quantity.
     """
     if value is None:
         return None

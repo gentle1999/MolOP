@@ -1,63 +1,108 @@
-[tool.poetry]
+[project]
 name = "molop"
-version = "0.1.34.1"
+version = "0.2.0-dev"
 description = "Molcule OPerator"
-authors = ["tmj <mj_t@zju.edu.cn>"]
-license = "MIT"
-maintainers = ["tmj <mj_t@zju.edu.cn>"]
+authors = [{ name = "tmj", email = "mj_t@zju.edu.cn" }]
+requires-python = ">=3.10" # python 3.10 or later, follow the main dependence of rdkit
 readme = "README.md"
-repository = "https://github.com/gentle1999/MolOP"
-keywords = ["cheminformatics", "xyz2mol", "parser"]
+license = "MIT"
+maintainers = [{ name = "tmj", email = "mj_t@zju.edu.cn" }]
+keywords = [
+    "cheminformatics",
+    "xyz2mol",
+    "parser",
+]
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
-
-[tool.poetry.dependencies]
-python = "^3.8"
-openbabel-wheel = "^3.1.1.19"
-tqdm = "^4.66.4"
-fire = "^0.6.0"
-pydantic = "^2.7.4"
-pandas = "^2.0.0"
-pint = "^0.21.0"
-rdkit = ">=2023.9.6"
-scipy = "^1.8"
-packaging = "^24.0"
-
-mordred = { version = "^1.2", optional = true }
-dscribe = { version = "^2.1", optional = true }
-ase = { version = "^3.22", optional = true }
-
-rmsd = "^1.5.1"
-joblib = "^1.4.2"
-numpy = "<2"
-[tool.poetry.group.dev]
-optional = true
-
-[tool.poetry.group.dev.dependencies]
-mkdocs = "^1.5.3"
-mkdocs-material = "^9.5.7"
-mkdocs-material-extensions = "^1.3.1"
-mkdocs-static-i18n = "^1.2.0"
-mkdocstrings-python = "^1.8.0"
-pytest = "^8.0.0"
-jupyter-contrib-nbextensions = "^0.7.0"
-notebook = "~6.4.12"
-nbconvert = "^7.14.2"
-
-[tool.poetry.extras]
-desc = ["mordred", "dscribe", "ase"]
-full = [
-    "mordred",
-    "dscribe",
-    "ase",
+dependencies = [
+    "fire>=0.7.0",
+    "joblib>=1.5.1",
+    "numpy>=1.26.4",
+    "openbabel-wheel>=3.1.1.22",
+    "pandas>=2.3.1",
+    "pint>=0.24.4",
+    "pydantic>=2.11.7",
+    "rdkit>=2023.9.6",
+    "regex<=2025.7.33",
+    "scipy>=1.15.3",
+    "tqdm>=4.67.1",
 ]
 
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[project.optional-dependencies]
+desc = [
+    "mordred~=1.2",
+    "dscribe~=2.1",
+    "ase~=3.22",
+]
+full = [
+    "mordred~=1.2",
+    "dscribe~=2.1",
+    "ase~=3.22",
+]
 
-[tool.poetry.scripts]
+[project.urls]
+Repository = "https://github.com/gentle1999/MolOP"
+
+[project.scripts]
 molop = "molop.cli.cli:app"
+
+[tool.uv]
+dev-dependencies = [
+    "mypy>=1.16.1",
+    "ruff>=0.12.2",
+    "mkdocs>=1.5.3,<2",
+    "mkdocs-material>=9.5.7,<10",
+    "mkdocs-material-extensions>=1.3.1,<2",
+    "mkdocs-static-i18n>=1.2.0,<2",
+    "mkdocstrings-python>=1.8.0,<2",
+    "pytest>=8.0.0,<9",
+    "jupyter-contrib-nbextensions>=0.7.0,<0.8",
+    "notebook~=6.4.12",
+    "nbconvert>=7.14.2,<8",
+]
+
+[tool.ruff]
+line-length = 88
+indent-width = 4
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "C",  # flake8-comprehensions
+    "B",  # flake8-bugbear
+]
+ignore = [
+    "E501",  # line too long, handled by black
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+exclude = ["tests", "scripts"]
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 88
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[[tool.uv.index]]
+name = "hong"
+url = "http://10.72.201.58:13000/api/packages/tmj/pypi/simple/"
+publish-url = "http://10.72.201.58:13000/api/packages/tmj/pypi/"
+explicit = true

@@ -8,9 +8,9 @@ Description: 请填写简介
 
 import os
 from glob import glob
-from typing import Union
 
-from molop.io.file_batch import FileParserBatch
+from molop.io.FileBatchModelDisk import FileBatchModelDisk
+from molop.io.FileBatchParserDisk import FileBatchParserDisk
 
 
 def AutoParser(
@@ -20,7 +20,7 @@ def AutoParser(
     n_jobs: int = -1,
     only_extract_structure=False,
     only_last_frame=False,
-) -> FileParserBatch:
+) -> FileBatchModelDisk:
     """
     The Entrypoint of MolOP
 
@@ -55,16 +55,15 @@ def AutoParser(
         files = glob(file_path)
         files.sort()
     if len(files) > 0:
-        batch = FileParserBatch(
+        batch = FileBatchParserDisk(
             n_jobs=n_jobs,
         )
-        batch.add_files(
+        return batch.parse(
             files,
-            charge=charge,
-            multiplicity=multiplicity,
+            total_charge=charge,
+            total_multiplicity=multiplicity,
             only_extract_structure=only_extract_structure,
             only_last_frame=only_last_frame,
         )
-        return batch
     else:
         raise FileNotFoundError("No file found in the path")
