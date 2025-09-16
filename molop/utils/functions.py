@@ -78,7 +78,6 @@ def find_rigid_transform(P: np.ndarray, Q: np.ndarray) -> np.ndarray:
     # If the determinant of R is negative, then we need to invert it,
     # otherwise we are looking in the wrong direction.
     if np.linalg.det(R) < 0:
-        print("Detected mirroring, correcting...")
         Vt[2, :] *= -1  # invert Vt's last row
         R = np.dot(Vt.T, U.T)
     t = centroid_Q.T - np.dot(R, centroid_P.T)

@@ -11,6 +11,7 @@ from typing import Any, Optional, Sequence
 import numpy as np
 from pint.facets.plain import PlainQuantity
 
+from molop.config import moloplogger
 from molop.io.base_models.DataClasses import ImplicitSolvation, Status
 from molop.io.base_models.FileParser import BaseFileParserDisk, BaseFileParserMemory
 from molop.io.patterns.G16Patterns import G16LogPatterns, MolOPPattern
@@ -23,7 +24,6 @@ from molop.io.QM_parsers.G16LogFileFrameParser import (
     G16LogFileFrameParserDisk,
     G16LogFileFrameParserMemory,
 )
-from molop.logger.logger import moloplogger
 from molop.unit import atom_ureg
 from molop.utils.functions import find_rigid_transform
 
@@ -35,24 +35,26 @@ split_pattern_2 = "Standard orientation:"
 
 class G16LogFileParserMixin:
     _file_content: str
+    _file_path: str
+    only_extract_structure: bool
 
     def _parse_metadata(self, file_content: str) -> dict[str, Any]:
         metadata: dict[str, Any] = {"qm_software": "Gaussian"}
         self._file_content = file_content
-        # if version := self._parse_version():
-        #     metadata["qm_software_version"] = version
+        if version := self._parse_version():
+            metadata["qm_software_version"] = version
         if options := self._parse_options():
             metadata["options"] = options
-        # if route := self._parse_keywords():
-        #     metadata["keywords"] = route
-        # if title := self._parse_title():
-        #     metadata["title_card"] = title
-        # if charge_multiplicity := self._parse_charge_multiplicity():
-        #     metadata["charge"], metadata["multiplicity"] = charge_multiplicity
+        if route := self._parse_keywords():
+            metadata["keywords"] = route
+        if title := self._parse_title():
+            metadata["title_card"] = title
+        if charge_multiplicity := self._parse_charge_multiplicity():
+            metadata["charge"], metadata["multiplicity"] = charge_multiplicity
         transform_matrix = self._parse_standard_orientation_transformation_matrix()
         if transform_matrix is not None:
             metadata["standard_orientation_transformation_matrix"] = transform_matrix
-        if self.only_extract_structure:  # type: ignore
+        if self.only_extract_structure:
             return metadata
         if solvent := self._parse_solvent():
             metadata["solvent"] = solvent
@@ -134,10 +136,7 @@ class G16LogFileParserMixin:
                 return None
             return find_rigid_transform(coords, standard_coords)
         except Exception as e:
-            moloplogger.error(
-                f"Error in parsing standard orientation transformation matrix: {e}"
-            )
-            return None
+            raise e
 
     def _parse_coordinates(self, pattern: MolOPPattern) -> Optional[np.ndarray]:
         focus_content, self._file_content = pattern.split_content(self._file_content)
@@ -197,6 +196,7 @@ class G16LogFileParserMixin:
         focus_content = self._file_content[start_index:end_index]
         self._file_content = self._file_content[end_index:]
         focus_content = focus_content.replace("\n ", "")
+
         def parse_and_update(pattern: MolOPPattern, key: str):
             nonlocal focus_content
             try:
@@ -205,6 +205,7 @@ class G16LogFileParserMixin:
                 )
                 moloplogger.debug(
                     f"{key} focus content: \n{sub_focus_content}\n{key} focus content end"
+                    f"\ncorresponding file: {self._file_path}"
                 )
                 if matches := pattern.get_matches(sub_focus_content):
                     tail_dict[key] = matches[0][0]

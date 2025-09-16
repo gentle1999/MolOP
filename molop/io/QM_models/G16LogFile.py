@@ -13,7 +13,7 @@ from pydantic import Field, model_validator
 from typing_extensions import Self
 
 from molop.io.base_models.Bases import BaseDataClassWithUnit
-from molop.io.base_models.ChemFile import CalcFileMixin
+from molop.io.base_models.ChemFile import BaseCalcFile
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
 from molop.io.patterns.G16Patterns import (
     SEMI_EMPIRICAL_METHODS,
@@ -84,11 +84,11 @@ class G16LogFileMixin(BaseDataClassWithUnit):
 
 
 class G16LogFileMemory(
-    MemoryStorageMixin, CalcFileMixin[G16LogFileFrameMemory], G16LogFileMixin
+    MemoryStorageMixin, G16LogFileMixin, BaseCalcFile[G16LogFileFrameMemory]
 ): ...
 
 
 class G16LogFileDisk(
-    DiskStorageMixin, CalcFileMixin[G16LogFileFrameDisk], G16LogFileMixin
+    DiskStorageMixin, G16LogFileMixin, BaseCalcFile[G16LogFileFrameDisk]
 ):
     _allowed_formats_ = (".log", ".g16", ".gal", ".out", ".irc")

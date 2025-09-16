@@ -6,49 +6,52 @@ LastEditTime: 2025-08-21 00:15:32
 Description: 请填写简介
 """
 
+import multiprocessing
 import os
-import time
-from typing import Dict, List, Optional, Tuple, Type
+from enum import Enum
+from typing import Any, Dict, Iterable, Literal, Optional, Tuple
 
-from joblib import Parallel, cpu_count, delayed
 from tqdm import tqdm
 
-from molop.config import molopconfig
-from molop.io.coords_models import GJFFileDisk, SDFFileDisk, XYZFileDisk
-from molop.io.coords_parsers import (
+from molop.config import molopconfig, moloplogger
+from molop.io.FileBatchModelDisk import FileBatchModelDisk
+from molop.io.types import (
+    FILEDISK,
+    PARSERDISK,
+    PARSERS_DICT,
+    G16LogFileParserDisk,
     GJFFileParserDisk,
     SDFFileParserDisk,
     XYZFileParserDisk,
 )
-from molop.io.FileBatchModelDisk import FileBatchModelDisk
-from molop.io.QM_models import G16LogFileDisk
-from molop.io.QM_parsers import G16LogFileParserDisk
-from molop.logger.logger import moloplogger
 
-FILEDISK = G16LogFileDisk | GJFFileDisk | XYZFileDisk | SDFFileDisk
-PARSER = (
-    GJFFileParserDisk | XYZFileParserDisk | SDFFileParserDisk | G16LogFileParserDisk
-)
-PARSERTYPE = Type[PARSER]
-PARSERS_DICT: Dict[str, Tuple[PARSERTYPE, ...]] = {
-    ".gjf": (GJFFileParserDisk,),
-    ".gau": (G16LogFileParserDisk,),
-    ".com": (GJFFileParserDisk,),
-    ".gjc": (GJFFileParserDisk,),
-    ".log": (G16LogFileParserDisk,),
-    ".g16": (G16LogFileParserDisk,),
-    ".gal": (G16LogFileParserDisk,),
-    ".xyz": (XYZFileParserDisk,),
-    ".sdf": (SDFFileParserDisk,),
-    ".mol": (SDFFileParserDisk,),
-    ".out": (G16LogFileParserDisk,),
-    ".irc": (G16LogFileParserDisk,),
-}
+
+class FileParser(Enum):
+    gjf = GJFFileParserDisk
+    xyz = XYZFileParserDisk
+    sdf = SDFFileParserDisk
+    g16log = G16LogFileParserDisk
+
+    def init(self, **kwargs):
+        return self.value(**kwargs)
+
+    def execute(
+        self,
+        file_path: str,
+        total_charge: Optional[int] = None,
+        total_multiplicity: Optional[int] = None,
+        **kwargs,
+    ):
+        return self.init(**kwargs).parse(
+            file_path,
+            total_charge=total_charge,
+            total_multiplicity=total_multiplicity,
+        )
 
 
 def single_file_parser(
     file_path: str,
-    possible_parsers: Tuple[PARSER, ...],
+    possible_parsers: Tuple[PARSERDISK, ...],
 ) -> Optional[FILEDISK]:
     for idx, parser in enumerate(possible_parsers):
         try:
@@ -66,179 +69,142 @@ def single_file_parser(
             )
 
 
+def worker_wrapper(args_dict: Dict[str, Any]) -> Optional[FILEDISK]:
+    """
+    Wrapper to call single_file_parser with keyword arguments from a dictionary.
+    multiprocessing.Pool.imap needs a function that takes a single argument.
+    """
+    return single_file_parser(**args_dict)
+
+
 class FileBatchParserDisk:
     __n_jobs: int
 
     def __init__(self, n_jobs: int = -1):
-        self.__n_jobs = self._set_n_jobs(n_jobs)
+        self.__n_jobs = molopconfig.set_n_jobs(n_jobs)
 
     def parse(
         self,
-        file_paths: List[str],
+        file_paths: Iterable[str],
         total_charge: Optional[int] = None,
         total_multiplicity: Optional[int] = None,
         only_extract_structure=False,
         only_last_frame=False,
+        parser_detection: Literal["auto", "gjf", "xyz", "sdf", "g16log"] = "auto",
     ) -> FileBatchModelDisk:
-        time1 = time.time()
+        """
+        Parses a list of input files and returns a FileBatchModelDisk object.
+
+        Parameters:
+            file_paths (Iterable[str]):
+                A list of wildcard of input file paths.
+            total_charge (int | None):
+                forced charge of the molecule, if not given, will use the charge written in the file or 0.
+            total_multiplicity (int | None):
+                forced multiplicity of the molecule, if not given, will use the charge written in the file or 1.
+            only_extract_structure (bool):
+                if True, only extract the structure, else extract the whole file.
+            only_last_frame (bool):
+                if True, only extract the last frame, else extract all frames.
+            parser_detection (Literal["auto", "gjf", "xyz", "sdf", "g16log"]):
+                if "auto", use the file extension to detect the parser, else use the given parser.
+        """
         valid_file_paths = []
         for file_path in file_paths:
             if not os.path.isfile(file_path):
                 moloplogger.warning(f"{file_path} is not a file.")
                 continue
-            if os.path.splitext(file_path)[1] not in PARSERS_DICT:
-                moloplogger.warning(f"Unsupported input file format: {file_path}")
-                continue
+            if parser_detection == "auto":
+                if os.path.splitext(file_path)[1] not in PARSERS_DICT:
+                    moloplogger.warning(f"Unsupported input file format: {file_path}")
+                    continue
             if file_path.endswith("molop.log"):
                 continue
             valid_file_paths.append(os.path.abspath(file_path))
         if len(valid_file_paths) == 0:
             moloplogger.error("No valid input files.")
             return FileBatchModelDisk()
-        parsers = {
-            key: [
-                parser(
-                    forced_charge=total_charge,
-                    forced_multiplicity=total_multiplicity,
-                    only_extract_structure=only_extract_structure,
-                    only_last_frame=only_last_frame,
-                )
-                for parser in val
-            ]
-            for key, val in PARSERS_DICT.items()
-        }
-        task_list_small_files = [
-            {
-                "file_path": file_path,
-                "possible_parsers": parsers[os.path.splitext(file_path)[1]],
-            }
-            for file_path in valid_file_paths
-            if os.path.getsize(file_path) < molopconfig.parallel_max_size
-        ]
-        task_list_large_files = [
-            {
-                "file_path": file_path,
-                "possible_parsers": parsers[os.path.splitext(file_path)[1]],
-            }
-            for file_path in valid_file_paths
-            if os.path.getsize(file_path) >= molopconfig.parallel_max_size
-        ]
-        total_tasks = task_list_small_files + task_list_large_files
-        time2 = time.time()
-        moloplogger.warning(f"Time to create parsers: {time2 - time1:.2f}s")
-        diskfiles: List[FILEDISK] = []
-        if self.__n_jobs > 1 and len(valid_file_paths) > self.__n_jobs:
-            if only_last_frame:
-                if molopconfig.show_progress_bar:
-                    diskfiles.extend(
-                        diskfile
-                        for diskfile in tqdm(
-                            Parallel(
-                                return_as="generator",
-                                n_jobs=self.__n_jobs,
-                                pre_dispatch="1.5*n_jobs",
-                            )(
-                                delayed(single_file_parser)(**arguments)
-                                for arguments in total_tasks
-                            ),
-                            desc=f"MolOP parsing with {self.__n_jobs} jobs",
-                            total=len(total_tasks),
-                        )
-                        if diskfile is not None and len(diskfile) > 0
+        if parser_detection == "auto":
+            parsers = {
+                key: [
+                    parser(
+                        forced_charge=total_charge,
+                        forced_multiplicity=total_multiplicity,
+                        only_extract_structure=only_extract_structure,
+                        only_last_frame=only_last_frame,
                     )
-                else:
-                    diskfiles.extend(
-                        diskfile
-                        for diskfile in Parallel(
-                            return_as="generator",
-                            n_jobs=self.__n_jobs,
-                            pre_dispatch="1.5*n_jobs",
-                        )(
-                            delayed(single_file_parser)(**arguments)
-                            for arguments in total_tasks
-                        )
-                        if diskfile is not None and len(diskfile) > 0
-                    )
-            else:
-                if len(task_list_small_files) > 0:
-                    if molopconfig.show_progress_bar:
-                        diskfiles.extend(
-                            diskfile
-                            for diskfile in tqdm(
-                                Parallel(
-                                    return_as="generator",
-                                    n_jobs=self.__n_jobs,
-                                    pre_dispatch="1.5*n_jobs",
-                                )(
-                                    delayed(single_file_parser)(**arguments)
-                                    for arguments in task_list_small_files
-                                ),
-                                desc=f"MolOP parsing with {self.__n_jobs} jobs",
-                                total=len(task_list_small_files),
-                            )
-                            if diskfile is not None and len(diskfile) > 0
-                        )
-                    else:
-                        diskfiles.extend(
-                            diskfile
-                            for diskfile in Parallel(
-                                return_as="generator",
-                                n_jobs=self.__n_jobs,
-                                pre_dispatch="1.5*n_jobs",
-                            )(
-                                delayed(single_file_parser)(**arguments)
-                                for arguments in task_list_small_files
-                            )
-                            if diskfile is not None and len(diskfile) > 0
-                        )
-                if len(task_list_large_files) > 0:
-                    if molopconfig.show_progress_bar:
-                        diskfiles.extend(
-                            diskfile
-                            for diskfile in tqdm(
-                                (
-                                    single_file_parser(**arguments)
-                                    for arguments in (task_list_large_files)
-                                ),
-                                desc="MolOP parsing with single process",
-                                total=len(task_list_large_files),
-                            )
-                            if diskfile is not None and len(diskfile) > 0
-                        )
-                    else:
-                        diskfiles.extend(
-                            diskfile
-                            for diskfile in (
-                                single_file_parser(**arguments)
-                                for arguments in (task_list_large_files)
-                            )
-                            if diskfile is not None and len(diskfile) > 0
-                        )
+                    for parser in val
+                ]
+                for key, val in PARSERS_DICT.items()
+            }
         else:
-            if molopconfig.show_progress_bar:
-                diskfiles.extend(
-                    diskfile
-                    for diskfile in tqdm(
-                        (
-                            single_file_parser(**arguments)
-                            for arguments in total_tasks
+            parsers = {
+                key: [
+                    FileParser.__getitem__(parser_detection).init(
+                        forced_charge=total_charge,
+                        forced_multiplicity=total_multiplicity,
+                        only_extract_structure=only_extract_structure,
+                        only_last_frame=only_last_frame,
+                    )
+                    for parser in val
+                ]
+                for key, val in PARSERS_DICT.items()
+            }
+        try:
+            valid_file_paths.sort(key=os.path.getsize, reverse=True)
+        except OSError as e:
+            moloplogger.warning(
+                f"Could not get file size for sorting, proceeding without it: {e}"
+            )
+        total_tasks = [
+            {"file_path": fp, "possible_parsers": parsers[os.path.splitext(fp)[1]]}
+            for fp in valid_file_paths
+        ]
+        # Determine if parallel processing should be used
+        use_parallel = self.__n_jobs > 1 and len(total_tasks) > self.__n_jobs
+
+        if use_parallel:
+            # Calculate a reasonable chunksize to reduce IPC overhead.
+            chunksize = 1
+            if len(total_tasks) > self.__n_jobs:
+                chunksize, extra = divmod(len(total_tasks), self.__n_jobs * 4)
+                if extra:
+                    chunksize += 1
+            moloplogger.info(
+                f"Using chunksize: {chunksize} for {len(total_tasks)} tasks."
+            )
+            with multiprocessing.Pool(processes=self.__n_jobs) as pool:
+                desc = f"MolOP parsing with {self.__n_jobs} processes"
+                if molopconfig.show_progress_bar:
+                    results_iterator = tqdm(
+                        pool.imap_unordered(
+                            worker_wrapper, total_tasks, chunksize=chunksize
                         ),
                         total=len(total_tasks),
-                        desc="MolOP parsing with single process",
+                        desc=desc,
                     )
-                    if diskfile is not None and len(diskfile) > 0
-                )
+                else:
+                    results_iterator = pool.imap_unordered(
+                        worker_wrapper, total_tasks, chunksize=chunksize
+                    )
+                diskfiles = [
+                    result
+                    for result in results_iterator
+                    if result is not None and len(result) > 0
+                ]
+        else:
+            # Fallback to sequential processing
+            desc = "MolOP parsing with single process"
+            if molopconfig.show_progress_bar:
+                iterator = tqdm(total_tasks, desc=desc)
             else:
-                diskfiles.extend(
-                    diskfile
-                    for diskfile in (
-                        single_file_parser(**arguments)
-                        for arguments in total_tasks
-                    )
-                    if diskfile is not None and len(diskfile) > 0
-                )
-        time3 = time.time()
-        moloplogger.warning(f"Time to parse: {time3 - time2:.2f}s")
+                iterator = total_tasks
+
+            diskfiles = [
+                result
+                for result in (single_file_parser(**args) for args in iterator)
+                if result is not None and len(result) > 0
+            ]
         return FileBatchModelDisk.new_batch(diskfiles)
 
     @property
@@ -247,11 +213,7 @@ class FileBatchParserDisk:
 
     @n_jobs.setter
     def n_jobs(self, n_jobs: int):
-        self.__n_jobs = self._set_n_jobs(n_jobs)
+        self.__n_jobs = molopconfig.set_n_jobs(n_jobs)
 
-    def _set_n_jobs(self, n_jobs: int):
-        return (
-            min(n_jobs, cpu_count(), molopconfig.max_jobs)
-            if n_jobs > 0
-            else min(cpu_count(), molopconfig.max_jobs)
-        )
+    def __repr__(self) -> str:
+        return f"FileBatchParserDisk(n_jobs={self.__n_jobs})"

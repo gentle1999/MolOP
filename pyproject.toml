@@ -1,6 +1,6 @@
 [project]
 name = "molop"
-version = "0.2.0-dev"
+version = "0.2.0-dev1"
 description = "Molcule OPerator"
 authors = [{ name = "tmj", email = "mj_t@zju.edu.cn" }]
 requires-python = ">=3.10" # python 3.10 or later, follow the main dependence of rdkit

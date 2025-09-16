@@ -1,10 +1,10 @@
-'''
+"""
 Author: TMJ
 Date: 2025-07-28 23:05:56
 LastEditors: TMJ
-LastEditTime: 2025-07-31 20:29:36
+LastEditTime: 2025-09-12 10:55:49
 Description: 请填写简介
-'''
+"""
 
 from molop.io.base_models.ChemFileFrame import BaseCoordsFrame
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin

@@ -6,7 +6,9 @@ LastEditTime: 2025-07-29 14:17:47
 Description: 请填写简介
 """
 
+import os
 from copy import deepcopy
+from io import StringIO
 from typing import Generic, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
@@ -15,6 +17,7 @@ from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr, computed_field
 from rdkit import Chem
 
+from molop.config import moloplogger
 from molop.io.base_models.DataClasses import (
     BondOrders,
     ChargeSpinPopulations,
@@ -31,7 +34,6 @@ from molop.io.base_models.DataClasses import (
     Vibrations,
 )
 from molop.io.base_models.Molecule import Molecule
-from molop.logger.logger import moloplogger
 from molop.structure.GraphReconstruction import xyz_to_rdmol
 from molop.structure.StructureTransformation import check_crowding
 from molop.unit import atom_ureg
@@ -79,10 +81,10 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
         """
 
 
-class CoordsFrameMixin(Molecule): ...
+class BaseCoordsFrame(BaseChemFileFrame[ChemFileFrame]): ...
 
 
-class CalcFrameMixin(Molecule):
+class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
     # QM software
     qm_software: str = Field(
         default="",
@@ -177,6 +179,13 @@ class CalcFrameMixin(Molecule):
 
     @property
     def population_embedded_rdmol(self) -> Optional[RdMol]:
+        """
+        Store the population embedded rdkit molecule object.
+
+        Follow the guide in https://greglandrum.github.io/rdkit-blog/posts/2025-07-24-writing-partial-charges-to-sd-files.html
+
+        This function will use all population properties in the `charge_spin_populations` field to generate the population embedded rdkit molecule object.
+        """
         if self.rdmol is None:
             return None
         if self.charge_spin_populations is None:
@@ -194,6 +203,29 @@ class CalcFrameMixin(Molecule):
                 rdmol_copy, f"{population}_by_{self.qm_software}".upper()
             )
         return rdmol_copy
+
+    def to_population_embedded_SDF_block(self) -> str:
+        """
+        Write the SDF block with population embedded properties.
+
+        Follow the guide in https://greglandrum.github.io/rdkit-blog/posts/2025-07-24-writing-partial-charges-to-sd-files.html
+        """
+        sio = StringIO()
+        with Chem.SDWriter(sio) as w:
+            w.write(self.population_embedded_rdmol)
+        return sio.getvalue()
+
+    def to_population_embedded_SDF_file(self, filepath: os.PathLike):
+        """
+        Write the SDF block to a file with population embedded properties.
+
+        Follow the guide in https://greglandrum.github.io/rdkit-blog/posts/2025-07-24-writing-partial-charges-to-sd-files.html
+
+        Parameters:
+            filepath (os.PathLike): The path to the output file.
+        """
+        with open(filepath, "w") as f:
+            f.write(self.to_population_embedded_SDF_block())
 
     def _add_default_units(self) -> None:
         super()._add_default_units()
@@ -398,12 +430,6 @@ class CalcFrameMixin(Molecule):
         if self.geometry_optimization_status is None:
             return False
         return self.geometry_optimization_status.geometry_optimized
-
-
-class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame], CalcFrameMixin): ...
-
-
-class BaseCoordsFrame(BaseChemFileFrame[ChemFileFrame], CoordsFrameMixin): ...
 
 
 calc_frame = TypeVar("calc_frame", bound="BaseCalcFrame")

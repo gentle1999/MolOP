@@ -7,7 +7,7 @@ Description: 请填写简介
 """
 
 import re
-from typing import Dict, Tuple
+from typing import Dict
 
 xtboutpatterns: Dict[str, re.Pattern] = {
     "time": re.compile(

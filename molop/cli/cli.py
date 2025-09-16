@@ -3,14 +3,17 @@ Author: TMJ
 Date: 2024-02-04 11:04:35
 LastEditors: TMJ
 LastEditTime: 2024-02-12 16:49:38
-Description: 请填写简介
+Description: Command-line interface for MolOP, providing file parsing and batch processing utilities.
 """
+
+import os
+from typing import Literal
 
 import fire
 
 from molop import AutoParser
 from molop.config import molopconfig
-from molop.io import FileParserBatch
+from molop.io import FileBatchModelDisk
 
 
 class MolOPCLI:
@@ -19,243 +22,137 @@ class MolOPCLI:
     """
 
     def __init__(self) -> None:
-        molopconfig.log_on()
-        self._file_batch: FileParserBatch = None
-        self._temp_batch: FileParserBatch = None
+        molopconfig.enable_file_logging()
+        self._file_batch: FileBatchModelDisk | None = None
+        self._temp_batch: FileBatchModelDisk | None = None
 
     @property
     def temp_batch(self):
         """
         Get the file batch object.
         """
+        # If _temp_batch is None, fall back to _file_batch; this allows switching between temporary and main batch objects.
         if self._temp_batch is None:
             return self._file_batch
         else:
             return self._temp_batch
 
-    def auto(self, hong=True):
+    def auto(self, file_pattern: str = "*.log", hong=True):
         """
         Auto process the current directory.
-        """
+
+        Parameters:
         self._file_batch = AutoParser(r"*.log", only_last_frame=True)
-        self.temp_batch.to_summary_csv(use_hong_style=hong)
+        """
+        self._file_batch = AutoParser(file_pattern, only_last_frame=True)
+        # self.temp_batch.to_summary_csv(use_hong_style=hong)
 
     def read(
         self,
         file_path: str,
-        charge=0,
-        multiplicity=1,
-        n_jobs=-1,
-        only_extract_structure=False,
-        only_last_frame=False,
+        *,
+        charge: int = 0,
+        multiplicity: int = 1,
+        n_jobs: int = -1,
+        only_extract_structure: bool = False,
+        only_last_frame: bool = False,
     ):
         """
         Read the files given and set the file batch object.
-
         Parameters:
-            file_path str:
+            file_path (str):
                 use regax to match files.
-            charge int:
+            charge (int):
                 forced charge of the molecule, if not given, will use the charge written in the file or 0.
-            multiplicity int:
-                forced multiplicity of the molecule, if not given, will use the charge written in the file or 1.
-            only_extract_structure bool:
+            multiplicity (int):
+                forced multiplicity of the molecule, if not given, will use the multiplicity written in the file or 1.
+            n_jobs (int):
+                number of jobs to run in parallel, if -1, use all available cores.
+            only_extract_structure (bool):
                 if True, only extract the structure, else extract the whole file.
-            only_last_frame bool:
+            only_last_frame (bool):
                 if True, only extract the last frame, else extract all frames.
         """
         self._file_batch = AutoParser(
             file_path,
-            charge,
-            multiplicity,
+            total_charge=charge,
+            total_multiplicity=multiplicity,
             n_jobs=n_jobs,
             only_extract_structure=only_extract_structure,
             only_last_frame=only_last_frame,
         )
         return self
 
-    def summary(
+    def __checked_file_batch(self):
+        if self.temp_batch is None:
+            raise ValueError("No file batch found, please use `read` command first.")
+        return self.temp_batch
+
+    # def summary(
+    #     self,
+    #     file_dir: str = None,
+    #     full: bool = True,
+    #     with_units: bool = True,
+    #     use_hong_style=False,
+    # ):
+    #     """
+    #     Save the summary csv file.
+
+    #     Parameters:
+    #         file_dir str:
+    #             the directory to save the summary csv file.
+    #         full bool:
+    #             if True, save all the information, else save only the essential information.
+    #         with_units bool:
+    #             if True, save the information with units, else save the information without units.
+    #     """
+    #     self.temp_batch.to_summary_csv(
+    #         file_dir, full, with_units, use_hong_style=use_hong_style
+    #     )
+    #     return self
+
+    def transform(
         self,
-        file_dir: str = None,
-        full: bool = True,
-        with_units: bool = True,
-        use_hong_style=False,
+        format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
+        output_dir: str = os.getcwd(),
+        frame_id: int | Literal["all"] = -1,
+        embed_in_one_file: bool = True,
     ):
         """
-        Save the summary csv file.
+        Transform the file format of the batch of files.
 
         Parameters:
-            file_dir str:
-                the directory to save the summary csv file.
-            full bool:
-                if True, save all the information, else save only the essential information.
-            with_units bool:
-                if True, save the information with units, else save the information without units.
+            format ("xyz" | "sdf" | "cml" | "gjf" | "smi"): The target format to transform.
+            output_dir (str): The directory to store the transformed files.
+            frame_id (int | "all"): The frame ID to transform. If "all", all frames will be transformed.
+            embed_in_one_file (bool): Whether to embed the transformed data in one file.
         """
-        self.temp_batch.to_summary_csv(
-            file_dir, full, with_units, use_hong_style=use_hong_style
+        self.__checked_file_batch().format_transform(
+            format=format,
+            output_dir=output_dir,
+            frameID=frame_id,
+            embed_in_one_file=embed_in_one_file,
         )
         return self
 
-    def xyz(self, file_dir: str = None):
-        """
-        Save the XYZ file of all frames of each file.
-
-        Parameters:
-            file_dir str:
-                the directory to save the XYZ file.
-        """
-        self.temp_batch.to_XYZ_file(file_dir)
-        return self
-
-    def sdf(self, file_dir: str = None, n_jobs=-1):
-        """
-        Save the SDF file of all frames of each file.
-
-        Parameters:
-            file_dir str:
-                the directory to save the SDF file.
-            n_jobs int:
-                the number of jobs to use for parallel processing.
-        """
-        self.temp_batch.to_SDF_file(file_dir, n_jobs)
-        return self
-
-    def chemdraw(self, file_dir: str = None, frameID=-1, keep3D=True):
-        """
-        Save the cdxml file of specified frames of each file.
-
-        Parameters:
-            file_dir str:
-                the directory to save the cdxml file.
-            frameID int:
-                the frame ID to save, -1 means the last frame.
-            keep3D bool:
-                if True, keep the 3D information, else remove the 3D information.
-        """
-        self.temp_batch.to_chemdraw(file_dir, frameID, keep3D)
-        return self
-
-    def gjf(
-        self,
-        file_dir: str = None,
-        charge: int = None,
-        multiplicity: int = None,
-        prefix: str = "",
-        suffix: str = "",
-        template: str = None,
-        chk: bool = True,
-        oldchk: bool = False,
-        frameID: int = -1,
+    def filter_state(
+        self, state: Literal["ts", "error", "opt", "normal"], negate: bool = False
     ):
         """
-        Write the GJF file.
+        Filter the file batch by the state of the files.
 
         Parameters:
-            file_path (str):
-                The path to write the GJF file. If not specified, will be generated in situ.
-            charge (int):
-                The forced charge. If specified, will be used to overwrite the charge in the gjf file.
-            multiplicity (int):
-                The forced multiplicity. If specified, will be used to overwrite the multiplicity in the gjf file.
-            template (str):
-                path to read a gjf file as a template.
-            prefix (str):
-                prefix to add to the beginning of the gjf file, priority is higher than template.
-            suffix (str):
-                suffix to add to the end of the gjf file, priority is higher than template.
-            chk (bool):
-                If true, add the chk keyword to the link0 section. Will use the file name as the chk file name.
-            oldchk (bool):
-                If true, add the oldchk keyword to the link0 section. Will use the file name as the chk file name.
-            frameID (int):
-                The frame ID to write.
-        Returns:
-            str: The path to the GJF file.
+            state ("ts" | "error" | "opt" | "normal"): The state to filter.
+            negate (bool): Whether to negate the filter.
         """
-        self.temp_batch.to_GJF_file(
-            file_dir,
-            charge=charge,
-            multiplicity=multiplicity,
-            prefix=prefix,
-            suffix=suffix,
-            template=template,
-            chk=chk,
-            oldchk=oldchk,
-            frameID=frameID,
-        )
-        return self
-
-    def smiles(self, frameID: int = -1):
-        """
-        Print the SMILES of the specified frame of each files.
-
-        Parameters:
-            frameID int:
-                the frame ID to print, -1 means the last frame.
-        """
-        for _file in self.temp_batch:
-            try:
-                print(_file[frameID].to_canonical_SMILES())
-            except AttributeError:
-                print(f"No SMILES found in {_file.file_path} frame {frameID}")
-        return self
-
-    def charge(self, charge: int):
-        """
-        Filter the file batch by charge.
-
-        Parameters:
-            charge int:
-                the charge to filter.
-        """
-        self._temp_batch = self.temp_batch.filter_by_charge(charge)
-        return self
-
-    def multi(self, multiplicity: int):
-        """
-        Filter the file batch by multiplicity.
-
-        Parameters:
-            multiplicity int:
-                the multiplicity to filter.
-        """
-        self._temp_batch = self.temp_batch.filter_by_multi(multiplicity)
-        return self
-
-    def normal(self):
-        """
-        Filter the file batch by normal judgement.
-        """
-        self._temp_batch = self.temp_batch.filter_normal()
-        return self
-
-    def error(self):
-        """
-        Filter the file batch by error judgement.
-        """
-        self._temp_batch = self.temp_batch.filter_error()
-        return self
-
-    def ts(self):
-        """
-        Filter the file batch by TS judgement, which means the structure has a unique imagnary frequency.
-        """
-        self._temp_batch = self.temp_batch.filter_TS()
-        return self
-
-    def format(self, format: str):
-        """
-        Filter the file batch by format. e.g. "sdf" or ".sdf" are equal.
-        """
-        self._temp_batch = self.temp_batch.filter_by_format(format)
+        self._temp_batch = self.__checked_file_batch().filter_state(state, negate)
         return self
 
     def paths(self):
         """
         Print the file paths of each file.
         """
-        for _file in self.temp_batch:
+        for _file in self.__checked_file_batch():
             print(_file.file_path)
         return self
 
@@ -283,14 +180,14 @@ class MolOPCLI:
         """
         Turn off the log.
         """
-        molopconfig.log_off()
+        molopconfig.disable_file_logging()
         return self
 
     def log_on(self):
         """
         Turn on the log.
         """
-        molopconfig.log_on()
+        molopconfig.enable_file_logging()
         return self
 
 

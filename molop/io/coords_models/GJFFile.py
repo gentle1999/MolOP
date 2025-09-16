@@ -1,14 +1,15 @@
-'''
+"""
 Author: TMJ
 Date: 2025-07-29 17:00:29
 LastEditors: TMJ
-LastEditTime: 2025-07-29 23:21:54
+LastEditTime: 2025-09-12 10:56:12
 Description: 请填写简介
-'''
+"""
+
 from pydantic import Field
 
 from molop.io.base_models.Bases import BaseDataClassWithUnit
-from molop.io.base_models.ChemFile import CoordsFileMixin
+from molop.io.base_models.ChemFile import BaseCoordsFile
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
 from molop.io.coords_models.GJFFileFrame import GJFFileFrameDisk, GJFFileFrameMemory
 
@@ -20,8 +21,10 @@ class GJFFileMixin(BaseDataClassWithUnit):
     suffix: str = Field(default="", description="suffix comment")
 
 
-class GJFFileMemory(GJFFileMixin, MemoryStorageMixin, CoordsFileMixin[GJFFileFrameMemory]): ...
+class GJFFileMemory(
+    GJFFileMixin, MemoryStorageMixin, BaseCoordsFile[GJFFileFrameMemory]
+): ...
 
 
-class GJFFileDisk(GJFFileMixin, DiskStorageMixin, CoordsFileMixin[GJFFileFrameDisk]):
+class GJFFileDisk(GJFFileMixin, DiskStorageMixin, BaseCoordsFile[GJFFileFrameDisk]):
     _allowed_formats_ = ("gjf", "gif", "com", ".gau", ".gjc")

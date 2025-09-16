@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-30 10:30:03
 LastEditors: TMJ
-LastEditTime: 2025-08-21 00:06:43
+LastEditTime: 2025-09-12 16:18:43
 Description: 请填写简介
 """
 
@@ -31,7 +31,9 @@ class SDFFileFrameParser(Protocol):
 class SDFFileFrameParserMixin:
 
     def _parse_frame(self: SDFFileFrameParser) -> Mapping[str, Any]:
-        fake_mol = Chem.MolFromMolBlock(self._block, removeHs=False, sanitize=False)
+        suppl = Chem.SDMolSupplier()
+        suppl.SetData(self._block, removeHs=False, sanitize=False)
+        fake_mol: Chem.Mol = next(suppl)
         formal_charges = get_formal_charges(fake_mol)
         formal_num_radicals = get_formal_num_radicals(fake_mol)
         return {

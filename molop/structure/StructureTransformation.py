@@ -11,7 +11,7 @@ from rdkit import Chem, RDLogger
 from rdkit.Chem import rdForceFieldHelpers, rdMolTransforms
 from rdkit.Chem.rdDistGeom import EmbedMolecule
 
-from molop.logger.logger import moloplogger
+from molop.config import moloplogger
 from molop.structure import GeometryTransformation
 from molop.structure.utils import (
     bond_list,

@@ -4,7 +4,7 @@ Date: 2024-08-31 17:52:33
 LastEditors: TMJ
 LastEditTime: 2024-08-31 17:54:13
 
-Description: Re-implementation of SPMS descriptor [A Molecular Stereostructure Descriptor based on 
+Description: Re-implementation of SPMS descriptor [A Molecular Stereostructure Descriptor based on
 Spherical Projection](https://www.thieme-connect.de/products/ejournals/abstract/10.1055/s-0040-1705977).
 GitHub repository: https://github.com/licheng-xu-echo/SPMS.git
 """
@@ -17,12 +17,12 @@ from rdkit import Chem
 from rdkit.Chem.rdMolTransforms import ComputeCentroid
 from rdkit.Geometry import Point3D
 
-from molop.logger.logger import moloplogger
+from molop.config import moloplogger
 from molop.structure.GeometryTransformation import (
     rotate_mol_anchor_to_axis,
     rotate_mol_anchor_to_plane,
-    translate_mol_anchor,
     translate_mol,
+    translate_mol_anchor,
 )
 
 DEBUG_TAG = "SPMS"
@@ -32,7 +32,7 @@ def check_dependencies():
     try:
         import matplotlib.pyplot as plt
         import seaborn as sns
-    except ImportError:
+    except ImportError as e:
         moloplogger.error(
             f"{DEBUG_TAG}: matplotlib and seaborn are required for SPMS descriptor demonstration. "
             "Please install them by running 'pip install matplotlib seaborn'."
@@ -40,7 +40,7 @@ def check_dependencies():
         raise ImportError(
             f"{DEBUG_TAG}: matplotlib and seaborn are required for SPMS descriptor demonstration. "
             "Please install them by running 'pip install matplotlib seaborn'."
-        )
+        ) from e
 
 
 pt = Chem.GetPeriodicTable()
@@ -119,7 +119,7 @@ class SPMSCalculator(BaseModel):
         default=None,
         description="List of atom ids to use as the third anchor. Default is None.",
     )
-    _rdmol_oriented: Chem.rdchem.Mol = PrivateAttr(default=None)
+    _rdmol_oriented: Chem.rdchem.Mol | None = PrivateAttr(default=None)
 
     @property
     def radius_list(self) -> np.ndarray:
@@ -143,7 +143,7 @@ class SPMSCalculator(BaseModel):
             )
 
     @property
-    def rdmol_oriented(self) -> Chem.rdchem.Mol:
+    def rdmol_oriented(self) -> Chem.rdchem.Mol | None:
         """
         Orient the molecule to the SPMS geometry.
 
@@ -181,6 +181,8 @@ class SPMSCalculator(BaseModel):
         Returns:
             np.ndarray: Positions of the atoms.
         """
+        if self._rdmol_oriented is None:
+            raise ValueError("Please call 'rdmol_oriented' first.")
         return self.rdmol_oriented.GetConformer().GetPositions() + np.array(
             [0.000001, 0.000001, 0.000001]
         )
@@ -232,7 +234,7 @@ class SPMSCalculator(BaseModel):
         # orthogonal_det
         orthogonal_det = np.arccos(orthogonal_mesh) <= np.pi * 0.5
         double_correct = np.array([orthogonal_det, cross_det]).all(axis=0)
-        double_correct_index = np.array(np.where(double_correct == True)).T
+        double_correct_index = np.array(np.where(double_correct)).T
         d_1, d_2 = np.zeros_like(mesh_xyz_h), np.zeros_like(mesh_xyz_h)
 
         psi = np.linalg.norm(positions, axis=1)
@@ -315,8 +317,8 @@ class SPMSCalculator(BaseModel):
         self,
         xy_label=True,
         cbar=True,
-        scale_max: float = None,
-        scale_min: float = None,
+        scale_max: float | None = None,
+        scale_min: float | None = None,
         height: float = 6,
         width: float = 12,
         cmap: str = "RdBu",
