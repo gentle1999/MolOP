@@ -5,6 +5,7 @@ from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity, PlainUnit
 from rdkit import Chem
 
+from molop.config import moloplogger
 from molop.io.base_models.DataClasses import (
     ChargeSpinPopulations,
     Energies,
@@ -22,7 +23,6 @@ from molop.io.QM_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
     G16LogFileFrameMemory,
 )
-from molop.logger.logger import moloplogger
 from molop.unit import atom_ureg
 from molop.utils.functions import fill_symmetric_matrix, merge_models
 
@@ -411,7 +411,9 @@ class G16LogFileFrameParserMixin:
             if polars:
                 infos["polarizability"] = Polarizability.model_validate(polars)
         except (ValueError, IndexError) as e:
-            moloplogger.warning(f"Error parsing populations: {e}, now block: {self._block}")
+            moloplogger.warning(
+                f"Error parsing populations: {e}, now block: {self._block}"
+            )
         except Exception as e:
             moloplogger.error(
                 f"Unexpected error occurred while parsing populations: {e}"

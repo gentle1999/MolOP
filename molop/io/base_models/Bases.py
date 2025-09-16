@@ -16,8 +16,7 @@ from pint.facets.plain import PlainQuantity
 from pydantic import BaseModel, ConfigDict, PrivateAttr, model_validator
 from typing_extensions import Self
 
-from molop.config import molopconfig
-from molop.logger.logger import moloplogger
+from molop.config import molopconfig, moloplogger
 from molop.unit import unit_transform
 
 

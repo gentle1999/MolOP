@@ -6,9 +6,10 @@ LastEditTime: 2024-03-02 13:22:19
 Description: 请填写简介
 """
 
+from typing import TypeVar
+
 import numpy as np
 import numpy.typing as npt
-from typing import Literal, TypeVar
 from rdkit import Chem
 
 RdMol = Chem.rdchem.Mol

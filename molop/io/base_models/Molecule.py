@@ -7,7 +7,7 @@ Description: 请填写简介
 """
 
 import os
-from typing import Dict, List, Literal, Optional, Sequence, Tuple, Union, Any
+from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
 from openbabel import pybel
@@ -17,8 +17,9 @@ from rdkit import Chem
 from rdkit.Chem.rdMolAlign import GetBestRMS
 from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 
+from molop.config import moloplogger
 from molop.descriptor.spms import SPMSCalculator
-from molop.logger.logger import moloplogger
+from molop.io.patterns.G16Patterns import options_parser
 from molop.structure.FormatConverter import rdmol_to_omol
 from molop.structure.GeometryTransformation import get_geometry_info, standard_orient
 from molop.structure.GraphReconstruction import xyz_to_rdmol
@@ -229,8 +230,7 @@ class Molecule(BaseDataClassWithUnit):
             str: The SDF block.
         """
         if self.rdmol is None:
-            moloplogger.warning("SDF building failed. No RDKit molecule found.")
-            return ""
+            raise ValueError("SDF building failed. No RDKit molecule recovered.")
         if engine == "rdkit":
             return Chem.MolToMolBlock(self.rdmol)
         elif engine == "openbabel":
@@ -257,14 +257,58 @@ class Molecule(BaseDataClassWithUnit):
             str: The CML block.
         """
         if self.rdmol is None:
-            moloplogger.warning("CML building failed. No RDKit molecule found.")
-            return ""
+            raise ValueError("CML building failed. No RDKit molecule recovered.")
         if engine == "rdkit":
             return Chem.MolToMrvBlock(self.rdmol)
         elif engine == "openbabel":
             return self.omol.write("cml")  # type: ignore
         else:
             raise ValueError(f"Unsupported engine: {engine}")
+
+    def to_GJF_block(
+        self,
+        options: str = "",
+        route: str = "#p",
+        title_card: str = "title",
+        suffix: str = "",
+    ) -> str:
+        _options = options_parser(options)
+        options_lines = (
+            "\n".join([f"{key}={val}" for key, val in _options.items()]) + "\n"
+            if _options
+            else ""
+        )
+        return (
+            options_lines
+            + route
+            + "\n\n"
+            + f"{title_card}\n\n"
+            + f"{self.charge} {self.multiplicity}\n"
+            + "\n".join(
+                [
+                    f"{Chem.Atom(atom).GetSymbol():10s}{x:18.10f}{y:18.10f}{z:18.10f}"
+                    for atom, (x, y, z) in zip(self.atoms, self.coords.m, strict=True)
+                ]
+            )
+            + "\n\n"
+            + suffix
+            + "\n\n"
+        )
+
+    def to_GJF_file(
+        self,
+        filepath: os.PathLike,
+        options: str = "",
+        route: str = "#p",
+        title_card: str = "title",
+        suffix: str = "",
+    ):
+        with open(filepath, "w") as f:
+            f.write(
+                self.to_GJF_block(
+                    options=options, route=route, title_card=title_card, suffix=suffix
+                )
+            )
 
     def to_SMILES(self) -> str:
         """
@@ -440,14 +484,16 @@ class Molecule(BaseDataClassWithUnit):
 
     @staticmethod
     def from_rdmol(rdmol: RdMol) -> "Molecule":
-        return Molecule(
-            atoms=[atom.GetAtomicNum() for atom in rdmol.GetAtoms()],
-            coords=rdmol.GetConformer().GetPositions() * atom_ureg.angstrom,
-            charge=get_total_charge(rdmol),
-            multiplicity=get_total_multiplicity(rdmol),
-            bonds=get_bond_pairs(rdmol),
-            formal_charges=get_formal_charges(rdmol),
-            formal_num_radicals=get_formal_num_radicals(rdmol),
+        return Molecule.model_validate(
+            {
+                "atoms": [atom.GetAtomicNum() for atom in rdmol.GetAtoms()],
+                "coords": rdmol.GetConformer().GetPositions() * atom_ureg.angstrom,
+                "charge": get_total_charge(rdmol),
+                "multiplicity": get_total_multiplicity(rdmol),
+                "bonds": get_bond_pairs(rdmol),
+                "formal_charges": get_formal_charges(rdmol),
+                "formal_num_radicals": get_formal_num_radicals(rdmol),
+            }
         )
 
     def replace_substituent(
@@ -549,11 +595,15 @@ class Molecule(BaseDataClassWithUnit):
         Parameters:
             mapping_smarts (str):
                 The SMARTS to query the molecule substructure.
-                The queried atoms will be renumbered and placed at the beginning of all atoms according to the order of the atoms in SMARTS. The relative order of the remaining atoms remains unchanged.
+                The queried atoms will be renumbered and placed at the beginning of all atoms according
+                to the order of the atoms in SMARTS. The relative order of the remaining atoms remains unchanged.
             mapping_indice (Sequence[int]):
-                The indices of the atoms to be renumbered. The relative order of the remaining atoms remains unchanged.
-                e.g. atoms = [0, 1, 2, 3, 4, 5]; mapping = [3, 5, 4] means the first atom in the new molecule is mapped to the third atom in the original molecule,
-                the second atom is mapped to the first atom, and the third atom is mapped to the second atom. Result is [3, 5, 4, 0, 1, 2].
+                The indices of the atoms to be renumbered. The relative order of the remaining atoms
+                remains unchanged.
+                e.g. atoms = [0, 1, 2, 3, 4, 5]; mapping = [3, 5, 4] means the first atom in the new
+                molecule is mapped to the third atom in the original molecule,
+                the second atom is mapped to the first atom, and the third atom is mapped to the second
+                atom. Result is [3, 5, 4, 0, 1, 2].
         Returns:
             Molecule: The new Molecule with the atom index reset.
         """
@@ -586,21 +636,26 @@ class Molecule(BaseDataClassWithUnit):
         anchor_list: Sequence[int],
     ) -> "Molecule":
         """
-        Depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_axis`, and `rotate_anchor_to_plane` are executed in order to obtain the normalized oriented molecule.
+        Depending on the input `idx_list`, `translate_anchor`, `rotate_anchor_to_axis`, and
+        `rotate_anchor_to_plane` are executed in order to obtain the normalized oriented molecule.
 
         Sub-functions:
-            - `translate_anchor`: Translate the entire molecule so that the specified atom reaches the origin.
-            - `rotate_anchor_to_axis`: Rotate the specified second atom along the axis passing through the origin so that it reaches the positive half-axis of the X-axis.
-            - `rotate_anchor_to_plane`: Rotate along the axis passing through the origin so that the specified third atom reaches quadrant 1 or 2 of the XY plane.
+            - `translate_anchor`: Translate the entire molecule so that the specified atom reaches
+                the origin.
+            - `rotate_anchor_to_axis`: Rotate the specified second atom along the axis passing through
+                the origin so that it reaches the positive half-axis of the X-axis.
+            - `rotate_anchor_to_plane`: Rotate along the axis passing through the origin so that the
+                specified third atom reaches quadrant 1 or 2 of the XY plane.
 
         Parameters:
             anchor_list (Sequence[int]):
-                A Sequence of indices of the atoms to be translated to origin, rotated to X axis, and rotated again to XY face:
+                A Sequence of indices of the atoms to be translated to origin, rotated to X axis,
+                    and rotated again to XY face:
 
-                - If length is 1, execute `translate_anchor`
-                - If length is 2, execute `translate_anchor` and `rotate_anchor_to_axis`
-                - If length is 3, execute `translate_anchor`, `rotate_anchor_to_axis` and `rotate_anchor_to_plane`
-                - If the length of the input `anchor_list` is greater than 3, subsequent atomic numbers are not considered.
+            - If length is 1, execute `translate_anchor`
+            - If length is 2, execute `translate_anchor` and `rotate_anchor_to_axis`
+            - If length is 3, execute `translate_anchor`, `rotate_anchor_to_axis` and `rotate_anchor_to_plane`
+            - If the length of the input `anchor_list` is greater than 3, subsequent atomic numbers are not considered.
         Returns:
             BaseMolFrameParser: The new parser.
         """
@@ -617,4 +672,3 @@ class Molecule(BaseDataClassWithUnit):
             "Multiplicity": self.multiplicity,
             "NumAtoms": len(self.atoms),
         }
-        

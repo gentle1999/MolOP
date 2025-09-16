@@ -98,11 +98,11 @@ class G16LogFileFrameMixin(Molecule):
 
 
 class G16LogFileFrameMemory(
-    MemoryStorageMixin, BaseCalcFrame["G16LogFileFrameMemory"], G16LogFileFrameMixin
+    MemoryStorageMixin, G16LogFileFrameMixin, BaseCalcFrame["G16LogFileFrameMemory"]
 ): ...
 
 
 class G16LogFileFrameDisk(
-    DiskStorageMixin, BaseCalcFrame["G16LogFileFrameDisk"], G16LogFileFrameMixin
+    DiskStorageMixin, G16LogFileFrameMixin, BaseCalcFrame["G16LogFileFrameDisk"]
 ):
     _allowed_formats_ = (".log", ".g16", ".gal", ".out", ".irc")

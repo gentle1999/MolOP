@@ -2,11 +2,13 @@
 Author: TMJ
 Date: 2025-07-30 10:30:16
 LastEditors: TMJ
-LastEditTime: 2025-08-02 19:57:46
+LastEditTime: 2025-09-15 19:23:36
 Description: 请填写简介
 """
 
 from typing import Any, Optional, Sequence
+
+from rdkit import Chem
 
 from molop.io.base_models.FileParser import BaseFileParserDisk, BaseFileParserMemory
 from molop.io.coords_models.SDFFile import SDFFileDisk, SDFFileMemory
@@ -21,7 +23,9 @@ class SDFFileParserMixin:
     def _parse_metadata(self, file_content: str) -> Optional[dict[str, Any]]: ...
 
     def _split_file(self, file_content: str) -> Sequence[str]:
-        return [block for block in file_content.split("$$$$\n") if block.strip()]
+        suppl = Chem.SDMolSupplier()
+        suppl.SetData(file_content, removeHs=False, sanitize=False)
+        return [Chem.MolToMolBlock(mol) for mol in suppl]
 
 
 class SDFFileParserMemory(

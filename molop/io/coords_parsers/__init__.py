@@ -7,22 +7,22 @@ Description: 请填写简介
 """
 
 from .GJFFileParser import (
-    GJFFileParserDisk,
-    GJFFileParserMemory,
     GJFFileFrameParserDisk,
     GJFFileFrameParserMemory,
-)
-from .XYZFileParser import (
-    XYZFileParserDisk,
-    XYZFileParserMemory,
-    XYZFileFrameParserDisk,
-    XYZFileFrameParserMemory,
+    GJFFileParserDisk,
+    GJFFileParserMemory,
 )
 from .SDFFileParser import (
-    SDFFileParserDisk,
-    SDFFileParserMemory,
     SDFFileFrameParserDisk,
     SDFFileFrameParserMemory,
+    SDFFileParserDisk,
+    SDFFileParserMemory,
+)
+from .XYZFileParser import (
+    XYZFileFrameParserDisk,
+    XYZFileFrameParserMemory,
+    XYZFileParserDisk,
+    XYZFileParserMemory,
 )
 
 __all__ = [

@@ -1,25 +1,42 @@
 """
 Author: TMJ
-Date: 2024-10-19 09:57:26
+Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2024-10-23 15:01:26
+LastEditTime: 2025-09-16 10:43:33
 Description: 请填写简介
 """
 
 import os
 from glob import glob
+from typing import Literal
 
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
 from molop.io.FileBatchParserDisk import FileBatchParserDisk
+from molop.io.types import (
+    G16LogFileParserMemory,
+    GJFFileParserMemory,
+    SDFFileParserMemory,
+    XYZFileParserMemory,
+)
+
+__all__ = [
+    "AutoParser",
+    "GJFFileParserMemory",
+    "XYZFileParserMemory",
+    "SDFFileParserMemory",
+    "G16LogFileParserMemory",
+]
 
 
 def AutoParser(
     file_path: str,
-    charge: int = 0,
-    multiplicity: int = 1,
+    *,
+    total_charge: int | None = None,
+    total_multiplicity: int | None = None,
     n_jobs: int = -1,
     only_extract_structure=False,
     only_last_frame=False,
+    parser_detection: Literal["auto", "gjf", "xyz", "sdf", "g16log"] = "auto",
 ) -> FileBatchModelDisk:
     """
     The Entrypoint of MolOP
@@ -27,43 +44,45 @@ def AutoParser(
     Parameters:
         file_path (str):
             use regax to match files.
-        charge (int):
+        total_charge (int | None):
             forced charge of the molecule, if not given, will use the charge written in the file or 0.
-        multiplicity (int):
+        total_multiplicity (int | None):
             forced multiplicity of the molecule, if not given, will use the charge written in the file or 1.
         n_jobs (int):
-            number of jobs to use, if -1, use all cpu.
+            number of jobs to use, if -1, use cpu with default max number.
         only_extract_structure (bool):
             if True, only extract the structure, else extract the whole file.
         only_last_frame (bool):
             if True, only extract the last frame, else extract all frames.
+        parser_detection (Literal["auto", "gjf", "xyz", "sdf", "g16log"]):
+            if "auto", use the file extension to detect the parser, else use the given parser.
 
     Returns:
-        FileParserBatch
+        FileBatchParserDisk
 
     How to use
     ----------
     ```python
     from molop import AutoParser
-    parser = AutoParser("/path/to/file") # return FileParserBatch with singlefile_parser
-    parser = AutoParser("/path/to/files/*.log") # return FileParserBatch
+    parser = AutoParser("/path/to/file") # return FileBatchParserDisk with singlefile_parser
+    parser = AutoParser("/path/to/files/*.log") # return FileBatchParserDisk
     ```
     """
     if os.path.isfile(file_path) and os.path.exists(file_path):
         files = [file_path]
     else:
         files = glob(file_path)
-        files.sort()
     if len(files) > 0:
         batch = FileBatchParserDisk(
             n_jobs=n_jobs,
         )
         return batch.parse(
             files,
-            total_charge=charge,
-            total_multiplicity=multiplicity,
+            total_charge=total_charge,
+            total_multiplicity=total_multiplicity,
             only_extract_structure=only_extract_structure,
             only_last_frame=only_last_frame,
+            parser_detection=parser_detection,
         )
     else:
         raise FileNotFoundError("No file found in the path")

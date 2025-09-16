@@ -274,3 +274,5 @@ docs/*/transform_in_gjf.md
 docs/*/structure_recovery_cases.md
 docs/*/tutorial_for_replacement.md
 optional.json
+*.json
+ts_inital_log

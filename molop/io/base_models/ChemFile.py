@@ -6,7 +6,8 @@ LastEditTime: 2025-07-28 22:39:18
 Description: 请填写简介
 """
 
-from typing import Generic, List, Optional, Sequence, TypeVar, Union, overload
+import os
+from typing import Generic, List, Literal, Optional, Sequence, TypeVar, Union, overload
 
 import pandas as pd
 from pint.facets.plain import PlainQuantity
@@ -50,9 +51,7 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
             if isinstance(frameID, Sequence):
                 return [self[i] for i in frameID]
         except IndexError as e:
-            raise IndexError(
-                "Invalid index type. Only `int`, `slice`, and `Sequence[int]` are allowed."
-            ) from e
+            raise e
 
     def __iter__(self):
         self._index_ = 0
@@ -82,8 +81,8 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         """
         frame.frame_id = len(self._frames_)
         if frame.frame_id > 0:
-            self._frames_[frame.frame_id - 1]._next_frame = frame  # type: ignore
-            frame._prev_frame = self._frames_[frame.frame_id - 1]  # type: ignore
+            self._frames_[frame.frame_id - 1]._next_frame = frame
+            frame._prev_frame = self._frames_[frame.frame_id - 1]
         self._frames_.append(frame)
 
     @property
@@ -98,16 +97,114 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         """
         return self._frames_
 
+    @overload
+    def format_transform(
+        self,
+        format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
+        frameID: int,
+        file_path: os.PathLike | None = None,
+        embed_in_one_file: bool = True,
+        **kwargs,
+    ) -> str: ...
+    @overload
+    def format_transform(
+        self,
+        format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
+        frameID: Sequence[int],
+        file_path: os.PathLike | None = None,
+        embed_in_one_file: bool = True,
+        **kwargs,
+    ) -> List[str]: ...
+    def format_transform(
+        self,
+        format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
+        frameID: Sequence[int] | int = -1,
+        file_path: os.PathLike | None = None,
+        embed_in_one_file: bool = True,
+        **kwargs,
+    ) -> str | List[str]:
+        """
+        Transform the selected frames to the specified format.
+
+        Parameters:
+            format (str): The format to be transformed to.
+            frameID (int | slice | Sequence[int]): The frame(s) to be transformed.
+            file_path (os.PathLike | None): If given, the file path to save the transformed block(s); otherwise,
+                no file will be saved.
+            **kwargs: Additional keyword arguments for the transformation.
+        Returns:
+            str | List[str]: The transformed block(s).
+        """
+        assert format in (
+            "xyz",
+            "sdf",
+            "cml",
+            "gjf",
+            "smi",
+        ), "Only 'xyz', 'sdf', 'cml', 'gjf', 'smi' supported"
+        assert file_path is None or not os.path.isdir(
+            file_path
+        ), "file_path should be a file path or None"
+        if isinstance(frameID, int):
+            assert (
+                file_path is None or os.path.splitext(file_path)[1] == f".{format}"
+            ), "file_path should have the same extension as format"
+            if format == "smi":
+                block = self[frameID].to_canonical_SMILES(**kwargs)
+            else:
+                block: str = getattr(self[frameID], f"to_{format.upper()}_block")(
+                    **kwargs
+                )
+            if file_path is not None:
+                with open(file_path, "w") as f:
+                    f.write(block)
+            return block
+        elif isinstance(frameID, Sequence):
+            if embed_in_one_file:
+                assert (
+                    file_path is None or os.path.splitext(file_path)[1] == f".{format}"
+                ), "file_path should have the same extension as format"
+                sep = {
+                    "xyz": "\n",
+                    "sdf": "$$$$\n",
+                    "cml": "\n",
+                    "gjf": "\n",
+                    "smi": "\n",
+                }
+                blocks = sep[format].join(
+                    [
+                        self.format_transform(format, idx, file_path=None, **kwargs)
+                        for idx in frameID
+                    ]
+                )
+                if file_path is not None:
+                    with open(file_path, "w") as f:
+                        f.write(blocks)
+                return blocks
+            return [
+                self.format_transform(
+                    format,
+                    idx,
+                    file_path=(
+                        f"{os.path.splitext(file_path)[0]}-{idx:03d}.{format}"
+                        if file_path is not None
+                        else None
+                    ),  # type: ignore
+                    **kwargs,
+                )
+                for idx in frameID
+            ]
+
     def _add_default_units(self) -> None: ...
 
 
 ChemFile = TypeVar("ChemFile", bound="BaseChemFile")
 
 
-class CoordsFileMixin(BaseChemFile[coords_frame]): ...
+class BaseCoordsFile(BaseChemFile[coords_frame]): ...
 
 
-class CalcFileMixin(BaseChemFile[calc_frame]):
+class BaseCalcFile(BaseChemFile[calc_frame]):
     # QM software
     qm_software: str = Field(
         default="",
@@ -204,7 +301,7 @@ class CalcFileMixin(BaseChemFile[calc_frame]):
             return True
         return not self.status.normal_terminated
 
-    def draw_energy_curve(self):
+    def draw_energy_curve(self, unit: str = "hartree"):
         try:
             import seaborn as sns  # type: ignore # lazy import  # noqa: I001
         except ImportError as e:
@@ -212,11 +309,16 @@ class CalcFileMixin(BaseChemFile[calc_frame]):
                 "Seaborn is required for drawing energy curve. Please install it first by `pip install seaborn`."
             ) from e
         energies = {
-            frame.frame_id: frame.energies.total_energy.m
+            frame.frame_id: frame.energies.total_energy.to(unit).m
             for frame in self.frames
             if frame.energies is not None and frame.energies.total_energy is not None
         }
+        if len(energies) == 0:
+            raise ValueError("No valid energy data found.")
         temp_df = pd.DataFrame(
-            {"frame_id": list(energies.keys()), "total_energy": list(energies.values())}
+            {
+                "frame_id": list(energies.keys()),
+                f"total_energy ({unit})": list(energies.values()),
+            }
         )
-        return sns.lineplot(x="frame_id", y="total_energy", data=temp_df)
+        return sns.lineplot(x="frame_id", y=f"total_energy ({unit})", data=temp_df)

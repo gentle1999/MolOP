@@ -1,10 +1,10 @@
-'''
+"""
 Author: TMJ
 Date: 2025-07-28 23:09:31
 LastEditors: TMJ
-LastEditTime: 2025-08-03 21:09:24
+LastEditTime: 2025-09-12 15:38:40
 Description: 请填写简介
-'''
+"""
 
 from pydantic import Field
 from rdkit import Chem
@@ -52,6 +52,7 @@ class GJFFileFrameDisk(
     GJFFileFrameMixin, DiskStorageMixin, BaseCoordsFrame["GJFFileFrameDisk"]
 ):
     _allowed_formats_ = ("gjf", "gif", "com", ".gau", ".gjc")
+
     def to_GJF_block(
         self,
         chk: bool = True,
@@ -78,7 +79,7 @@ class GJFFileFrameDisk(
             + f"{self.charge} {self.multiplicity}\n"
             + "\n".join(
                 [
-                    f"{Chem.Atom(atom).GetSymbol():10s}{x:14.8f}{y:14.8f}{z:14.8f}"
+                    f"{Chem.Atom(atom).GetSymbol():10s}{x:18.10f}{y:18.10f}{z:18.10f}"
                     for atom, (x, y, z) in zip(self.atoms, self.coords.m, strict=True)
                 ]
             )

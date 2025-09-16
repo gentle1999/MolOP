@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 12:36:28
 LastEditors: TMJ
-LastEditTime: 2025-07-29 16:02:15
+LastEditTime: 2025-09-15 16:55:50
 Description: 请填写简介
 """
 
@@ -10,6 +10,7 @@ import os
 from typing import Sequence
 
 from pydantic import Field, PrivateAttr, computed_field, field_validator
+from typing_extensions import Self
 
 from molop.io.base_models.Bases import BaseDataClassWithUnit
 
@@ -72,3 +73,18 @@ class DiskStorageMixin(BaseDataClassWithUnit):
             str: The file format of the object.
         """
         return os.path.splitext(self.file_path)[-1]
+
+    def __ge__(self, other: Self) -> bool:
+        return self.file_path >= other.file_path
+
+    def __gt__(self, other: Self) -> bool:
+        return self.file_path > other.file_path
+
+    def __le__(self, other: Self) -> bool:
+        return self.file_path <= other.file_path
+
+    def __lt__(self, other: Self) -> bool:
+        return self.file_path < other.file_path
+
+    def __eq__(self, other: Self) -> bool:
+        return self.file_path == other.file_path

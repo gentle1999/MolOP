@@ -14,7 +14,7 @@ from openbabel import openbabel as ob
 from openbabel import pybel
 from rdkit import Chem
 
-from molop.logger.logger import moloplogger
+from molop.config import moloplogger
 from molop.structure.FormatConverter import (
     omol_to_rdmol,
     omol_to_rdmol_by_graph,
