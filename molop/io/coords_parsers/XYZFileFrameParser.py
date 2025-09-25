@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 22:54:56
 LastEditors: TMJ
-LastEditTime: 2025-08-21 00:06:48
+LastEditTime: 2025-09-17 20:02:05
 Description: 请填写简介
 """
 
@@ -32,12 +32,9 @@ class XYZFileFrameParser(Protocol):
 class XYZFileFrameParserMixin:
 
     def _parse_frame(self: XYZFileFrameParser) -> Mapping[str, Any]:
-        if indexes := xyz_patterns.META.locate_content(self._block):
-            start_start, start_end, end_start, end_end = indexes
-            meta_block = self._block[start_end:end_start]
-            atom_num = int(meta_block.splitlines()[0])
-            if atom_num == 0:
-                raise ValueError("Atom number is 0.")
+        lines = self._block.splitlines()
+        atom_num = int(lines[0].strip())
+        comment = lines[1].strip()
         if matches := xyz_patterns.ATOMS.match_content(self._block):
             assert len(matches) == atom_num, "Atom number does not match."
             atoms = [pt.GetAtomicNumber(row[0]) for row in matches]
@@ -46,6 +43,7 @@ class XYZFileFrameParserMixin:
                 dtype=np.float32,
             )
             return {
+                "comment": comment,
                 "atoms": atoms,
                 "coords": coords * atom_ureg.angstrom,
                 "charge": 0,

@@ -83,6 +83,7 @@ class MolOPCLI:
         )
         return self
 
+    @property
     def __checked_file_batch(self):
         if self.temp_batch is None:
             raise ValueError("No file batch found, please use `read` command first.")
@@ -127,7 +128,7 @@ class MolOPCLI:
             frame_id (int | "all"): The frame ID to transform. If "all", all frames will be transformed.
             embed_in_one_file (bool): Whether to embed the transformed data in one file.
         """
-        self.__checked_file_batch().format_transform(
+        self.__checked_file_batch.format_transform(
             format=format,
             output_dir=output_dir,
             frameID=frame_id,
@@ -145,14 +146,14 @@ class MolOPCLI:
             state ("ts" | "error" | "opt" | "normal"): The state to filter.
             negate (bool): Whether to negate the filter.
         """
-        self._temp_batch = self.__checked_file_batch().filter_state(state, negate)
+        self._temp_batch = self.__checked_file_batch.filter_state(state, negate)
         return self
 
     def paths(self):
         """
         Print the file paths of each file.
         """
-        for _file in self.__checked_file_batch():
+        for _file in self.__checked_file_batch:
             print(_file.file_path)
         return self
 

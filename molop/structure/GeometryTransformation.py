@@ -223,9 +223,9 @@ def translate_anchor(pos: np.ndarray, idx: Union[int, Sequence[int]]) -> np.ndar
         return pos - pos[idx]
     elif isinstance(idx, Sequence):
         for i in idx:
-            assert isinstance(
-                i, (int, np.integer)
-            ), "idx must be int or sequence of int"
+            assert isinstance(i, (int, np.integer)), (
+                "idx must be int or sequence of int"
+            )
         return pos - np.mean(pos[idx], axis=0)
     else:
         raise TypeError("idx must be int or sequence of int")
@@ -265,9 +265,9 @@ def rotate_anchor_to_axis(
         point = pos[idx]
     elif isinstance(idx, Sequence):
         for i in idx:
-            assert isinstance(
-                i, (int, np.integer)
-            ), "idx must be int or sequence of int"
+            assert isinstance(i, (int, np.integer)), (
+                "idx must be int or sequence of int"
+            )
         point = np.mean(pos[idx], axis=0)
     else:
         raise TypeError("idx must be int or sequence of int")
@@ -303,7 +303,7 @@ def rotate_mol_anchor_to_axis(
     Parameters:
         mol (RdMol):
             Molecule to be rotated
-        idx (int):
+        idx (int | Sequence[int]):
             The index of the anchor atom
         axis (Literal["x", "y", "z"]):
             The axis to rotate along
@@ -336,9 +336,9 @@ def rotate_anchor_to_plane(
         point = pos[idx]
     elif isinstance(idx, Sequence):
         for i in idx:
-            assert isinstance(
-                i, (int, np.integer)
-            ), "idx must be int or sequence of int"
+            assert isinstance(i, (int, np.integer)), (
+                "idx must be int or sequence of int"
+            )
         point = np.mean(pos[idx], axis=0)
     else:
         raise TypeError("idx must be int or sequence of int")
@@ -362,7 +362,7 @@ def rotate_anchor_to_plane(
 
 def rotate_mol_anchor_to_plane(
     mol: RdMol,
-    idx: int,
+    idx: Union[int, Sequence[int]],
     plane: Literal["xy", "yz", "zx", "yx", "zy", "xz"] = "xy",
     conformer_id=0,
 ):
@@ -373,7 +373,7 @@ def rotate_mol_anchor_to_plane(
     Parameters:
         mol (RdMol):
             Molecule to be rotated
-        idx (int):
+        idx (int | Sequence[int]):
             The index of the anchor atom
         plane (Literal["xy", "yz", "zx", "yx", "zy", "xz"]):
             The plane to rotate along

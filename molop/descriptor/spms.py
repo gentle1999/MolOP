@@ -9,13 +9,12 @@ Spherical Projection](https://www.thieme-connect.de/products/ejournals/abstract/
 GitHub repository: https://github.com/licheng-xu-echo/SPMS.git
 """
 
-from typing import List, Literal, Sequence, Tuple, Union
+from typing import Any, Literal, Sequence, Tuple, Union
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, computed_field
+from pydantic import BaseModel, ConfigDict, Field, PrivateAttr
 from rdkit import Chem
 from rdkit.Chem.rdMolTransforms import ComputeCentroid
-from rdkit.Geometry import Point3D
 
 from molop.config import moloplogger
 from molop.structure.GeometryTransformation import (
@@ -32,6 +31,8 @@ def check_dependencies():
     try:
         import matplotlib.pyplot as plt
         import seaborn as sns
+
+        return plt, sns
     except ImportError as e:
         moloplogger.error(
             f"{DEBUG_TAG}: matplotlib and seaborn are required for SPMS descriptor demonstration. "
@@ -181,7 +182,7 @@ class SPMSCalculator(BaseModel):
         Returns:
             np.ndarray: Positions of the atoms.
         """
-        if self._rdmol_oriented is None:
+        if self.rdmol_oriented is None:
             raise ValueError("Please call 'rdmol_oriented' first.")
         return self.rdmol_oriented.GetConformer().GetPositions() + np.array(
             [0.000001, 0.000001, 0.000001]
@@ -334,7 +335,7 @@ class SPMSCalculator(BaseModel):
             scale_min = np.min(spms)
         g = sns.heatmap(self.SPMS, cmap=cmap, cbar=cbar, vmin=scale_min, vmax=scale_max)
         g.set_title("SPMS descriptor")
-        g.figure.set_size_inches(width, height)
+        g.figure.set_size_inches(width, height)  # type: ignore
         if xy_label:
             g.set_xlabel("Latitudinal")
             g.set_ylabel("Longitude")
@@ -348,7 +349,6 @@ class SPMSCalculator(BaseModel):
         xy_label=True,
     ):
         check_dependencies()
-        import matplotlib.pyplot as plt
         import seaborn as sns
 
         spms = self.SPMS
@@ -357,7 +357,7 @@ class SPMSCalculator(BaseModel):
 
         g = sns.scatterplot(x=cols, y=rows, hue=weights, palette=cmap)
         g.set_title("SPMS descriptor")
-        g.figure.set_size_inches(width, height)
+        g.figure.set_size_inches(width, height)  # type: ignore
         if xy_label:
             g.set_xlabel("Latitudinal")
             g.set_ylabel("Longitude")
@@ -394,13 +394,10 @@ def geometry_initialize(
 ) -> Chem.rdchem.Mol:
     rwmol = Chem.RWMol(rdmol)
     # if user provides custom anchors, use them
-    if all(
-        anchor is not None
-        for anchor in [
-            custom_first_anchors,
-            custom_second_anchors,
-            custom_third_anchors,
-        ]
+    if (
+        custom_first_anchors is not None
+        and custom_second_anchors is not None
+        and custom_third_anchors is not None
     ):
         translate_mol_anchor(rwmol, custom_first_anchors)
         rotate_mol_anchor_to_axis(rwmol, custom_second_anchors, "z")
@@ -408,12 +405,14 @@ def geometry_initialize(
         return rwmol.GetMol()
 
     if anchor_list is None:
-        center: Point3D = ComputeCentroid(rdmol.GetConformer(), ignoreHs=False)
+        center: Any = ComputeCentroid(rdmol.GetConformer(), ignoreHs=False)
     elif len(anchor_list) >= 1:
         center = np.mean(
             [rwmol.GetConformer().GetAtomPosition(i) for i in anchor_list],
             axis=0,
         )
+    else:
+        center: Any = ComputeCentroid(rdmol.GetConformer(), ignoreHs=False)
     dis_list = np.linalg.norm(
         rwmol.GetConformer().GetPositions() - np.array(center), axis=1
     )
@@ -426,9 +425,9 @@ def geometry_initialize(
     # put the centroid to origin
     translate_mol(rwmol, center * -1)
     # rotate the nearest atom to Z axis
-    rotate_mol_anchor_to_axis(rwmol, nearest_atom, "z")
+    rotate_mol_anchor_to_axis(rwmol, nearest_atom.item(), "z")
     # rotate the farthest atom to ZY plane
-    rotate_mol_anchor_to_plane(rwmol, farthest_atom, "zy")
+    rotate_mol_anchor_to_plane(rwmol, farthest_atom.item(), "zy")
     return rwmol.GetMol()
 
 

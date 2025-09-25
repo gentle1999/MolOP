@@ -210,7 +210,7 @@ class Molecule(BaseDataClassWithUnit):
             + f"charge {self.charge} multiplicity {self.multiplicity}\n"
             + "\n".join(
                 [
-                    f"{atom:10s}{x:10.5f}{y:10.5f}{z:10.5f}"
+                    f"{atom:10s}{x:18.10f}{y:18.10f}{z:18.10f}"
                     for atom, (x, y, z) in zip(
                         self.atom_symbols, self.coords.m, strict=True
                     )
