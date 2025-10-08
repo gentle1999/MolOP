@@ -7,6 +7,7 @@ Description: 请填写简介
 """
 
 import os
+from sys import getsizeof
 from typing import Generic, List, Literal, Optional, Sequence, TypeVar, Union, overload
 
 import pandas as pd
@@ -33,6 +34,10 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
     )
     charge: int = Field(default=0, description="charge")
     multiplicity: int = Field(default=1, description="multiplicity")
+
+    @property
+    def file_size(self) -> int:
+        return getsizeof(self.file_content)
 
     @overload
     def __getitem__(self, frameID: int) -> ChemFileFrame: ...
@@ -142,9 +147,9 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
             "gjf",
             "smi",
         ), "Only 'xyz', 'sdf', 'cml', 'gjf', 'smi' supported"
-        assert file_path is None or not os.path.isdir(
-            file_path
-        ), "file_path should be a file path or None"
+        assert file_path is None or not os.path.isdir(file_path), (
+            "file_path should be a file path or None"
+        )
         if isinstance(frameID, int):
             assert (
                 file_path is None or os.path.splitext(file_path)[1] == f".{format}"

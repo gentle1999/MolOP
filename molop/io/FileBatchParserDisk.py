@@ -157,7 +157,7 @@ class FileBatchParserDisk:
                 f"Could not get file size for sorting, proceeding without it: {e}"
             )
         total_tasks = [
-            {"file_path": fp, "possible_parsers": parsers.get(os.path.splitext(fp)[1])}
+            {"file_path": fp, "possible_parsers": parsers.get(os.path.splitext(fp)[1], ())}
             for fp in valid_file_paths
         ]
         # Determine if parallel processing should be used

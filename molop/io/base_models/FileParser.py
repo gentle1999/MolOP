@@ -66,7 +66,10 @@ class BaseFileParser(
         total_multiplicity: Optional[int] = None,
     ) -> ChemFile:
         """Parse the file content."""
-        metadata: dict[str, Any] = {"file_path": self._file_path}
+        metadata: dict[str, Any] = {
+            "file_path": self._file_path,
+            "file_content": file_content,
+        }
         if mata := self._parse_metadata(file_content):
             metadata.update(mata)
         frame_contents = self._split_file(file_content)
@@ -92,7 +95,6 @@ class BaseFileParser(
 
 
 class BaseFileParserMemory(BaseFileParser[ChemFile, ChemFileFrame, FrameParser]):
-
     def parse(
         self,
         file_content: str,
@@ -103,7 +105,6 @@ class BaseFileParserMemory(BaseFileParser[ChemFile, ChemFileFrame, FrameParser])
 
 
 class BaseFileParserDisk(BaseFileParser[ChemFile, ChemFileFrame, FrameParser]):
-
     def parse(
         self,
         file_path: str,

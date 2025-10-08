@@ -43,7 +43,6 @@ pt = Chem.GetPeriodicTable()
 
 
 class Molecule(BaseDataClassWithUnit):
-
     atoms: Sequence[int] = Field(
         default_factory=tuple, description="atom numbers", title="Atom numbers"
     )
@@ -172,9 +171,9 @@ class Molecule(BaseDataClassWithUnit):
                 finally:
                     self.__get_topology()
             else:
-                assert (
-                    self.formal_charges and self.formal_num_radicals
-                ), "If bonds given, formal charges and spins must be provided."
+                assert self.formal_charges and self.formal_num_radicals, (
+                    "If bonds given, formal charges and spins must be provided."
+                )
                 self._rdmol = build_mol_from_atoms_and_bonds(
                     self.atoms,
                     self.bonds,
@@ -210,6 +209,8 @@ class Molecule(BaseDataClassWithUnit):
             + f"charge {self.charge} multiplicity {self.multiplicity}\n"
             + "\n".join(
                 [
+                    # Using 18.10f for coordinates to ensure high precision and alignment for
+                    # downstream applications that require accurate atomic positions.
                     f"{atom:10s}{x:18.10f}{y:18.10f}{z:18.10f}"
                     for atom, (x, y, z) in zip(
                         self.atom_symbols, self.coords.m, strict=True
@@ -466,9 +467,9 @@ class Molecule(BaseDataClassWithUnit):
         Returns:
             float: The RMSD value.
         """
-        assert isinstance(
-            other, Molecule
-        ), "The other object is not a BaseMolFrame object."
+        assert isinstance(other, Molecule), (
+            "The other object is not a BaseMolFrame object."
+        )
 
         return GetBestRMS(
             Chem.RemoveHs(self.rdmol) if ignore_H else self.rdmol,
@@ -624,9 +625,9 @@ class Molecule(BaseDataClassWithUnit):
             rdmol = reset_atom_index(self.rdmol, mapping)
             return self.from_rdmol(rdmol)
         elif mapping_indice is not None:
-            assert max(mapping_indice) < len(
-                self.rdmol.GetAtoms()
-            ), "Invalid mapping index"
+            assert max(mapping_indice) < len(self.rdmol.GetAtoms()), (
+                "Invalid mapping index"
+            )
             rdmol = reset_atom_index(self.rdmol, mapping_indice)
             return self.from_rdmol(rdmol)
         return None

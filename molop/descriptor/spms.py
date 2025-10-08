@@ -182,9 +182,9 @@ class SPMSCalculator(BaseModel):
         Returns:
             np.ndarray: Positions of the atoms.
         """
-        if self.rdmol_oriented is None:
+        if self._rdmol_oriented is None:
             raise ValueError("Please call 'rdmol_oriented' first.")
-        return self.rdmol_oriented.GetConformer().GetPositions() + np.array(
+        return self._rdmol_oriented.GetConformer().GetPositions() + np.array(
             [0.000001, 0.000001, 0.000001]
         )
 
@@ -404,15 +404,13 @@ def geometry_initialize(
         rotate_mol_anchor_to_plane(rwmol, custom_third_anchors, "zy")
         return rwmol.GetMol()
 
-    if anchor_list is None:
+    if anchor_list is None or len(anchor_list) == 0:
         center: Any = ComputeCentroid(rdmol.GetConformer(), ignoreHs=False)
-    elif len(anchor_list) >= 1:
+    else:
         center = np.mean(
             [rwmol.GetConformer().GetAtomPosition(i) for i in anchor_list],
             axis=0,
         )
-    else:
-        center: Any = ComputeCentroid(rdmol.GetConformer(), ignoreHs=False)
     dis_list = np.linalg.norm(
         rwmol.GetConformer().GetPositions() - np.array(center), axis=1
     )
