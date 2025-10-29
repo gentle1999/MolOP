@@ -18,3 +18,6 @@ class XYZPatterns:
         content_pattern=r"^\s*([A-Z][a-z]*)(\s*-?\d+\.\d+)(\s*-?\d+\.\d+)(\s*-?\d+\.\d+)",
         content_repeat=0,
     )
+
+
+xyz_patterns = XYZPatterns()

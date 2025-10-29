@@ -527,7 +527,7 @@ class Vibration(BaseDataClassWithUnit):
     @computed_field
     @property
     def is_imaginary(self) -> bool:
-        return self.frequency is not None and self.frequency < 0
+        return bool(self.frequency is not None and self.frequency < 0)
 
 
 class Vibrations(BaseDataClassWithUnit):

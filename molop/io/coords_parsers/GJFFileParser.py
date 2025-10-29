@@ -15,9 +15,7 @@ from molop.io.coords_parsers.GJFFileFrameParser import (
     GJFFileFrameParserDisk,
     GJFFileFrameParserMemory,
 )
-from molop.io.patterns.G16Patterns import G16InputPatterns
-
-g16_input_patterns = G16InputPatterns()
+from molop.io.patterns.G16Patterns import g16_input_patterns
 
 
 class GJFFileParserMixin:

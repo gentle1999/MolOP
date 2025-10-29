@@ -28,6 +28,7 @@ dependencies = [
     "rdkit>=2023.9.6",
     "regex<=2025.7.33",
     "scipy>=1.15.3",
+    "timeout-decorator>=0.5.0",
     "tqdm>=4.67.1",
 ]
 

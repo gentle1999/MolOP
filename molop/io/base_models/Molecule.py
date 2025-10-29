@@ -43,8 +43,8 @@ pt = Chem.GetPeriodicTable()
 
 
 class Molecule(BaseDataClassWithUnit):
-    atoms: Sequence[int] = Field(
-        default_factory=tuple, description="atom numbers", title="Atom numbers"
+    atoms: list[int] = Field(
+        default_factory=list, description="atom numbers", title="Atom numbers"
     )
     coords: NumpyQuantity = Field(
         default=np.array([[]]) * atom_ureg.angstrom,
@@ -126,9 +126,9 @@ class Molecule(BaseDataClassWithUnit):
             return CalcMolFormula(self.rdmol)
         return "".join(
             [
-                f"{pt.GetElementSymbol(i)}{self.atoms.count(pt.GetElementSymbol(i))}"
+                f"{pt.GetElementSymbol(i)}{self.atoms.count(i)}"
                 for i in range(1, 119)
-                if self.atoms.count(pt.GetElementSymbol(i)) != 0
+                if self.atoms.count(i) != 0
             ]
         )
 

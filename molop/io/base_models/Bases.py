@@ -62,6 +62,7 @@ class BaseDataClassWithUnit(BaseModel):
             Mapping[str, Any],
             "BaseDataClassWithUnit",
         ],
+        **kwargs,
     ) -> Union[str, list, tuple, Mapping[str, Any], Magnitude]:
         if isinstance(item, PlainQuantity):
             if isinstance(item.m, np.ndarray):
@@ -71,20 +72,23 @@ class BaseDataClassWithUnit(BaseModel):
         if isinstance(item, np.ndarray):
             return item.tolist()
         if isinstance(item, list):
-            return [BaseDataClassWithUnit.__unitless_dump__(i) for i in item]
+            return [BaseDataClassWithUnit.__unitless_dump__(i, **kwargs) for i in item]
         if isinstance(item, tuple):
-            return tuple(BaseDataClassWithUnit.__unitless_dump__(i) for i in item)
+            return tuple(
+                BaseDataClassWithUnit.__unitless_dump__(i, **kwargs) for i in item
+            )
         if isinstance(item, Mapping):
             return {
-                k: BaseDataClassWithUnit.__unitless_dump__(v) for k, v in item.items()
+                k: BaseDataClassWithUnit.__unitless_dump__(v, **kwargs)
+                for k, v in item.items()
             }
         if isinstance(item, BaseDataClassWithUnit):
-            return item.to_unitless_dump()
+            return item.to_unitless_dump(**kwargs)
         return item
 
     def to_unitless_dump(
         self, **kwargs
-    ) -> Dict[str, Union[str, list, tuple, Mapping[str, Any], Magnitude]]:
+    ) -> Dict[str, Any]:
         """
         Parameters:
             kwargs:
@@ -92,7 +96,7 @@ class BaseDataClassWithUnit(BaseModel):
                 [`model_dump`](https://docs.pydantic.dev/latest/concepts/serialization/) method.
         """
         return {
-            k: BaseDataClassWithUnit.__unitless_dump__(getattr(self, k))
+            k: BaseDataClassWithUnit.__unitless_dump__(getattr(self, k), **kwargs)
             for k, v in self.model_dump(**kwargs).items()
         }
 
@@ -101,9 +105,7 @@ class BaseDataClassWithUnit(BaseModel):
         self._add_default_units()
         if molopconfig.force_unit_transform:
             self._transform_units(self._default_units)
-            moloplogger.debug(
-                f"Data class {self.__class__.__name__} parsed.\n" f"{self}"
-            )
+            moloplogger.debug(f"Data class {self.__class__.__name__} parsed.\n{self}")
         return self
 
     @abstractmethod

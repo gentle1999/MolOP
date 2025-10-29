@@ -14,7 +14,7 @@ from pint.facets.plain import PlainQuantity
 from molop.config import moloplogger
 from molop.io.base_models.DataClasses import ImplicitSolvation, Status
 from molop.io.base_models.FileParser import BaseFileParserDisk, BaseFileParserMemory
-from molop.io.patterns.G16Patterns import G16LogPatterns, MolOPPattern
+from molop.io.patterns.G16Patterns import MolOPPattern, g16_log_patterns
 from molop.io.QM_models.G16LogFile import G16LogFileDisk, G16LogFileMemory
 from molop.io.QM_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
@@ -26,8 +26,6 @@ from molop.io.QM_parsers.G16LogFileFrameParser import (
 )
 from molop.unit import atom_ureg
 from molop.utils.functions import find_rigid_transform
-
-g16_log_patterns = G16LogPatterns()
 
 split_pattern = "Input orientation:"
 split_pattern_2 = "Standard orientation:"
@@ -224,8 +222,11 @@ class G16LogFileParserMixin:
                 focus_content
             )
         )
-        if matches := g16_log_patterns.CHARGE_SPIN_MULTIPLICITY_IN_ARCHIVE_TAIL.get_matches(
-            sub_focus_content
+        if (
+            matches
+            := g16_log_patterns.CHARGE_SPIN_MULTIPLICITY_IN_ARCHIVE_TAIL.get_matches(
+                sub_focus_content
+            )
         ):
             charge_multiplicity = matches[0]
             tail_dict["charge"] = int(charge_multiplicity[0])

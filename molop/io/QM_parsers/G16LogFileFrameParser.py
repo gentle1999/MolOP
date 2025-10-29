@@ -18,7 +18,7 @@ from molop.io.base_models.DataClasses import (
 )
 from molop.io.base_models.FrameParser import BaseFrameParser
 from molop.io.base_models.SearchPattern import MolOPPattern
-from molop.io.patterns.G16Patterns import G16LogPatterns
+from molop.io.patterns.G16Patterns import g16_log_patterns
 from molop.io.QM_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
     G16LogFileFrameMemory,
@@ -27,7 +27,6 @@ from molop.unit import atom_ureg
 from molop.utils.functions import fill_symmetric_matrix, merge_models
 
 pt = Chem.GetPeriodicTable()
-g16_log_patterns = G16LogPatterns()
 
 
 def extract_coords(
@@ -82,7 +81,6 @@ class G16FileFrameParser(Protocol):
 
 
 class G16LogFileFrameParserMixin:
-
     def _parse_frame(
         self: G16FileFrameParser,
     ) -> Mapping[str, Any]:
@@ -335,12 +333,16 @@ class G16LogFileFrameParserMixin:
                         float(match[0] if key != "mulliken_spins" else match[1])
                         for match in matches
                     ]
+            sub_focus_content, focus_content = (
+                g16_log_patterns.ELECTRONIC_SPATIAL_EXTENT.split_content(focus_content)
+            )
+            if matches := g16_log_patterns.ELECTRONIC_SPATIAL_EXTENT.get_matches(
+                sub_focus_content
+            ):
+                polars["electronic_spatial_extent"] = (
+                    float(matches[0][0]) * atom_ureg.bohr**2
+                )
             patterns_and_keys_3: list[tuple[MolOPPattern, str, PlainUnit]] = [
-                (
-                    g16_log_patterns.ELECTRONIC_SPATIAL_EXTENT,
-                    "electronic_spatial_extent",
-                    atom_ureg.bohr**2,
-                ),
                 (g16_log_patterns.DIPOLE_MOMENT, "dipole", atom_ureg.debye),
                 (
                     g16_log_patterns.QUADRUPOLE_MOMENT,
@@ -536,10 +538,9 @@ class G16LogFileFrameParserMixin:
                     "hartree/particle"
                 )
         if matches := g16_log_patterns.THERMOCHEMISTRY_CV_S.get_matches(focus_content):
-            thermal_dict["S"], thermal_dict["C_V"] = float(
-                matches[0][1]
-            ) * atom_ureg.Unit("cal/mol/K"), float(matches[0][2]) * atom_ureg.Unit(
-                "cal/mol/K"
+            thermal_dict["S"], thermal_dict["C_V"] = (
+                float(matches[0][1]) * atom_ureg.Unit("cal/mol/K"),
+                float(matches[0][2]) * atom_ureg.Unit("cal/mol/K"),
             )
         if thermal_dict:
             return ThermalInformations.model_validate(thermal_dict)
@@ -686,8 +687,11 @@ class G16LogFileFrameParserMixin:
                 focus_content
             )
         )
-        if matches := g16_log_patterns.CHARGE_SPIN_MULTIPLICITY_IN_ARCHIVE_TAIL.get_matches(
-            sub_focus_content
+        if (
+            matches
+            := g16_log_patterns.CHARGE_SPIN_MULTIPLICITY_IN_ARCHIVE_TAIL.get_matches(
+                sub_focus_content
+            )
         ):
             charge_multiplicity = matches[0]
             tail_dict["charge"] = int(charge_multiplicity[0])

@@ -1,8 +1,8 @@
 """
 Author: TMJ
-Date: 2025-07-29 22:54:56
+Date: 2025-10-09 15:33:21
 LastEditors: TMJ
-LastEditTime: 2025-09-17 20:02:05
+LastEditTime: 2025-10-21 15:04:27
 Description: 请填写简介
 """
 
@@ -13,12 +13,10 @@ from rdkit import Chem
 
 from molop.io.base_models.FrameParser import BaseFrameParser
 from molop.io.coords_models.XYZFileFrame import XYZFileFrameDisk, XYZFileFrameMemory
-from molop.io.patterns.XYZPatterns import XYZPatterns
+from molop.io.patterns.XYZPatterns import xyz_patterns
 from molop.unit import atom_ureg
 
 pt = Chem.GetPeriodicTable()
-
-xyz_patterns = XYZPatterns()
 
 
 class XYZFileFrameParser(Protocol):
@@ -30,7 +28,6 @@ class XYZFileFrameParser(Protocol):
 
 
 class XYZFileFrameParserMixin:
-
     def _parse_frame(self: XYZFileFrameParser) -> Mapping[str, Any]:
         lines = self._block.splitlines()
         atom_num = int(lines[0].strip())

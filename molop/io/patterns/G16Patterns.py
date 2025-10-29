@@ -458,7 +458,7 @@ class G16LogPatterns:
     )
     BERNY_STATE = MolOPPattern(
         content_pattern=r"(?r)^\s*(Maximum\s+Force|RMS\s+Force|Maximum\s+Displacement|RMS\s+Displacement)\s+(\d+\.\d*)\s+(\d+\.\d*)\s+(NO|YES)",
-        content_repeat=4,
+        content_repeat=-4,
         description="The Berny optimization state. link 103",
     )
     ENERGY_CHANGE = MolOPPattern(
@@ -594,6 +594,7 @@ class G16LogPatterns:
         start_pattern=r"NImag=\d+\\\\",
         content_pattern=r"(-?\d+\.\d*)",
         end_pattern=r"\\\\",
+        end_offset=1,
         content_repeat=0,
         description="The Hessian in the archive tail of the Gaussian calculation. link 9999",
     )
@@ -686,3 +687,7 @@ def parameter_comment_parser(
                     route_params[d[0]] = None if len(d) == 1 else d[1].lower()
 
     return route_params, dieze_tag
+
+
+g16_log_patterns = G16LogPatterns()
+g16_input_patterns = G16InputPatterns()

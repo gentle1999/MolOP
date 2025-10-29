@@ -1,8 +1,8 @@
 """
 Author: TMJ
-Date: 2025-07-30 14:29:48
+Date: 2025-10-09 15:23:26
 LastEditors: TMJ
-LastEditTime: 2025-08-21 00:07:02
+LastEditTime: 2025-10-21 15:03:48
 Description: 请填写简介
 """
 
@@ -13,11 +13,10 @@ from rdkit import Chem
 
 from molop.io.base_models.FrameParser import BaseFrameParser
 from molop.io.coords_models.GJFFileFrame import GJFFileFrameDisk, GJFFileFrameMemory
-from molop.io.patterns.G16Patterns import G16InputPatterns
+from molop.io.patterns.G16Patterns import g16_input_patterns
 from molop.unit import atom_ureg
 
 pt = Chem.GetPeriodicTable()
-g16_input_patterns = G16InputPatterns()
 
 
 class GJFFileFrameParser(Protocol):
@@ -29,7 +28,6 @@ class GJFFileFrameParser(Protocol):
 
 
 class GJFFileFrameParserMixin:
-
     def _parse_frame(self: GJFFileFrameParser) -> Mapping[str, Any]:
         block = self._block
         if matches := g16_input_patterns.CHARGE_MULTIPLICITY.match_content(block):

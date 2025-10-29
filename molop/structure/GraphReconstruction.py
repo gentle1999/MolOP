@@ -10,11 +10,12 @@ import itertools
 from functools import lru_cache
 from typing import List, Optional, Tuple, Union
 
+import timeout_decorator
 from openbabel import openbabel as ob
 from openbabel import pybel
 from rdkit import Chem
 
-from molop.config import moloplogger
+from molop.config import molopconfig, moloplogger
 from molop.structure.FormatConverter import (
     omol_to_rdmol,
     omol_to_rdmol_by_graph,
@@ -127,10 +128,12 @@ def xyz_to_separated_rwmol(
                     f"{DEBUG_TAG} | Try metal atom {metal_atom_symbol} "
                     f"idx {atom_idx} with valence {possible_metal_valence} and radical {possible_radical_num}"
                 )
-                if sub_rwmol := xyz_to_separated_rwmol(
-                    Chem.MolToXYZBlock(temp_rwmol),
-                    total_charge - possible_metal_valence,
-                    total_radical_electrons - possible_radical_num,
+                if (
+                    sub_rwmol := xyz_to_separated_rwmol(
+                        Chem.MolToXYZBlock(temp_rwmol),
+                        total_charge - possible_metal_valence,
+                        total_radical_electrons - possible_radical_num,
+                    )
                 ):  # Recursive call, concat the remaining parts with the metal atom with possible valence and radical
                     metal_idx = sub_rwmol.AddAtom(atom_new_state)
                     # TODO delete if valid
@@ -172,10 +175,12 @@ def xyz_to_separated_rwmol(
                     f"{DEBUG_TAG} | Try metal atom {metal_atom_symbol} "
                     f"idx {atom_idx} with valence {possible_metal_valence} and radical {possible_radical_num}"
                 )
-                if sub_rwmol := xyz_to_separated_rwmol(
-                    Chem.MolToXYZBlock(temp_rwmol),
-                    total_charge - possible_metal_valence,
-                    total_radical_electrons - possible_radical_num,
+                if (
+                    sub_rwmol := xyz_to_separated_rwmol(
+                        Chem.MolToXYZBlock(temp_rwmol),
+                        total_charge - possible_metal_valence,
+                        total_radical_electrons - possible_radical_num,
+                    )
                 ):  # Recursive call, concat the remaining parts with the metal atom with possible valence and radical
                     metal_idx = sub_rwmol.AddAtom(atom_new_state)
                     # TODO delete if valid
@@ -214,7 +219,7 @@ def xyz_to_separated_rwmol(
             return rwmol
     return None
 
-
+@timeout_decorator.timeout(molopconfig.max_structure_recovery_time)
 def xyz_to_rdmol(
     xyz_block: str,
     total_charge: int = 0,

@@ -1491,6 +1491,7 @@ dependencies = [
     { name = "regex" },
     { name = "scipy", version = "1.15.3", source = { registry = "https://mirrors.zju.edu.cn/pypi/web/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scipy", version = "1.16.0", source = { registry = "https://mirrors.zju.edu.cn/pypi/web/simple" }, marker = "python_full_version >= '3.11'" },
+    { name = "timeout-decorator" },
     { name = "tqdm" },
 ]
 
@@ -1539,6 +1540,7 @@ requires-dist = [
     { name = "rdkit", specifier = ">=2023.9.6" },
     { name = "regex", specifier = "<=2025.7.33" },
     { name = "scipy", specifier = ">=1.15.3" },
+    { name = "timeout-decorator", specifier = ">=0.5.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
 ]
 provides-extras = ["desc", "full"]
@@ -3033,6 +3035,12 @@ sdist = { url = "https://mirrors.zju.edu.cn/pypi/web/packages/b7/4d/08c89e34946f
 wheels = [
     { url = "https://mirrors.zju.edu.cn/pypi/web/packages/32/d5/f9a850d79b0851d1d4ef6456097579a9005b31fea68726a4ae5f2d82ddd9/threadpoolctl-3.6.0-py3-none-any.whl", hash = "sha256:43a0b8fd5a2928500110039e43a5eed8480b918967083ea48dc3ab9f13c4a7fb" },
 ]
+
+[[package]]
+name = "timeout-decorator"
+version = "0.5.0"
+source = { registry = "https://mirrors.zju.edu.cn/pypi/web/simple" }
+sdist = { url = "https://mirrors.zju.edu.cn/pypi/web/packages/80/f8/0802dd14c58b5d3d72bb9caa4315535f58787a1dc50b81bbbcaaa15451be/timeout-decorator-0.5.0.tar.gz", hash = "sha256:6a2f2f58db1c5b24a2cc79de6345760377ad8bdc13813f5265f6c3e63d16b3d7" }
 
 [[package]]
 name = "tinycss2"
