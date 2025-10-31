@@ -3,6 +3,7 @@ from collections import OrderedDict
 from collections.abc import MutableMapping
 from typing import Iterable, List, Literal, Sequence, Union, overload
 
+import pandas as pd
 from tqdm import tqdm
 
 from molop.config import molopconfig, moloplogger
@@ -223,3 +224,29 @@ class FileBatchModelDisk(MutableMapping):
             }
         else:
             return {diskfile.file_path: transform_func(diskfile) for diskfile in self}
+
+    def to_summary_df(
+        self,
+        mode: Literal["file", "frame"] = "frame",
+        frameIDs: int | Sequence[int] = -1,
+        **kwargs,
+    ) -> pd.DataFrame:
+        if mode == "file":
+            return pd.concat(
+                [diskfile.to_summary_series(**kwargs) for diskfile in self],
+                axis=1,
+            ).T
+        elif mode == "frame":
+            if isinstance(frameIDs, int):
+                frameIDs = [frameIDs]
+            return pd.concat(
+                [
+                    diskfile[frameID].to_summary_series(**kwargs)
+                    for diskfile in self
+                    for frameID in frameIDs
+                    if frameID < len(diskfile) and frameID >= -len(diskfile)
+                ],
+                axis=1,
+            ).T
+        else:
+            raise ValueError(f"Invalid mode: {mode}")

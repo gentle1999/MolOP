@@ -8,7 +8,18 @@ Description: 请填写简介
 
 import os
 from sys import getsizeof
-from typing import Generic, List, Literal, Optional, Sequence, TypeVar, Union, overload
+from typing import (
+    Any,
+    Dict,
+    Generic,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import pandas as pd
 from pint.facets.plain import PlainQuantity
@@ -38,6 +49,20 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
     @property
     def file_size(self) -> int:
         return getsizeof(self.file_content)
+
+    def _format_file_size(self) -> str:
+        """
+        Format file size with adaptive units.
+
+        Returns:
+            str: Formatted file size with appropriate unit (B, KB, MB, GB, etc.)
+        """
+        size = self.file_size
+        for unit in ["B", "KB", "MB", "GB", "TB"]:
+            if size < 1024.0:
+                return f"{size:.2f} {unit}"
+            size /= 1024.0
+        return f"{size:.2f} PB"
 
     @overload
     def __getitem__(self, frameID: int) -> ChemFileFrame: ...
@@ -202,6 +227,18 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
 
     def _add_default_units(self) -> None: ...
 
+    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+        return {
+            "NumberOfFrames": len(self),
+            "FileSize": self._format_file_size(),
+        }
+
+    def to_summary_df(self, **kwargs) -> pd.DataFrame:
+        return pd.concat(
+            [frame.to_summary_series(**kwargs) for frame in self._frames_],
+            axis=1,
+        ).T
+
 
 ChemFile = TypeVar("ChemFile", bound="BaseChemFile")
 
@@ -327,3 +364,24 @@ class BaseCalcFile(BaseChemFile[calc_frame]):
             }
         )
         return sns.lineplot(x="frame_id", y=f"total_energy ({unit})", data=temp_df)
+
+    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+        return super().to_summary_dict(**kwargs) | {
+            "QMSoftware": self.qm_software,
+            "QMSoftwareVersion": self.qm_software_version,
+            "Keywords": self.keywords,
+            "Method": self.method,
+            "BasisSet": self.basis,
+            "Functional": self.functional,
+            "SolventModel": None
+            if self.solvent is None
+            else self.solvent.solvent_model,
+            "Solvent": None if self.solvent is None else self.solvent.solvent,
+            f"Temperature ({self.temperature.units if self.temperature is not None else 'N/A'})": None
+            if self.temperature is None
+            else self.temperature.m,
+            f"Pressure ({self.pressure.units if self.pressure is not None else 'N/A'})": None
+            if self.pressure is None
+            else self.pressure.m,
+            "IsError": self.is_error,
+        }

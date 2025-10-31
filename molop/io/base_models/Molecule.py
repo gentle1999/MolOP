@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2024-06-17 20:47:40
+LastEditTime: 2025-10-30 23:33:44
 Description: 请填写简介
 """
 
@@ -341,7 +341,12 @@ class Molecule(BaseDataClassWithUnit):
         Returns:
             str: The InChI.
         """
-        return Chem.MolToInchi(self.rdmol)  # type: ignore
+        if self.rdmol is None:
+            return ""
+        if inchi := Chem.MolToInchi(self.rdmol):
+            return inchi # type: ignore
+        moloplogger.error("InChI building failed.")
+        return ""
 
     def calc_spms_descriptor(
         self,
@@ -666,10 +671,8 @@ class Molecule(BaseDataClassWithUnit):
 
     def to_summary_dict(self) -> Dict[str, Any]:
         return {
-            "SMILES": self.to_SMILES(),
-            "CanonicalSMILES": self.to_canonical_SMILES(),
-            "InChI": self.to_InChI(),
             "Charge": self.charge,
             "Multiplicity": self.multiplicity,
+            "CanonicalSMILES": self.to_canonical_SMILES(),
             "NumAtoms": len(self.atoms),
         }

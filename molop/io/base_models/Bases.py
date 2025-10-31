@@ -23,6 +23,7 @@ from molop.unit import unit_transform
 class BaseDataClassWithUnit(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     _default_units: Dict[str, UnitLike] = PrivateAttr(default_factory=dict)
+    _set_default_units: bool = PrivateAttr(default=False)
 
     @staticmethod
     @overload
@@ -103,7 +104,7 @@ class BaseDataClassWithUnit(BaseModel):
     @model_validator(mode="after")
     def __unit_transform__(self) -> Self:
         self._add_default_units()
-        if molopconfig.force_unit_transform:
+        if self._set_default_units or molopconfig.force_unit_transform:
             self._transform_units(self._default_units)
             moloplogger.debug(f"Data class {self.__class__.__name__} parsed.\n{self}")
         return self
@@ -116,8 +117,8 @@ class BaseDataClassWithUnit(BaseModel):
             if hasattr(self, key):
                 setattr(self, key, unit_transform(getattr(self, key), unit))
 
-    def to_summary_series(self) -> pd.Series:
-        return pd.Series(self.to_summary_dict())
+    def to_summary_series(self, **kwargs) -> pd.Series:
+        return pd.Series(self.to_summary_dict(**kwargs))
 
-    def to_summary_dict(self) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
         raise NotImplementedError

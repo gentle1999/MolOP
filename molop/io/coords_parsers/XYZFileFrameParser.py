@@ -29,9 +29,14 @@ class XYZFileFrameParser(Protocol):
 
 class XYZFileFrameParserMixin:
     def _parse_frame(self: XYZFileFrameParser) -> Mapping[str, Any]:
+        charge = 0
+        multiplicity = 1
         lines = self._block.splitlines()
         atom_num = int(lines[0].strip())
         comment = lines[1].strip()
+        if matches := xyz_patterns.CHARGE_MULTIPLICITY.match_content(comment):
+            charge = int(matches[0][0])
+            multiplicity = int(matches[0][1])
         if matches := xyz_patterns.ATOMS.match_content(self._block):
             assert len(matches) == atom_num, "Atom number does not match."
             atoms = [pt.GetAtomicNumber(row[0]) for row in matches]
@@ -43,8 +48,8 @@ class XYZFileFrameParserMixin:
                 "comment": comment,
                 "atoms": atoms,
                 "coords": coords * atom_ureg.angstrom,
-                "charge": 0,
-                "multiplicity": 1,
+                "charge": charge,
+                "multiplicity": multiplicity,
             }
         raise ValueError("No valid atom coordinates found.")
 

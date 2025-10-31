@@ -315,26 +315,59 @@ def get_under_bonded_number(atom: ob.OBAtom) -> int:
     Returns:
         int: The number of atoms under the given atom.
     """
-    if atom.GetAtomicNum() <= 2:
+    atomic_number = atom.GetAtomicNum()
+    if atomic_number <= 2:
+        if (
+            pt.GetNOuterElecs(atomic_number)
+            + atom.GetTotalValence()
+            - atom.GetFormalCharge()
+            < 2
+        ):
+            return (
+                min(
+                    2 - pt.GetNOuterElecs(atomic_number),
+                    pt.GetNOuterElecs(atomic_number),
+                )
+                - atom.GetTotalValence()
+                - atom.GetFormalCharge()
+            )
         return (
             2
-            - pt.GetNOuterElecs(atom.GetAtomicNum())
+            - pt.GetNOuterElecs(atomic_number)
             - atom.GetTotalValence()
             + atom.GetFormalCharge()
-        )
-    if atom.GetAtomicNum() == 5 and atom.GetTotalValence() < 4:
+        )  # Electron rich to full shell
+    if pt.GetNOuterElecs(atomic_number) == 3:
+        if atom.GetTotalValence() == 4:
+            return (
+                8
+                - pt.GetNOuterElecs(atomic_number)
+                - atom.GetTotalValence()
+                + atom.GetFormalCharge()
+            )  # Electron rich to full shell
         return (
             6
-            - pt.GetNOuterElecs(atom.GetAtomicNum())
+            - pt.GetNOuterElecs(atomic_number)
             - atom.GetTotalValence()
             + atom.GetFormalCharge()
+        )  # Electron rich to full shell
+    if (
+        pt.GetNOuterElecs(atomic_number)
+        + atom.GetTotalValence()
+        - atom.GetFormalCharge()
+        < 8
+    ):
+        return (
+            min(8 - pt.GetNOuterElecs(atomic_number), pt.GetNOuterElecs(atomic_number))
+            - atom.GetTotalValence()
+            - atom.GetFormalCharge()
         )
     return (
         8
-        - pt.GetNOuterElecs(atom.GetAtomicNum())
+        - pt.GetNOuterElecs(atomic_number)
         - atom.GetTotalValence()
         + atom.GetFormalCharge()
-    )
+    )  # Electron rich to full shell
 
 
 def get_radical_number(atom: ob.OBAtom) -> int:
@@ -527,9 +560,9 @@ def replace_mol(
                     end = unique_queried_idx[0]
                     bond_tag = mol.GetBondBetweenAtoms(start, end).GetBondType()
                     break
-    assert any(
-        atom.GetNumRadicalElectrons() for atom in replacement_mol.GetAtoms()
-    ), "replacement_mol should have at least one radical atom."
+    assert any(atom.GetNumRadicalElectrons() for atom in replacement_mol.GetAtoms()), (
+        "replacement_mol should have at least one radical atom."
+    )
 
     moloplogger.debug(
         f"{DEBUG_TAG} | Initial check of structure replacement passed,"

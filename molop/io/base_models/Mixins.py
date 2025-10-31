@@ -2,12 +2,12 @@
 Author: TMJ
 Date: 2025-07-29 12:36:28
 LastEditors: TMJ
-LastEditTime: 2025-09-15 16:55:50
+LastEditTime: 2025-10-29 14:17:47
 Description: 请填写简介
 """
 
 import os
-from typing import Sequence
+from typing import Any, Dict, Sequence
 
 from pydantic import Field, PrivateAttr, computed_field, field_validator
 from typing_extensions import Self
@@ -88,3 +88,10 @@ class DiskStorageMixin(BaseDataClassWithUnit):
 
     def __eq__(self, other: Self) -> bool:
         return self.file_path == other.file_path
+
+    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+        return {
+            "FilePath": self.file_path,
+            "FileFormat": self.file_format,
+            **super().to_summary_dict(**kwargs),
+        }

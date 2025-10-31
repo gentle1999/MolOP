@@ -9,7 +9,7 @@ Description: 请填写简介
 import os
 from copy import deepcopy
 from io import StringIO
-from typing import Generic, List, Optional, Tuple, TypeVar, Union
+from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
 from pint.facets.numpy.quantity import NumpyQuantity
@@ -79,6 +79,9 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
         """
         Check if the molecule is optimized.
         """
+
+    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+        return {**super().to_summary_dict(), "FrameID": self.frame_id}
 
 
 class BaseCoordsFrame(BaseChemFileFrame[ChemFileFrame]): ...
@@ -273,13 +276,13 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
                 vibration_id = 0
             if self.vibrations is None:
                 raise ValueError("No vibrations found in this frame")
-            assert (
-                len(self.vibrations) > vibration_id
-            ), f"Invalid vibration id {vibration_id}"
+            assert len(self.vibrations) > vibration_id, (
+                f"Invalid vibration id {vibration_id}"
+            )
             vibration = self.vibrations[vibration_id]
-        assert (
-            vibration.vibration_mode.m.shape == self.coords.m.shape
-        ), "Invalid vibration mode"
+        assert vibration.vibration_mode.m.shape == self.coords.m.shape, (
+            "Invalid vibration mode"
+        )
 
         temp_moleculues = []  # Initialize a list of base block parsers
 
@@ -378,9 +381,9 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
         temp_moleculues = self.ts_vibration(
             ratio=ratio, steps=steps, ignore_dative=ignore_dative
         )
-        assert (
-            temp_moleculues[0].rdmol and temp_moleculues[-1].rdmol
-        ), "Failed to generate TS vibrations"
+        assert temp_moleculues[0].rdmol and temp_moleculues[-1].rdmol, (
+            "Failed to generate TS vibrations"
+        )
         if not show_3D:
             temp_moleculues[0].rdmol.RemoveAllConformers()
             temp_moleculues[-1].rdmol.RemoveAllConformers()
@@ -430,6 +433,47 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
         if self.geometry_optimization_status is None:
             return False
         return self.geometry_optimization_status.geometry_optimized
+
+    def to_summary_dict(self, brief: bool = True, **kwargs) -> Dict[str, Any]:
+        brief_dict = super().to_summary_dict(**kwargs) | {
+            "QMSoftware": self.qm_software,
+            "QMSoftwareVersion": self.qm_software_version,
+            "Keywords": self.keywords,
+            "Method": self.method,
+            "BasisSet": self.basis,
+            "Functional": self.functional,
+            "SolventModel": None
+            if self.solvent is None
+            else self.solvent.solvent_model,
+            "Solvent": None if self.solvent is None else self.solvent.solvent,
+            f"Temperature ({self.temperature.units if self.temperature is not None else 'N/A'})": None
+            if self.temperature is None
+            else self.temperature.m,
+            f"Pressure ({self.pressure.units if self.pressure is not None else 'N/A'})": None
+            if self.pressure is None
+            else self.pressure.m,
+            "IsError": self.is_error,
+            "IsNormal": self.is_normal,
+            "IsTS": self.is_TS,
+            "IsOptimized": self.is_optimized,
+        }
+        if brief:
+            return brief_dict
+        return (
+            brief_dict
+            | (self.energies.to_summary_dict() if self.energies is not None else {})
+            | (
+                self.thermal_informations.to_summary_dict()
+                if self.thermal_informations is not None
+                else {}
+            )
+            | (
+                self.geometry_optimization_status.to_summary_dict()
+                if self.geometry_optimization_status is not None
+                else {}
+            )
+            | (self.vibrations.to_summary_dict() if self.vibrations is not None else {})
+        )
 
 
 calc_frame = TypeVar("calc_frame", bound="BaseCalcFrame")

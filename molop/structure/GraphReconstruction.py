@@ -2,18 +2,20 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2025-07-27 14:19:22
+LastEditTime: 2025-10-31 13:17:59
 Description: 请填写简介
 """
 
 import itertools
 from functools import lru_cache
-from typing import List, Optional, Tuple, Union
+from typing import List, Optional, Sequence, Tuple, Union
 
+import numpy as np
 import timeout_decorator
 from openbabel import openbabel as ob
 from openbabel import pybel
 from rdkit import Chem
+from rdkit.Geometry import Point3D
 
 from molop.config import molopconfig, moloplogger
 from molop.structure.FormatConverter import (
@@ -21,7 +23,6 @@ from molop.structure.FormatConverter import (
     omol_to_rdmol_by_graph,
     rdmol_to_omol,
     validate_omol,
-    validate_rdmol,
 )
 from molop.structure.StructureTransformation import (
     get_radical_number,
@@ -41,6 +42,7 @@ DEBUG_TAG = "[STRUCTURE RECOVERY]"
 # Entrypoint for graph reconstruction
 
 
+@lru_cache(maxsize=1000)
 def xyz_to_separated_rwmol_no_metal(
     xyz_block: str, total_charge: int = 0, total_radical_electrons: int = 0
 ) -> Optional[Chem.rdchem.RWMol]:
@@ -65,6 +67,27 @@ def xyz_to_separated_rwmol_no_metal(
     return None
 
 
+def combine_metal_with_rwmol(
+    rwmol: Chem.rdchem.RWMol, metal_list: Sequence[Tuple[int, str, int, int, Point3D]]
+) -> Chem.rdchem.RWMol:
+    """
+    Combine the metal atom with the rwmol.
+    """
+    sub_rwmol = Chem.RWMol(rwmol)
+    for idx, symbol, valence, radical_num, position in metal_list:
+        atom = Chem.Atom(symbol)
+        atom.SetFormalCharge(valence)
+        atom.SetNumRadicalElectrons(radical_num)
+        atom.SetNoImplicit(True)
+        metal_idx = sub_rwmol.AddAtom(atom)
+        sub_rwmol.GetConformer().SetAtomPosition(metal_idx, position)
+        reset_atom_index(
+            sub_rwmol,
+            list(range(0, idx)) + [metal_idx] + list(range(idx, metal_idx)),
+        )
+    return sub_rwmol
+
+
 def xyz_to_separated_rwmol(
     xyz_block: str, total_charge: int = 0, total_radical_electrons: int = 0
 ) -> Optional[Chem.rdchem.RWMol]:
@@ -84,140 +107,87 @@ def xyz_to_separated_rwmol(
     rwmol = Chem.RWMol(Chem.MolFromXYZBlock(xyz_block))
 
     removable_metal_atom_idxs = [
-        atom.GetIdx()
-        for atom in rwmol.GetAtoms()
-        if is_metal(atom.GetAtomicNum())
-        and pt.GetElementSymbol(atom.GetAtomicNum()) in metal_valence_avialable_prior
+        idx
+        for idx in range(rwmol.GetNumAtoms())
+        if is_metal(rwmol.GetAtomWithIdx(idx).GetAtomicNum())
+        and pt.GetElementSymbol(rwmol.GetAtomWithIdx(idx).GetAtomicNum())
+        in metal_valence_avialable_prior
     ]
+    no_metal_rwmol = Chem.RWMol(rwmol)
+    while idxs := [
+        idx
+        for idx in range(no_metal_rwmol.GetNumAtoms())
+        if is_metal(no_metal_rwmol.GetAtomWithIdx(idx).GetAtomicNum())
+        and pt.GetElementSymbol(no_metal_rwmol.GetAtomWithIdx(idx).GetAtomicNum())
+        in metal_valence_avialable_prior
+    ]:
+        idx = idxs.pop(0)
+        no_metal_rwmol.RemoveAtom(idx)
+    no_metal_xyz_block = Chem.MolToXYZBlock(no_metal_rwmol)
 
-    # Recursively remove metal atoms and guess the possible valence state of the metal,
-    # and the remaining parts will be reconstructed with the new total charge
-    for atom_idx in removable_metal_atom_idxs:
-        # Skip if the atom has non-zero formal charge, which means it has been processed
-        metal_atom = rwmol.GetAtomWithIdx(atom_idx)
-        metal_atom_symbol = metal_atom.GetSymbol()
-        if metal_atom.GetFormalCharge() != 0:
+    available_metal_valence_radical = [
+        [
+            (
+                idx,
+                rwmol.GetAtomWithIdx(idx).GetSymbol(),
+                valence,
+                radical_num,
+                rwmol.GetConformer().GetAtomPosition(idx),
+            )
+            for valence in metal_valence_avialable_prior[
+                rwmol.GetAtomWithIdx(idx).GetSymbol()
+            ]
+            + metal_valence_avialable_minor[rwmol.GetAtomWithIdx(idx).GetSymbol()]
+            for radical_num in get_possible_metal_radicals(
+                rwmol.GetAtomWithIdx(idx).GetSymbol(), valence
+            )
+        ]
+        for idx in removable_metal_atom_idxs
+    ]
+    possible_metal_valence_radical_product = [
+        product
+        for product in itertools.product(*available_metal_valence_radical)
+        if sum([radical_num for _, _, _, radical_num, _ in product])
+        <= total_radical_electrons
+    ]
+    possible_rwmols = []
+    for product in possible_metal_valence_radical_product:
+        sub_rwmol = xyz_to_separated_rwmol_no_metal(
+            no_metal_xyz_block,
+            total_charge - sum([valence for _, _, valence, _, _ in product]),
+            total_radical_electrons
+            - sum([radical_num for _, _, _, radical_num, _ in product]),
+        )
+        if sub_rwmol is None:
             continue
-        # If the metal atom is the last atom, set the formal charge and radical number and return the molecule
-        if rwmol.GetNumAtoms() == 1:
-            if valid_metal_valence_radical(
-                metal_atom_symbol, total_charge, total_radical_electrons
-            ):  # Check the metal with the given total charge and radical number valid or not
-                moloplogger.debug(
-                    f"{DEBUG_TAG} | Invalid valence or radical number for metal {metal_atom_symbol}"
-                    f" with total charge {total_charge} and radical electrons {total_radical_electrons}"
-                )
-                return None
-            metal_atom.SetFormalCharge(total_charge)
-            metal_atom.SetNumRadicalElectrons(total_radical_electrons)
-            return rwmol
-        # Try to remove the metal atom with different valence states
-        temp_rwmol = Chem.RWMol(rwmol)
-        metal_position = temp_rwmol.GetConformer().GetAtomPosition(atom_idx)
-        temp_rwmol.RemoveAtom(atom_idx)
-        possible_rwmols = []
-        # Try different valence states of the metal atom
-        for possible_metal_valence in metal_valence_avialable_prior[metal_atom_symbol]:
-            for possible_radical_num in get_possible_metal_radicals(
-                metal_atom_symbol, possible_metal_valence
-            ):  # Reconstruct the remaining parts with the new total charge
-                atom_new_state = Chem.Atom(metal_atom_symbol)
-                atom_new_state.SetFormalCharge(possible_metal_valence)
-                atom_new_state.SetNumRadicalElectrons(possible_radical_num)
-                moloplogger.debug(
-                    f"{DEBUG_TAG} | Try metal atom {metal_atom_symbol} "
-                    f"idx {atom_idx} with valence {possible_metal_valence} and radical {possible_radical_num}"
-                )
-                if (
-                    sub_rwmol := xyz_to_separated_rwmol(
-                        Chem.MolToXYZBlock(temp_rwmol),
-                        total_charge - possible_metal_valence,
-                        total_radical_electrons - possible_radical_num,
-                    )
-                ):  # Recursive call, concat the remaining parts with the metal atom with possible valence and radical
-                    metal_idx = sub_rwmol.AddAtom(atom_new_state)
-                    # TODO delete if valid
-                    # sub_rwmol.GetAtomWithIdx(metal_idx).SetFormalCharge(
-                    #     possible_metal_valence
-                    # )
-                    # sub_rwmol.GetAtomWithIdx(metal_idx).SetNumRadicalElectrons(
-                    #     possible_radical_num
-                    # )
-                    sub_rwmol.GetConformer().SetAtomPosition(metal_idx, metal_position)
-                    possible_rwmols.append(
-                        reset_atom_index(
-                            sub_rwmol,
-                            list(range(0, atom_idx))
-                            + [metal_idx]
-                            + list(range(atom_idx, metal_idx)),
-                        )
-                    )  # Reorder the atoms to match the original order
-        # Choose the best structure among the possible structures, ranked by the score function
-        if possible_rwmols:
-            possible_rwmols = sorted(possible_rwmols, key=structure_score, reverse=True)
-            smiles_list = "\n".join(
-                Chem.CanonSmiles(Chem.MolToSmiles(rwmol)) for rwmol in possible_rwmols
-            )
-            moloplogger.debug(
-                f"{DEBUG_TAG} | Possible resonance structures: \n{smiles_list}"
-            )
-            return Chem.RWMol(possible_rwmols[0])
-
-        # If minor valence state is not available, try to remove the metal atom with major valence state
-        for possible_metal_valence in metal_valence_avialable_minor[metal_atom_symbol]:
-            for possible_radical_num in get_possible_metal_radicals(
-                metal_atom_symbol, possible_metal_valence
-            ):  # Reconstruct the remaining parts with the new total charge
-                atom_new_state = Chem.Atom(metal_atom_symbol)
-                atom_new_state.SetFormalCharge(possible_metal_valence)
-                atom_new_state.SetNumRadicalElectrons(possible_radical_num)
-                moloplogger.debug(
-                    f"{DEBUG_TAG} | Try metal atom {metal_atom_symbol} "
-                    f"idx {atom_idx} with valence {possible_metal_valence} and radical {possible_radical_num}"
-                )
-                if (
-                    sub_rwmol := xyz_to_separated_rwmol(
-                        Chem.MolToXYZBlock(temp_rwmol),
-                        total_charge - possible_metal_valence,
-                        total_radical_electrons - possible_radical_num,
-                    )
-                ):  # Recursive call, concat the remaining parts with the metal atom with possible valence and radical
-                    metal_idx = sub_rwmol.AddAtom(atom_new_state)
-                    # TODO delete if valid
-                    # sub_rwmol.GetAtomWithIdx(metal_idx).SetFormalCharge(
-                    #     possible_metal_valence
-                    # )
-                    # sub_rwmol.GetAtomWithIdx(metal_idx).SetNumRadicalElectrons(
-                    #     possible_radical_num
-                    # )
-                    sub_rwmol.GetConformer().SetAtomPosition(metal_idx, metal_position)
-                    possible_rwmols.append(
-                        reset_atom_index(
-                            sub_rwmol,
-                            list(range(0, atom_idx))
-                            + [metal_idx]
-                            + list(range(atom_idx, metal_idx)),
-                        )
-                    )  # Reorder the atoms to match the original order
-        # Choose the best structure among the possible structures, ranked by the score function
-        if possible_rwmols:
-            possible_rwmols = sorted(possible_rwmols, key=structure_score, reverse=True)
-            smiles_list = "\n".join(
-                Chem.CanonSmiles(Chem.MolToSmiles(rwmol)) for rwmol in possible_rwmols
-            )
-            moloplogger.debug(
-                f"{DEBUG_TAG} | Possible resonance structures: \n{smiles_list}"
-            )
-            return Chem.RWMol(possible_rwmols[0])
-        return None
-
-    # If no metal atom is found, try to recover the structure
-    if rwmol := xyz_to_separated_rwmol_no_metal(
-        xyz_block, total_charge, total_radical_electrons
-    ):
-        if validate_rdmol(rwmol, total_charge, total_radical_electrons):
-            return rwmol
+        product_show = " | ".join(
+            [
+                f"{idx} {symbol} {valence} {radical_num}"
+                for idx, symbol, valence, radical_num, position in product
+            ]
+        )
+        moloplogger.debug(
+            f"{DEBUG_TAG} | Trying Metal valence radical num with: {product_show}"
+        )
+        sub_rwmol = combine_metal_with_rwmol(sub_rwmol, product)
+        possible_rwmols.append(sub_rwmol)
+    if possible_rwmols:
+        scores_pair = [(rwmol, structure_score(rwmol)) for rwmol in possible_rwmols]
+        possible_rwmols = sorted(
+            scores_pair,
+            key=lambda x: x[1],
+            reverse=True,
+        )
+        smiles_list = "\n".join(
+            f"score = {score:.4f} | {Chem.CanonSmiles(Chem.MolToSmiles(rwmol))}"
+            for rwmol, score in possible_rwmols
+        )
+        moloplogger.debug(
+            f"{DEBUG_TAG} | Possible resonance structures: \n{smiles_list}"
+        )
+        return Chem.RWMol(possible_rwmols[0][0])
     return None
+
 
 @timeout_decorator.timeout(molopconfig.max_structure_recovery_time)
 def xyz_to_rdmol(
@@ -287,7 +257,10 @@ def xyz2omol(
         if get_under_bonded_number(atom.OBAtom) < 0:
             atom.OBAtom.SetFormalCharge(-get_under_bonded_number(atom.OBAtom))
         # e.g. [B]R2 to [B+1]R2
-        if atom.OBAtom.GetAtomicNum() == 5 and get_under_bonded_number(atom.OBAtom) > 0:
+        if (
+            pt.GetNOuterElecs(atom.OBAtom.GetAtomicNum()) == 3
+            and get_under_bonded_number(atom.OBAtom) > 0
+        ):
             atom.OBAtom.SetFormalCharge(-get_under_bonded_number(atom.OBAtom))
     given_charge = total_charge - sum(
         atom.OBAtom.GetFormalCharge() for atom in omol.atoms
@@ -321,10 +294,10 @@ def xyz2omol(
         f"{DEBUG_TAG} | Possible resonance structures number: {len(possible_resonances)}"
     )
     recovered_resonances: List[Tuple[pybel.Molecule, int, int]] = []
-    for resonance in possible_resonances:
+    for idx, resonance in enumerate(possible_resonances):
         charge = given_charge
         moloplogger.debug(
-            f"{DEBUG_TAG} | charge to be allocated: {charge}, smiles: \n{resonance.write('smi').strip()}"  # type: ignore
+            f"{DEBUG_TAG} | Resonance index: {idx}, recharge to be allocated: {charge}, smiles: \n{resonance.write('smi').strip()}"  # type: ignore
         )
         resonance, charge = eliminate_1_3_dipole(resonance, charge)
         resonance, charge = eliminate_positive_charges(resonance, charge)
@@ -545,26 +518,16 @@ def structure_score(rwmol: Chem.rdchem.RWMol, ratio: float = 1.3) -> float:
         for atom in rwmol.GetAtoms()
         if not is_metal(atom.GetAtomicNum())
     )
-    total_metal_charge = sum(
+    metal_charges = [
         abs(atom.GetFormalCharge())
         for atom in rwmol.GetAtoms()
         if is_metal(atom.GetAtomicNum())
-    )
+    ]
+    total_metal_charge = sum(metal_charges)
     total_num_radical = sum(atom.GetNumRadicalElectrons() for atom in rwmol.GetAtoms())
     num_fragments = len(Chem.GetMolFrags(rwmol))
     metal_atoms = [atom for atom in rwmol.GetAtoms() if is_metal(atom.GetAtomicNum())]
-    metal_score = 0
-    for atom in metal_atoms:
-        if atom.GetFormalCharge() in metal_valence_avialable_prior[atom.GetSymbol()]:
-            metal_score += 50 * (
-                len(metal_valence_avialable_prior[atom.GetSymbol()])
-                - metal_valence_avialable_prior[atom.GetSymbol()].index(
-                    atom.GetFormalCharge()
-                )
-            )
-        if atom.GetFormalCharge() < 0:
-            metal_score += atom.GetFormalCharge() * 100
-
+    metal_score = np.std(metal_charges).item() if len(metal_charges) > 1 else 0
     dative_count = 0
     negative_atoms = [atom for atom in rwmol.GetAtoms() if atom.GetFormalCharge() < 0]
     for metal_atom, negative_atom in itertools.product(metal_atoms, negative_atoms):
@@ -577,21 +540,15 @@ def structure_score(rwmol: Chem.rdchem.RWMol, ratio: float = 1.3) -> float:
         ):
             dative_count += 1
 
-    score = (
+    return (
         10 * total_valence
-        + 10 / (total_formal_charge + 1)
+        - 10 * total_formal_charge
         + 2 * total_metal_charge
-        + 20 / (total_num_radical + 1)
-        + 50 / (num_fragments + 1)
-        + metal_score
+        - 10 * total_num_radical
+        - 50 * num_fragments
+        - 100 * metal_score
         + 2 * dative_count
     )
-    """moloplogger.info(
-        f"{Chem.CanonSmiles(Chem.MolToSmiles(rwmol))} score: {score}, "
-        f"total valence: {total_valence}, total formal charge: {total_formal_charge},"
-        f"total radical: {total_num_radical}, num fragments: {num_fragments}, metal score: {metal_score}"
-    )"""
-    return score
 
 
 def clean_carbene_neighbor_unsaturated(omol: pybel.Molecule) -> pybel.Molecule:
@@ -636,7 +593,9 @@ def eliminate_high_positive_charge_atoms(
         ):
             break
         omol.OBMol.GetAtom(idxs[1]).SetFormalCharge(-1)
-        moloplogger.debug(f"{DEBUG_TAG} | Eliminate atom {idxs[1]} with -1 charge")
+        moloplogger.debug(
+            f"{DEBUG_TAG} | Eliminate atom {omol.OBMol.GetAtom(idxs[1]).GetAtomicNum()} {idxs[1]} with -1 charge"
+        )
         given_charge += 1
     return omol, given_charge
 
@@ -1375,7 +1334,7 @@ def clean_resonances_10(omol: pybel.Molecule) -> pybel.Molecule:
     """
     Clean double radical
 
-    `[*]-[*]=,#[*]-[*]>>[*]-[*]-[*]`
+    `[*]-[*]=,#[*]-[*]>>[*]=[*]-,=[*]=[*]`
 
     Parameters:
         omol (pybel.Molecule): The input molecule object
