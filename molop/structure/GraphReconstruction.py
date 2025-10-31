@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2025-10-31 13:17:59
+LastEditTime: 2025-10-31 16:12:58
 Description: 请填写简介
 """
 
@@ -519,10 +519,11 @@ def structure_score(rwmol: Chem.rdchem.RWMol, ratio: float = 1.3) -> float:
         if not is_metal(atom.GetAtomicNum())
     )
     metal_charges = [
-        abs(atom.GetFormalCharge())
+        atom.GetFormalCharge()
         for atom in rwmol.GetAtoms()
         if is_metal(atom.GetAtomicNum())
     ]
+    negative_metal_charges = sum(charge for charge in metal_charges if charge < 0)
     total_metal_charge = sum(metal_charges)
     total_num_radical = sum(atom.GetNumRadicalElectrons() for atom in rwmol.GetAtoms())
     num_fragments = len(Chem.GetMolFrags(rwmol))
@@ -544,6 +545,7 @@ def structure_score(rwmol: Chem.rdchem.RWMol, ratio: float = 1.3) -> float:
         10 * total_valence
         - 10 * total_formal_charge
         + 2 * total_metal_charge
+        + 50 * negative_metal_charges
         - 10 * total_num_radical
         - 50 * num_fragments
         - 100 * metal_score
