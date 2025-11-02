@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2025-09-16 10:43:33
+LastEditTime: 2025-10-31 21:56:51
 Description: 请填写简介
 """
 
@@ -36,6 +36,7 @@ def AutoParser(
     n_jobs: int = -1,
     only_extract_structure=False,
     only_last_frame=False,
+    release_file_content: bool = True,
     parser_detection: Literal["auto", "gjf", "xyz", "sdf", "g16log"] = "auto",
 ) -> FileBatchModelDisk:
     """
@@ -54,6 +55,8 @@ def AutoParser(
             if True, only extract the structure, else extract the whole file.
         only_last_frame (bool):
             if True, only extract the last frame, else extract all frames.
+        release_file_content (bool):
+            if True, release the file content after parsing, else keep the file content in memory.
         parser_detection (Literal["auto", "gjf", "xyz", "sdf", "g16log"]):
             if "auto", use the file extension to detect the parser, else use the given parser.
 
@@ -82,6 +85,7 @@ def AutoParser(
             total_multiplicity=total_multiplicity,
             only_extract_structure=only_extract_structure,
             only_last_frame=only_last_frame,
+            release_file_content=release_file_content,
             parser_detection=parser_detection,
         )
     else:

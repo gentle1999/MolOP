@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2025-09-15 22:48:01
+LastEditTime: 2025-11-02 22:39:42
 Description: 请填写简介
 """
 
@@ -74,8 +74,8 @@ class MolOPConfig(BaseModel):
     strict_structure_recovery: bool = Field(
         default=False, description="Whether to perform strict structure recovery"
     )
-    max_structure_recovery_time: int = Field(
-        default=10, description="Maximum structure recovery time (seconds)"
+    max_structure_recovery_time: float = Field(
+        default=10.0, description="Maximum structure recovery time (seconds)"
     )
     allow_spin_change: bool = Field(
         default=False, description="Whether to allow spin changes"

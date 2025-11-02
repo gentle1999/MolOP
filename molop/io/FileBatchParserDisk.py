@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-08-20 22:55:18
 LastEditors: TMJ
-LastEditTime: 2025-08-21 00:15:32
+LastEditTime: 2025-10-31 21:54:53
 Description: 请填写简介
 """
 
@@ -52,10 +52,13 @@ class FileParser(Enum):
 def single_file_parser(
     file_path: str,
     possible_parsers: Tuple[PARSERDISK, ...],
+    release_file_content: bool = False,
 ) -> Optional[FILEDISK]:
     for idx, parser in enumerate(possible_parsers):
         try:
-            diskfile = parser.parse(file_path)
+            diskfile = parser.parse(
+                file_path, release_file_content=release_file_content
+            )
             return diskfile
         except Exception as e:
             if idx == len(possible_parsers) - 1:
@@ -90,6 +93,7 @@ class FileBatchParserDisk:
         total_multiplicity: Optional[int] = None,
         only_extract_structure=False,
         only_last_frame=False,
+        release_file_content: bool = True,
         parser_detection: Literal["auto", "gjf", "xyz", "sdf", "g16log"] = "auto",
     ) -> FileBatchModelDisk:
         """
@@ -157,7 +161,11 @@ class FileBatchParserDisk:
                 f"Could not get file size for sorting, proceeding without it: {e}"
             )
         total_tasks = [
-            {"file_path": fp, "possible_parsers": parsers.get(os.path.splitext(fp)[1], ())}
+            {
+                "file_path": fp,
+                "possible_parsers": parsers.get(os.path.splitext(fp)[1], ()),
+                "release_file_content": release_file_content,
+            }
             for fp in valid_file_paths
         ]
         # Determine if parallel processing should be used

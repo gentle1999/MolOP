@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:44:12
 LastEditors: TMJ
-LastEditTime: 2025-07-28 22:39:18
+LastEditTime: 2025-11-01 21:07:03
 Description: 请填写简介
 """
 
@@ -238,6 +238,9 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
             [frame.to_summary_series(**kwargs) for frame in self._frames_],
             axis=1,
         ).T
+
+    def release_file_content(self) -> None:
+        self.file_content = ""
 
 
 ChemFile = TypeVar("ChemFile", bound="BaseChemFile")

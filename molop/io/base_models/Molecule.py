@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2025-10-30 23:33:44
+LastEditTime: 2025-11-01 22:56:23
 Description: 请填写简介
 """
 
@@ -332,7 +332,8 @@ class Molecule(BaseDataClassWithUnit):
         Returns:
             str: The standard SMILES.
         """
-        return canonical_smiles(self.to_SMILES())
+        smi = self.to_SMILES()
+        return canonical_smiles(smi) if smi else ""
 
     def to_InChI(self) -> str:
         """

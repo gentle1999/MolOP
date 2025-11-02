@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2025-10-31 16:12:58
+LastEditTime: 2025-11-03 00:08:47
 Description: 请填写简介
 """
 
@@ -25,8 +25,6 @@ from molop.structure.FormatConverter import (
     validate_omol,
 )
 from molop.structure.StructureTransformation import (
-    get_radical_number,
-    get_under_bonded_number,
     make_dative_bonds,
     reset_atom_index,
 )
@@ -39,7 +37,60 @@ from molop.utils.consts import (
 from molop.utils.functions import is_metal
 
 DEBUG_TAG = "[STRUCTURE RECOVERY]"
-# Entrypoint for graph reconstruction
+
+
+def get_under_bonded_number(atom: ob.OBAtom) -> int:
+    """
+    Get the number of atoms under the given atom.
+    Suppose the atom is not a metal and follows the Octet rate (Suitable for most small organic molecules)
+
+    Parameters:
+        atom (ob.OBAtom): The atom to be checked.
+    Returns:
+        int: The number of atoms under the given atom.
+    """
+    atomic_number = atom.GetAtomicNum()
+    if atomic_number <= 2:
+        return (
+            pt.GetDefaultValence(atomic_number)
+            - atom.GetTotalValence()
+            + atom.GetFormalCharge()
+            - atom.GetSpinMultiplicity()
+        )
+    if pt.GetNOuterElecs(atomic_number) == 3 or (
+        atom.GetFormalCharge() > 0
+        and atom.GetTotalValence() < pt.GetDefaultValence(atomic_number)
+    ):  # electron deficient
+        return (
+            pt.GetDefaultValence(atomic_number)
+            - atom.GetTotalValence()
+            - atom.GetFormalCharge()
+            - atom.GetSpinMultiplicity()
+        )
+    return (
+        pt.GetDefaultValence(atomic_number)
+        - atom.GetTotalValence()
+        + atom.GetFormalCharge()
+        - atom.GetSpinMultiplicity()
+    )  # electron abundant
+
+
+def fresh_omol_charge_radical(omol: pybel.Molecule) -> pybel.Molecule:
+    """
+    Fresh the omol, set the spin multiplicity of radical atoms to 1.
+    """
+    for atom in omol.atoms:
+        atom.OBAtom.SetSpinMultiplicity(0)
+        if get_under_bonded_number(atom.OBAtom) < 0:
+            # e.g. [B]R4 to [B-1]R4
+            if pt.GetNOuterElecs(atom.OBAtom.GetAtomicNum()) == 3:
+                atom.OBAtom.SetFormalCharge(get_under_bonded_number(atom.OBAtom))
+            # e.g. [N]R4 to [N+1]R4
+            else:
+                atom.OBAtom.SetFormalCharge(-get_under_bonded_number(atom.OBAtom))
+        elif get_under_bonded_number(atom.OBAtom):
+            atom.OBAtom.SetSpinMultiplicity(get_under_bonded_number(atom.OBAtom))
+    return omol
 
 
 @lru_cache(maxsize=1000)
@@ -189,6 +240,7 @@ def xyz_to_separated_rwmol(
     return None
 
 
+# Entrypoint for graph reconstruction
 @timeout_decorator.timeout(molopconfig.max_structure_recovery_time)
 def xyz_to_rdmol(
     xyz_block: str,
@@ -252,16 +304,7 @@ def xyz2omol(
     moloplogger.debug(f"{DEBUG_TAG} | Input smiles: \n{omol.write('smi').strip()}")  # type: ignore
 
     # Allocate the posotive charge to the obviously charged atoms
-    for atom in omol.atoms:
-        # e.g. [N]R4 to [N+1]R4
-        if get_under_bonded_number(atom.OBAtom) < 0:
-            atom.OBAtom.SetFormalCharge(-get_under_bonded_number(atom.OBAtom))
-        # e.g. [B]R2 to [B+1]R2
-        if (
-            pt.GetNOuterElecs(atom.OBAtom.GetAtomicNum()) == 3
-            and get_under_bonded_number(atom.OBAtom) > 0
-        ):
-            atom.OBAtom.SetFormalCharge(-get_under_bonded_number(atom.OBAtom))
+    omol = fresh_omol_charge_radical(omol)
     given_charge = total_charge - sum(
         atom.OBAtom.GetFormalCharge() for atom in omol.atoms
     )
@@ -285,10 +328,10 @@ def xyz2omol(
     if validate_omol(omol, total_charge, total_radical_electrons):
         moloplogger.debug(
             f"{DEBUG_TAG} | Final charge: {sum(atom.OBAtom.GetFormalCharge() for atom in omol.atoms)} "
-            f"total charge: {total_charge}; Final radical: {get_radical_number(omol.OBMol.GetAtom(1))}"
+            f"total charge: {total_charge}; Final radical: {omol.OBMol.GetAtom(1).GetSpinMultiplicity()}"
             f" total radical: {total_radical_electrons}; Final smiles: \n{omol.write('smi').strip()}"  # type: ignore
         )
-        return omol
+        return fresh_omol_charge_radical(omol)
     possible_resonances = get_radical_resonances(omol)
     moloplogger.debug(
         f"{DEBUG_TAG} | Possible resonance structures number: {len(possible_resonances)}"
@@ -306,7 +349,7 @@ def xyz2omol(
         moloplogger.debug(
             f"{DEBUG_TAG} | charge to be allocated: {charge}, pre-cleaned resonance smiles: \n{resonance.write('smi').strip()}"  # type: ignore
         )
-        resonance = clean_resonances(resonance)
+        resonance = clean_resonances(clean_resonances(resonance))
         moloplogger.debug(
             f"{DEBUG_TAG} | charge to be allocated: {charge}, cleaned resonance smiles: \n{resonance.write('smi').strip()}"  # type: ignore
         )
@@ -319,14 +362,19 @@ def xyz2omol(
         return None
 
     recovered_resonances.sort(key=omol_score)
+    scores_records = "\n".join(
+        f"{omol_score(resonance):.4f} {resonance[0].write('smi').strip()}"  # type: ignore
+        for resonance in recovered_resonances
+    )
+    moloplogger.debug(f"{DEBUG_TAG} | Scores with smiles: \n{scores_records}")
     final_omol = recovered_resonances[0][0]
 
     moloplogger.debug(
         f"{DEBUG_TAG} | Final charge: {sum(atom.OBAtom.GetFormalCharge() for atom in final_omol.atoms)} "
-        f"total charge: {total_charge}; Final radical: {get_radical_number(final_omol.OBMol.GetAtom(1))}"
+        f"total charge: {total_charge}; Final radical: {final_omol.OBMol.GetAtom(1).GetSpinMultiplicity()}"
         f" total radical: {total_radical_electrons}; Final smiles: \n{final_omol.write('smi').strip()}"  # type: ignore
     )
-    return final_omol
+    return fresh_omol_charge_radical(final_omol)
 
 
 def has_bridge(omol: pybel.Molecule, atom_idx_1: int, atom_idx_2: int) -> bool:
@@ -458,10 +506,73 @@ def pre_clean(omol: pybel.Molecule) -> pybel.Molecule:
             f"{DEBUG_TAG} | Remove Over bonding Si: {idxs[0]} - {idxs[1]}"
         )
 
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
-def omol_score(omol_tuple: Tuple[pybel.Molecule, int, int]) -> int:
+def calculate_tetrahedron_volume(
+    p1: Sequence[float], p2: Sequence[float], p3: Sequence[float], p4: Sequence[float]
+) -> float:
+    matrix = np.array([list(p1) + [1], list(p2) + [1], list(p3) + [1], list(p4) + [1]])
+    determinant = np.linalg.det(matrix)
+    return abs(determinant) / 6.0
+
+def calculate_shape_quality(
+    p1: Sequence[float], p2: Sequence[float], p3: Sequence[float], p4: Sequence[float]
+) -> float:
+    volume = calculate_tetrahedron_volume(p1, p2, p3, p4)
+    _p1, _p2, _p3, _p4 = np.array(p1), np.array(p2), np.array(p3), np.array(p4)
+    if np.isclose(volume, 0):
+        return 0.0
+    edges_sq = [
+        np.linalg.norm(_p1 - _p2) ** 2,
+        np.linalg.norm(_p1 - _p3) ** 2,
+        np.linalg.norm(_p1 - _p4) ** 2,
+        np.linalg.norm(_p2 - _p3) ** 2,
+        np.linalg.norm(_p2 - _p4) ** 2,
+        np.linalg.norm(_p3 - _p4) ** 2,
+    ]
+    sum_edges_sq = sum(edges_sq)
+    l_rms_cubed = (sum_edges_sq / 6.0) ** 1.5
+    NORMALIZATION_CONST = 6.0 * np.sqrt(2.0)
+    quality = NORMALIZATION_CONST * (volume / l_rms_cubed)
+    return max(0.0, min(1.0, quality))
+
+def radical_deviation_scale(omol: pybel.Molecule, atom_idx: int) -> float:
+    atom = omol.OBMol.GetAtom(atom_idx)
+    neighbor_atoms = list(ob.OBAtomAtomIter(atom))
+    if len(neighbor_atoms) == 2:
+        return -abs(omol.OBMol.GetAngle(neighbor_atoms[0], atom, neighbor_atoms[1])-108) / 180
+    if len(neighbor_atoms) == 3:
+        return -10* calculate_shape_quality(
+            [
+                neighbor_atoms[0].GetVector().GetX(),
+                neighbor_atoms[0].GetVector().GetY(),
+                neighbor_atoms[0].GetVector().GetZ(),
+            ],
+            [
+                neighbor_atoms[1].GetVector().GetX(),
+                neighbor_atoms[1].GetVector().GetY(),
+                neighbor_atoms[1].GetVector().GetZ(),
+            ],
+            [
+                neighbor_atoms[2].GetVector().GetX(),
+                neighbor_atoms[2].GetVector().GetY(),
+                neighbor_atoms[2].GetVector().GetZ(),
+            ],
+            [atom.GetVector().GetX(), atom.GetVector().GetY(), atom.GetVector().GetZ()],
+        )
+    return 0.0
+
+
+def negative_deviation_scale(omol: pybel.Molecule, atom_idx: int) -> float:
+    return radical_deviation_scale(omol, atom_idx)
+
+
+def positive_deviation_scale(omol: pybel.Molecule, atom_idx: int) -> float:
+    return -radical_deviation_scale(omol, atom_idx)
+
+
+def omol_score(omol_tuple: Tuple[pybel.Molecule, int, int]) -> float:
     """
     Calculate the structural recovery score of a molecule, the lower the score the better
     the structural recovery.
@@ -478,20 +589,34 @@ def omol_score(omol_tuple: Tuple[pybel.Molecule, int, int]) -> int:
     Returns:
         int: The structural recovery score of a molecule.
     """
+    omol, charge, radical_num = omol_tuple
     score = 0
-    score += 2 * abs(
-        sum(abs(get_radical_number(atom.OBAtom)) for atom in omol_tuple[0].atoms)
-        - omol_tuple[2]
+    rdmol = Chem.MolFromSmiles(omol.write("smiles"))
+    if rdmol is None:
+        return 1000
+    score -= len(rdmol.GetSubstructMatches(rdmol, uniquify=False))
+    score += sum(
+        radical_deviation_scale(omol, atom_idx)
+        for atom_idx in range(1, omol.OBMol.NumAtoms() + 1)
+        if omol.OBMol.GetAtom(atom_idx).GetSpinMultiplicity() > 0
+    )
+    score += sum(
+        negative_deviation_scale(omol, atom_idx)
+        for atom_idx in range(1, omol.OBMol.NumAtoms() + 1)
+        if omol.OBMol.GetAtom(atom_idx).GetFormalCharge() < 0
+    )
+    score += sum(
+        positive_deviation_scale(omol, atom_idx)
+        for atom_idx in range(1, omol.OBMol.NumAtoms() + 1)
+        if omol.OBMol.GetAtom(atom_idx).GetFormalCharge() > 0
+    )
+    score += 2 * (
+        sum(atom.OBAtom.GetSpinMultiplicity() for atom in omol.atoms) - radical_num
     )
     score += sum(
         abs(atom.OBAtom.GetFormalCharge())
-        for atom in omol_tuple[0].atoms
+        for atom in omol.atoms
         if not is_metal(atom.OBAtom.GetAtomicNum())
-    )
-    score -= sum(
-        abs(atom.OBAtom.GetFormalCharge())
-        for atom in omol_tuple[0].atoms
-        if is_metal(atom.OBAtom.GetAtomicNum())
     )
     return score
 
@@ -566,7 +691,7 @@ def clean_carbene_neighbor_unsaturated(omol: pybel.Molecule) -> pybel.Molecule:
         atom1 = omol.OBMol.GetAtom(idxs[0])
         atom2 = omol.OBMol.GetAtom(idxs[1])
         atom3 = omol.OBMol.GetAtom(idxs[2])
-        if get_radical_number(atom1) == 2 and get_radical_number(atom3) == 0:
+        if atom1.GetSpinMultiplicity() == 2 and atom3.GetSpinMultiplicity() == 0:
             moloplogger.debug(
                 f"{DEBUG_TAG} | fixing carbine neighbor: {atom1.GetIdx()} "
                 f"and {atom2.GetIdx()} {atom3.GetIdx()}"
@@ -577,7 +702,7 @@ def clean_carbene_neighbor_unsaturated(omol: pybel.Molecule) -> pybel.Molecule:
             omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
                 int(omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1)
             )
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
 def eliminate_high_positive_charge_atoms(
@@ -599,7 +724,7 @@ def eliminate_high_positive_charge_atoms(
             f"{DEBUG_TAG} | Eliminate atom {omol.OBMol.GetAtom(idxs[1]).GetAtomicNum()} {idxs[1]} with -1 charge"
         )
         given_charge += 1
-    return omol, given_charge
+    return fresh_omol_charge_radical(omol), given_charge
 
 
 def eliminate_CN_in_doubt(
@@ -625,7 +750,7 @@ def eliminate_CN_in_doubt(
                 f"{DEBUG_TAG} | Fix CN in doubt: {atom_1} - {atom_2}, "
                 f"charge to be allocated: {given_charge}"
             )
-    return omol, given_charge
+    return fresh_omol_charge_radical(omol), given_charge
 
 
 def eliminate_carboxyl(
@@ -640,7 +765,7 @@ def eliminate_carboxyl(
         )
         given_charge += 1
         moloplogger.debug(f"{DEBUG_TAG} | Eliminate atom {idxs[0]} with -1 charge")
-    return omol, given_charge
+    return fresh_omol_charge_radical(omol), given_charge
 
 
 def eliminate_carbene_neighbor_heteroatom(
@@ -655,15 +780,15 @@ def eliminate_carbene_neighbor_heteroatom(
         int: The remaining charge to be allocated.
     """
     for atom in omol.atoms:
-        if get_radical_number(atom.OBAtom) == 2:
+        if atom.OBAtom.GetSpinMultiplicity() == 2:
             for neibhor in ob.OBAtomAtomIter(atom.OBAtom):
-                if get_radical_number(neibhor):
-                    return omol, given_charge
+                if neibhor.GetSpinMultiplicity():
+                    return fresh_omol_charge_radical(omol), given_charge
             for neighbor in ob.OBAtomAtomIter(atom.OBAtom):
                 if (
                     neighbor.GetAtomicNum() in HETEROATOM
                     and neighbor.GetFormalCharge() == 0
-                    and get_radical_number(neighbor) == 0
+                    and neibhor.GetSpinMultiplicity() == 0
                 ):
                     atom.OBAtom.GetBond(neighbor).SetBondOrder(
                         atom.OBAtom.GetBond(neighbor).GetBondOrder() + 1
@@ -675,7 +800,7 @@ def eliminate_carbene_neighbor_heteroatom(
                         f"{neighbor.GetIdx()}, charge to be allocated: {given_charge}"
                     )
                     break
-    return omol, given_charge
+    return fresh_omol_charge_radical(omol), given_charge
 
 
 def eliminate_NNN(
@@ -698,7 +823,7 @@ def eliminate_NNN(
         atom3.SetFormalCharge(atom3.GetFormalCharge() - 1)
         given_charge += 1
         moloplogger.debug(f"{DEBUG_TAG} | Fix NNN-: {idxs[0]}, {idxs[1]}, {idxs[2]}")
-    return omol, given_charge
+    return fresh_omol_charge_radical(omol), given_charge
 
 
 def break_deformed_ene(
@@ -720,10 +845,10 @@ def break_deformed_ene(
     res = list(smarts.findall(omol))
     while len(res):
         if (
-            sum(get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol))
+            sum(atom.GetSpinMultiplicity() for atom in ob.OBMolAtomIter(omol.OBMol))
             >= abs(given_charge) + given_radical
         ):
-            return omol
+            return fresh_omol_charge_radical(omol)
         idxs = res.pop(0)
         bond = omol.OBMol.GetBond(idxs[0], idxs[1])
         if bond.IsRotor() or bond.GetBondOrder() == 1:
@@ -736,14 +861,20 @@ def break_deformed_ene(
             )
             moloplogger.debug(f"{DEBUG_TAG} | break bond {idxs[0]} and {idxs[1]}")
             bond.SetBondOrder(bond.GetBondOrder() - 1)
+            bond.GetBeginAtom().SetSpinMultiplicity(
+                bond.GetBeginAtom().GetSpinMultiplicity() + 1
+            )
+            bond.GetEndAtom().SetSpinMultiplicity(
+                bond.GetEndAtom().GetSpinMultiplicity() + 1
+            )
     smarts = pybel.Smarts("[*]~[*+0](=,:[*+0])~[*]")
     res = list(smarts.findall(omol))
     while len(res):
         if (
-            sum(get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol))
+            sum(atom.GetSpinMultiplicity() for atom in ob.OBMolAtomIter(omol.OBMol))
             >= abs(given_charge) + given_radical
         ):
-            return omol
+            return fresh_omol_charge_radical(omol)
         idxs = res.pop(0)
         bond = omol.OBMol.GetBond(idxs[0], idxs[1])
         if bond.IsRotor() or bond.GetBondOrder() == 1:
@@ -756,7 +887,13 @@ def break_deformed_ene(
             )
             moloplogger.debug(f"{DEBUG_TAG} | break bond {idxs[0]} and {idxs[1]}")
             bond.SetBondOrder(bond.GetBondOrder() - 1)
-    return omol
+            bond.GetBeginAtom().SetSpinMultiplicity(
+                bond.GetBeginAtom().GetSpinMultiplicity() + 1
+            )
+            bond.GetEndAtom().SetSpinMultiplicity(
+                bond.GetEndAtom().GetSpinMultiplicity() + 1
+            )
+    return fresh_omol_charge_radical(omol)
 
 
 def break_one_bond(
@@ -779,10 +916,10 @@ def break_one_bond(
     # Loop to find suitable bonds
     while res := smarts.findall(omol):
         if (
-            sum(get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol))
+            sum(atom.GetSpinMultiplicity() for atom in ob.OBMolAtomIter(omol.OBMol))
             >= abs(given_charge) + given_radical
         ):
-            return omol, given_charge
+            return fresh_omol_charge_radical(omol), given_charge
         # Get the indices of the first suitable bond's atoms
         idxs = res.pop(0)
         # Log debug information indicating the bond to be broken
@@ -792,14 +929,20 @@ def break_one_bond(
         # Get and reduce the bond order of the found bond
         bond = omol.OBMol.GetBond(idxs[0], idxs[1])
         bond.SetBondOrder(bond.GetBondOrder() - 1)
+        bond.GetBeginAtom().SetSpinMultiplicity(
+            bond.GetBeginAtom().GetSpinMultiplicity() + 1
+        )
+        bond.GetEndAtom().SetSpinMultiplicity(
+            bond.GetEndAtom().GetSpinMultiplicity() + 1
+        )
     smarts = pybel.Smarts("[#7+1,#15+1]=[*+0]")
     # Loop to find suitable bonds
     while res := smarts.findall(omol):
         if (
-            sum(get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol))
+            sum(atom.GetSpinMultiplicity() for atom in ob.OBMolAtomIter(omol.OBMol))
             >= abs(given_charge) + given_radical
         ):
-            return omol, given_charge
+            return fresh_omol_charge_radical(omol), given_charge
         # Get the indices of the first suitable bond's atoms
         idxs = res.pop(0)
         # Log debug information indicating the bond to be broken
@@ -809,6 +952,12 @@ def break_one_bond(
         # Get and reduce the bond order of the found bond
         bond = omol.OBMol.GetBond(idxs[0], idxs[1])
         bond.SetBondOrder(bond.GetBondOrder() - 1)
+        bond.GetBeginAtom().SetSpinMultiplicity(
+            bond.GetBeginAtom().GetSpinMultiplicity() + 1
+        )
+        bond.GetEndAtom().SetSpinMultiplicity(
+            bond.GetEndAtom().GetSpinMultiplicity() + 1
+        )
         omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(
             int(omol.OBMol.GetAtom(idxs[0]).GetFormalCharge() - 1)
         )
@@ -817,10 +966,10 @@ def break_one_bond(
     # Loop to find suitable bonds, if only aromatic bonds are present
     while res := smarts.findall(omol):
         if (
-            sum(get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol))
+            sum(atom.GetSpinMultiplicity() for atom in ob.OBMolAtomIter(omol.OBMol))
             >= abs(given_charge) + given_radical
         ):
-            return omol, given_charge
+            return fresh_omol_charge_radical(omol), given_charge
         # Get the indices of the first suitable bond's atoms
         idxs = res.pop(0)
         # Log debug information indicating the bond to be broken
@@ -828,16 +977,32 @@ def break_one_bond(
         # Get and reduce the bond order of the found bond
         bond = omol.OBMol.GetBond(idxs[0], idxs[1])
         bond.SetBondOrder(bond.GetBondOrder() - 1)
+        bond.GetBeginAtom().SetSpinMultiplicity(
+            bond.GetBeginAtom().GetSpinMultiplicity() + 1
+        )
+        bond.GetEndAtom().SetSpinMultiplicity(
+            bond.GetEndAtom().GetSpinMultiplicity() + 1
+        )
 
     if all(bond.GetBondOrder() == 1 for bond in ob.OBMolBondIter(omol.OBMol)):
         for bond in ob.OBMolBondIter(omol.OBMol):
             if (
-                sum(get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol))
+                sum(atom.GetSpinMultiplicity() for atom in ob.OBMolAtomIter(omol.OBMol))
                 >= abs(given_charge) + given_radical
             ):
-                return omol, given_charge
+                return fresh_omol_charge_radical(omol), given_charge
+            moloplogger.debug(
+                f"{DEBUG_TAG} | break bond {bond.GetBeginAtom().GetIdx()} and {bond.GetEndAtom().GetIdx()}:"
+                f" Single bond"
+            )
+            bond.GetBeginAtom().SetSpinMultiplicity(
+                bond.GetBeginAtom().GetSpinMultiplicity() + 1
+            )
+            bond.GetEndAtom().SetSpinMultiplicity(
+                bond.GetEndAtom().GetSpinMultiplicity() + 1
+            )
             omol.OBMol.DeleteBond(bond)
-    return omol, given_charge
+    return fresh_omol_charge_radical(omol), given_charge
 
 
 def clean_neighbor_radicals(omol: pybel.Molecule) -> pybel.Molecule:
@@ -847,21 +1012,27 @@ def clean_neighbor_radicals(omol: pybel.Molecule) -> pybel.Molecule:
         omol (pybel.Molecule): The molecule to be transformed.
     """
     for bond in ob.OBMolBondIter(omol.OBMol):
-        if get_under_bonded_number(bond.GetBeginAtom()) and get_under_bonded_number(
-            bond.GetEndAtom()
+        if (
+            bond.GetBeginAtom().GetSpinMultiplicity()
+            and bond.GetEndAtom().GetSpinMultiplicity()
         ):
-            bond.SetBondOrder(
-                bond.GetBondOrder()
-                + min(
-                    get_under_bonded_number(bond.GetBeginAtom()),
-                    get_under_bonded_number(bond.GetEndAtom()),
-                )
+            bond_to_add = min(
+                bond.GetBeginAtom().GetSpinMultiplicity(),
+                bond.GetEndAtom().GetSpinMultiplicity(),
             )
+            bond.SetBondOrder(bond.GetBondOrder() + bond_to_add)
+            bond.GetBeginAtom().SetSpinMultiplicity(
+                bond.GetBeginAtom().GetSpinMultiplicity() - bond_to_add
+            )
+            bond.GetEndAtom().SetSpinMultiplicity(
+                bond.GetEndAtom().GetSpinMultiplicity() - bond_to_add
+            )
+
             moloplogger.debug(
                 f"{DEBUG_TAG} | Cleaning bond {bond.GetBeginAtom().GetIdx()} "
                 f"and {bond.GetEndAtom().GetIdx()}"
             )
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
 def eliminate_charge_spliting(
@@ -869,10 +1040,11 @@ def eliminate_charge_spliting(
 ) -> Tuple[pybel.Molecule, int]:
     if (
         all(atom.GetFormalCharge() == 0 for atom in ob.OBMolAtomIter(omol.OBMol))
-        and sum(get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol)) >= 2
+        and sum(atom.GetSpinMultiplicity() for atom in ob.OBMolAtomIter(omol.OBMol))
+        >= 2
     ):
         radical_atoms = [
-            atom for atom in ob.OBMolAtomIter(omol.OBMol) if get_radical_number(atom)
+            atom for atom in ob.OBMolAtomIter(omol.OBMol) if atom.GetSpinMultiplicity()
         ]
         moloplogger.debug(
             f"{DEBUG_TAG} | Eliminate charge splitting, number of radical atoms: {len(radical_atoms)}"
@@ -917,7 +1089,7 @@ def eliminate_charge_spliting(
                     break
             else:
                 break
-    return omol, given_charge
+    return fresh_omol_charge_radical(omol), given_charge
 
 
 def get_one_step_resonance(omol: pybel.Molecule) -> List[pybel.Molecule]:
@@ -935,7 +1107,7 @@ def get_one_step_resonance(omol: pybel.Molecule) -> List[pybel.Molecule]:
     res = list(smarts.findall(omol))
     result = []
     for idxs in res:
-        if get_radical_number(omol.OBMol.GetAtom(idxs[0])) >= 1:
+        if omol.OBMol.GetAtom(idxs[0]).GetSpinMultiplicity() >= 1:
             new_omol = rdmol_to_omol(omol_to_rdmol_by_graph(omol))
             new_omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(
                 new_omol.OBMol.GetBond(idxs[1], idxs[2]).GetBondOrder() - 1
@@ -944,7 +1116,7 @@ def get_one_step_resonance(omol: pybel.Molecule) -> List[pybel.Molecule]:
                 new_omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1
             )
 
-            result.append(new_omol)
+            result.append(fresh_omol_charge_radical(new_omol))
     return result
 
 
@@ -986,7 +1158,7 @@ def eliminate_1_3_dipole(
         atom2 = omol.OBMol.GetAtom(idxs[1])
         atom3 = omol.OBMol.GetAtom(idxs[2])
         if (
-            get_radical_number(atom3)
+            atom3.GetSpinMultiplicity()
             and pt.GetNOuterElecs(atom2.GetAtomicNum()) + atom2.GetTotalValence() == 8
         ):
             moloplogger.debug(
@@ -998,12 +1170,17 @@ def eliminate_1_3_dipole(
                 int(omol.OBMol.GetBond(idxs[1], idxs[2]).GetBondOrder() + 1)
             )
             given_charge -= 1
-    return omol, given_charge
+    return fresh_omol_charge_radical(omol), given_charge
 
 
 def eliminate_positive_charges(
     omol: pybel.Molecule, given_charge: int
 ) -> Tuple[pybel.Molecule, int]:
+    smarts = pybel.Smarts("[Nv3+0]=[Nv2+0]")
+    while given_charge > 0 and (res := smarts.findall(omol)):
+        idxs = res.pop(0)
+        omol.OBMol.GetAtom(idxs[1]).SetFormalCharge(1)
+        given_charge -= 1
     smarts = pybel.Smarts("[#6v3+0,#6v2+0,#1v0+0]")
     while given_charge > 0 and (res := smarts.findall(omol)):
         idxs = res.pop(0)
@@ -1012,11 +1189,14 @@ def eliminate_positive_charges(
     for atom in omol.atoms:
         if given_charge <= 0:
             break
-        if get_radical_number(atom.OBAtom) >= 1 and atom.OBAtom.GetFormalCharge() == 0:
-            to_add = min(get_radical_number(atom.OBAtom), given_charge)
+        if (
+            atom.OBAtom.GetSpinMultiplicity() >= 1
+            and atom.OBAtom.GetFormalCharge() == 0
+        ):
+            to_add = min(atom.OBAtom.GetSpinMultiplicity(), given_charge)
             atom.OBAtom.SetFormalCharge(to_add)
             given_charge -= to_add
-    return omol, given_charge
+    return fresh_omol_charge_radical(omol), given_charge
 
 
 def eliminate_negative_charges(
@@ -1027,14 +1207,14 @@ def eliminate_negative_charges(
         if (
             atom.atomicnum in HETEROATOM
             and atom.OBAtom.GetFormalCharge() == 0
-            and get_radical_number(atom.OBAtom)
+            and atom.OBAtom.GetSpinMultiplicity()
         ):
             possibile_heteroatoms.append((atom, HETEROATOM.index(atom.atomicnum)))
     possibile_heteroatoms.sort(key=lambda x: x[1])
     for atom, _ in possibile_heteroatoms:
         if given_charge >= 0:
             break
-        to_add = min(get_radical_number(atom.OBAtom), abs(given_charge))
+        to_add = min(atom.OBAtom.GetSpinMultiplicity(), abs(given_charge))
         atom.OBAtom.SetFormalCharge(-to_add)
         given_charge += to_add
         moloplogger.debug(
@@ -1046,7 +1226,9 @@ def eliminate_negative_charges(
     smarts = pybel.Smarts("[#6v3+0]")
     while given_charge < 0 and (res := smarts.findall(omol)):
         idxs = res.pop(0)
-        to_add = min(get_radical_number(omol.OBMol.GetAtom(idxs[0])), abs(given_charge))
+        to_add = min(
+            omol.OBMol.GetAtom(idxs[0]).GetSpinMultiplicity(), abs(given_charge)
+        )
         omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(-to_add)
         given_charge += to_add
         moloplogger.debug(
@@ -1056,7 +1238,9 @@ def eliminate_negative_charges(
     smarts = pybel.Smarts("[#1v0+0]")
     while given_charge < 0 and (res := smarts.findall(omol)):
         idxs = res.pop(0)
-        to_add = min(get_radical_number(omol.OBMol.GetAtom(idxs[0])), abs(given_charge))
+        to_add = min(
+            omol.OBMol.GetAtom(idxs[0]).GetSpinMultiplicity(), abs(given_charge)
+        )
         omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(-to_add)
         given_charge += to_add
         moloplogger.debug(
@@ -1066,14 +1250,16 @@ def eliminate_negative_charges(
     smarts = pybel.Smarts("[#6v2+0,#6v1+0,#6v0+0]")
     while given_charge < 0 and (res := smarts.findall(omol)):
         idxs = res.pop(0)
-        to_add = min(get_radical_number(omol.OBMol.GetAtom(idxs[0])), abs(given_charge))
+        to_add = min(
+            omol.OBMol.GetAtom(idxs[0]).GetSpinMultiplicity(), abs(given_charge)
+        )
         omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(-to_add)
         given_charge += to_add
         moloplogger.debug(
             f"{DEBUG_TAG} | Eliminate negative charge: {atom.OBAtom.GetIdx()} "
             f"with charge {to_add}"
         )
-    return omol, given_charge
+    return fresh_omol_charge_radical(omol), given_charge
 
 
 def clean_resonances_0(omol: pybel.Molecule) -> pybel.Molecule:
@@ -1098,7 +1284,7 @@ def clean_resonances_0(omol: pybel.Molecule) -> pybel.Molecule:
             omol.OBMol.GetAtom(idxs[2]).SetFormalCharge(
                 omol.OBMol.GetAtom(idxs[2]).GetFormalCharge() - 1
             )
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
 def clean_resonances_1(omol: pybel.Molecule) -> pybel.Molecule:
@@ -1128,7 +1314,7 @@ def clean_resonances_1(omol: pybel.Molecule) -> pybel.Molecule:
         omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(
             omol.OBMol.GetAtom(idxs[0]).GetFormalCharge() - 1
         )
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
 def clean_resonances_2(omol: pybel.Molecule) -> pybel.Molecule:
@@ -1151,7 +1337,7 @@ def clean_resonances_2(omol: pybel.Molecule) -> pybel.Molecule:
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
         omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(-1)
         omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(0)
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
 def clean_resonances_3(omol: pybel.Molecule) -> pybel.Molecule:
@@ -1175,12 +1361,12 @@ def clean_resonances_3(omol: pybel.Molecule) -> pybel.Molecule:
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
         omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(0)
         omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(0)
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
 def clean_resonances_4(omol: pybel.Molecule) -> pybel.Molecule:
     """
-    `[#7+,#8+]=[*]-[#6-,#7-,#8-]>>[#7,#8]=[*]-[#6,#7,#8]`
+    `[#7+,#8+]=[*]-[#6-,#7-,#8-]>>[#7,#8]-[*]=[#6,#7,#8]`
 
     Parameters:
         omol (pybel.Molecule): The input molecule object
@@ -1201,7 +1387,7 @@ def clean_resonances_4(omol: pybel.Molecule) -> pybel.Molecule:
         )
         omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(0)
         omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(0)
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
 def clean_resonances_5(omol: pybel.Molecule) -> pybel.Molecule:
@@ -1227,7 +1413,7 @@ def clean_resonances_5(omol: pybel.Molecule) -> pybel.Molecule:
         )
         omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(-1)
         omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(0)
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
 def clean_resonances_6(omol: pybel.Molecule) -> pybel.Molecule:
@@ -1249,7 +1435,7 @@ def clean_resonances_6(omol: pybel.Molecule) -> pybel.Molecule:
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(1)
         omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(-1)
         omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(0)
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
 def clean_resonances_7(omol: pybel.Molecule) -> pybel.Molecule:
@@ -1271,7 +1457,7 @@ def clean_resonances_7(omol: pybel.Molecule) -> pybel.Molecule:
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(2)
         omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(0)
         omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(-1)
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
 def clean_resonances_8(omol: pybel.Molecule) -> pybel.Molecule:
@@ -1295,7 +1481,7 @@ def clean_resonances_8(omol: pybel.Molecule) -> pybel.Molecule:
         omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(2)
         omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(0)
         omol.OBMol.GetAtom(idxs[-1]).SetFormalCharge(-1)
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
 def clean_resonances_9(omol: pybel.Molecule) -> pybel.Molecule:
@@ -1310,7 +1496,7 @@ def clean_resonances_9(omol: pybel.Molecule) -> pybel.Molecule:
     Returns:
         pybel.Molecule: The cleaned molecule.
     """
-    smarts = pybel.Smarts("[*+]-,=[*-]")
+    smarts = pybel.Smarts("[*+,*+2,*+3]-,=[*-,*-2,*-3]")
     res = list(smarts.findall(omol))
     while len(res):
         idxs = res.pop(0)
@@ -1327,9 +1513,9 @@ def clean_resonances_9(omol: pybel.Molecule) -> pybel.Molecule:
             omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
                 int(omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1)
             )
-            pos_atom.SetFormalCharge(0)
-            neg_atom.SetFormalCharge(0)
-    return omol
+            pos_atom.SetFormalCharge(omol.OBMol.GetAtom(idxs[0]).GetFormalCharge() - 1)
+            neg_atom.SetFormalCharge(omol.OBMol.GetAtom(idxs[1]).GetFormalCharge() + 1)
+    return fresh_omol_charge_radical(omol)
 
 
 def clean_resonances_10(omol: pybel.Molecule) -> pybel.Molecule:
@@ -1350,7 +1536,7 @@ def clean_resonances_10(omol: pybel.Molecule) -> pybel.Molecule:
         idxs = res.pop(0)
         atom1 = omol.OBMol.GetAtom(idxs[0])
         atom2 = omol.OBMol.GetAtom(idxs[-1])
-        if get_radical_number(atom1) and get_radical_number(atom2):
+        if atom1.GetSpinMultiplicity() and atom2.GetSpinMultiplicity():
             moloplogger.debug(f"{DEBUG_TAG} | Cleaning double radical")
             omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(
                 int(omol.OBMol.GetBond(idxs[1], idxs[2]).GetBondOrder() - 1)
@@ -1361,55 +1547,60 @@ def clean_resonances_10(omol: pybel.Molecule) -> pybel.Molecule:
             omol.OBMol.GetBond(idxs[2], idxs[3]).SetBondOrder(
                 int(omol.OBMol.GetBond(idxs[2], idxs[3]).GetBondOrder() + 1)
             )
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
 def clean_resonances_11(omol: pybel.Molecule) -> pybel.Molecule:
-    smarts = pybel.Smarts("[#7v3+0,#8v2+0,#16v2+0,#6+0]-,=[*+1]")
+    smarts = pybel.Smarts("[#7v3+0,#8v2+0,#16v2+0]-,=,~[*+1]")
     res = list(smarts.findall(omol))
     while len(res):
         idxs = res.pop(0)
-        atom1 = omol.OBMol.GetAtom(idxs[0])
-        if get_under_bonded_number(atom1) != 2:
-            continue
+        # atom1 = omol.OBMol.GetAtom(idxs[0])
         atom2 = omol.OBMol.GetAtom(idxs[1])
         if pt.GetDefaultValence(atom2.GetAtomicNum()) - atom2.GetTotalValence() >= 1:
-            moloplogger.debug(
-                f"{DEBUG_TAG} | Cleaning N, O, S, carbene with neighboring positive charge"
-            )
-            omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
-                int(omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1)
-            )
-            omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(1)
-            omol.OBMol.GetAtom(idxs[1]).SetFormalCharge(0)
-    return omol
+            if (
+                int(omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder()) == 1
+                or int(omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder()) == 2
+            ):
+                moloplogger.debug(
+                    f"{DEBUG_TAG} | Cleaning N, O, S with neighboring positive charge"
+                )
+                omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
+                    int(omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1)
+                )
+                omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(1)
+                omol.OBMol.GetAtom(idxs[1]).SetFormalCharge(0)
+    return fresh_omol_charge_radical(omol)
 
 
 def clean_resonances_12(omol: pybel.Molecule) -> pybel.Molecule:
-    smarts = pybel.Smarts("[#7v3+0,#8v2+0,#16v2+0,#6+0]-[*]=[*]-[*+1]")
+    smarts = pybel.Smarts("[#7v3+0,#8v2+0,#16v2+0]-,~[*]=,~[*]-,~[*+1]")
     res = list(smarts.findall(omol))
     while len(res):
         idxs = res.pop(0)
-        atom1 = omol.OBMol.GetAtom(idxs[0])
-        if get_under_bonded_number(atom1) != 2:
-            continue
+        # atom1 = omol.OBMol.GetAtom(idxs[0])
         atom4 = omol.OBMol.GetAtom(idxs[3])
         if pt.GetDefaultValence(atom4.GetAtomicNum()) - atom4.GetTotalValence() >= 1:
-            moloplogger.debug(
-                f"{DEBUG_TAG} | Cleaning N, O, S with neighboring positive charge"
-            )
-            omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
-                int(omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1)
-            )
-            omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(
-                int(omol.OBMol.GetBond(idxs[1], idxs[2]).GetBondOrder() - 1)
-            )
-            omol.OBMol.GetBond(idxs[2], idxs[3]).SetBondOrder(
-                int(omol.OBMol.GetBond(idxs[2], idxs[3]).GetBondOrder() + 1)
-            )
-            omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(1)
-            omol.OBMol.GetAtom(idxs[3]).SetFormalCharge(0)
-    return omol
+            if (
+                int(omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder()) == 1
+                and int(omol.OBMol.GetBond(idxs[1], idxs[2]).GetBondOrder()) == 2
+                and int(omol.OBMol.GetBond(idxs[2], idxs[3]).GetBondOrder()) == 1
+            ):
+                moloplogger.debug(
+                    f"{DEBUG_TAG} | Cleaning N, O, S with neighboring positive charge"
+                )
+                omol.OBMol.GetBond(idxs[0], idxs[1]).SetBondOrder(
+                    int(omol.OBMol.GetBond(idxs[0], idxs[1]).GetBondOrder() + 1)
+                )
+                omol.OBMol.GetBond(idxs[1], idxs[2]).SetBondOrder(
+                    int(omol.OBMol.GetBond(idxs[1], idxs[2]).GetBondOrder() - 1)
+                )
+                omol.OBMol.GetBond(idxs[2], idxs[3]).SetBondOrder(
+                    int(omol.OBMol.GetBond(idxs[2], idxs[3]).GetBondOrder() + 1)
+                )
+                omol.OBMol.GetAtom(idxs[0]).SetFormalCharge(1)
+                omol.OBMol.GetAtom(idxs[3]).SetFormalCharge(0)
+    return fresh_omol_charge_radical(omol)
 
 
 def clean_resonances(omol: pybel.Molecule) -> pybel.Molecule:
@@ -1427,7 +1618,7 @@ def clean_resonances(omol: pybel.Molecule) -> pybel.Molecule:
     omol = clean_resonances_10(omol)
     omol = clean_resonances_11(omol)
     omol = clean_resonances_12(omol)
-    return omol
+    return fresh_omol_charge_radical(omol)
 
 
 def valid_metal_valence_radical(

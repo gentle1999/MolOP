@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:43:45
 LastEditors: TMJ
-LastEditTime: 2025-07-29 14:17:47
+LastEditTime: 2025-11-03 00:17:00
 Description: 请填写简介
 """
 
@@ -324,7 +324,6 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
                 continue
             # Check if the molecule satisfies crowding conditions and append it to the list
             temp_moleculues.append(molecule)
-        moloplogger.info(f"Generated {len(temp_moleculues)} TS vibration calculations")
         return temp_moleculues
 
     def ts_vibration(
@@ -381,6 +380,7 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
         temp_moleculues = self.ts_vibration(
             ratio=ratio, steps=steps, ignore_dative=ignore_dative
         )
+        assert len(temp_moleculues) > 0, "Failed to generate TS vibrations"
         assert temp_moleculues[0].rdmol and temp_moleculues[-1].rdmol, (
             "Failed to generate TS vibrations"
         )

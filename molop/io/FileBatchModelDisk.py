@@ -115,7 +115,10 @@ class FileBatchModelDisk(MutableMapping):
         return [diskfile.filename for diskfile in self]
 
     def filter_state(
-        self, state: Literal["ts", "error", "opt", "normal"], negate: bool = False
+        self,
+        state: Literal["ts", "error", "opt", "normal"],
+        negate: bool = False,
+        verbose: bool = False,
     ) -> "FileBatchModelDisk":
         """
         Filter the files based on their state.
@@ -144,7 +147,17 @@ class FileBatchModelDisk(MutableMapping):
             else:
                 raise ValueError(f"Invalid state: {state}")
 
-        return self.new_batch(filter(judge_func, self))
+        return self.new_batch(
+            filter(
+                judge_func,
+                tqdm(
+                    self,
+                    desc=f"Filtering {state} files",
+                    total=len(self),
+                    disable=not verbose,
+                ),
+            )
+        )
 
     def filter_value(
         self,
@@ -250,3 +263,7 @@ class FileBatchModelDisk(MutableMapping):
             ).T
         else:
             raise ValueError(f"Invalid mode: {mode}")
+
+    def release_file_content(self) -> None:
+        for diskfile in self:
+            diskfile.release_file_content()
