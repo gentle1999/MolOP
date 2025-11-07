@@ -163,7 +163,8 @@ class FileBatchModelDisk(MutableMapping):
         self,
         target: Literal["charge", "multiplicity", "format"],
         value: Union[str, float, int],
-        negate: bool = False,
+        compare: Literal["==", "!=", ">", "<", ">=", "<="] = "==",
+        verbose: bool = False,
     ):
         """
         Filter the files based on their properties.
@@ -171,20 +172,38 @@ class FileBatchModelDisk(MutableMapping):
         Parameters:
             target ("charge" | "multiplicity" | "format"): The property to filter.
             value (str | float | int): The value to filter.
-            negate (bool): Whether to negate the filter.
+            compare ("==" | "!=" | ">" | "<" | ">=" | "<="): The comparison operator.
         Returns:
             FileBatchModelDisk: A new batch of files with the filtered files.
         """
+        compare_func = {
+            "==": lambda x, y: x == y,
+            "!=": lambda x, y: x != y,
+            ">": lambda x, y: x > y,
+            "<": lambda x, y: x < y,
+            ">=": lambda x, y: x >= y,
+            "<=": lambda x, y: x <= y,
+        }[compare]
 
         def judge_func(diskfile: FileDiskType) -> bool:
             if target == "charge":
-                return (diskfile[-1].charge == value) != negate
+                return compare_func(diskfile[-1].charge, value)
             elif target == "multiplicity":
-                return (diskfile[-1].multiplicity == value) != negate
+                return compare_func(diskfile[-1].multiplicity, value)
             elif target == "format":
-                return (diskfile.file_format == value) != negate
+                return compare_func(diskfile.file_format, value)
 
-        return self.new_batch(filter(judge_func, self))
+        return self.new_batch(
+            filter(
+                judge_func,
+                tqdm(
+                    self,
+                    desc=f"Filtering files with {target} {compare} {value}",
+                    total=len(self),
+                    disable=not verbose,
+                ),
+            )
+        )
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({len(self)})"

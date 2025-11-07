@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:43:45
 LastEditors: TMJ
-LastEditTime: 2025-11-03 00:17:00
+LastEditTime: 2025-11-04 16:02:08
 Description: 请填写简介
 """
 
@@ -343,8 +343,7 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
         Returns:
             List[BaseMolFrameParser]: A list of base block parsers for transition state vibration calculations.
         """
-        if not self.is_TS:
-            raise RuntimeError("This is not a TS")
+        assert self.is_TS, "Must be a TS frame"
 
         return self.vibrate(
             vibration_id=0,
@@ -355,7 +354,7 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
 
     def possible_pre_post_ts(
         self,
-        show_3D=False,
+        show_3D: bool = False,
         *,
         ratio: float = 1.75,
         steps: int = 15,
@@ -384,10 +383,69 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
         assert temp_moleculues[0].rdmol and temp_moleculues[-1].rdmol, (
             "Failed to generate TS vibrations"
         )
+        reactant_rdmol, product_rdmol = (
+            temp_moleculues[0].rdmol,
+            temp_moleculues[-1].rdmol,
+        )
         if not show_3D:
-            temp_moleculues[0].rdmol.RemoveAllConformers()
-            temp_moleculues[-1].rdmol.RemoveAllConformers()
-        return temp_moleculues[0].rdmol, temp_moleculues[-1].rdmol
+            reactant_rdmol.RemoveAllConformers()
+            product_rdmol.RemoveAllConformers()
+        return reactant_rdmol, product_rdmol
+
+    def to_diff_rdmol(self, *, ratio: float = 1.75, steps: int = 15) -> Optional[RdMol]:
+        """
+        Generate a rdkit molecule object for the transition state with bond-breaking.
+
+        Parameters:
+            ratio (float):
+                The ratio to force the geometry to vibrate. Defaults to 1.75.
+            steps (int):
+                The number of steps to generate. Defaults to 15.
+
+        Returns:
+            Optional[RdMol]: The rdkit molecule object for the transition state with bond-breaking.
+        """
+        assert self.rdmol, "No valid rdmol object"
+        assert self.is_TS, "Must be a TS frame"
+        reactant_rdmol, product_rdmol = self.possible_pre_post_ts(
+            show_3D=False, ratio=ratio, steps=steps
+        )
+        assert not (
+            reactant_rdmol.HasSubstructMatch(product_rdmol)
+            or product_rdmol.HasSubstructMatch(reactant_rdmol)
+        ), (
+            "The inferred reactant and product rdmol objects are consistent, thus it is not a bond-breaking transition state."
+        )
+        rwmol = Chem.RWMol(self.rdmol)
+        for bond_idx in range(reactant_rdmol.GetNumBonds()):
+            bond = reactant_rdmol.GetBondWithIdx(bond_idx)
+            start_atom_idx, end_atom_idx = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+            if rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx) is None:
+                rwmol.AddBond(start_atom_idx, end_atom_idx, Chem.BondType.ZERO)
+            elif (
+                bond.GetBondType()
+                != self.rdmol.GetBondBetweenAtoms(
+                    start_atom_idx, end_atom_idx
+                ).GetBondType()
+            ):
+                rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).SetBondType(
+                    Chem.BondType.ZERO
+                )
+        for bond_idx in range(product_rdmol.GetNumBonds()):
+            bond = product_rdmol.GetBondWithIdx(bond_idx)
+            start_atom_idx, end_atom_idx = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
+            if rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx) is None:
+                rwmol.AddBond(start_atom_idx, end_atom_idx, Chem.BondType.ZERO)
+            elif (
+                bond.GetBondType()
+                != self.rdmol.GetBondBetweenAtoms(
+                    start_atom_idx, end_atom_idx
+                ).GetBondType()
+            ):
+                rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).SetBondType(
+                    Chem.BondType.ZERO
+                )
+        return rwmol.GetMol()
 
     @computed_field
     @property

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:44:12
 LastEditors: TMJ
-LastEditTime: 2025-11-01 21:07:03
+LastEditTime: 2025-11-07 16:21:59
 Description: 请填写简介
 """
 
@@ -323,7 +323,8 @@ class BaseCalcFile(BaseChemFile[calc_frame]):
         for frame in frames:
             if frame.geometry_optimization_status is None:
                 raise ValueError(f"Frame {frame.frame_id} has no optimization status.")
-        return sorted(frames, key=lambda frame: frame.geometry_optimization_status)  # type: ignore
+        frames_with_opt = [frame for frame in frames if frame.geometry_optimization_status is not None]
+        return sorted(frames_with_opt, key=lambda frame: frame.geometry_optimization_status)  # type: ignore
 
     @property
     def closest_optimized_frame(self) -> calc_frame:
@@ -333,6 +334,8 @@ class BaseCalcFile(BaseChemFile[calc_frame]):
         Returns:
             QMMolFrameType: The frame with the closest optimization status to the optimized state.
         """
+        if len(self.sort_by_optimization) == 0:
+            raise ValueError("No frames with optimization status found.")
         return self.sort_by_optimization[0]
 
     @property

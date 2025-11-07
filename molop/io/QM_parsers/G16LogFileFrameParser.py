@@ -89,12 +89,12 @@ class G16LogFileFrameParserMixin:
             infos["running_time"] = time
         coords_match = self._parse_coords()
         if (atoms := coords_match[0]) and (coords := coords_match[1]) is not None:
-            infos["coords"] = coords
+            infos["input_coords"] = coords
             infos["atoms"] = atoms
         coords_match = self._parse_coords_standard_orientation()
         if (atoms := coords_match[0]) and (coords := coords_match[1]) is not None:
             atoms, standard_orientation_coords = coords_match
-            infos["standard_orientation_coords"] = standard_orientation_coords
+            infos["coords"] = standard_orientation_coords
             infos["atoms"] = atoms
         if self.only_extract_structure:
             return infos

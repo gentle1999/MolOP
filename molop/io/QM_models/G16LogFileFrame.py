@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-31 20:27:55
 LastEditors: TMJ
-LastEditTime: 2025-08-02 22:13:41
+LastEditTime: 2025-11-04 16:23:18
 Description: 请填写简介
 """
 
@@ -21,7 +21,7 @@ from molop.io.patterns.G16Patterns import (
     parameter_comment_parser,
 )
 from molop.unit import atom_ureg
-from molop.utils.functions import invert_transform_coords
+from molop.utils.functions import invert_transform_coords, transform_coords
 
 
 class G16LogFileFrameMixin(Molecule):
@@ -39,10 +39,10 @@ class G16LogFileFrameMixin(Molecule):
         description="Transformation matrix to standard orientation, unit is `angstrom`",
         title="Transformation matrix to standard orientation",
     )
-    standard_orientation_coords: Optional[NumpyQuantity] = Field(
+    input_coords: Optional[NumpyQuantity] = Field(
         default=None,
-        description="Atom coordinates with standard orientation, unit is `angstrom`",
-        title="Atom coordinates with standard orientation",
+        description="Atom coordinates with input orientation, unit is `angstrom`",
+        title="Atom coordinates with input orientation",
     )
 
     def _add_default_units(self) -> None:
@@ -52,21 +52,31 @@ class G16LogFileFrameMixin(Molecule):
     @model_validator(mode="after")
     def _post_processing(self) -> Self:
         if len(self.coords) != len(self.atoms):
-            if (
-                self.standard_orientation_coords is not None
-                and self.standard_orientation_transformation_matrix is not None
-            ):
-                self.coords = (
-                    invert_transform_coords(
-                        self.standard_orientation_coords.m,
-                        self.standard_orientation_transformation_matrix,
+            if self.input_coords is not None:
+                if self.standard_orientation_transformation_matrix is not None:
+                    self.coords = (
+                        transform_coords(
+                            self.input_coords.m,
+                            self.standard_orientation_transformation_matrix,
+                        )
+                        * self.input_coords.u
                     )
-                    * self.standard_orientation_coords.u
-                )
+                elif self.standard_orientation_transformation_matrix is None:
+                    self.coords = self.input_coords
             else:
                 raise ValueError(
                     "The number of atoms and coordinates do not match, and the standard orientation is not provided."
                 )
+        if (
+            self.input_coords is None
+            and self.standard_orientation_transformation_matrix is not None
+        ):
+            self.input_coords = (
+                invert_transform_coords(
+                    self.coords.m, self.standard_orientation_transformation_matrix
+                )
+                * self.coords.u
+            )
         if self.basis.lower() == "genecp":
             self.basis = "pseudopotential"
         for semi in SEMI_EMPIRICAL_METHODS:
