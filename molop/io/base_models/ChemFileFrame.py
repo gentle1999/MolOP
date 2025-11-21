@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:43:45
 LastEditors: TMJ
-LastEditTime: 2025-11-04 16:02:08
+LastEditTime: 2025-11-21 16:42:07
 Description: 请填写简介
 """
 
@@ -131,11 +131,16 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
     )
     # QM properties
     forces: Optional[NumpyQuantity] = Field(
-        default=None, description="Forces of each atom, unit is `hartree/bohr`"
+        default=None,
+        description="Forces of each atom, unit is `hartree/bohr`.\n"
+        "In Gaussian, the extracted forces data are all calculated using the "
+        "input coordinates as a reference.",
     )
     hessian: Optional[NumpyQuantity] = Field(
         default=None,
-        description="Hessian matrix of the QM calculation, unit is `hartree/bohr^2`",
+        description="Hessian matrix of the QM calculation, unit is `hartree/bohr^2`.\n"
+        "In Gaussian, the extracted hessian data are all calculated using the "
+        "input coordinates as a reference.",
     )
     rotation_constants: Optional[NumpyQuantity] = Field(
         default=np.array([[]]) * atom_ureg.gigahertz,
@@ -158,7 +163,10 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
         default=None, description="Charge and spin populations"
     )
     polarizability: Optional[Polarizability] = Field(
-        default=None, description="Polarizability of the molecule"
+        default=None,
+        description="Polarizability of the molecule.\n"
+        "In Gaussian, the extracted polarization-related data are all calculated using the "
+        "input coordinates as a reference.",
     )
     bond_orders: Optional[BondOrders] = Field(
         default=None, description="Bond orders of the molecule"
@@ -218,14 +226,14 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
             w.write(self.population_embedded_rdmol)
         return sio.getvalue()
 
-    def to_population_embedded_SDF_file(self, filepath: os.PathLike):
+    def to_population_embedded_SDF_file(self, filepath: os.PathLike[str]):
         """
         Write the SDF block to a file with population embedded properties.
 
         Follow the guide in https://greglandrum.github.io/rdkit-blog/posts/2025-07-24-writing-partial-charges-to-sd-files.html
 
         Parameters:
-            filepath (os.PathLike): The path to the output file.
+            filepath (os.PathLike[str]): The path to the output file.
         """
         with open(filepath, "w") as f:
             f.write(self.to_population_embedded_SDF_block())
@@ -473,8 +481,6 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
         Abstract method to check if the current frame is a transition state. The details are implemented in the derived classes.
         """
         if self.is_error:
-            return False
-        if not self.is_optimized:
             return False
         if self.vibrations is None:
             return False

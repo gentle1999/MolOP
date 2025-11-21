@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:44:12
 LastEditors: TMJ
-LastEditTime: 2025-11-07 16:36:37
+LastEditTime: 2025-11-15 23:53:58
 Description: 请填写简介
 """
 
@@ -132,7 +132,7 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         self,
         format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
         frameID: int,
-        file_path: os.PathLike | None = None,
+        file_path: os.PathLike[str] | None = None,
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> str: ...
@@ -141,7 +141,7 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         self,
         format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
         frameID: Sequence[int],
-        file_path: os.PathLike | None = None,
+        file_path: os.PathLike[str] | None = None,
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> List[str]: ...
@@ -149,7 +149,7 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         self,
         format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
         frameID: Sequence[int] | int = -1,
-        file_path: os.PathLike | None = None,
+        file_path: os.PathLike[str] | None = None,
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> str | List[str]:
@@ -159,7 +159,7 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         Parameters:
             format (str): The format to be transformed to.
             frameID (int | slice | Sequence[int]): The frame(s) to be transformed.
-            file_path (os.PathLike | None): If given, the file path to save the transformed block(s); otherwise,
+            file_path (os.PathLike[str] | None): If given, the file path to save the transformed block(s); otherwise,
                 no file will be saved.
             **kwargs: Additional keyword arguments for the transformation.
         Returns:
@@ -179,11 +179,20 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
             assert (
                 file_path is None or os.path.splitext(file_path)[1] == f".{format}"
             ), "file_path should have the same extension as format"
+            keywords = kwargs.copy()
             if format == "smi":
                 block = self[frameID].to_canonical_SMILES(**kwargs)
+            if format == "gjf":
+                block = self[frameID].to_GJF_block(
+                    title_card=keywords.pop(
+                        "title_card",
+                        os.path.splitext(file_path)[0] if file_path else "title",
+                    ),
+                    **keywords,
+                )
             else:
                 block: str = getattr(self[frameID], f"to_{format.upper()}_block")(
-                    **kwargs
+                    **keywords
                 )
             if file_path is not None:
                 with open(file_path, "w") as f:
@@ -320,8 +329,13 @@ class BaseCalcFile(BaseChemFile[calc_frame]):
             List[QMMolFrameType]: A list of frames sorted by the optimization status.
         """
         frames = self.frames
-        frames_with_opt = [frame for frame in frames if frame.geometry_optimization_status is not None]
-        return sorted(frames_with_opt, key=lambda frame: frame.geometry_optimization_status)  # type: ignore
+        frames_with_opt = [
+            frame for frame in frames if frame.geometry_optimization_status is not None
+        ]
+        return sorted(
+            frames_with_opt,
+            key=lambda frame: frame.geometry_optimization_status,  # type: ignore
+        )
 
     @property
     def closest_optimized_frame(self) -> calc_frame:

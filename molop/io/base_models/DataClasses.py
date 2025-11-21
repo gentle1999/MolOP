@@ -13,6 +13,7 @@ from pydantic import (
 from typing_extensions import Self
 
 from molop.unit import atom_ureg
+from molop.utils.functions import invert_transform_coords, transform_coords
 
 from .Bases import BaseDataClassWithUnit
 
@@ -585,6 +586,20 @@ class Vibration(BaseDataClassWithUnit):
             if getattr(self, key) is not None
         }
 
+    def transform_orientation(
+        self, transformation_matrix: np.ndarray, inverse: bool = False
+    ) -> None:
+        if inverse:
+            self.vibration_mode = (
+                invert_transform_coords(self.vibration_mode.m, transformation_matrix)
+                * self.vibration_mode.u
+            )
+        else:
+            self.vibration_mode = (
+                transform_coords(self.vibration_mode.m, transformation_matrix)
+                * self.vibration_mode.u
+            )
+
 
 class Vibrations(BaseDataClassWithUnit):
     __index: int = PrivateAttr(default=0)
@@ -703,6 +718,20 @@ class Vibrations(BaseDataClassWithUnit):
                 ),
             }
         )
+
+    def transform_orientation(
+        self, transformation_matrix: np.ndarray, inverse: bool = False
+    ) -> None:
+        if inverse:
+            self.vibration_modes = [
+                invert_transform_coords(mode.m, transformation_matrix) * mode.u
+                for mode in self.vibration_modes
+            ]
+        else:
+            self.vibration_modes = [
+                transform_coords(mode.m, transformation_matrix) * mode.u
+                for mode in self.vibration_modes
+            ]
 
     def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
         return {"num_imaginary": self.num_imaginary, "num_vibrations": len(self)}

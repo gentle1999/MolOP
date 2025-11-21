@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2025-11-02 22:39:42
+LastEditTime: 2025-11-16 20:45:48
 Description: 请填写简介
 """
 
@@ -14,6 +14,7 @@ from typing import Literal
 from openbabel import pybel
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from rdkit import RDLogger
+from rdkit.Chem import Mol
 from rdkit.Chem.rdFingerprintGenerator import (
     FingerprintGenerator64,
     GetAtomPairGenerator,
@@ -21,6 +22,8 @@ from rdkit.Chem.rdFingerprintGenerator import (
     GetRDKitFPGenerator,
     GetTopologicalTorsionGenerator,
 )
+
+from molop.utils.draw import draw_molecule_with_dof_effect
 
 RDLogger.DisableLog("rdApp.*")  # type: ignore
 pybel.ob.obErrorLog.StopLogging()
@@ -36,6 +39,25 @@ sh_formatter = logging.Formatter("%(levelname)s - %(message)s")
 stream_handler.setFormatter(sh_formatter)
 
 moloplogger.setLevel(logging.INFO)
+
+
+def dof_drawer(mol: Mol) -> str:
+    try:
+        from rdkit.Chem.Draw import IPythonConsole  # type: ignore
+
+        return draw_molecule_with_dof_effect(
+            mol,
+            size=IPythonConsole.molSize,
+            use_svg=True,
+            return_image=False,
+            keep_key_atom_colors=True,
+            addAtomIndices=IPythonConsole.drawOptions.addAtomIndices,
+            addBondIndices=IPythonConsole.drawOptions.addBondIndices,
+        )
+    except ImportError:
+        return draw_molecule_with_dof_effect(
+            mol, use_svg=True, keep_key_atom_colors=True, return_image=False
+        )
 
 
 class MolOPConfig(BaseModel):
@@ -91,9 +113,14 @@ class MolOPConfig(BaseModel):
         default=3000, description="Maximum recursion depth for Python"
     )
 
-    # --- New: Log File Control ---
+    # --- Log File Control ---
     log_to_file: bool = Field(
         default=False, description="Whether to write log messages to a file"
+    )
+
+    # --- DOF Effect Drawer Control ---
+    use_dof_effect_drawer: bool = Field(
+        default=True, description="Whether to use DOF effect drawer"
     )
 
     def __init__(self, **data):
@@ -112,6 +139,11 @@ class MolOPConfig(BaseModel):
             self.enable_file_logging()
         else:
             self.disable_file_logging()
+
+        if self.use_dof_effect_drawer:
+            self.set_dof_effect_drawer(enable=True)
+        else:
+            self.set_dof_effect_drawer(enable=False)
 
     def quiet(self):
         """
@@ -178,6 +210,28 @@ class MolOPConfig(BaseModel):
             if n_jobs > 0
             else min(multiprocessing.cpu_count(), molopconfig.max_jobs)
         )
+
+    def set_dof_effect_drawer(self, enable: bool):
+        """
+        Set whether to use the DOF effect drawer.
+
+        Args:
+            enable (bool): Whether to use the DOF effect drawer.
+        """
+        try:
+            from IPython.core.getipython import get_ipython
+        except ImportError:
+            return
+        ipython = get_ipython()
+        if ipython is None:
+            return
+        if enable:
+            svg_formatter = ipython.display_formatter.formatters["image/svg+xml"]  # type: ignore
+            svg_formatter.for_type(Mol, dof_drawer)
+        else:
+            svg_formatter = ipython.display_formatter.formatters["image/svg+xml"]  # type: ignore
+            if Mol in svg_formatter.type_printers:
+                del svg_formatter.type_printers[Mol]
 
 
 # --- Global Configuration Instance ---

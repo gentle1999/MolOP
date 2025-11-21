@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2025-10-31 21:56:51
+LastEditTime: 2025-11-20 13:59:57
 Description: 请填写简介
 """
 
@@ -76,10 +76,9 @@ def AutoParser(
     else:
         files = glob(file_path)
     if len(files) > 0:
-        batch = FileBatchParserDisk(
+        return FileBatchParserDisk(
             n_jobs=n_jobs,
-        )
-        return batch.parse(
+        ).parse(
             files,
             total_charge=total_charge,
             total_multiplicity=total_multiplicity,

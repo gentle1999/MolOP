@@ -2,11 +2,11 @@
 Author: TMJ
 Date: 2025-10-09 15:33:21
 LastEditors: TMJ
-LastEditTime: 2025-10-21 15:04:27
+LastEditTime: 2025-11-21 16:59:01
 Description: 请填写简介
 """
 
-from typing import Any, Mapping, Protocol
+from typing import TYPE_CHECKING, Any, Mapping, Protocol
 
 import numpy as np
 from rdkit import Chem
@@ -19,16 +19,22 @@ from molop.unit import atom_ureg
 pt = Chem.GetPeriodicTable()
 
 
-class XYZFileFrameParser(Protocol):
+class XYZFileFrameParserProtocol(Protocol):
     _block: str
     only_extract_structure: bool
     _file_frame_class_: type[XYZFileFrameMemory] | type[XYZFileFrameDisk]
 
-    def _parse_frame(self) -> Mapping[str, Any]: ...
+
+if TYPE_CHECKING:
+
+    class _XYZFileFrameParserProtocol(XYZFileFrameParserProtocol): ...
+else:
+
+    class _XYZFileFrameParserProtocol(object): ...
 
 
-class XYZFileFrameParserMixin:
-    def _parse_frame(self: XYZFileFrameParser) -> Mapping[str, Any]:
+class XYZFileFrameParserMixin(_XYZFileFrameParserProtocol):
+    def _parse_frame(self) -> Mapping[str, Any]:
         charge = 0
         multiplicity = 1
         lines = self._block.splitlines()

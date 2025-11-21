@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-02-16 19:20:04
 LastEditors: TMJ
-LastEditTime: 2025-10-31 21:52:07
+LastEditTime: 2025-11-14 00:36:52
 Description: 请填写简介
 """
 
@@ -633,7 +633,7 @@ def options_parser(
         - link0 (Dict): A dictionary containing parameter-value pairs extracted from the link0 section.
     """
     return {
-        f"{para.split('=')[0]}": f"{para.split('=')[1]}"
+        f"{para[0]}": f"{para[1]}"
         for para in re.compile(r"(%[a-zA-Z0-9]+)=([^\s]+)").findall(link0)
     }
 

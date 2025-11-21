@@ -27,6 +27,12 @@ class FileBatchModelDisk(MutableMapping):
             self.add_diskfiles(diskfiles)
 
     def add_diskfiles(self, diskfiles: Iterable[FileDiskType]) -> None:
+        """
+        Add disk files to the batch.
+
+        Parameters:
+            diskfiles (Iterable[FileDiskType]): The disk files to add.
+        """
         for diskfile in sorted(diskfiles):
             if not isinstance(diskfile, FileDiskType):
                 raise TypeError(
@@ -230,7 +236,7 @@ class FileBatchModelDisk(MutableMapping):
         """
         assert os.path.isdir(output_dir), f"{output_dir} is not a directory"
 
-        def transform_func(diskfile: FileDiskType) -> str | List[str]:
+        def transform_func(diskfile: FileDiskType, **kwargs) -> str | List[str]:
             file_path = os.path.join(
                 output_dir, f"{os.path.splitext(diskfile.filename)[0]}.{format}"
             )
@@ -241,6 +247,7 @@ class FileBatchModelDisk(MutableMapping):
                     frameID=frame_id,  # type: ignore
                     embed_in_one_file=embed_in_one_file,
                     file_path=file_path,  # type: ignore
+                    **kwargs
                 )
             except ValueError as e:
                 moloplogger.warning(
@@ -251,11 +258,11 @@ class FileBatchModelDisk(MutableMapping):
         desc = "MolOP parsing with single process"
         if molopconfig.show_progress_bar:
             return {
-                diskfile.file_path: transform_func(diskfile)
+                diskfile.file_path: transform_func(diskfile, **kwargs)
                 for diskfile in tqdm(self, desc=desc)
             }
         else:
-            return {diskfile.file_path: transform_func(diskfile) for diskfile in self}
+            return {diskfile.file_path: transform_func(diskfile, **kwargs) for diskfile in self}
 
     def to_summary_df(
         self,
@@ -263,6 +270,16 @@ class FileBatchModelDisk(MutableMapping):
         frameIDs: int | Sequence[int] = -1,
         **kwargs,
     ) -> pd.DataFrame:
+        """
+        Convert the batch of files to a summary DataFrame.
+
+        Parameters:
+            mode ("file" | "frame"): The mode to convert. If "file", each file will be a row. If "frame", each frame will be a row.
+            frameIDs (int | Sequence[int]): The frame IDs to convert. If -1, all frames will be converted.
+            **kwargs: Additional keyword arguments to pass to the to_summary_series method of the file parsers.
+        Returns:
+            pd.DataFrame: A DataFrame containing the summary information of the batch of files.
+        """
         if mode == "file":
             return pd.concat(
                 [diskfile.to_summary_series(**kwargs) for diskfile in self],
@@ -284,5 +301,8 @@ class FileBatchModelDisk(MutableMapping):
             raise ValueError(f"Invalid mode: {mode}")
 
     def release_file_content(self) -> None:
+        """
+        Release the content of the files in the batch.
+        """
         for diskfile in self:
             diskfile.release_file_content()

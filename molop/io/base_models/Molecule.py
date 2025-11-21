@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2025-11-01 22:56:23
+LastEditTime: 2025-11-21 18:53:59
 Description: 请填写简介
 """
 
@@ -239,12 +239,12 @@ class Molecule(BaseDataClassWithUnit):
         else:
             raise ValueError(f"Unsupported engine: {engine}")
 
-    def to_SDF_file(self, filepath: os.PathLike, **kwargs):
+    def to_SDF_file(self, filepath: os.PathLike[str], **kwargs):
         """
         Write the SDF block to a file.
 
         Parameters:
-            filepath (os.PathLike): The path to the file.
+            filepath (os.PathLike[str]): The path to the file.
             **kwargs: The keyword arguments for the `to_SDF_block` method.
         """
         with open(filepath, "w") as f:
@@ -272,6 +272,7 @@ class Molecule(BaseDataClassWithUnit):
         route: str = "#p",
         title_card: str = "title",
         suffix: str = "",
+        **kwargs,
     ) -> str:
         _options = options_parser(options)
         options_lines = (
@@ -298,11 +299,12 @@ class Molecule(BaseDataClassWithUnit):
 
     def to_GJF_file(
         self,
-        filepath: os.PathLike,
+        filepath: os.PathLike[str],
         options: str = "",
         route: str = "#p",
         title_card: str = "title",
         suffix: str = "",
+        **kwargs,
     ):
         with open(filepath, "w") as f:
             f.write(

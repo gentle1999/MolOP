@@ -2,17 +2,20 @@
 Author: TMJ
 Date: 2025-07-29 12:36:28
 LastEditors: TMJ
-LastEditTime: 2025-10-29 14:17:47
+LastEditTime: 2025-11-21 16:48:43
 Description: 请填写简介
 """
 
 import os
-from typing import Any, Dict, Sequence
+from typing import TYPE_CHECKING, Any, Dict, Protocol, Sequence
 
+from pint.facets.numpy.quantity import NumpyQuantity
 from pydantic import Field, PrivateAttr, computed_field, field_validator
+from rdkit import Chem
 from typing_extensions import Self
 
 from molop.io.base_models.Bases import BaseDataClassWithUnit
+from molop.io.patterns.G16Patterns import options_parser
 
 
 class MemoryStorageMixin(BaseDataClassWithUnit): ...
@@ -95,3 +98,58 @@ class DiskStorageMixin(BaseDataClassWithUnit):
             "FileFormat": self.file_format,
             **super().to_summary_dict(**kwargs),
         }
+
+
+class ChemFrameProtocol(Protocol):
+    atoms: list[int]
+    coords: NumpyQuantity
+    charge: int
+    multiplicity: int
+    pure_filename: str
+
+
+if TYPE_CHECKING:
+
+    class _ChemFrameProtocol(ChemFrameProtocol, DiskStorageMixin): ...
+else:
+
+    class _ChemFrameProtocol(DiskStorageMixin): ...
+
+
+class DiskStorageWithFrameMixin(_ChemFrameProtocol):
+    def to_GJF_block(
+        self,
+        options: str = "",
+        route: str = "#p",
+        title_card: str = "title",
+        suffix: str = "",
+        chk: bool = False,
+        oldchk: bool | str = False,
+        **kwargs,
+    ) -> str:
+        _options = options_parser(options)
+        if chk:
+            _options[r"%chk"] = f"{self.pure_filename}.chk"
+        if oldchk:
+            _options[r"%oldchk"] = f"{self.pure_filename}.chk"
+        options_lines = (
+            "\n".join([f"{key}={val}" for key, val in _options.items()]) + "\n"
+            if _options
+            else ""
+        )
+        return (
+            options_lines
+            + route
+            + "\n\n"
+            + f"{title_card}\n\n"
+            + f"{self.charge} {self.multiplicity}\n"
+            + "\n".join(
+                [
+                    f"{Chem.Atom(atom).GetSymbol():10s}{x:18.10f}{y:18.10f}{z:18.10f}"
+                    for atom, (x, y, z) in zip(self.atoms, self.coords.m, strict=True)
+                ]
+            )
+            + "\n\n"
+            + suffix
+            + "\n\n"
+        )

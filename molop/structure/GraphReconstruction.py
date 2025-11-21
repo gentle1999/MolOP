@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2025-11-04 21:29:13
+LastEditTime: 2025-11-09 14:52:43
 Description: 请填写简介
 """
 
@@ -48,6 +48,7 @@ def get_under_bonded_number(atom: ob.OBAtom) -> int:
         int: The number of atoms under the given atom.
     """
     atomic_number = atom.GetAtomicNum()
+    assert not is_metal(atomic_number), "The atom is a metal."
     if atomic_number <= 2:
         return (
             pt.GetDefaultValence(atomic_number)
@@ -239,7 +240,11 @@ def xyz_to_separated_rwmol(
 
 
 # Entrypoint for graph reconstruction
-@timeout_decorator.timeout(molopconfig.max_structure_recovery_time)
+@timeout_decorator.timeout(
+    molopconfig.max_structure_recovery_time,
+    exception_message="Structure recovery timeout. If more time is needed, "
+    "set `molopconfig.max_structure_recovery_time` to a larger value. The unit is second, default is 10.0.",
+)
 def xyz_to_rdmol(
     xyz_block: str,
     total_charge: int = 0,
@@ -1639,6 +1644,7 @@ def clean_resonances_13(omol: pybel.Molecule) -> pybel.Molecule:
             atom1.SetFormalCharge(0)
             atom3.SetFormalCharge(-1)
     return fresh_omol_charge_radical(omol)
+
 
 def clean_resonances(omol: pybel.Molecule) -> pybel.Molecule:
     omol = fresh_omol_charge_radical(omol)

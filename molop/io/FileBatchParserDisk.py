@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-08-20 22:55:18
 LastEditors: TMJ
-LastEditTime: 2025-10-31 21:54:53
+LastEditTime: 2025-11-09 14:49:08
 Description: 请填写简介
 """
 
@@ -91,8 +91,8 @@ class FileBatchParserDisk:
         file_paths: Iterable[str],
         total_charge: Optional[int] = None,
         total_multiplicity: Optional[int] = None,
-        only_extract_structure=False,
-        only_last_frame=False,
+        only_extract_structure: bool = False,
+        only_last_frame: bool = False,
         release_file_content: bool = True,
         parser_detection: Literal["auto", "gjf", "xyz", "sdf", "g16log"] = "auto",
     ) -> FileBatchModelDisk:
