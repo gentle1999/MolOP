@@ -226,14 +226,14 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
             w.write(self.population_embedded_rdmol)
         return sio.getvalue()
 
-    def to_population_embedded_SDF_file(self, filepath: os.PathLike[str]):
+    def to_population_embedded_SDF_file(self, filepath: os.PathLike| str):
         """
         Write the SDF block to a file with population embedded properties.
 
         Follow the guide in https://greglandrum.github.io/rdkit-blog/posts/2025-07-24-writing-partial-charges-to-sd-files.html
 
         Parameters:
-            filepath (os.PathLike[str]): The path to the output file.
+            filepath (os.PathLike| str): The path to the output file.
         """
         with open(filepath, "w") as f:
             f.write(self.to_population_embedded_SDF_block())

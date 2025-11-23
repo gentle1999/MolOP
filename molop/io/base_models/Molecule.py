@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2025-11-21 18:53:59
+LastEditTime: 2025-11-21 20:57:20
 Description: 请填写简介
 """
 
@@ -239,12 +239,12 @@ class Molecule(BaseDataClassWithUnit):
         else:
             raise ValueError(f"Unsupported engine: {engine}")
 
-    def to_SDF_file(self, filepath: os.PathLike[str], **kwargs):
+    def to_SDF_file(self, filepath: os.PathLike| str, **kwargs):
         """
         Write the SDF block to a file.
 
         Parameters:
-            filepath (os.PathLike[str]): The path to the file.
+            filepath (os.PathLike| str): The path to the file.
             **kwargs: The keyword arguments for the `to_SDF_block` method.
         """
         with open(filepath, "w") as f:
@@ -270,10 +270,22 @@ class Molecule(BaseDataClassWithUnit):
         self,
         options: str = "",
         route: str = "#p",
-        title_card: str = "title",
+        title_card: str | None = None,
         suffix: str = "",
         **kwargs,
     ) -> str:
+        """
+        Generate a GJF block for the frame.
+
+        Parameters:
+            options (str, optional): The options for the GJF block. Defaults to "".
+            route (str, optional): The route for the GJF block. Defaults to "#p".
+            title_card (str | None, optional): The title card for the GJF block. Defaults to None and use the pure filename.
+            suffix (str, optional): The suffix for the GJF block. Defaults to "".
+
+        Returns:
+            str: The GJF block for the frame.
+        """
         _options = options_parser(options)
         options_lines = (
             "\n".join([f"{key}={val}" for key, val in _options.items()]) + "\n"
@@ -284,7 +296,7 @@ class Molecule(BaseDataClassWithUnit):
             options_lines
             + route
             + "\n\n"
-            + f"{title_card}\n\n"
+            + f"{title_card or 'title'}\n\n"
             + f"{self.charge} {self.multiplicity}\n"
             + "\n".join(
                 [
@@ -299,13 +311,23 @@ class Molecule(BaseDataClassWithUnit):
 
     def to_GJF_file(
         self,
-        filepath: os.PathLike[str],
+        filepath: os.PathLike| str,
         options: str = "",
         route: str = "#p",
-        title_card: str = "title",
+        title_card: str | None = None,
         suffix: str = "",
         **kwargs,
     ):
+        """
+        Write the GJF block to a file.
+
+        Parameters:
+            filepath (os.PathLike| str): The path to the file.
+            options (str, optional): The options for the GJF block. Defaults to "".
+            route (str, optional): The route for the GJF block. Defaults to "#p".
+            title_card (str | None, optional): The title card for the GJF block. Defaults to None.
+            suffix (str, optional): The suffix for the GJF block. Defaults to "".
+        """
         with open(filepath, "w") as f:
             f.write(
                 self.to_GJF_block(

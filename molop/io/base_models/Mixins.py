@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 12:36:28
 LastEditors: TMJ
-LastEditTime: 2025-11-21 16:48:43
+LastEditTime: 2025-11-21 20:55:36
 Description: 请填写简介
 """
 
@@ -28,6 +28,18 @@ class DiskStorageMixin(BaseDataClassWithUnit):
     @field_validator("file_path")
     @classmethod
     def _check_file_path(cls, v: str) -> str:
+        """
+        Validate the file path.
+
+        Parameters:
+            v (str): The file path to validate.
+
+        Returns:
+            str: The validated file path.
+
+        Raises:
+            ValueError: If the file path does not exist or is not a file.
+        """
         if not os.path.exists(v):
             raise ValueError(f"File {v} does not exist.")
         if not os.path.isfile(v):
@@ -121,12 +133,26 @@ class DiskStorageWithFrameMixin(_ChemFrameProtocol):
         self,
         options: str = "",
         route: str = "#p",
-        title_card: str = "title",
+        title_card: str | None = None,
         suffix: str = "",
         chk: bool = False,
         oldchk: bool | str = False,
         **kwargs,
     ) -> str:
+        """
+        Generate a GJF block for the frame.
+
+        Parameters:
+            options (str, optional): The options for the GJF block. Defaults to "".
+            route (str, optional): The route for the GJF block. Defaults to "#p".
+            title_card (str | None, optional): The title card for the GJF block. Defaults to None and use the pure filename.
+            suffix (str, optional): The suffix for the GJF block. Defaults to "".
+            chk (bool, optional): Whether to include a checkpoint file. Defaults to False.
+            oldchk (bool | str, optional): Whether to include an old checkpoint file. Defaults to False.
+
+        Returns:
+            str: The GJF block for the frame.
+        """
         _options = options_parser(options)
         if chk:
             _options[r"%chk"] = f"{self.pure_filename}.chk"
@@ -141,7 +167,7 @@ class DiskStorageWithFrameMixin(_ChemFrameProtocol):
             options_lines
             + route
             + "\n\n"
-            + f"{title_card}\n\n"
+            + f"{title_card or self.pure_filename}\n\n"
             + f"{self.charge} {self.multiplicity}\n"
             + "\n".join(
                 [

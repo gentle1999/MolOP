@@ -2,11 +2,12 @@
 Author: TMJ
 Date: 2025-08-20 22:55:18
 LastEditors: TMJ
-LastEditTime: 2025-11-09 14:49:08
+LastEditTime: 2025-11-22 23:52:44
 Description: 请填写简介
 """
 
 import os
+import pathlib
 from enum import Enum
 from typing import Any, Dict, Iterable, Literal, Optional, Tuple
 
@@ -88,7 +89,7 @@ class FileBatchParserDisk:
 
     def parse(
         self,
-        file_paths: Iterable[str],
+        file_paths: Iterable[str] | Iterable[pathlib.Path],
         total_charge: Optional[int] = None,
         total_multiplicity: Optional[int] = None,
         only_extract_structure: bool = False,
@@ -115,6 +116,8 @@ class FileBatchParserDisk:
         """
         valid_file_paths = []
         for file_path in file_paths:
+            if isinstance(file_path, pathlib.Path):
+                file_path = file_path.as_posix()
             if not os.path.isfile(file_path):
                 moloplogger.warning(f"{file_path} is not a file.")
                 continue

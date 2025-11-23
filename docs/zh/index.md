@@ -25,9 +25,7 @@
         - xTB OUT `Done`
         - ORCA `TODO`
 
-- 在[OpenBabel](https://openbabel.org/index.html)的基础工作上，从简单的原子坐标中提供一种[分子图恢复算法](https://github.com/gentle1999/MolOP/blob/main/molop/structure/structure_recovery.py)，可以方便地用于文件读取过程。该算法不同于 rdDetermineBonds（由[Jensen group](https://github.com/jensengroup/xyz2mol)实现的原始代码，并从 2022.09 版本起集成到 RDKit 中），后者不适合自由基和金属络合物。请参见 [rdDetermineBonds_cannot_do](https://github.com/gentle1999/MolOP/blob/main/tutorial/rdDetermineBonds_cannot_do.ipynb)，了解更多差异）。
-  
-  > 虽然我们的算法克服了自由基和金属问题，并在 [test_cases](https://github.com/gentle1999/MolOP/blob/main/tutorial/test_cases.ipynb) 文件中进行了测试，但它仍然不够完美。不可否认的是，rdDetermineBonds 对普通有机分子的效果很好。因此，我们会先给出 rdDetermineBonds 所恢复的分子结构，如果出现错误，我们会使用我们的算法来恢复分子结构。我们希望这种策略能同时发挥两种方法的优势。
+- 在[OpenBabel](https://openbabel.org/index.html)的基础工作上，从简单的原子坐标中提供一种[分子图恢复算法](structure_recovery.md)，可以方便地用于文件读取过程。该启发式分子图恢复算法的正确率已远超rdkit中提供的`rdDetermineBond`，特别是在处理自由基和金属络合物方面。请参见 [structure_recovery_cases.ipynb](structure_recovery_cases.ipynb) 了解更多差异。
 
 - 提供分子几何和结构编辑功能。 `Doing`
     - 子结构替换 `Done`

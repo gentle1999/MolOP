@@ -232,7 +232,7 @@ class FileBatchModelDisk(MutableMapping):
             embed_in_one_file (bool): Whether to embed the transformed data in one file.
             **kwargs: Additional keyword arguments to pass to the format_transform method of the file parsers.
         Returns:
-            dict[str, str | List[str]]: A dictionary containing the file paths and the transformed data.
+            (dict[str, str | List[str]]): A dictionary containing the file paths and the transformed data.
         """
         assert os.path.isdir(output_dir), f"{output_dir} is not a directory"
 

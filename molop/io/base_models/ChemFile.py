@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:44:12
 LastEditors: TMJ
-LastEditTime: 2025-11-15 23:53:58
+LastEditTime: 2025-11-23 13:05:09
 Description: 请填写简介
 """
 
@@ -132,7 +132,7 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         self,
         format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
         frameID: int,
-        file_path: os.PathLike[str] | None = None,
+        file_path: os.PathLike| str | None = None,
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> str: ...
@@ -141,7 +141,7 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         self,
         format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
         frameID: Sequence[int],
-        file_path: os.PathLike[str] | None = None,
+        file_path: os.PathLike| str | None = None,
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> List[str]: ...
@@ -149,7 +149,7 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         self,
         format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
         frameID: Sequence[int] | int = -1,
-        file_path: os.PathLike[str] | None = None,
+        file_path: os.PathLike| str | None = None,
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> str | List[str]:
@@ -159,11 +159,11 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         Parameters:
             format (str): The format to be transformed to.
             frameID (int | slice | Sequence[int]): The frame(s) to be transformed.
-            file_path (os.PathLike[str] | None): If given, the file path to save the transformed block(s); otherwise,
+            file_path (os.PathLike| str | None): If given, the file path to save the transformed block(s); otherwise,
                 no file will be saved.
             **kwargs: Additional keyword arguments for the transformation.
         Returns:
-            str | List[str]: The transformed block(s).
+            (str | List[str]): The transformed block(s).
         """
         assert format in (
             "xyz",
@@ -361,6 +361,15 @@ class BaseCalcFile(BaseChemFile[calc_frame]):
         return not self.status.normal_terminated
 
     def draw_energy_curve(self, unit: str = "hartree"):
+        """
+        Draw the energy curve of the QM calculation.
+
+        Parameters:
+            unit (str, optional): The unit of the energy. Defaults to "hartree".
+
+        Returns:
+            matplotlib.axes.Axes: The axes of the energy curve plot.
+        """
         try:
             import seaborn as sns  # type: ignore # lazy import  # noqa: I001
         except ImportError as e:
