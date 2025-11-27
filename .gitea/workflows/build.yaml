@@ -13,6 +13,9 @@ jobs:
       - name: set mirror
         run: pip config set global.index-url https://mirrors.zju.edu.cn/pypi/web/simple
       - name: Deploy latest
+        env:
+          PIP_BREAK_SYSTEM_PACKAGES: 1
+          UV_INDEX_URL: https://mirrors.zju.edu.cn/pypi/web/simple
         run: |
           pip install uv
           uv build --wheel

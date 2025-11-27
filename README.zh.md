@@ -252,13 +252,13 @@ ts_batch.format_transform(format="xyz", output_dir=".")
 
 ### 5.2 命令行工具使用
 
-`molop` 命令行工具支持链式调用，非常适合快速数据处理。
+`molop` 命令行工具支持链式调用（通过`-`来分隔命令），非常适合快速数据处理。
 
 #### 示例 1：快速查看文件状态
 
 ```bash
 # 读取所有 .log 文件，并打印每个文件的路径
-molop read "*.log" paths
+molop read "*.log" - paths - end
 ```
 
 #### 示例 2：筛选过渡态并转换为 SDF 文件
@@ -267,8 +267,7 @@ molop read "*.log" paths
 # 1. 读取所有 .log 文件
 # 2. 筛选出状态为 "ts" (过渡态) 的计算
 # 3. 将筛选出的结构转换为 "sdf" 格式
-# 4. 将所有结构合并到一个名为 "ts_structures.sdf" 的文件中
-molop read "*.log" filter_state ts transform sdf --output_dir=. --embed_in_one_file=True --file_path=ts_structures.sdf
+molop read "*.log" - filter_state ts - transform sdf --output_dir=. --embed_in_one_file=True - end
 ```
 
 #### 示例 3：筛选能量最低的优化结构
@@ -278,7 +277,7 @@ molop read "*.log" filter_state ts transform sdf --output_dir=. --embed_in_one_f
 # 2. 筛选出已优化的结构 (opt)
 # 3. （假设您有自己的脚本或方法）根据 summary.csv 找到能量最低的结构
 #    molop 本身可以生成 summary.csv 方便后续分析
-molop read "*.log" filter_state opt summary
+molop read "*.log" - filter_state opt - summary - end
 ```
 
 ## 6. 核心类与概念

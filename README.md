@@ -252,13 +252,13 @@ ts_batch.format_transform(format="xyz", output_dir=".")
 
 ### 5.2 Command-Line Tool Usage
 
-The `molop` command-line tool supports chained calls, which is very suitable for rapid data processing.
+The `molop` command-line tool supports chained calls (use `-` to seperate commands), which is very suitable for rapid data processing.
 
 #### Example 1: Quickly check the status of files
 
 ```bash
 # Read all .log files and print the path of each file
-molop read "*.log" paths
+molop read "*.log" - paths - end
 ```
 
 #### Example 2: Filter transition states and convert to SDF files
@@ -268,7 +268,7 @@ molop read "*.log" paths
 # 2. Filter out calculations with the status "ts" (transition state)
 # 3. Convert the filtered structures to "sdf" format
 # 4. Merge all structures into a single file named "ts_structures.sdf"
-molop read "*.log" filter_state ts transform sdf --output_dir=. --embed_in_one_file=True --file_path=ts_structures.sdf
+molop read "*.log" - filter_state ts - transform sdf --output_dir=. --embed_in_one_file=True - end
 ```
 
 #### Example 3: Filter the optimized structure with the lowest energy
@@ -278,7 +278,7 @@ molop read "*.log" filter_state ts transform sdf --output_dir=. --embed_in_one_f
 # 2. Filter out optimized structures (opt)
 # 3. (Assuming you have your own script or method) Find the structure with the lowest energy based on summary.csv
 #    molop itself can generate summary.csv for subsequent analysis
-molop read "*.log" filter_state opt summary
+molop read "*.log" - filter_state opt - summary - end
 ```
 
 ## 6. Core Classes and Concepts
