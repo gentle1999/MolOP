@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 22:14:37
 LastEditors: TMJ
-LastEditTime: 2025-08-02 13:36:27
+LastEditTime: 2025-10-31 21:53:28
 Description: 请填写简介
 """
 
@@ -66,7 +66,10 @@ class BaseFileParser(
         total_multiplicity: Optional[int] = None,
     ) -> ChemFile:
         """Parse the file content."""
-        metadata: dict[str, Any] = {"file_path": self._file_path}
+        metadata: dict[str, Any] = {
+            "file_path": self._file_path,
+            "file_content": file_content,
+        }
         if mata := self._parse_metadata(file_content):
             metadata.update(mata)
         frame_contents = self._split_file(file_content)
@@ -92,25 +95,31 @@ class BaseFileParser(
 
 
 class BaseFileParserMemory(BaseFileParser[ChemFile, ChemFileFrame, FrameParser]):
-
     def parse(
         self,
         file_content: str,
         total_charge: Optional[int] = None,
         total_multiplicity: Optional[int] = None,
+        release_file_content: bool = False,
     ) -> ChemFile:
-        return self._parse(file_content, total_charge, total_multiplicity)
+        _chem_file = self._parse(file_content, total_charge, total_multiplicity)
+        if release_file_content:
+            _chem_file.release_file_content()
+        return _chem_file
 
 
 class BaseFileParserDisk(BaseFileParser[ChemFile, ChemFileFrame, FrameParser]):
-
     def parse(
         self,
         file_path: str,
         total_charge: Optional[int] = None,
         total_multiplicity: Optional[int] = None,
+        release_file_content: bool = False,
     ) -> ChemFile:
         with open(file_path, "r") as f:
             file_content = f.read()
         self._file_path = os.path.abspath(file_path)
-        return self._parse(file_content, total_charge, total_multiplicity)
+        _chem_file = self._parse(file_content, total_charge, total_multiplicity)
+        if release_file_content:
+            _chem_file.release_file_content()
+        return _chem_file

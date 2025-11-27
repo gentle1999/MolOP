@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 17:00:29
 LastEditors: TMJ
-LastEditTime: 2025-09-12 10:56:12
+LastEditTime: 2025-11-21 16:15:18
 Description: 请填写简介
 """
 
@@ -22,9 +22,9 @@ class GJFFileMixin(BaseDataClassWithUnit):
 
 
 class GJFFileMemory(
-    GJFFileMixin, MemoryStorageMixin, BaseCoordsFile[GJFFileFrameMemory]
+    MemoryStorageMixin, GJFFileMixin, BaseCoordsFile[GJFFileFrameMemory]
 ): ...
 
 
-class GJFFileDisk(GJFFileMixin, DiskStorageMixin, BaseCoordsFile[GJFFileFrameDisk]):
+class GJFFileDisk(DiskStorageMixin, GJFFileMixin, BaseCoordsFile[GJFFileFrameDisk]):
     _allowed_formats_ = ("gjf", "gif", "com", ".gau", ".gjc")

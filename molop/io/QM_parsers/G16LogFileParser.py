@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-08-01 16:13:58
 LastEditors: TMJ
-LastEditTime: 2025-08-02 20:16:17
+LastEditTime: 2025-11-27 16:08:42
 Description: 请填写简介
 """
 
@@ -14,7 +14,7 @@ from pint.facets.plain import PlainQuantity
 from molop.config import moloplogger
 from molop.io.base_models.DataClasses import ImplicitSolvation, Status
 from molop.io.base_models.FileParser import BaseFileParserDisk, BaseFileParserMemory
-from molop.io.patterns.G16Patterns import G16LogPatterns, MolOPPattern
+from molop.io.patterns.G16Patterns import MolOPPattern, g16_log_patterns
 from molop.io.QM_models.G16LogFile import G16LogFileDisk, G16LogFileMemory
 from molop.io.QM_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
@@ -26,8 +26,6 @@ from molop.io.QM_parsers.G16LogFileFrameParser import (
 )
 from molop.unit import atom_ureg
 from molop.utils.functions import find_rigid_transform
-
-g16_log_patterns = G16LogPatterns()
 
 split_pattern = "Input orientation:"
 split_pattern_2 = "Standard orientation:"
@@ -92,9 +90,9 @@ class G16LogFileParserMixin:
         focus_content, continued_content = g16_log_patterns.OPTIONS.split_content(
             self._file_content
         )
-        if matches := g16_log_patterns.OPTIONS.find_iter(focus_content):
+        if matches := g16_log_patterns.OPTIONS.get_matches(focus_content):
             options = "\n".join(
-                [f"{match.groups()[0]}={match.groups()[1]}" for match in matches]
+                [f"{match[0]}={match[1]}" for match in matches]
             )
             self._file_content = continued_content
             return options
@@ -215,7 +213,7 @@ class G16LogFileParserMixin:
 
         parse_and_update(g16_log_patterns.JOB_TYPE_IN_ARCHIVE_TAIL, "job_type")
         parse_and_update(g16_log_patterns.FUNCTIONAL_IN_ARCHIVE_TAIL, "functional")
-        parse_and_update(g16_log_patterns.BASIS_SET_IN_ARCHIVE_TAIL, "basis")
+        parse_and_update(g16_log_patterns.BASIS_SET_IN_ARCHIVE_TAIL, "basis_set")
         parse_and_update(g16_log_patterns.KEYWORDS_IN_ARCHIVE_TAIL, "keywords")
         parse_and_update(g16_log_patterns.TITLE_IN_ARCHIVE_TAIL, "title_card")
 
@@ -224,8 +222,11 @@ class G16LogFileParserMixin:
                 focus_content
             )
         )
-        if matches := g16_log_patterns.CHARGE_SPIN_MULTIPLICITY_IN_ARCHIVE_TAIL.get_matches(
-            sub_focus_content
+        if (
+            matches
+            := g16_log_patterns.CHARGE_SPIN_MULTIPLICITY_IN_ARCHIVE_TAIL.get_matches(
+                sub_focus_content
+            )
         ):
             charge_multiplicity = matches[0]
             tail_dict["charge"] = int(charge_multiplicity[0])

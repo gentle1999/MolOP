@@ -13,6 +13,7 @@ from pydantic import (
 from typing_extensions import Self
 
 from molop.unit import atom_ureg
+from molop.utils.functions import invert_transform_coords, transform_coords
 
 from .Bases import BaseDataClassWithUnit
 
@@ -75,6 +76,17 @@ class Energies(BaseDataClassWithUnit):
             }
         )
 
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("Energy", f"{key} ({getattr(self, key).units})")
+            if isinstance(getattr(self, key), PlainQuantity)
+            else ("Energy", key): getattr(self, key).m
+            if isinstance(getattr(self, key), PlainQuantity)
+            else getattr(self, key)
+            for key in self.model_dump(**kwargs).keys()
+            if getattr(self, key) is not None
+        }
+
 
 class ThermalInformations(BaseDataClassWithUnit):
     """
@@ -83,43 +95,45 @@ class ThermalInformations(BaseDataClassWithUnit):
     ref: https://www.cup.uni-muenchen.de/ch/compchem/vib/thermo1.html
     Theorietically, the energy follow the relationship below:
     U_0 = E_tot + ZPVE
-    U_T(?K) = U_0 + TCE
-    H_T(?K) = U_0 + TCH
-    G_T(?K) = U_0 + TCG
+    U_T(?K) = E_tot + TCE
+    H_T(?K) = E_tot + TCH
+    G_T(?K) = E_tot + TCG
     G_T(?K) = H_T(?K) - T * S(?K)
     """
 
+    _set_default_units: bool = PrivateAttr(default=True)
+
     ZPVE: Optional[PlainQuantity] = Field(
         default=None,
-        description="Zero-point vibrational energy, unit is `hartree/particle`",
+        description="Zero-point vibrational energy, unit is `kcal/mol`",
     )
     TCE: Optional[PlainQuantity] = Field(
         default=None,
-        description="thermal correction to the internal energy at ?K, unit is `hartree/particle`",
+        description="thermal correction to the internal energy at ?K, unit is `kcal/mol`",
     )
     TCH: Optional[PlainQuantity] = Field(
         default=None,
-        description="thermal correction to the enthalpy at ?K, unit is `hartree/particle`",
+        description="thermal correction to the enthalpy at ?K, unit is `kcal/mol`",
     )
     TCG: Optional[PlainQuantity] = Field(
         default=None,
-        description="thermal correction to the Gibbs free energy at ?K, unit is `hartree/particle`",
+        description="thermal correction to the Gibbs free energy at ?K, unit is `kcal/mol`",
     )
     U_0: Optional[PlainQuantity] = Field(
         default=None,
-        description="Zero-point energy, unit is `hartree/particle`",
+        description="Zero-point energy, unit is `kcal/mol`",
     )
     U_T: Optional[PlainQuantity] = Field(
         default=None,
-        description="thermal energy at ?K, unit is `hartree/particle`",
+        description="thermal energy at ?K, unit is `kcal/mol`",
     )
     H_T: Optional[PlainQuantity] = Field(
         default=None,
-        description="enthalpy at ?K, unit is `hartree/particle`",
+        description="enthalpy at ?K, unit is `kcal/mol`",
     )
     G_T: Optional[PlainQuantity] = Field(
         default=None,
-        description="Gibbs Free Energy at ?K, unit is `hartree/particle`",
+        description="Gibbs Free Energy at ?K, unit is `kcal/mol`",
     )
     S: Optional[PlainQuantity] = Field(
         default=None,
@@ -133,18 +147,29 @@ class ThermalInformations(BaseDataClassWithUnit):
     def _add_default_units(self) -> None:
         self._default_units.update(
             {
-                "ZPVE": atom_ureg.hartree / atom_ureg.particle,
-                "U_0": atom_ureg.hartree / atom_ureg.particle,
-                "TCE": atom_ureg.hartree / atom_ureg.particle,
-                "TCH": atom_ureg.hartree / atom_ureg.particle,
-                "TCG": atom_ureg.hartree / atom_ureg.particle,
-                "U_T": atom_ureg.hartree / atom_ureg.particle,
-                "H_T": atom_ureg.hartree / atom_ureg.particle,
-                "G_T": atom_ureg.hartree / atom_ureg.particle,
+                "ZPVE": atom_ureg.kcal / atom_ureg.mol,
+                "U_0": atom_ureg.kcal / atom_ureg.mol,
+                "TCE": atom_ureg.kcal / atom_ureg.mol,
+                "TCH": atom_ureg.kcal / atom_ureg.mol,
+                "TCG": atom_ureg.kcal / atom_ureg.mol,
+                "U_T": atom_ureg.kcal / atom_ureg.mol,
+                "H_T": atom_ureg.kcal / atom_ureg.mol,
+                "G_T": atom_ureg.kcal / atom_ureg.mol,
                 "S": atom_ureg.calorie / atom_ureg.mol / atom_ureg.kelvin,
                 "C_V": atom_ureg.calorie / atom_ureg.mol / atom_ureg.kelvin,
             }
         )
+
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("Thermal", f"{key} ({getattr(self, key).units})")
+            if isinstance(getattr(self, key), PlainQuantity)
+            else ("Thermal", key): getattr(self, key).m
+            if isinstance(getattr(self, key), PlainQuantity)
+            else getattr(self, key)
+            for key in self.model_dump(**kwargs).keys()
+            if getattr(self, key) is not None
+        }
 
 
 class MoleculeOrbital(BaseDataClassWithUnit):
@@ -177,6 +202,17 @@ class MoleculeOrbital(BaseDataClassWithUnit):
                 "beta_energy": atom_ureg.hartree,
             }
         )
+
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("Orbital", f"{key} ({getattr(self, key).units})")
+            if isinstance(getattr(self, key), PlainQuantity)
+            else ("Orbital", key): getattr(self, key).m
+            if isinstance(getattr(self, key), PlainQuantity)
+            else getattr(self, key)
+            for key in self.model_dump(**kwargs).keys()
+            if getattr(self, key) is not None
+        }
 
 
 class MolecularOrbitals(BaseDataClassWithUnit):
@@ -477,21 +513,35 @@ class MolecularOrbitals(BaseDataClassWithUnit):
 
     @model_validator(mode="after")
     def validate_molecular_orbitals(self) -> Self:
-        assert len(self.alpha_energies) == len(
-            self.alpha_occupancies
-        ), "alpha orbital energies and occupancies must have the same length"
-        assert len(self.beta_energies) == len(
-            self.beta_occupancies
-        ), "beta orbital energies and occupancies must have the same length"
+        assert len(self.alpha_energies) == len(self.alpha_occupancies), (
+            "alpha orbital energies and occupancies must have the same length"
+        )
+        assert len(self.beta_energies) == len(self.beta_occupancies), (
+            "beta orbital energies and occupancies must have the same length"
+        )
         if self.alpha_symmetries:
-            assert len(self.alpha_symmetries) == len(
-                self.alpha_energies
-            ), "alpha orbital symmetries and energies must have the same length"
+            assert len(self.alpha_symmetries) == len(self.alpha_energies), (
+                "alpha orbital symmetries and energies must have the same length"
+            )
         if self.beta_symmetries:
-            assert len(self.beta_symmetries) == len(
-                self.beta_energies
-            ), "beta orbital symmetries and energies must have the same length"
+            assert len(self.beta_symmetries) == len(self.beta_energies), (
+                "beta orbital symmetries and energies must have the same length"
+            )
         return self
+
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("Orbitals", "electronic_state"): self.electronic_state,
+            ("Orbitals", "HOMO_energy"): None
+            if self.HOMO_energy is None
+            else self.HOMO_energy.m,
+            ("Orbitals", "LUMO_energy"): None
+            if self.LUMO_energy is None
+            else self.LUMO_energy.m,
+            ("Orbitals", "HOMO-LUMO_gap"): None
+            if self.HOMO_LUMO_gap is None
+            else self.HOMO_LUMO_gap.m,
+        }
 
 
 class Vibration(BaseDataClassWithUnit):
@@ -527,7 +577,32 @@ class Vibration(BaseDataClassWithUnit):
     @computed_field
     @property
     def is_imaginary(self) -> bool:
-        return self.frequency is not None and self.frequency < 0
+        return bool(self.frequency is not None and self.frequency < 0)
+
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("Vibration", f"{key} ({getattr(self, key).units})")
+            if isinstance(getattr(self, key), PlainQuantity)
+            else ("Vibration", key): getattr(self, key).m
+            if isinstance(getattr(self, key), PlainQuantity)
+            else getattr(self, key)
+            for key in self.model_dump(**kwargs).keys()
+            if getattr(self, key) is not None
+        }
+
+    def transform_orientation(
+        self, transformation_matrix: np.ndarray, inverse: bool = False
+    ) -> None:
+        if inverse:
+            self.vibration_mode = (
+                invert_transform_coords(self.vibration_mode.m, transformation_matrix)
+                * self.vibration_mode.u
+            )
+        else:
+            self.vibration_mode = (
+                transform_coords(self.vibration_mode.m, transformation_matrix)
+                * self.vibration_mode.u
+            )
 
 
 class Vibrations(BaseDataClassWithUnit):
@@ -608,6 +683,10 @@ class Vibrations(BaseDataClassWithUnit):
         return len(self.frequencies)
 
     @property
+    def num_imaginary(self) -> int:
+        return len(self.imaginary_idxs)
+
+    @property
     def imaginary_idxs(self) -> List[int]:
         return [i for i, freq in enumerate(self) if freq.is_imaginary]
 
@@ -644,6 +723,26 @@ class Vibrations(BaseDataClassWithUnit):
             }
         )
 
+    def transform_orientation(
+        self, transformation_matrix: np.ndarray, inverse: bool = False
+    ) -> None:
+        if inverse:
+            self.vibration_modes = [
+                invert_transform_coords(mode.m, transformation_matrix) * mode.u
+                for mode in self.vibration_modes
+            ]
+        else:
+            self.vibration_modes = [
+                transform_coords(mode.m, transformation_matrix) * mode.u
+                for mode in self.vibration_modes
+            ]
+
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("Vibration", "num_imaginary"): self.num_imaginary,
+            ("Vibration", "num_vibrations"): len(self),
+        }
+
 
 class ChargeSpinPopulations(BaseDataClassWithUnit):
     # charge and spin populations
@@ -676,6 +775,9 @@ class ChargeSpinPopulations(BaseDataClassWithUnit):
         ), "All populations must have the same length"
         return self
 
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {}
+
 
 class TotalSpin(BaseDataClassWithUnit):
     spin_square: Union[float, None] = Field(
@@ -686,6 +788,12 @@ class TotalSpin(BaseDataClassWithUnit):
     )
 
     def _add_default_units(self): ...
+
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("TotalSpin", key): value
+            for key, value in self.to_unitless_dump(**kwargs).items()
+        }
 
 
 class Polarizability(BaseDataClassWithUnit):
@@ -742,6 +850,17 @@ class Polarizability(BaseDataClassWithUnit):
             }
         )
 
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("Polarizability", f"{key} ({getattr(self, key).units})")
+            if isinstance(getattr(self, key), PlainQuantity)
+            else ("Polarizability", key): getattr(self, key).m
+            if isinstance(getattr(self, key), PlainQuantity)
+            else getattr(self, key)
+            for key in self.model_dump(**kwargs).keys()
+            if getattr(self, key) is not None
+        }
+
 
 class BondOrders(BaseDataClassWithUnit):
     wiberg_bond_order: np.ndarray = Field(
@@ -763,6 +882,9 @@ class BondOrders(BaseDataClassWithUnit):
 
     def _add_default_units(self): ...
 
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {}
+
 
 class Dispersions(BaseDataClassWithUnit):
     C6AA: Union[PlainQuantity, None] = Field(
@@ -781,6 +903,17 @@ class Dispersions(BaseDataClassWithUnit):
                 "C8AA": atom_ureg.bohr**8,
             }
         )
+
+    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+        return {
+            f"{key} ({getattr(self, key).units})"
+            if isinstance(getattr(self, key), PlainQuantity)
+            else key: getattr(self, key).m
+            if isinstance(getattr(self, key), PlainQuantity)
+            else getattr(self, key)
+            for key in self.model_dump(**kwargs).keys()
+            if getattr(self, key) is not None
+        }
 
 
 class SinglePointProperties(BaseDataClassWithUnit):
@@ -812,6 +945,9 @@ class SinglePointProperties(BaseDataClassWithUnit):
                 "gei": atom_ureg.Unit("eV / particle"),
             }
         )
+
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {}
 
 
 class GeometryOptimizationStatus(BaseDataClassWithUnit):
@@ -979,6 +1115,34 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
             self.geometry_optimized = True
         return self
 
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            (
+                "GeometryOptimizationStatus",
+                "geometry_optimized",
+            ): self.geometry_optimized,
+            (
+                "GeometryOptimizationStatus",
+                "energy_change_converged",
+            ): self.energy_change_converged,
+            (
+                "GeometryOptimizationStatus",
+                "rms_force_converged",
+            ): self.rms_force_converged,
+            (
+                "GeometryOptimizationStatus",
+                "max_force_converged",
+            ): self.max_force_converged,
+            (
+                "GeometryOptimizationStatus",
+                "rms_displacement_converged",
+            ): self.rms_displacement_converged,
+            (
+                "GeometryOptimizationStatus",
+                "max_displacement_converged",
+            ): self.max_displacement_converged,
+        }
+
 
 class Status(BaseDataClassWithUnit):
     scf_converged: bool = Field(
@@ -989,6 +1153,15 @@ class Status(BaseDataClassWithUnit):
     )
 
     def _add_default_units(self): ...
+
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("Status", key): getattr(self, key).m
+            if isinstance(getattr(self, key), PlainQuantity)
+            else getattr(self, key)
+            for key in self.model_dump(**kwargs).keys()
+            if getattr(self, key) is not None
+        }
 
 
 class ShieldingTensor(BaseDataClassWithUnit):
@@ -1019,6 +1192,18 @@ class ShieldingTensor(BaseDataClassWithUnit):
     def _add_default_units(self) -> None:
         self._default_units.update({"shielding_tensor": atom_ureg.ppm})
 
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            (
+                "ShieldingTensor",
+                key,
+            ): getattr(self, key).m
+            if isinstance(getattr(self, key), PlainQuantity)
+            else getattr(self, key)
+            for key in self.model_dump(**kwargs).keys()
+            if getattr(self, key) is not None
+        }
+
 
 class NMR(BaseDataClassWithUnit):
     shielding_tensors: List[ShieldingTensor] = Field(
@@ -1040,6 +1225,15 @@ class NMR(BaseDataClassWithUnit):
                 "spin_spin_coupling_j": atom_ureg.Hz,
             }
         )
+
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("NMR", key): getattr(self, key).m
+            if isinstance(getattr(self, key), PlainQuantity)
+            else getattr(self, key)
+            for key in self.model_dump(**kwargs).keys()
+            if getattr(self, key) is not None
+        }
 
 
 class ImplicitSolvation(BaseDataClassWithUnit):
@@ -1065,3 +1259,12 @@ class ImplicitSolvation(BaseDataClassWithUnit):
     )
 
     def _add_default_units(self) -> None: ...
+
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("ImplicitSolvation", key): getattr(self, key).m
+            if isinstance(getattr(self, key), PlainQuantity)
+            else getattr(self, key)
+            for key in self.model_dump(**kwargs).keys()
+            if getattr(self, key) is not None
+        }

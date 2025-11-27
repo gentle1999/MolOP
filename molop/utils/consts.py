@@ -368,9 +368,9 @@ def get_possible_metal_radicals(metal: str, valence: int) -> set[int]:
     """
     f, d, s, p = metal_f_d_s_p_electrons[metal]
     if valence <= s + p:
-        return set([(f + s + p - valence) % 2 + dd for dd in d_electrons_spin[d]] + [0])
+        return {(f + s + p - valence) % 2 + dd for dd in d_electrons_spin[d]}
     if valence <= s + p + d:
-        return set([f % 2 + dd for dd in d_electrons_spin[d - valence + s + p]] + [0])
+        return {f % 2 + dd for dd in d_electrons_spin[d - valence + s + p]}
     if valence <= s + p + d + f:
-        return {f % 2, 0}
+        return {f % 2}
     raise ValueError("Valence is too high for this metal")

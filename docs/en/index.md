@@ -23,9 +23,7 @@
         - xTB OUT `Done`
         - ORCA `TODO`
 
-- Offer a [molecular graph recovery algorithm](https://github.com/gentle1999/MolOP/blob/main/molop/structure/structure_recovery.py) from the simple coodinates of atoms based on the initial work by [OpenBabel](https://openbabel.org/index.html), which can be easily used in the file reading process. This algorithm is different from the rdDetermineBonds (Original code implemented by [Jensen group](https://github.com/jensengroup/xyz2mol) and integrated in RDKit from the 2022.09 release, which is not suitable for the free radicals and complex containing metal. See [rdDetermineBonds_cannot_do](https://github.com/gentle1999/MolOP/blob/main/tutorial/rdDetermineBonds_cannot_do.ipynb) to learn more about the difference).
-  
-  > Although our algorithm overcome the free radicals and metal problem and tested on the [test_cases](https://github.com/gentle1999/MolOP/blob/main/tutorial/test_cases.ipynb) file, it is still not perfect. There is no denying that, rdDetermineBonds works well for normal organic molecules. Thus, we would give molecule structure recovered by rdDetermineBonds first, if error happens, we will use our algorithm to recover the molecule structure instead. We hope that this strategy can take advantage of both approaches.
+- Offer a [molecular graph recovery algorithm](structure_recovery.md) from the simple coodinates of atoms based on the initial work by [OpenBabel](https://openbabel.org/index.html), which can be easily used in the file reading process. The accuracy of this heuristic molecular graph recovery algorithm has far surpassed that of `rdDetermineBond` provided in rdkit, especially for free radicals and metal complexes. See [structure_recovery_cases.ipynb](structure_recovery_cases.ipynb) to learn more about the difference).
 
 - Offer the moleculer geometry and structure edit functions. `Doing`
     - Substructure replacement `Done`

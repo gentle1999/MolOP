@@ -6,7 +6,6 @@ import itertools
 from typing import Generator, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
-from openbabel import openbabel as ob
 from rdkit import Chem, RDLogger
 from rdkit.Chem import rdForceFieldHelpers, rdMolTransforms
 from rdkit.Chem.rdDistGeom import EmbedMolecule
@@ -305,46 +304,6 @@ def get_sub_mol(origin_mol: RdMol, scale: List[int]) -> RdMol:
     )
 
 
-def get_under_bonded_number(atom: ob.OBAtom) -> int:
-    """
-    Get the number of atoms under the given atom.
-    Suppose the atom is not a metal and follows the Octet rate (Suitable for most small organic molecules)
-
-    Parameters:
-        atom (ob.OBAtom): The atom to be checked.
-    Returns:
-        int: The number of atoms under the given atom.
-    """
-    if atom.GetAtomicNum() <= 2:
-        return (
-            2
-            - pt.GetNOuterElecs(atom.GetAtomicNum())
-            - atom.GetTotalValence()
-            + atom.GetFormalCharge()
-        )
-    if atom.GetAtomicNum() == 5 and atom.GetTotalValence() < 4:
-        return (
-            6
-            - pt.GetNOuterElecs(atom.GetAtomicNum())
-            - atom.GetTotalValence()
-            + atom.GetFormalCharge()
-        )
-    return (
-        8
-        - pt.GetNOuterElecs(atom.GetAtomicNum())
-        - atom.GetTotalValence()
-        + atom.GetFormalCharge()
-    )
-
-
-def get_radical_number(atom: ob.OBAtom) -> int:
-    """
-    Suppose the atom is not a metal and follows the Octet rate (Suitable for most small organic molecules)
-    """
-    under_bonded_number = get_under_bonded_number(atom)
-    return max(0, under_bonded_number)
-
-
 def transform_replacement_index(
     mol: RdMol,
     bond_tag: Chem.rdchem.BondType,
@@ -527,9 +486,9 @@ def replace_mol(
                     end = unique_queried_idx[0]
                     bond_tag = mol.GetBondBetweenAtoms(start, end).GetBondType()
                     break
-    assert any(
-        atom.GetNumRadicalElectrons() for atom in replacement_mol.GetAtoms()
-    ), "replacement_mol should have at least one radical atom."
+    assert any(atom.GetNumRadicalElectrons() for atom in replacement_mol.GetAtoms()), (
+        "replacement_mol should have at least one radical atom."
+    )
 
     moloplogger.debug(
         f"{DEBUG_TAG} | Initial check of structure replacement passed,"
@@ -1124,8 +1083,8 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                 atom.GetIdx()
                 for atom in temp_rwmol.GetAtoms()
                 if not (atom.GetAtomicNum() == 5 and atom.GetTotalValence() == 4)
-                and atom.GetIdx() != metal_atom
                 and atom.GetFormalCharge() < 0
+                and atom.GetIdx() != metal_atom
                 and temp_rwmol.GetConformer()
                 .GetAtomPosition(atom.GetIdx())
                 .Distance(temp_rwmol.GetConformer().GetAtomPosition(metal_atom))
@@ -1148,8 +1107,9 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
             # add covalent bonds between metal atom and negative atoms
             # until the metal atom has no more positive charge or no more negative atoms
             while (
-                temp_rwmol.GetAtomWithIdx(metal_atom).GetFormalCharge() > 0
-                and negative_atoms
+                # temp_rwmol.GetAtomWithIdx(metal_atom).GetFormalCharge() > 0
+                # and negative_atoms
+                negative_atoms
             ):
                 negative_atom = negative_atoms.pop(0)
                 if temp_rwmol.GetBondBetweenAtoms(negative_atom, metal_atom) is None:
@@ -1158,23 +1118,10 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                         f"{metal_atom} and {negative_atom}"
                     )
                     temp_rwmol.AddBond(
-                        metal_atom,
                         negative_atom,
-                        bond_list[
-                            abs(
-                                temp_rwmol.GetAtomWithIdx(
-                                    negative_atom
-                                ).GetFormalCharge()
-                            )
-                        ],
+                        metal_atom,
+                        Chem.BondType.DATIVE,
                     )
-                    temp_rwmol.GetAtomWithIdx(metal_atom).SetFormalCharge(
-                        temp_rwmol.GetAtomWithIdx(metal_atom).GetFormalCharge()
-                        + temp_rwmol.GetAtomWithIdx(negative_atom).GetFormalCharge()
-                    )
-                    temp_rwmol.GetAtomWithIdx(negative_atom).SetFormalCharge(0)
-
-        # set dative bonds between metal atoms and dative atoms
         for metal_atom in metal_atoms:
             dative_atoms = [
                 idxs[0]

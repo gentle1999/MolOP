@@ -2,11 +2,11 @@
 Author: TMJ
 Date: 2025-07-30 10:30:03
 LastEditors: TMJ
-LastEditTime: 2025-09-12 16:18:43
+LastEditTime: 2025-11-21 16:56:37
 Description: 请填写简介
 """
 
-from typing import Any, Mapping, Protocol
+from typing import TYPE_CHECKING, Any, Mapping, Protocol
 
 from rdkit import Chem
 
@@ -20,17 +20,22 @@ from molop.structure.StructureTransformation import (
 from molop.unit import atom_ureg
 
 
-class SDFFileFrameParser(Protocol):
+class SDFFileFrameParserProtocol(Protocol):
     _block: str
     only_extract_structure: bool
     _file_frame_class_: type[SDFFileFrameMemory] | type[SDFFileFrameDisk]
 
-    def _parse_frame(self) -> Mapping[str, Any]: ...
+
+if TYPE_CHECKING:
+
+    class _SDFFileFrameParserProtocol(SDFFileFrameParserProtocol): ...
+else:
+
+    class _SDFFileFrameParserProtocol(object): ...
 
 
-class SDFFileFrameParserMixin:
-
-    def _parse_frame(self: SDFFileFrameParser) -> Mapping[str, Any]:
+class SDFFileFrameParserMixin(_SDFFileFrameParserProtocol):
+    def _parse_frame(self) -> Mapping[str, Any]:
         suppl = Chem.SDMolSupplier()
         suppl.SetData(self._block, removeHs=False, sanitize=False)
         fake_mol: Chem.Mol = next(suppl)

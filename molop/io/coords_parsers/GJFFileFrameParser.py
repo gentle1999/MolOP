@@ -1,36 +1,40 @@
 """
 Author: TMJ
-Date: 2025-07-30 14:29:48
+Date: 2025-10-09 15:23:26
 LastEditors: TMJ
-LastEditTime: 2025-08-21 00:07:02
+LastEditTime: 2025-11-21 16:55:39
 Description: 请填写简介
 """
 
-from typing import Any, Mapping, Protocol
+from typing import TYPE_CHECKING, Any, Mapping, Protocol
 
 import numpy as np
 from rdkit import Chem
 
 from molop.io.base_models.FrameParser import BaseFrameParser
 from molop.io.coords_models.GJFFileFrame import GJFFileFrameDisk, GJFFileFrameMemory
-from molop.io.patterns.G16Patterns import G16InputPatterns
+from molop.io.patterns.G16Patterns import g16_input_patterns
 from molop.unit import atom_ureg
 
 pt = Chem.GetPeriodicTable()
-g16_input_patterns = G16InputPatterns()
 
 
-class GJFFileFrameParser(Protocol):
+class GJFFileFrameParserProtocol(Protocol):
     _block: str
     only_extract_structure: bool
     _file_frame_class_: type[GJFFileFrameMemory] | type[GJFFileFrameDisk]
 
-    def _parse_frame(self) -> Mapping[str, Any]: ...
+
+if TYPE_CHECKING:
+
+    class _GJFFileFrameParserProtocol(GJFFileFrameParserProtocol): ...
+else:
+
+    class _GJFFileFrameParserProtocol(object): ...
 
 
-class GJFFileFrameParserMixin:
-
-    def _parse_frame(self: GJFFileFrameParser) -> Mapping[str, Any]:
+class GJFFileFrameParserMixin(_GJFFileFrameParserProtocol):
+    def _parse_frame(self) -> Mapping[str, Any]:
         block = self._block
         if matches := g16_input_patterns.CHARGE_MULTIPLICITY.match_content(block):
             charge, multiplicity = matches[0]

@@ -10,22 +10,44 @@ from typing import Dict, Tuple, Type
 
 from molop.io.coords_models import (
     GJFFileDisk,
+    GJFFileFrameDisk,
+    GJFFileFrameMemory,
     GJFFileMemory,
     SDFFileDisk,
+    SDFFileFrameDisk,
+    SDFFileFrameMemory,
     SDFFileMemory,
     XYZFileDisk,
+    XYZFileFrameDisk,
+    XYZFileFrameMemory,
     XYZFileMemory,
 )
 from molop.io.coords_parsers import (
+    GJFFileFrameParserDisk,
+    GJFFileFrameParserMemory,
     GJFFileParserDisk,
     GJFFileParserMemory,
+    SDFFileFrameParserDisk,
+    SDFFileFrameParserMemory,
     SDFFileParserDisk,
     SDFFileParserMemory,
+    XYZFileFrameParserDisk,
+    XYZFileFrameParserMemory,
     XYZFileParserDisk,
     XYZFileParserMemory,
 )
-from molop.io.QM_models import G16LogFileDisk, G16LogFileMemory
-from molop.io.QM_parsers import G16LogFileParserDisk, G16LogFileParserMemory
+from molop.io.QM_models import (
+    G16LogFileDisk,
+    G16LogFileFrameDisk,
+    G16LogFileFrameMemory,
+    G16LogFileMemory,
+)
+from molop.io.QM_parsers import (
+    G16LogFileFrameParserDisk,
+    G16LogFileFrameParserMemory,
+    G16LogFileParserDisk,
+    G16LogFileParserMemory,
+)
 
 FILEDISK = G16LogFileDisk | GJFFileDisk | XYZFileDisk | SDFFileDisk
 PARSERDISK = (
@@ -54,3 +76,30 @@ PARSERMEMORY = (
     | G16LogFileParserMemory
 )
 PARSERTYPEMEMORY = Type[PARSERMEMORY]
+
+
+__all__ = [
+    "FILEDISK",
+    "FILEMEMORY",
+    "PARSERDISK",
+    "PARSERMEMORY",
+    "PARSERTYPEDISK",
+    "PARSERTYPEMEMORY",
+    "PARSERS_DICT",
+    "G16LogFileFrameDisk",
+    "G16LogFileFrameMemory",
+    "GJFFileFrameDisk",
+    "GJFFileFrameMemory",
+    "SDFFileFrameDisk",
+    "SDFFileFrameMemory",
+    "XYZFileFrameDisk",
+    "XYZFileFrameMemory",
+    "GJFFileFrameParserDisk",
+    "GJFFileFrameParserMemory",
+    "SDFFileFrameParserDisk",
+    "SDFFileFrameParserMemory",
+    "XYZFileFrameParserDisk",
+    "XYZFileFrameParserMemory",
+    "G16LogFileFrameParserDisk",
+    "G16LogFileFrameParserMemory",
+]

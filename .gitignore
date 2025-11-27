@@ -276,3 +276,5 @@ docs/*/tutorial_for_replacement.md
 optional.json
 *.json
 ts_inital_log
+GEMINI.md
+.pyscn

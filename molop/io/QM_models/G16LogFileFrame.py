@@ -2,11 +2,11 @@
 Author: TMJ
 Date: 2025-07-31 20:27:55
 LastEditors: TMJ
-LastEditTime: 2025-08-02 22:13:41
+LastEditTime: 2025-11-27 16:08:21
 Description: 请填写简介
 """
 
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 import numpy as np
 from pint.facets.numpy.quantity import NumpyQuantity
@@ -14,17 +14,33 @@ from pydantic import Field, model_validator
 from typing_extensions import Self
 
 from molop.io.base_models.ChemFileFrame import BaseCalcFrame
-from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
+from molop.io.base_models.DataClasses import Vibrations
+from molop.io.base_models.Mixins import (
+    DiskStorageWithFrameMixin,
+    MemoryStorageMixin,
+)
 from molop.io.base_models.Molecule import Molecule
 from molop.io.patterns.G16Patterns import (
     SEMI_EMPIRICAL_METHODS,
     parameter_comment_parser,
 )
 from molop.unit import atom_ureg
-from molop.utils.functions import invert_transform_coords
+from molop.utils.functions import invert_transform_coords, transform_coords
 
 
-class G16LogFileFrameMixin(Molecule):
+class G16LogFileFrameProtocol(Protocol):
+    vibrations: Optional[Vibrations] = Field(default=None, description="vibrations")
+
+
+if TYPE_CHECKING:
+
+    class _G16LogFileFrameProtocol(G16LogFileFrameProtocol, Molecule): ...
+else:
+
+    class _G16LogFileFrameProtocol(Molecule): ...
+
+
+class G16LogFileFrameMixin(_G16LogFileFrameProtocol):
     qm_software: str = Field(default="Gaussian")
     options: str = Field(default="", description="options comment")
     title_card: str = Field(default="", description="title card")
@@ -39,7 +55,7 @@ class G16LogFileFrameMixin(Molecule):
         description="Transformation matrix to standard orientation, unit is `angstrom`",
         title="Transformation matrix to standard orientation",
     )
-    standard_orientation_coords: Optional[NumpyQuantity] = Field(
+    standard_coords: Optional[NumpyQuantity] = Field(
         default=None,
         description="Atom coordinates with standard orientation, unit is `angstrom`",
         title="Atom coordinates with standard orientation",
@@ -51,24 +67,40 @@ class G16LogFileFrameMixin(Molecule):
 
     @model_validator(mode="after")
     def _post_processing(self) -> Self:
-        if len(self.coords) != len(self.atoms):
-            if (
-                self.standard_orientation_coords is not None
-                and self.standard_orientation_transformation_matrix is not None
-            ):
-                self.coords = (
-                    invert_transform_coords(
-                        self.standard_orientation_coords.m,
-                        self.standard_orientation_transformation_matrix,
+        if len(self.coords) != len(self.atoms):  # no input orientation found
+            if self.standard_coords is not None:
+                if self.standard_orientation_transformation_matrix is not None:
+                    self.coords = (
+                        invert_transform_coords(
+                            self.standard_coords.m,
+                            self.standard_orientation_transformation_matrix,
+                        )
+                        * self.standard_coords.u
                     )
-                    * self.standard_orientation_coords.u
-                )
-            else:
+                elif self.standard_orientation_transformation_matrix is None:
+                    self.coords = self.standard_coords
+            else:  # no standard coords found
                 raise ValueError(
                     "The number of atoms and coordinates do not match, and the standard orientation is not provided."
                 )
-        if self.basis.lower() == "genecp":
-            self.basis = "pseudopotential"
+        if (
+            self.standard_coords is None
+            and self.standard_orientation_transformation_matrix is not None
+        ):
+            self.standard_coords = (
+                transform_coords(
+                    self.coords.m, self.standard_orientation_transformation_matrix
+                )
+                * self.coords.u
+            )
+        if self.standard_orientation_transformation_matrix is not None:
+            if self.vibrations is not None:
+                self.vibrations.transform_orientation(
+                    self.standard_orientation_transformation_matrix, inverse=True
+                )
+
+        if self.basis_set.lower() == "genecp":
+            self.basis_set = "pseudopotential"
         for semi in SEMI_EMPIRICAL_METHODS:
             if semi in self.functional.lower():
                 self.method = "SEMI-EMPIRICAL"
@@ -103,6 +135,8 @@ class G16LogFileFrameMemory(
 
 
 class G16LogFileFrameDisk(
-    DiskStorageMixin, G16LogFileFrameMixin, BaseCalcFrame["G16LogFileFrameDisk"]
+    DiskStorageWithFrameMixin,
+    G16LogFileFrameMixin,
+    BaseCalcFrame["G16LogFileFrameDisk"],
 ):
     _allowed_formats_ = (".log", ".g16", ".gal", ".out", ".irc")

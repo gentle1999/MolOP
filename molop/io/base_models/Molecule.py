@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2024-06-17 20:47:40
+LastEditTime: 2025-11-27 13:56:02
 Description: 请填写简介
 """
 
@@ -43,9 +43,8 @@ pt = Chem.GetPeriodicTable()
 
 
 class Molecule(BaseDataClassWithUnit):
-
-    atoms: Sequence[int] = Field(
-        default_factory=tuple, description="atom numbers", title="Atom numbers"
+    atoms: list[int] = Field(
+        default_factory=list, description="atom numbers", title="Atom numbers"
     )
     coords: NumpyQuantity = Field(
         default=np.array([[]]) * atom_ureg.angstrom,
@@ -127,9 +126,9 @@ class Molecule(BaseDataClassWithUnit):
             return CalcMolFormula(self.rdmol)
         return "".join(
             [
-                f"{pt.GetElementSymbol(i)}{self.atoms.count(pt.GetElementSymbol(i))}"
+                f"{pt.GetElementSymbol(i)}{self.atoms.count(i)}"
                 for i in range(1, 119)
-                if self.atoms.count(pt.GetElementSymbol(i)) != 0
+                if self.atoms.count(i) != 0
             ]
         )
 
@@ -172,9 +171,9 @@ class Molecule(BaseDataClassWithUnit):
                 finally:
                     self.__get_topology()
             else:
-                assert (
-                    self.formal_charges and self.formal_num_radicals
-                ), "If bonds given, formal charges and spins must be provided."
+                assert self.formal_charges and self.formal_num_radicals, (
+                    "If bonds given, formal charges and spins must be provided."
+                )
                 self._rdmol = build_mol_from_atoms_and_bonds(
                     self.atoms,
                     self.bonds,
@@ -210,7 +209,9 @@ class Molecule(BaseDataClassWithUnit):
             + f"charge {self.charge} multiplicity {self.multiplicity}\n"
             + "\n".join(
                 [
-                    f"{atom:10s}{x:10.5f}{y:10.5f}{z:10.5f}"
+                    # Using 18.10f for coordinates to ensure high precision and alignment for
+                    # downstream applications that require accurate atomic positions.
+                    f"{atom:10s}{x:18.10f}{y:18.10f}{z:18.10f}"
                     for atom, (x, y, z) in zip(
                         self.atom_symbols, self.coords.m, strict=True
                     )
@@ -238,12 +239,12 @@ class Molecule(BaseDataClassWithUnit):
         else:
             raise ValueError(f"Unsupported engine: {engine}")
 
-    def to_SDF_file(self, filepath: os.PathLike, **kwargs):
+    def to_SDF_file(self, filepath: os.PathLike| str, **kwargs):
         """
         Write the SDF block to a file.
 
         Parameters:
-            filepath (os.PathLike): The path to the file.
+            filepath (os.PathLike| str): The path to the file.
             **kwargs: The keyword arguments for the `to_SDF_block` method.
         """
         with open(filepath, "w") as f:
@@ -269,9 +270,22 @@ class Molecule(BaseDataClassWithUnit):
         self,
         options: str = "",
         route: str = "#p",
-        title_card: str = "title",
+        title_card: str | None = None,
         suffix: str = "",
+        **kwargs,
     ) -> str:
+        """
+        Generate a GJF block for the frame.
+
+        Parameters:
+            options (str, optional): The options for the GJF block. Defaults to "".
+            route (str, optional): The route for the GJF block. Defaults to "#p".
+            title_card (str | None, optional): The title card for the GJF block. Defaults to None and use the pure filename.
+            suffix (str, optional): The suffix for the GJF block. Defaults to "".
+
+        Returns:
+            str: The GJF block for the frame.
+        """
         _options = options_parser(options)
         options_lines = (
             "\n".join([f"{key}={val}" for key, val in _options.items()]) + "\n"
@@ -282,7 +296,7 @@ class Molecule(BaseDataClassWithUnit):
             options_lines
             + route
             + "\n\n"
-            + f"{title_card}\n\n"
+            + f"{title_card or 'title'}\n\n"
             + f"{self.charge} {self.multiplicity}\n"
             + "\n".join(
                 [
@@ -297,12 +311,23 @@ class Molecule(BaseDataClassWithUnit):
 
     def to_GJF_file(
         self,
-        filepath: os.PathLike,
+        filepath: os.PathLike| str,
         options: str = "",
         route: str = "#p",
-        title_card: str = "title",
+        title_card: str | None = None,
         suffix: str = "",
+        **kwargs,
     ):
+        """
+        Write the GJF block to a file.
+
+        Parameters:
+            filepath (os.PathLike| str): The path to the file.
+            options (str, optional): The options for the GJF block. Defaults to "".
+            route (str, optional): The route for the GJF block. Defaults to "#p".
+            title_card (str | None, optional): The title card for the GJF block. Defaults to None.
+            suffix (str, optional): The suffix for the GJF block. Defaults to "".
+        """
         with open(filepath, "w") as f:
             f.write(
                 self.to_GJF_block(
@@ -331,7 +356,8 @@ class Molecule(BaseDataClassWithUnit):
         Returns:
             str: The standard SMILES.
         """
-        return canonical_smiles(self.to_SMILES())
+        smi = self.to_SMILES()
+        return canonical_smiles(smi) if smi else ""
 
     def to_InChI(self) -> str:
         """
@@ -340,7 +366,12 @@ class Molecule(BaseDataClassWithUnit):
         Returns:
             str: The InChI.
         """
-        return Chem.MolToInchi(self.rdmol)  # type: ignore
+        if self.rdmol is None:
+            return ""
+        if inchi := Chem.MolToInchi(self.rdmol):
+            return inchi # type: ignore
+        moloplogger.error("InChI building failed.")
+        return ""
 
     def calc_spms_descriptor(
         self,
@@ -466,9 +497,9 @@ class Molecule(BaseDataClassWithUnit):
         Returns:
             float: The RMSD value.
         """
-        assert isinstance(
-            other, Molecule
-        ), "The other object is not a BaseMolFrame object."
+        assert isinstance(other, Molecule), (
+            "The other object is not a BaseMolFrame object."
+        )
 
         return GetBestRMS(
             Chem.RemoveHs(self.rdmol) if ignore_H else self.rdmol,
@@ -624,9 +655,9 @@ class Molecule(BaseDataClassWithUnit):
             rdmol = reset_atom_index(self.rdmol, mapping)
             return self.from_rdmol(rdmol)
         elif mapping_indice is not None:
-            assert max(mapping_indice) < len(
-                self.rdmol.GetAtoms()
-            ), "Invalid mapping index"
+            assert max(mapping_indice) < len(self.rdmol.GetAtoms()), (
+                "Invalid mapping index"
+            )
             rdmol = reset_atom_index(self.rdmol, mapping_indice)
             return self.from_rdmol(rdmol)
         return None
@@ -663,12 +694,10 @@ class Molecule(BaseDataClassWithUnit):
         standard_orient(mol, anchor_list)
         return self.from_rdmol(mol)
 
-    def to_summary_dict(self) -> Dict[str, Any]:
+    def to_summary_dict(self) -> Dict[tuple[str, str], Any]:
         return {
-            "SMILES": self.to_SMILES(),
-            "CanonicalSMILES": self.to_canonical_SMILES(),
-            "InChI": self.to_InChI(),
-            "Charge": self.charge,
-            "Multiplicity": self.multiplicity,
-            "NumAtoms": len(self.atoms),
+            ("General", "Charge"): self.charge,
+            ("General", "Multiplicity"): self.multiplicity,
+            ("General", "CanonicalSMILES"): self.to_canonical_SMILES(),
+            ("General", "NumAtoms"): len(self.atoms),
         }

@@ -5,7 +5,6 @@ from openbabel import pybel
 from rdkit import Chem
 
 from molop.config import moloplogger
-from molop.structure.StructureTransformation import get_radical_number
 from molop.structure.utils import bond_list
 
 DEBUG_TAG = "[FORMAT CONVERTER]"
@@ -35,7 +34,7 @@ def omol_to_rdmol_by_graph(omol: pybel.Molecule) -> Optional[Chem.rdchem.Mol]:
     ]
     formal_charges = [atom.GetFormalCharge() for atom in ob.OBMolAtomIter(omol.OBMol)]
     formal_radicals = [
-        get_radical_number(atom) for atom in ob.OBMolAtomIter(omol.OBMol)
+        atom.GetSpinMultiplicity() for atom in ob.OBMolAtomIter(omol.OBMol)
     ]
     rwmol = Chem.RWMol(Chem.MolFromXYZBlock(omol.write("xyz")))
     for bond in bonds:
@@ -127,9 +126,9 @@ def validate_omol(
         )
         return False
 
-    radical_sum = sum(get_radical_number(atom.OBAtom) for atom in omol.atoms)
+    radical_sum = sum(atom.OBAtom.GetSpinMultiplicity() for atom in omol.atoms)
     radical_sum_singlet = sum(
-        get_radical_number(atom.OBAtom) % 2 for atom in omol.atoms
+        atom.OBAtom.GetSpinMultiplicity() % 2 for atom in omol.atoms
     )
     if radical_sum_singlet == total_radical_electrons:
         radical_sum = radical_sum_singlet

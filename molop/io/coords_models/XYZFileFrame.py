@@ -2,25 +2,27 @@
 Author: TMJ
 Date: 2025-07-28 23:05:56
 LastEditors: TMJ
-LastEditTime: 2025-09-12 10:55:49
+LastEditTime: 2025-11-21 16:43:16
 Description: 请填写简介
 """
 
+from pydantic import Field
+
+from molop.io.base_models.Bases import BaseDataClassWithUnit
 from molop.io.base_models.ChemFileFrame import BaseCoordsFrame
-from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
-from molop.unit import atom_ureg
+from molop.io.base_models.Mixins import DiskStorageWithFrameMixin, MemoryStorageMixin
 
 
-class XYZFileFrameMemory(MemoryStorageMixin, BaseCoordsFrame["XYZFileFrameMemory"]):
-
-    def _add_default_units(self) -> None:
-        super()._add_default_units()
-        self._default_units.update({"coords": atom_ureg.angstrom})
+class XYZFileFrameMixin(BaseDataClassWithUnit):
+    comment: str = Field(default="", description="comment")
 
 
-class XYZFileFrameDisk(DiskStorageMixin, BaseCoordsFrame["XYZFileFrameDisk"]):
+class XYZFileFrameMemory(
+    MemoryStorageMixin, XYZFileFrameMixin, BaseCoordsFrame["XYZFileFrameMemory"]
+): ...
+
+
+class XYZFileFrameDisk(
+    DiskStorageWithFrameMixin, XYZFileFrameMixin, BaseCoordsFrame["XYZFileFrameDisk"]
+):
     _allowed_formats_ = ("xyz",)
-
-    def _add_default_units(self) -> None:
-        super()._add_default_units()
-        self._default_units.update({"coords": atom_ureg.angstrom})

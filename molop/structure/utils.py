@@ -1,10 +1,11 @@
-'''
+"""
 Author: TMJ
 Date: 2025-07-28 12:19:07
 LastEditors: TMJ
 LastEditTime: 2025-08-13 14:23:17
 Description: 请填写简介
-'''
+"""
+
 from rdkit import Chem
 
 pt = Chem.GetPeriodicTable()
@@ -59,7 +60,7 @@ def estimate_bond_length(
     elif bond_type == Chem.rdchem.BondType.TRIPLE:
         return single_length / 1.15 / 1.1
     else:
-        raise ValueError("Unsupported bond type.")
+        raise ValueError(f"Unsupported bond type {bond_type}.")
 
 
 def canonical_smiles(smiles: str):

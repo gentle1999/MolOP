@@ -1,43 +1,48 @@
 """
 Author: TMJ
-Date: 2025-07-29 22:54:56
+Date: 2025-10-09 15:33:21
 LastEditors: TMJ
-LastEditTime: 2025-08-21 00:06:48
+LastEditTime: 2025-11-21 16:59:01
 Description: 请填写简介
 """
 
-from typing import Any, Mapping, Protocol
+from typing import TYPE_CHECKING, Any, Mapping, Protocol
 
 import numpy as np
 from rdkit import Chem
 
 from molop.io.base_models.FrameParser import BaseFrameParser
 from molop.io.coords_models.XYZFileFrame import XYZFileFrameDisk, XYZFileFrameMemory
-from molop.io.patterns.XYZPatterns import XYZPatterns
+from molop.io.patterns.XYZPatterns import xyz_patterns
 from molop.unit import atom_ureg
 
 pt = Chem.GetPeriodicTable()
 
-xyz_patterns = XYZPatterns()
 
-
-class XYZFileFrameParser(Protocol):
+class XYZFileFrameParserProtocol(Protocol):
     _block: str
     only_extract_structure: bool
     _file_frame_class_: type[XYZFileFrameMemory] | type[XYZFileFrameDisk]
 
-    def _parse_frame(self) -> Mapping[str, Any]: ...
+
+if TYPE_CHECKING:
+
+    class _XYZFileFrameParserProtocol(XYZFileFrameParserProtocol): ...
+else:
+
+    class _XYZFileFrameParserProtocol(object): ...
 
 
-class XYZFileFrameParserMixin:
-
-    def _parse_frame(self: XYZFileFrameParser) -> Mapping[str, Any]:
-        if indexes := xyz_patterns.META.locate_content(self._block):
-            start_start, start_end, end_start, end_end = indexes
-            meta_block = self._block[start_end:end_start]
-            atom_num = int(meta_block.splitlines()[0])
-            if atom_num == 0:
-                raise ValueError("Atom number is 0.")
+class XYZFileFrameParserMixin(_XYZFileFrameParserProtocol):
+    def _parse_frame(self) -> Mapping[str, Any]:
+        charge = 0
+        multiplicity = 1
+        lines = self._block.splitlines()
+        atom_num = int(lines[0].strip())
+        comment = lines[1].strip()
+        if matches := xyz_patterns.CHARGE_MULTIPLICITY.match_content(comment):
+            charge = int(matches[0][0])
+            multiplicity = int(matches[0][1])
         if matches := xyz_patterns.ATOMS.match_content(self._block):
             assert len(matches) == atom_num, "Atom number does not match."
             atoms = [pt.GetAtomicNumber(row[0]) for row in matches]
@@ -46,10 +51,11 @@ class XYZFileFrameParserMixin:
                 dtype=np.float32,
             )
             return {
+                "comment": comment,
                 "atoms": atoms,
                 "coords": coords * atom_ureg.angstrom,
-                "charge": 0,
-                "multiplicity": 1,
+                "charge": charge,
+                "multiplicity": multiplicity,
             }
         raise ValueError("No valid atom coordinates found.")
 
