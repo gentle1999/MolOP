@@ -656,7 +656,7 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
 
         parse_and_update(g16_log_patterns.JOB_TYPE_IN_ARCHIVE_TAIL, "job_type")
         parse_and_update(g16_log_patterns.FUNCTIONAL_IN_ARCHIVE_TAIL, "functional")
-        parse_and_update(g16_log_patterns.BASIS_SET_IN_ARCHIVE_TAIL, "basis")
+        parse_and_update(g16_log_patterns.BASIS_SET_IN_ARCHIVE_TAIL, "basis_set")
         parse_and_update(g16_log_patterns.KEYWORDS_IN_ARCHIVE_TAIL, "keywords")
         parse_and_update(g16_log_patterns.TITLE_IN_ARCHIVE_TAIL, "title_card")
 

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-26 19:08:33
 LastEditors: TMJ
-LastEditTime: 2025-07-26 19:08:47
+LastEditTime: 2025-11-27 15:58:54
 Description: 请填写简介
 """
 
@@ -120,5 +120,5 @@ class BaseDataClassWithUnit(BaseModel):
     def to_summary_series(self, **kwargs) -> pd.Series:
         return pd.Series(self.to_summary_dict(**kwargs))
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         raise NotImplementedError

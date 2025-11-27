@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:44:12
 LastEditors: TMJ
-LastEditTime: 2025-11-23 13:05:09
+LastEditTime: 2025-11-27 16:42:41
 Description: 请填写简介
 """
 
@@ -132,7 +132,7 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         self,
         format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
         frameID: int,
-        file_path: os.PathLike| str | None = None,
+        file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> str: ...
@@ -141,7 +141,7 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         self,
         format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
         frameID: Sequence[int],
-        file_path: os.PathLike| str | None = None,
+        file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> List[str]: ...
@@ -149,7 +149,7 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         self,
         format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
         frameID: Sequence[int] | int = -1,
-        file_path: os.PathLike| str | None = None,
+        file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> str | List[str]:
@@ -182,7 +182,7 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
             keywords = kwargs.copy()
             if format == "smi":
                 block = self[frameID].to_canonical_SMILES(**kwargs)
-            if format == "gjf":
+            elif format == "gjf":
                 block = self[frameID].to_GJF_block(
                     title_card=keywords.pop(
                         "title_card",
@@ -236,17 +236,19 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
 
     def _add_default_units(self) -> None: ...
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {
-            "NumberOfFrames": len(self),
-            "FileSize": self._format_file_size(),
+            ("General", "NumberOfFrames"): len(self),
+            ("General", "FileSize"): self._format_file_size(),
         }
 
     def to_summary_df(self, **kwargs) -> pd.DataFrame:
-        return pd.concat(
+        df = pd.concat(
             [frame.to_summary_series(**kwargs) for frame in self._frames_],
             axis=1,
         ).T
+        top_level_order = df.columns.get_level_values(0).unique()
+        return df[top_level_order]
 
     def release_file_content(self) -> None:
         self.file_content = ""
@@ -277,7 +279,7 @@ class BaseCalcFile(BaseChemFile[calc_frame]):
         default="",
         description="QM method used to perform the calculation. e.g. DFT or GFN2-xTB",
     )
-    basis: str = Field(
+    basis_set: str = Field(
         default="",
         description="Basis set used in the QM calculation, only for DFT calculations",
     )
@@ -341,13 +343,20 @@ class BaseCalcFile(BaseChemFile[calc_frame]):
     def closest_optimized_frame(self) -> calc_frame:
         """
         Get the frame with the closest optimization status to the optimized state.
-
-        Returns:
-            QMMolFrameType: The frame with the closest optimization status to the optimized state.
+        Optimized to O(N) complexity using min().
         """
-        if len(self.sort_by_optimization) == 0:
+        frames_with_opt = [
+            frame
+            for frame in self.frames
+            if frame.geometry_optimization_status is not None
+        ]
+
+        if not frames_with_opt:
             raise ValueError("No frames with optimization status found.")
-        return self.sort_by_optimization[0]
+        return min(
+            frames_with_opt,
+            key=lambda frame: frame.geometry_optimization_status,  # type: ignore
+        )
 
     @property
     def is_error(self) -> bool:
@@ -391,23 +400,32 @@ class BaseCalcFile(BaseChemFile[calc_frame]):
         )
         return sns.lineplot(x="frame_id", y=f"total_energy ({unit})", data=temp_df)
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
-        return super().to_summary_dict(**kwargs) | {
-            "QMSoftware": self.qm_software,
-            "QMSoftwareVersion": self.qm_software_version,
-            "Keywords": self.keywords,
-            "Method": self.method,
-            "BasisSet": self.basis,
-            "Functional": self.functional,
-            "SolventModel": None
-            if self.solvent is None
-            else self.solvent.solvent_model,
-            "Solvent": None if self.solvent is None else self.solvent.solvent,
-            f"Temperature ({self.temperature.units if self.temperature is not None else 'N/A'})": None
-            if self.temperature is None
-            else self.temperature.m,
-            f"Pressure ({self.pressure.units if self.pressure is not None else 'N/A'})": None
-            if self.pressure is None
-            else self.pressure.m,
-            "IsError": self.is_error,
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        brief_dict = super().to_summary_dict(**kwargs) | {
+            ("Calc Parameter", "Software"): self.qm_software,
+            ("Calc Parameter", "Version"): self.qm_software_version,
+            ("Calc Parameter", "Method"): self.method,
+            ("Calc Parameter", "BasisSet"): self.basis_set,
+            ("Calc Parameter", "Functional"): self.functional,
+            ("Calc Parameter", "Keywords"): self.keywords,
+            ("Environment", "SolventModel"): self.solvent.solvent_model
+            if self.solvent
+            else None,
+            ("Status", "IsError"): self.is_error,
         }
+        if self.temperature:
+            brief_dict = brief_dict | {
+                (
+                    "Environment",
+                    f"Temperature ({self.temperature.units})",
+                ): self.temperature.m
+            }
+        if self.pressure:
+            brief_dict = brief_dict | {
+                ("Environment", f"Pressure ({self.pressure.units})"): self.pressure.m
+            }
+        if self.running_time:
+            brief_dict = brief_dict | {
+                ("Status", f"RuningTime ({self.running_time.units})"): self.running_time.m
+            }
+        return brief_dict

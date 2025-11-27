@@ -224,13 +224,13 @@ g16_file = file_batch[0]
 last_frame = g16_file[-1]
 
 # Extract information
-print(f"SMILES: {last_frame.smiles}")
+print(f"SMILES: {last_frame.to_SMILES()}")
 print(f"Total Energy: {last_frame.energies.total_energy}")
 print(f"Is it a transition state?: {last_frame.is_TS}")
 
 # Extract vibrational frequencies
 if last_frame.vibrations:
-    print(f"Vibrational Frequencies (cm-1): {last_frame.vibrations.frequencies.magnitude}")
+    print(f"Vibrational Frequencies (cm-1): {last_frame.vibrations.frequencies}")
 ```
 
 #### Example 2: Batch process files, filter, and convert format
@@ -246,13 +246,8 @@ ts_batch = batch.filter_state("ts")
 
 print(f"Found {len(ts_batch)} transition state structures.")
 
-# Convert all found transition state structures into a multi-frame XYZ file
-ts_batch.format_transform(
-    format="xyz",
-    output_dir=".",
-    embed_in_one_file=True,
-    file_path="all_transition_states.xyz"
-)
+# Convert all found transition state structures to XYZ files in the output directory
+ts_batch.format_transform(format="xyz", output_dir=".")
 ```
 
 ### 5.2 Command-Line Tool Usage
@@ -331,7 +326,7 @@ Used to store the output of quantum chemistry calculations, such as Gaussian's `
 - `qm_software_version`: (str) Software version number.
 - `keywords`: (str) Keywords/route section of the calculation task.
 - `method`: (str) Calculation method (e.g., "DFT", "HF").
-- `basis`: (str) Basis set.
+- `basis_set`: (str) Basis set.
 - `functional`: (str) Functional.
 - `charge`: (int) Total molecular charge.
 - `multiplicity`: (int) Total molecular multiplicity.

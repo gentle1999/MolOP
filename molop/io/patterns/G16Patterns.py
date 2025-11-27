@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-02-16 19:20:04
 LastEditors: TMJ
-LastEditTime: 2025-11-14 00:36:52
+LastEditTime: 2025-11-24 16:52:44
 Description: 请填写简介
 """
 
@@ -78,7 +78,7 @@ class G16LogPatterns:
     )
     INITIAL_INPUT_COORDS = MolOPPattern(
         start_pattern="Symbolic Z-matrix:",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*\n",
         content_pattern=r"^\s*([A-Z][a-z]*)\s+(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)",
         content_repeat=0,
@@ -86,7 +86,7 @@ class G16LogPatterns:
     )
     INPUT_COORDS = MolOPPattern(
         start_pattern="Input orientation:",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*-+\n",
         end_offset=2,
         content_pattern=r"\s+\d+\s+(\d+)\s+\d+\s+(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)",
@@ -95,7 +95,7 @@ class G16LogPatterns:
     )
     STANDARD_COORDS = MolOPPattern(
         start_pattern="Standard orientation:",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*-+\n",
         end_offset=2,
         content_pattern=r"\s+\d+\s+(\d+)\s+\d+\s+(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)",
@@ -128,7 +128,7 @@ class G16LogPatterns:
     )
     SOLVENT_PARAMETERS = MolOPPattern(
         start_pattern="Polarizable Continuum Model (PCM)",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*-{2,}\n",
         description="The solvent parameters used in the Gaussian calculation. link 301",
     )
@@ -183,7 +183,7 @@ class G16LogPatterns:
     )
     ISOTROPIC_POLARIZABILITY = MolOPPattern(
         start_pattern="Isotropic polarizability for W=",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*Isotropic polarizability for W=\s*\d+.\d+\s*(\d+.\d+)\s*Bohr\*\*3",
         content_pattern=r"\d+.\d+\s*(\d+.\d+)",
         description="The isotropic polarizability of the Gaussian calculation. link 1002",
@@ -195,7 +195,7 @@ class G16LogPatterns:
     )
     MOLECULAR_ORBITALS_SYMMETRY_ALPHA = MolOPPattern(
         start_pattern="Alpha Orbitals:",
-        strat_regex=False,
+        start_regex=False,
         end_pattern="Beta  Orbitals:",
         end_regex=False,
         content_pattern=r"^\s*(Occupied|Virtual|)\s*((\([A-Z0-9]+\)\s*){1,12})\n",
@@ -204,7 +204,7 @@ class G16LogPatterns:
     )
     MOLECULAR_ORBITALS_SYMMETRY_BETA = MolOPPattern(
         start_pattern="Beta  Orbitals:",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*The electronic state is (.*)\.",
         content_pattern=r"^\s*(Occupied|Virtual|)\s*((\([A-Z0-9]+\)\s*){1,12})\n",
         content_repeat=0,
@@ -212,7 +212,7 @@ class G16LogPatterns:
     )
     MOLECULAR_ORBITALS_SYMMETRY = MolOPPattern(
         start_pattern="Orbital symmetries:",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*The electronic state is (.*)\.",
         content_pattern=r"^\s*(Occupied|Virtual|)\s*((\([A-Z0-9]+\)\s*){1,12})\n",
         content_repeat=0,
@@ -236,7 +236,7 @@ class G16LogPatterns:
     )
     MULLIKEN_SPIN_DENSITY = MolOPPattern(
         start_pattern="Mulliken charges and spin densities:",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"(Sum of Mulliken )(.*)(charges)\s*=\s*(\D)",
         content_pattern=r"\d+\s+[A-Z][a-z]?(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)",
         content_repeat=0,
@@ -244,7 +244,7 @@ class G16LogPatterns:
     )
     APT_POPULATION = MolOPPattern(
         start_pattern="APT charges:",
-        strat_regex=False,
+        start_regex=False,
         end_pattern="Sum of APT charges",
         end_regex=False,
         content_pattern=r"\d+\s+[A-Z][a-z]?\s+(\s*-?\d+\.\d*)",
@@ -253,7 +253,7 @@ class G16LogPatterns:
     )
     LOWDIN_POPULATION = MolOPPattern(
         start_pattern="Lowdin charges",
-        strat_regex=False,
+        start_regex=False,
         end_pattern="Sum of Lowdin charges",
         end_regex=False,
         content_pattern=r"\d+\s+[A-Z][a-z]?\s+(\s*-?\d+\.\d*)",
@@ -266,42 +266,42 @@ class G16LogPatterns:
     )
     DIPOLE_MOMENT = MolOPPattern(
         start_pattern="Dipole moment (field-independent basis",
-        strat_regex=False,
+        start_regex=False,
         content_pattern=r"[XYZ]=\s+(\s*-?\d+\.\d*)",
         content_repeat=3,
         description="The dipole moment of the Gaussian calculation. link 601",
     )
     QUADRUPOLE_MOMENT = MolOPPattern(
         start_pattern="Quadrupole moment (field-independent basis",
-        strat_regex=False,
+        start_regex=False,
         content_pattern=r"\s[XYZ]{2}=\s+(\s*-?\d+\.\d*)",
         content_repeat=6,
         description="The quadrupole moment of the Gaussian calculation. link 601",
     )
     TRACELESS_QUADRUPOLE_MOMENT = MolOPPattern(
         start_pattern="Traceless Quadrupole moment (field-independent basis",
-        strat_regex=False,
+        start_regex=False,
         content_pattern=r"\s[XYZ]{2}=\s+(\s*-?\d+\.\d*)",
         content_repeat=6,
         description="The traceless quadrupole moment of the Gaussian calculation. link 601",
     )
     OCTAPOLE_MOMENT = MolOPPattern(
         start_pattern="Octapole moment (field-independent basis",
-        strat_regex=False,
+        start_regex=False,
         content_pattern=r"\s[XYZ]{3}=\s+(\s*-?\d+\.\d*)",
         content_repeat=10,
         description="The octapole moment of the Gaussian calculation. link 601",
     )
     HEXADECAPOLE_MOMENT = MolOPPattern(
         start_pattern="Hexadecapole moment (field-independent basis",
-        strat_regex=False,
+        start_regex=False,
         content_pattern=r"\s[XYZ]{4}=\s+(\s*-?\d+\.\d*)",
         content_repeat=15,
         description="The hexadecapole moment of the Gaussian calculation. link 601",
     )
     HIRSHFELD_POPULATION = MolOPPattern(
         start_pattern="Hirshfeld charges, spin densities, dipoles, and CM5 charges",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*Hirshfeld charges( and spin densities|) with hydrogens",
         content_pattern=r"^\s*\d+\s+[A-Z][a-z]?\s+(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)",
         content_repeat=0,
@@ -317,13 +317,13 @@ class G16LogPatterns:
     )
     ISOTROPIC_FERMI_CONTACT_COUPLING = MolOPPattern(
         start_pattern="Isotropic Fermi Contact Couplings",
-        strat_regex=False,
+        start_regex=False,
         content_pattern=r"\s*\d+\s*[A-Z][a-z]?\((\d+)\)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)",
         description="The isotropic Fermi contact coupling of the Gaussian calculation. link 601",
     )
     ESP_POPULATION = MolOPPattern(
         start_pattern="ESP charges:",
-        strat_regex=False,
+        start_regex=False,
         end_pattern="Sum of ESP charges",
         end_regex=False,
         content_pattern=r"\d+\s+[A-Z][a-z]?\s+(\s*-?\d+\.\d*)",
@@ -332,14 +332,14 @@ class G16LogPatterns:
     )
     DIPOLE_BEFORE_FORCE = MolOPPattern(
         start_pattern="Dipole        =",
-        strat_regex=False,
+        start_regex=False,
         content_pattern=r"(\s*-*\d+.\d+D[+-]\d+)",
         content_repeat=3,
         description="The dipole moment before the force calculation. link 716",
     )
     POLARIZIABILITIES_BEFORE_FORCE = MolOPPattern(
         start_pattern="Polarizability=",
-        strat_regex=False,
+        start_regex=False,
         content_pattern=r"(\s*-*\d+.\d+D[+-]\d+)",
         content_repeat=6,
         description="The polarizabilities before the force calculation. link 716",
@@ -349,7 +349,7 @@ class G16LogPatterns:
     TDDFT_ORBITALS = MolOPPattern(description="TODO, link 914")
     FREQUENCY_ANALYSIS = MolOPPattern(
         start_pattern="Harmonic frequencies (cm**-1)",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r" \n",
         end_regex=False,
         description="The frequency analysis of the Gaussian calculation. link 716",
@@ -387,7 +387,7 @@ class G16LogPatterns:
     )
     TEMPEREATURE_PRESSURE = MolOPPattern(
         start_pattern="- Thermochemistry",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*Temperature\s*(\d+\.\d*)\s*Kelvin\.\s*Pressure\s*(\d+\.\d*)\s*Atm\.",
         content_pattern=r"^\s*Temperature\s*(\d+\.\d*)\s*Kelvin\.\s*Pressure\s*(\d+\.\d*)\s*Atm\.",
         description="The temperature and pressure of the Gaussian calculation. link 716",
@@ -407,7 +407,7 @@ class G16LogPatterns:
     )
     THERMOCHEMISTRY_PART = MolOPPattern(
         start_pattern="Zero-point correction",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*Rotational(\s*-*\d+.\d+D[+-]\d+)\s*(-?\d+\.\d*)\s*(-?\d+\.\d*)",
         description="The thermochemistry part of the Gaussian calculation. link 716",
     )
@@ -423,13 +423,13 @@ class G16LogPatterns:
     )
     THERMOCHEMISTRY_CV_S = MolOPPattern(
         start_pattern="E (Thermal)             CV                S",
-        strat_regex=False,
+        start_regex=False,
         content_pattern=r"^\s*Total(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)",
         description="The thermochemistry CV and S of the Gaussian calculation. link 716",
     )
     FORCES_IN_CARTESIAN = MolOPPattern(
         start_pattern="Center     Atomic                   Forces (Hartrees/Bohr)",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*(-){3,}",
         end_offset=1,
         content_pattern=r"^\s*\d+\s+\d+(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)",
@@ -438,7 +438,7 @@ class G16LogPatterns:
     )
     HESSIAN_IN_CARTESIAN = MolOPPattern(
         start_pattern="Force constants in Cartesian coordinates",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*FormGI is forming",
         content_pattern=r"^\s*(\d+)((\s*-?\d+.\d+D[+-]\d+){1,5})",
         content_repeat=0,
@@ -446,13 +446,13 @@ class G16LogPatterns:
     )
     BERNY_STATE_MAJOR_PART = MolOPPattern(
         start_pattern="Item               Value     Threshold  Converged?",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"(?r)^\s*^\s*Leave Link  103.*MaxMem=\s*(\d+)\s*cpu:\s*(\d+\.\d*)",
         description="The Berny optimization state. Patterns showed when #p used. link 103",
     )
     BERNY_STATE_BACKUP_PART = MolOPPattern(
         start_pattern="Item               Value     Threshold  Converged?",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*(Grad){3,}",
         description="The Berny optimization state. link 103",
     )
@@ -471,20 +471,20 @@ class G16LogPatterns:
     )
     ELECTRIC_DIPOLE_PART = MolOPPattern(
         start_pattern="Electric dipole moment (input orientation):",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*(-){3,}",
         description="The electric dipole moment part of the Gaussian calculation. link 9999",
     )
     ELECTRIC_DIPOLE_MOMENT = MolOPPattern(
         start_pattern="Electric dipole moment (input orientation):",
-        strat_regex=False,
+        start_regex=False,
         content_pattern=r"^\s*(Tot|x|y|z)(\s*-?\d+\.\d*D[+-]\d+)(\s*-?\d+\.\d*D[+-]\d+)(\s*-?\d+\.\d*D[+-]\d+)",
         content_repeat=4,
         description="The electric dipole moment of the Gaussian calculation. link 9999",
     )
     DIPOLE_POLARIZABILITY = MolOPPattern(
         start_pattern="Dipole polarizability, Alpha (input orientation)",
-        strat_regex=False,
+        start_regex=False,
         end_pattern=r"^\s*(-){3,}",
         content_pattern=r"^\s*(iso|aniso|xx|yx|yy|zx|zy|zz)(\s*-?\d+\.\d*D[+-]\d+)(\s*-?\d+\.\d*D[+-]\d+)(\s*-?\d+\.\d*D[+-]\d+)",
         content_repeat=8,
@@ -497,7 +497,7 @@ class G16LogPatterns:
     )
     JOB_TYPE_IN_ARCHIVE_TAIL = MolOPPattern(
         start_pattern="\\",
-        strat_regex=False,
+        start_regex=False,
         start_offset=2,
         end_pattern="\\",
         end_regex=False,
@@ -507,7 +507,7 @@ class G16LogPatterns:
     )
     FUNCTIONAL_IN_ARCHIVE_TAIL = MolOPPattern(
         start_pattern="\\",
-        strat_regex=False,
+        start_regex=False,
         end_pattern="\\",
         end_regex=False,
         end_offset=1,
@@ -516,7 +516,7 @@ class G16LogPatterns:
     )
     BASIS_SET_IN_ARCHIVE_TAIL = MolOPPattern(
         start_pattern="\\",
-        strat_regex=False,
+        start_regex=False,
         end_pattern="\\",
         end_regex=False,
         end_offset=1,
@@ -525,7 +525,7 @@ class G16LogPatterns:
     )
     KEYWORDS_IN_ARCHIVE_TAIL = MolOPPattern(
         start_pattern="\\\\",
-        strat_regex=False,
+        start_regex=False,
         end_pattern="\\\\",
         end_regex=False,
         end_offset=1,
@@ -534,7 +534,7 @@ class G16LogPatterns:
     )
     TITLE_IN_ARCHIVE_TAIL = MolOPPattern(
         start_pattern="\\\\",
-        strat_regex=False,
+        start_regex=False,
         end_pattern="\\\\",
         end_regex=False,
         end_offset=1,
@@ -543,7 +543,7 @@ class G16LogPatterns:
     )
     CHARGE_SPIN_MULTIPLICITY_IN_ARCHIVE_TAIL = MolOPPattern(
         start_pattern="\\\\",
-        strat_regex=False,
+        start_regex=False,
         end_pattern="\\",
         end_regex=False,
         end_offset=2,
@@ -552,7 +552,7 @@ class G16LogPatterns:
     )
     COORS_IN_ARCHIVE_TAIL = MolOPPattern(
         start_pattern="\\",
-        strat_regex=False,
+        start_regex=False,
         end_pattern="\\\\",
         end_regex=False,
         content_pattern=r"\\([A-Z][a-z]?),(-?\d+\.\d*),(-?\d+\.\d*),(-?\d+\.\d*)",
@@ -561,7 +561,7 @@ class G16LogPatterns:
     )
     VERSION_IN_ARCHIVE_TAIL = MolOPPattern(
         start_pattern="\\\\",
-        strat_regex=False,
+        start_regex=False,
         end_pattern="\\",
         end_regex=False,
         end_offset=2,

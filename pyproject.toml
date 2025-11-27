@@ -23,7 +23,7 @@ dependencies = [
     "numpy>=1.26.4",
     "openbabel-wheel>=3.1.1.22",
     "pandas>=2.3.1",
-    "pint>=0.24.4",
+    "pint>0.24",
     "pydantic>=2.11.7",
     "rdkit>=2023.9.6",
     "regex<=2025.7.33",

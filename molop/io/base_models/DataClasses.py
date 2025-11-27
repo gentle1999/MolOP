@@ -76,11 +76,11 @@ class Energies(BaseDataClassWithUnit):
             }
         )
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {
-            f"{key} ({getattr(self, key).units})"
+            ("Energy", f"{key} ({getattr(self, key).units})")
             if isinstance(getattr(self, key), PlainQuantity)
-            else key: getattr(self, key).m
+            else ("Energy", key): getattr(self, key).m
             if isinstance(getattr(self, key), PlainQuantity)
             else getattr(self, key)
             for key in self.model_dump(**kwargs).keys()
@@ -160,11 +160,11 @@ class ThermalInformations(BaseDataClassWithUnit):
             }
         )
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {
-            f"{key} ({getattr(self, key).units})"
+            ("Thermal", f"{key} ({getattr(self, key).units})")
             if isinstance(getattr(self, key), PlainQuantity)
-            else key: getattr(self, key).m
+            else ("Thermal", key): getattr(self, key).m
             if isinstance(getattr(self, key), PlainQuantity)
             else getattr(self, key)
             for key in self.model_dump(**kwargs).keys()
@@ -203,11 +203,11 @@ class MoleculeOrbital(BaseDataClassWithUnit):
             }
         )
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {
-            f"{key} ({getattr(self, key).units})"
+            ("Orbital", f"{key} ({getattr(self, key).units})")
             if isinstance(getattr(self, key), PlainQuantity)
-            else key: getattr(self, key).m
+            else ("Orbital", key): getattr(self, key).m
             if isinstance(getattr(self, key), PlainQuantity)
             else getattr(self, key)
             for key in self.model_dump(**kwargs).keys()
@@ -529,12 +529,16 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             )
         return self
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {
-            "electronic_state": self.electronic_state,
-            "HOMO_energy": None if self.HOMO_energy is None else self.HOMO_energy.m,
-            "LUMO_energy": None if self.LUMO_energy is None else self.LUMO_energy.m,
-            "HOMO-LUMO_gap": None
+            ("Orbitals", "electronic_state"): self.electronic_state,
+            ("Orbitals", "HOMO_energy"): None
+            if self.HOMO_energy is None
+            else self.HOMO_energy.m,
+            ("Orbitals", "LUMO_energy"): None
+            if self.LUMO_energy is None
+            else self.LUMO_energy.m,
+            ("Orbitals", "HOMO-LUMO_gap"): None
             if self.HOMO_LUMO_gap is None
             else self.HOMO_LUMO_gap.m,
         }
@@ -575,11 +579,11 @@ class Vibration(BaseDataClassWithUnit):
     def is_imaginary(self) -> bool:
         return bool(self.frequency is not None and self.frequency < 0)
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {
-            f"{key} ({getattr(self, key).units})"
+            ("Vibration", f"{key} ({getattr(self, key).units})")
             if isinstance(getattr(self, key), PlainQuantity)
-            else key: getattr(self, key).m
+            else ("Vibration", key): getattr(self, key).m
             if isinstance(getattr(self, key), PlainQuantity)
             else getattr(self, key)
             for key in self.model_dump(**kwargs).keys()
@@ -733,8 +737,11 @@ class Vibrations(BaseDataClassWithUnit):
                 for mode in self.vibration_modes
             ]
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
-        return {"num_imaginary": self.num_imaginary, "num_vibrations": len(self)}
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("Vibration", "num_imaginary"): self.num_imaginary,
+            ("Vibration", "num_vibrations"): len(self),
+        }
 
 
 class ChargeSpinPopulations(BaseDataClassWithUnit):
@@ -768,7 +775,7 @@ class ChargeSpinPopulations(BaseDataClassWithUnit):
         ), "All populations must have the same length"
         return self
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {}
 
 
@@ -782,8 +789,11 @@ class TotalSpin(BaseDataClassWithUnit):
 
     def _add_default_units(self): ...
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
-        return self.to_unitless_dump(**kwargs)
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("TotalSpin", key): value
+            for key, value in self.to_unitless_dump(**kwargs).items()
+        }
 
 
 class Polarizability(BaseDataClassWithUnit):
@@ -840,11 +850,11 @@ class Polarizability(BaseDataClassWithUnit):
             }
         )
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {
-            f"{key} ({getattr(self, key).units})"
+            ("Polarizability", f"{key} ({getattr(self, key).units})")
             if isinstance(getattr(self, key), PlainQuantity)
-            else key: getattr(self, key).m
+            else ("Polarizability", key): getattr(self, key).m
             if isinstance(getattr(self, key), PlainQuantity)
             else getattr(self, key)
             for key in self.model_dump(**kwargs).keys()
@@ -872,7 +882,7 @@ class BondOrders(BaseDataClassWithUnit):
 
     def _add_default_units(self): ...
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {}
 
 
@@ -936,7 +946,7 @@ class SinglePointProperties(BaseDataClassWithUnit):
             }
         )
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {}
 
 
@@ -1105,14 +1115,32 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
             self.geometry_optimized = True
         return self
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {
-            "geometry_optimized": self.geometry_optimized,
-            "energy_change_converged": self.energy_change_converged,
-            "rms_force_converged": self.rms_force_converged,
-            "max_force_converged": self.max_force_converged,
-            "rms_displacement_converged": self.rms_displacement_converged,
-            "max_displacement_converged": self.max_displacement_converged,
+            (
+                "GeometryOptimizationStatus",
+                "geometry_optimized",
+            ): self.geometry_optimized,
+            (
+                "GeometryOptimizationStatus",
+                "energy_change_converged",
+            ): self.energy_change_converged,
+            (
+                "GeometryOptimizationStatus",
+                "rms_force_converged",
+            ): self.rms_force_converged,
+            (
+                "GeometryOptimizationStatus",
+                "max_force_converged",
+            ): self.max_force_converged,
+            (
+                "GeometryOptimizationStatus",
+                "rms_displacement_converged",
+            ): self.rms_displacement_converged,
+            (
+                "GeometryOptimizationStatus",
+                "max_displacement_converged",
+            ): self.max_displacement_converged,
         }
 
 
@@ -1126,11 +1154,9 @@ class Status(BaseDataClassWithUnit):
 
     def _add_default_units(self): ...
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {
-            f"{key} ({getattr(self, key).units})"
-            if isinstance(getattr(self, key), PlainQuantity)
-            else key: getattr(self, key).m
+            ("Status", key): getattr(self, key).m
             if isinstance(getattr(self, key), PlainQuantity)
             else getattr(self, key)
             for key in self.model_dump(**kwargs).keys()
@@ -1166,11 +1192,12 @@ class ShieldingTensor(BaseDataClassWithUnit):
     def _add_default_units(self) -> None:
         self._default_units.update({"shielding_tensor": atom_ureg.ppm})
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {
-            f"{key} ({getattr(self, key).units})"
-            if isinstance(getattr(self, key), PlainQuantity)
-            else key: getattr(self, key).m
+            (
+                "ShieldingTensor",
+                key,
+            ): getattr(self, key).m
             if isinstance(getattr(self, key), PlainQuantity)
             else getattr(self, key)
             for key in self.model_dump(**kwargs).keys()
@@ -1199,8 +1226,14 @@ class NMR(BaseDataClassWithUnit):
             }
         )
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
-        return self.to_unitless_dump(**kwargs)
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("NMR", key): getattr(self, key).m
+            if isinstance(getattr(self, key), PlainQuantity)
+            else getattr(self, key)
+            for key in self.model_dump(**kwargs).keys()
+            if getattr(self, key) is not None
+        }
 
 
 class ImplicitSolvation(BaseDataClassWithUnit):
@@ -1227,11 +1260,9 @@ class ImplicitSolvation(BaseDataClassWithUnit):
 
     def _add_default_units(self) -> None: ...
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {
-            f"{key} ({getattr(self, key).units})"
-            if isinstance(getattr(self, key), PlainQuantity)
-            else key: getattr(self, key).m
+            ("ImplicitSolvation", key): getattr(self, key).m
             if isinstance(getattr(self, key), PlainQuantity)
             else getattr(self, key)
             for key in self.model_dump(**kwargs).keys()

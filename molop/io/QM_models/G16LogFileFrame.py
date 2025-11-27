@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-31 20:27:55
 LastEditors: TMJ
-LastEditTime: 2025-11-21 17:42:46
+LastEditTime: 2025-11-27 16:08:21
 Description: 请填写简介
 """
 
@@ -99,8 +99,8 @@ class G16LogFileFrameMixin(_G16LogFileFrameProtocol):
                     self.standard_orientation_transformation_matrix, inverse=True
                 )
 
-        if self.basis.lower() == "genecp":
-            self.basis = "pseudopotential"
+        if self.basis_set.lower() == "genecp":
+            self.basis_set = "pseudopotential"
         for semi in SEMI_EMPIRICAL_METHODS:
             if semi in self.functional.lower():
                 self.method = "SEMI-EMPIRICAL"

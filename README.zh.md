@@ -224,13 +224,13 @@ g16_file = file_batch[0]
 last_frame = g16_file[-1]
 
 # 提取信息
-print(f"SMILES: {last_frame.smiles}")
+print(f"SMILES: {last_frame.to_SMILES()}")
 print(f"总能量: {last_frame.energies.total_energy}")
 print(f"是否为过渡态: {last_frame.is_TS}")
 
 # 提取振动频率
 if last_frame.vibrations:
-    print(f"振动频率 (cm-1): {last_frame.vibrations.frequencies.magnitude}")
+    print(f"振动频率 (cm-1): {last_frame.vibrations.frequencies}")
 ```
 
 #### 示例 2：批量处理文件、筛选并转换格式
@@ -246,13 +246,8 @@ ts_batch = batch.filter_state("ts")
 
 print(f"找到了 {len(ts_batch)} 个过渡态结构。")
 
-# 将所有找到的过渡态结构转换为一个多帧 XYZ 文件
-ts_batch.format_transform(
-    format="xyz",
-    output_dir=".",
-    embed_in_one_file=True,
-    file_path="all_transition_states.xyz"
-)
+# 将所有找到的过渡态结构转换为输出路径下的对应 XYZ 文件
+ts_batch.format_transform(format="xyz", output_dir=".")
 ```
 
 ### 5.2 命令行工具使用
@@ -331,7 +326,7 @@ molop read "*.log" filter_state opt summary
 - `qm_software_version`: (str) 软件版本号。
 - `keywords`: (str) 计算任务的关键词/路由部分。
 - `method`: (str) 计算方法 (e.g., "DFT", "HF")。
-- `basis`: (str) 基组。
+- `basis_set`: (str) 基组。
 - `functional`: (str) 泛函。
 - `charge`: (int) 分子总电荷。
 - `multiplicity`: (int) 分子总多重度。

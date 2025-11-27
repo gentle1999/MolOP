@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 16:32:20
 LastEditors: TMJ
-LastEditTime: 2025-07-29 16:32:29
+LastEditTime: 2025-11-26 13:47:31
 Description: 请填写简介
 """
 
@@ -14,14 +14,20 @@ from typing_extensions import Self
 
 
 def find_iter_no_regex(
-    pattern: str, content: str
-) -> Generator[tuple[int, int], Any, None]:
-    start_index = 0
-    end_index = start_index = 0
-    while (match_start := content.find(pattern, end_index)) != -1:
-        start_index = match_start
-        end_index = match_start + len(pattern)
-        yield start_index, end_index
+    pattern: str, content: str, start_idx: int = 0, end_idx: int | None = None
+) -> Generator[tuple[int, int], None, None]:
+    if end_idx is None:
+        end_idx = len(content)
+    current_idx = start_idx
+    pattern_len = len(pattern)
+
+    while True:
+        match_start = content.find(pattern, current_idx, end_idx)
+        if match_start == -1:
+            break
+        match_end = match_start + pattern_len
+        yield match_start, match_end
+        current_idx = match_start + pattern_len
 
 
 class MolOPPattern(BaseModel):
@@ -32,7 +38,7 @@ class MolOPPattern(BaseModel):
     start_offset: int = Field(
         default=0, ge=0, description="The start offset of the pattern."
     )
-    strat_regex: bool = Field(
+    start_regex: bool = Field(
         default=True,
         description="Whether the start pattern should be treated as a regex pattern.",
     )
@@ -62,7 +68,7 @@ class MolOPPattern(BaseModel):
 
     @model_validator(mode="after")
     def validate_pattern(self) -> Self:
-        if self.start_pattern and self.strat_regex:
+        if self.start_pattern and self.start_regex:
             self._start_pattern_compiled = regex.compile(
                 self.start_pattern, regex.MULTILINE
             )
@@ -101,8 +107,7 @@ class MolOPPattern(BaseModel):
         if self.start_pattern_compiled:
             for idx, match in enumerate(self.start_pattern_compiled.finditer(content)):
                 if idx >= self.start_offset:
-                    start_index = match.start()
-                    start_pos = match.end()
+                    start_index, start_pos = match.start(), match.end()
                     break
             else:
                 return None
@@ -111,43 +116,38 @@ class MolOPPattern(BaseModel):
                 find_iter_no_regex(self.start_pattern, content)
             ):
                 if idx >= self.start_offset:
-                    start_index = match[0]
-                    start_pos = match[1]
+                    start_index, start_pos = match[0], match[1]
                     break
             else:
                 return None
         else:
-            start_index = 0
-            start_pos = 0
+            start_index, start_pos = 0, 0
         if self.end_pattern_compiled:
             for idx, match in enumerate(
-                self.end_pattern_compiled.finditer(content[start_index:])
+                self.end_pattern_compiled.finditer(content, pos=start_index)
             ):
                 if idx >= self.end_offset:
-                    end_index = match.start() + start_index
-                    end_pos = match.end() + start_index
+                    end_index, end_pos = match.start(), match.end()
                     break
             else:
                 return None
         elif self.end_pattern:
             for idx, match in enumerate(
-                find_iter_no_regex(self.end_pattern, content[start_index:])
+                find_iter_no_regex(self.end_pattern, content, start_index)
             ):
                 if idx >= self.end_offset:
-                    end_index = match[0] + start_index
-                    end_pos = match[1] + start_index
+                    end_index, end_pos = match[0], match[1]
                     break
             else:
                 return None
         else:
-            end_index = start_pos
-            end_pos = len(content)
-        assert (
-            end_index >= start_index
-        ), f"end_index should be greater than or equal to start_index, but got {end_index} < {start_index}"
-        assert (
-            end_pos >= start_pos
-        ), f"end_pos should be greater than or equal to start_pos, but got {end_pos} < {start_pos}"
+            end_index, end_pos = start_pos, len(content)
+        assert end_index >= start_index, (
+            f"end_index should be greater than or equal to start_index, but got {end_index} < {start_index}"
+        )
+        assert end_pos >= start_pos, (
+            f"end_pos should be greater than or equal to start_pos, but got {end_pos} < {start_pos}"
+        )
         return start_index, start_pos, end_index, end_pos
 
     def match_content(self, content: str) -> None | list[tuple[str | Any, ...]]:

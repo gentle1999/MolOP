@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:43:45
 LastEditors: TMJ
-LastEditTime: 2025-11-21 16:42:07
+LastEditTime: 2025-11-27 16:41:33
 Description: 请填写简介
 """
 
@@ -80,8 +80,8 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
         Check if the molecule is optimized.
         """
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
-        return {**super().to_summary_dict(), "FrameID": self.frame_id}
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {**super().to_summary_dict(), ("General", "FrameID"): self.frame_id}
 
 
 class BaseCoordsFrame(BaseChemFileFrame[ChemFileFrame]): ...
@@ -107,7 +107,7 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
         description="QM method used to perform the calculation. "
         "e.g. DFT or SEMI-EMPIRICAL or HF et. al.",
     )
-    basis: str = Field(
+    basis_set: str = Field(
         default="",
         description="Basis set used in the QM calculation, only for DFT calculations",
     )
@@ -226,7 +226,7 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
             w.write(self.population_embedded_rdmol)
         return sio.getvalue()
 
-    def to_population_embedded_SDF_file(self, filepath: os.PathLike| str):
+    def to_population_embedded_SDF_file(self, filepath: os.PathLike | str):
         """
         Write the SDF block to a file with population embedded properties.
 
@@ -413,47 +413,94 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
         Returns:
             Optional[RdMol]: The rdkit molecule object for the transition state with bond-breaking.
         """
-        assert self.rdmol, "No valid rdmol object"
-        assert self.is_TS, "Must be a TS frame"
-        reactant_rdmol, product_rdmol = self.possible_pre_post_ts(
-            show_3D=False, ratio=ratio, steps=steps
-        )
-        assert not (
-            reactant_rdmol.HasSubstructMatch(product_rdmol)
-            or product_rdmol.HasSubstructMatch(reactant_rdmol)
-        ), (
-            "The inferred reactant and product rdmol objects are consistent, thus it is not a bond-breaking transition state."
-        )
-        rwmol = Chem.RWMol(self.rdmol)
-        for bond_idx in range(reactant_rdmol.GetNumBonds()):
-            bond = reactant_rdmol.GetBondWithIdx(bond_idx)
-            start_atom_idx, end_atom_idx = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
-            if rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx) is None:
-                rwmol.AddBond(start_atom_idx, end_atom_idx, Chem.BondType.ZERO)
-            elif (
-                bond.GetBondType()
-                != self.rdmol.GetBondBetweenAtoms(
-                    start_atom_idx, end_atom_idx
-                ).GetBondType()
-            ):
-                rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).SetBondType(
-                    Chem.BondType.ZERO
+        try:
+            assert self.rdmol, "No valid rdmol object"
+            assert self.is_TS, "Must be a TS frame"
+
+            reactant_rdmol, product_rdmol = self.possible_pre_post_ts(
+                show_3D=False, ratio=ratio, steps=steps
+            )
+            assert not (
+                reactant_rdmol.HasSubstructMatch(product_rdmol)
+                or product_rdmol.HasSubstructMatch(reactant_rdmol)
+            ), (
+                "The inferred reactant and product rdmol objects are consistent, thus it is not a bond-breaking transition state."
+            )
+
+            rwmol = Chem.RWMol(self.rdmol)
+
+            for bond_idx in range(reactant_rdmol.GetNumBonds()):
+                bond = reactant_rdmol.GetBondWithIdx(bond_idx)
+                start_atom_idx, end_atom_idx = (
+                    bond.GetBeginAtomIdx(),
+                    bond.GetEndAtomIdx(),
                 )
-        for bond_idx in range(product_rdmol.GetNumBonds()):
-            bond = product_rdmol.GetBondWithIdx(bond_idx)
-            start_atom_idx, end_atom_idx = bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()
-            if rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx) is None:
-                rwmol.AddBond(start_atom_idx, end_atom_idx, Chem.BondType.ZERO)
-            elif (
-                bond.GetBondType()
-                != self.rdmol.GetBondBetweenAtoms(
-                    start_atom_idx, end_atom_idx
-                ).GetBondType()
-            ):
-                rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).SetBondType(
-                    Chem.BondType.ZERO
+                self._process_bond(
+                    rwmol,
+                    start_atom_idx,
+                    end_atom_idx,
+                    product_rdmol,
+                    bond.GetBondType(),
                 )
-        return rwmol.GetMol()
+
+            for bond_idx in range(product_rdmol.GetNumBonds()):
+                bond = product_rdmol.GetBondWithIdx(bond_idx)
+                start_atom_idx, end_atom_idx = (
+                    bond.GetBeginAtomIdx(),
+                    bond.GetEndAtomIdx(),
+                )
+                self._process_bond(
+                    rwmol,
+                    start_atom_idx,
+                    end_atom_idx,
+                    reactant_rdmol,
+                    bond.GetBondType(),
+                )
+
+            return rwmol.GetMol()
+
+        except AssertionError as e:
+            moloplogger.error(f"Assertion failed: {e}")
+            return None
+        except Exception as e:
+            moloplogger.error(f"Unexpected error occurred: {e}")
+            return None
+
+    def _process_bond(
+        self,
+        rwmol: Chem.RWMol,
+        start_atom_idx: int,
+        end_atom_idx: int,
+        other_rdmol: RdMol,
+        bond_type: Chem.BondType,
+    ) -> None:
+        """
+        Helper function to process bonds and set bond types to zero if necessary.
+
+        Parameters:
+            rwmol (Chem.RWMol):
+                The RDKit molecule to modify.
+            start_atom_idx (int):
+                The index of the start atom in the bond.
+            end_atom_idx (int):
+                The index of the end atom in the bond.
+            other_rdmol (RdMol):
+                The other RDKit molecule to compare against.
+            bond_type (Chem.BondType):
+                The type of the bond in the reactant or product molecule.
+        """
+        if rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx) is None:
+            rwmol.AddBond(start_atom_idx, end_atom_idx, Chem.BondType.ZERO)
+        elif (
+            other_rdmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx) is None
+            or bond_type
+            != other_rdmol.GetBondBetweenAtoms(
+                start_atom_idx, end_atom_idx
+            ).GetBondType()
+        ):
+            rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).SetBondType(
+                Chem.BondType.ZERO
+            )
 
     @computed_field
     @property
@@ -498,46 +545,61 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
             return False
         return self.geometry_optimization_status.geometry_optimized
 
-    def to_summary_dict(self, brief: bool = True, **kwargs) -> Dict[str, Any]:
-        brief_dict = super().to_summary_dict(**kwargs) | {
-            "QMSoftware": self.qm_software,
-            "QMSoftwareVersion": self.qm_software_version,
-            "Keywords": self.keywords,
-            "Method": self.method,
-            "BasisSet": self.basis,
-            "Functional": self.functional,
-            "SolventModel": None
-            if self.solvent is None
-            else self.solvent.solvent_model,
-            "Solvent": None if self.solvent is None else self.solvent.solvent,
-            f"Temperature ({self.temperature.units if self.temperature is not None else 'N/A'})": None
-            if self.temperature is None
-            else self.temperature.m,
-            f"Pressure ({self.pressure.units if self.pressure is not None else 'N/A'})": None
-            if self.pressure is None
-            else self.pressure.m,
-            "IsError": self.is_error,
-            "IsNormal": self.is_normal,
-            "IsTS": self.is_TS,
-            "IsOptimized": self.is_optimized,
-        }
-        if brief:
+    def to_summary_dict(
+        self, brief: bool = True, **kwargs
+    ) -> Dict[Tuple[str, str], Any]:
+        try:
+            brief_dict = super().to_summary_dict(**kwargs) | {
+                ("Calc Parameter", "Software"): self.qm_software,
+                ("Calc Parameter", "Version"): self.qm_software_version,
+                ("Calc Parameter", "Method"): self.method,
+                ("Calc Parameter", "BasisSet"): self.basis_set,
+                ("Calc Parameter", "Functional"): self.functional,
+                ("Calc Parameter", "Keywords"): self.keywords,
+                ("Environment", "SolventModel"): self.solvent.solvent_model
+                if self.solvent
+                else None,
+                ("Environment", "Solvent"): self.solvent.solvent
+                if self.solvent
+                else None,
+                ("Status", "IsError"): self.is_error,
+                ("Status", "IsNormal"): self.is_normal,
+                ("Status", "IsTS"): self.is_TS,
+                ("Status", "IsOptimized"): self.is_optimized,
+            }
+            if self.temperature:
+                brief_dict = brief_dict | {
+                    (
+                        "Environment",
+                        f"Temperature ({self.temperature.units})",
+                    ): self.temperature
+                }
+            if self.pressure:
+                brief_dict = brief_dict | {
+                    ("Environment", f"Pressure ({self.pressure.units})"): self.pressure
+                }
+
+            if not brief:
+                brief_dict |= self.energies.to_summary_dict() if self.energies else {}
+                brief_dict |= (
+                    self.thermal_informations.to_summary_dict()
+                    if self.thermal_informations
+                    else {}
+                )
+                brief_dict |= (
+                    self.geometry_optimization_status.to_summary_dict()
+                    if self.geometry_optimization_status
+                    else {}
+                )
+                brief_dict |= (
+                    self.vibrations.to_summary_dict() if self.vibrations else {}
+                )
+
             return brief_dict
-        return (
-            brief_dict
-            | (self.energies.to_summary_dict() if self.energies is not None else {})
-            | (
-                self.thermal_informations.to_summary_dict()
-                if self.thermal_informations is not None
-                else {}
-            )
-            | (
-                self.geometry_optimization_status.to_summary_dict()
-                if self.geometry_optimization_status is not None
-                else {}
-            )
-            | (self.vibrations.to_summary_dict() if self.vibrations is not None else {})
-        )
+
+        except Exception as e:
+            moloplogger.error(f"Error in to_summary_dict: {e}")
+            return {}
 
 
 calc_frame = TypeVar("calc_frame", bound="BaseCalcFrame")

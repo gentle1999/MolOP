@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-31 20:27:42
 LastEditors: TMJ
-LastEditTime: 2025-08-20 10:26:43
+LastEditTime: 2025-11-27 16:07:37
 Description: 请填写简介
 """
 
@@ -38,7 +38,7 @@ class G16LogFileMixin(BaseDataClassWithUnit):
         default="",
         description="QM method used to perform the calculation. e.g. DFT or GFN2-xTB",
     )
-    basis: str = Field(
+    basis_set: str = Field(
         default="",
         description="Basis set used in the QM calculation, only for DFT calculations",
     )
@@ -55,8 +55,8 @@ class G16LogFileMixin(BaseDataClassWithUnit):
 
     @model_validator(mode="after")
     def _validate_metadata(self) -> Self:
-        if self.basis.lower() == "genecp":
-            self.basis = "pseudopotential"
+        if self.basis_set.lower() == "genecp":
+            self.basis_set = "pseudopotential"
         if any(semi in self.keywords.lower() for semi in SEMI_EMPIRICAL_METHODS):
             self.method = "SEMI-EMPIRICAL"
         else:

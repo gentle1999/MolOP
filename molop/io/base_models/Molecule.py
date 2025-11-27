@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2025-11-21 20:57:20
+LastEditTime: 2025-11-27 13:56:02
 Description: 请填写简介
 """
 
@@ -694,10 +694,10 @@ class Molecule(BaseDataClassWithUnit):
         standard_orient(mol, anchor_list)
         return self.from_rdmol(mol)
 
-    def to_summary_dict(self) -> Dict[str, Any]:
+    def to_summary_dict(self) -> Dict[tuple[str, str], Any]:
         return {
-            "Charge": self.charge,
-            "Multiplicity": self.multiplicity,
-            "CanonicalSMILES": self.to_canonical_SMILES(),
-            "NumAtoms": len(self.atoms),
+            ("General", "Charge"): self.charge,
+            ("General", "Multiplicity"): self.multiplicity,
+            ("General", "CanonicalSMILES"): self.to_canonical_SMILES(),
+            ("General", "NumAtoms"): len(self.atoms),
         }

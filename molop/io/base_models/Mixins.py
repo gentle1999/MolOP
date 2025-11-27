@@ -104,10 +104,10 @@ class DiskStorageMixin(BaseDataClassWithUnit):
     def __eq__(self, other: Self) -> bool:
         return self.file_path == other.file_path
 
-    def to_summary_dict(self, **kwargs) -> Dict[str, Any]:
+    def to_summary_dict(self, **kwargs) -> Dict[tuple, Any]:
         return {
-            "FilePath": self.file_path,
-            "FileFormat": self.file_format,
+            ("DiskStorage", "FilePath"): self.file_path,
+            ("DiskStorage", "FileFormat"): self.file_format,
             **super().to_summary_dict(**kwargs),
         }
 
