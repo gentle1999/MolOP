@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-26 19:08:33
 LastEditors: TMJ
-LastEditTime: 2025-11-27 15:58:54
+LastEditTime: 2025-11-30 18:46:56
 Description: 请填写简介
 """
 
@@ -87,9 +87,7 @@ class BaseDataClassWithUnit(BaseModel):
             return item.to_unitless_dump(**kwargs)
         return item
 
-    def to_unitless_dump(
-        self, **kwargs
-    ) -> Dict[str, Any]:
+    def to_unitless_dump(self, **kwargs) -> Dict[str, Any]:
         """
         Parameters:
             kwargs:
@@ -110,7 +108,8 @@ class BaseDataClassWithUnit(BaseModel):
         return self
 
     @abstractmethod
-    def _add_default_units(self) -> None: ...
+    def _add_default_units(self) -> None:
+        raise NotImplementedError
 
     def _transform_units(self, unit_dict: Mapping[str, UnitLike]) -> None:
         for key, unit in unit_dict.items():
@@ -120,5 +119,6 @@ class BaseDataClassWithUnit(BaseModel):
     def to_summary_series(self, **kwargs) -> pd.Series:
         return pd.Series(self.to_summary_dict(**kwargs))
 
+    @abstractmethod
     def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         raise NotImplementedError

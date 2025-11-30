@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-31 20:27:55
 LastEditors: TMJ
-LastEditTime: 2025-11-27 16:08:21
+LastEditTime: 2025-11-28 23:25:41
 Description: 请填写简介
 """
 
@@ -25,7 +25,11 @@ from molop.io.patterns.G16Patterns import (
     parameter_comment_parser,
 )
 from molop.unit import atom_ureg
-from molop.utils.functions import invert_transform_coords, transform_coords
+from molop.utils.functions import (
+    find_rigid_transform,
+    invert_transform_coords,
+    transform_coords,
+)
 
 
 class G16LogFileFrameProtocol(Protocol):
@@ -67,6 +71,11 @@ class G16LogFileFrameMixin(_G16LogFileFrameProtocol):
 
     @model_validator(mode="after")
     def _post_processing(self) -> Self:
+        if self.standard_coords is not None and (len(self.coords) == len(self.standard_coords)):
+            self.standard_orientation_transformation_matrix = find_rigid_transform(
+                self.coords.m, self.standard_coords.m
+            )
+
         if len(self.coords) != len(self.atoms):  # no input orientation found
             if self.standard_coords is not None:
                 if self.standard_orientation_transformation_matrix is not None:
@@ -81,7 +90,8 @@ class G16LogFileFrameMixin(_G16LogFileFrameProtocol):
                     self.coords = self.standard_coords
             else:  # no standard coords found
                 raise ValueError(
-                    "The number of atoms and coordinates do not match, and the standard orientation is not provided."
+                    "The number of atoms and coordinates do not match, "
+                    "and the standard orientation is not provided."
                 )
         if (
             self.standard_coords is None

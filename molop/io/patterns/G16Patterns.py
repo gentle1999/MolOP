@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-02-16 19:20:04
 LastEditors: TMJ
-LastEditTime: 2025-11-24 16:52:44
+LastEditTime: 2025-11-30 18:13:24
 Description: 请填写简介
 """
 
@@ -568,7 +568,6 @@ class G16LogPatterns:
         content_pattern=r"\\\\Version=(.*)\\",
         description="The version in the archive tail of the Gaussian calculation. link 9999",
     )
-    # TODO: electronic state
     ENERGIES_IN_ARCHIVE_TAIL = MolOPPattern(
         content_pattern=r"(HF|MP2|MP3|MP4[SDTQ]*|CCSD[\(\)T]*)=(\s*-?\d+\.\d*)",
         content_repeat=0,

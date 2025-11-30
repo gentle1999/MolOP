@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 19:04:21
 LastEditors: TMJ
-LastEditTime: 2025-08-14 19:37:08
+LastEditTime: 2025-11-30 18:49:52
 Description: 请填写简介
 """
 
@@ -35,6 +35,9 @@ class BaseFrameParser(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         raise NotImplementedError()
 
     def _add_default_units(self) -> None: ...
+
+    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
+        return {("FrameParser", "only_extract_structure"): self.only_extract_structure}
 
 
 FrameParser = TypeVar("FrameParser", bound="BaseFrameParser")

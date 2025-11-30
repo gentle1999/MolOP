@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-08-20 22:55:18
 LastEditors: TMJ
-LastEditTime: 2025-11-22 23:52:44
+LastEditTime: 2025-11-30 18:48:40
 Description: 请填写简介
 """
 
@@ -33,7 +33,7 @@ class FileParser(Enum):
     sdf = SDFFileParserDisk
     g16log = G16LogFileParserDisk
 
-    def init(self, **kwargs):
+    def init(self, **kwargs) -> PARSERDISK:
         return self.value(**kwargs)
 
     def execute(
@@ -42,7 +42,7 @@ class FileParser(Enum):
         total_charge: Optional[int] = None,
         total_multiplicity: Optional[int] = None,
         **kwargs,
-    ):
+    ) -> FILEDISK:
         return self.init(**kwargs).parse(
             file_path,
             total_charge=total_charge,

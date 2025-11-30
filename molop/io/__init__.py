@@ -2,12 +2,13 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2025-11-20 13:59:57
+LastEditTime: 2025-11-30 16:12:27
 Description: 请填写简介
 """
 
+import glob
 import os
-from glob import glob
+from pathlib import Path
 from typing import Literal
 
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
@@ -26,6 +27,24 @@ __all__ = [
     "SDFFileParserMemory",
     "G16LogFileParserMemory",
 ]
+
+
+def split_path_pattern(path_str: str) -> tuple[Path, str]:
+    p = Path(path_str)
+    parts = p.parts
+
+    split_index = len(parts)
+    for i, part in enumerate(parts):
+        if glob.has_magic(part):
+            split_index = i
+            break
+    base_path = Path(*parts[:split_index])
+    if split_index < len(parts):
+        pattern = str(Path(*parts[split_index:]))
+    else:
+        pattern = ""
+
+    return base_path, pattern
 
 
 def AutoParser(
@@ -74,18 +93,14 @@ def AutoParser(
     if os.path.isfile(file_path) and os.path.exists(file_path):
         files = [file_path]
     else:
-        files = glob(file_path)
-    if len(files) > 0:
-        return FileBatchParserDisk(
-            n_jobs=n_jobs,
-        ).parse(
-            files,
-            total_charge=total_charge,
-            total_multiplicity=total_multiplicity,
-            only_extract_structure=only_extract_structure,
-            only_last_frame=only_last_frame,
-            release_file_content=release_file_content,
-            parser_detection=parser_detection,
-        )
-    else:
-        raise FileNotFoundError("No file found in the path")
+        base_path, pattern = split_path_pattern(file_path)
+        files = list(base_path.glob(pattern))
+    return FileBatchParserDisk(n_jobs=n_jobs).parse(
+        files,
+        total_charge=total_charge,
+        total_multiplicity=total_multiplicity,
+        only_extract_structure=only_extract_structure,
+        only_last_frame=only_last_frame,
+        release_file_content=release_file_content,
+        parser_detection=parser_detection,
+    )

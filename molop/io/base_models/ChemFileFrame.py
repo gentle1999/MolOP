@@ -2,20 +2,21 @@
 Author: TMJ
 Date: 2025-07-28 18:43:45
 LastEditors: TMJ
-LastEditTime: 2025-11-27 16:41:33
+LastEditTime: 2025-11-30 21:25:42
 Description: 请填写简介
 """
 
 import os
-from copy import deepcopy
 from io import StringIO
 from typing import Any, Dict, Generic, List, Optional, Tuple, TypeVar, Union
 
 import numpy as np
+import numpy.typing as npt
 from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr, computed_field
 from rdkit import Chem
+from scipy.sparse import coo_matrix
 
 from molop.config import moloplogger
 from molop.io.base_models.DataClasses import (
@@ -188,45 +189,89 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
         description="Running time of the QM calculation, unit is `second`",
     )
 
-    @property
-    def population_embedded_rdmol(self) -> Optional[RdMol]:
+    def qm_embedded_rdmol(
+        self, embed_populations: bool = True, embed_bond_orders: bool = True
+    ) -> Optional[RdMol]:
         """
         Store the population embedded rdkit molecule object.
 
         Follow the guide in https://greglandrum.github.io/rdkit-blog/posts/2025-07-24-writing-partial-charges-to-sd-files.html
 
-        This function will use all population properties in the `charge_spin_populations` field to generate the population embedded rdkit molecule object.
+        If `embed_populations` is True, this function will use all population properties in the `charge_spin_populations` field
+        to generate the population embedded rdkit molecule object.
+        If `embed_bond_orders` is True, this function will use all bond order properties in the `bond_orders` field
+        to generate the bond order embedded rdkit molecule object.
+
+        Parameters:
+            embed_populations (bool): If True, embed the population properties. Defaults to True.
+            embed_bond_orders (bool): If True, embed the bond order properties. Defaults to True.
+
+        Returns:
+            Optional[RdMol]: The population embedded rdkit molecule object.
         """
         if self.rdmol is None:
             return None
-        if self.charge_spin_populations is None:
-            return self.rdmol
-        rdmol_copy = deepcopy(self.rdmol)
-        populations: dict[str, List[float]] = self.charge_spin_populations.model_dump(
-            exclude_defaults=True
-        )
-        for population in populations:
-            for atom_idx, pop in enumerate(populations[population]):
-                rdmol_copy.GetAtomWithIdx(atom_idx).SetDoubleProp(
-                    f"{population}_by_{self.qm_software}".upper(), pop
-                )
-            Chem.CreateAtomDoublePropertyList(
-                rdmol_copy, f"{population}_by_{self.qm_software}".upper()
+        rwmol = Chem.RWMol(self.rdmol)
+        if embed_populations and self.charge_spin_populations is not None:
+            populations: dict[str, List[float]] = (
+                self.charge_spin_populations.model_dump(exclude_defaults=True)
             )
-        return rdmol_copy
+            for population, pop_list in populations.items():
+                for atom_idx, pop in enumerate(pop_list):
+                    rwmol.GetAtomWithIdx(atom_idx).SetDoubleProp(
+                        f"{population}_by_{self.qm_software}".upper(), pop
+                    )
+                Chem.CreateAtomDoublePropertyList(
+                    rwmol, f"{population}_by_{self.qm_software}".upper()
+                )
+        if embed_bond_orders and self.bond_orders is not None:
+            bond_orders: dict[str, npt.NDArray[np.floating]] = (
+                self.bond_orders.model_dump(exclude_defaults=True)
+            )
+            for bond_order, bond_order_matrix in bond_orders.items():
+                coo = coo_matrix(bond_order_matrix)
+                for i, j, val in zip(coo.row, coo.col, coo.data, strict=True):
+                    if rwmol.GetBondBetweenAtoms(i, j) is None:
+                        rwmol.AddBond(i, j, Chem.BondType.UNSPECIFIED)
+                    rwmol.GetBondBetweenAtoms(i, j).SetDoubleProp(
+                        f"{bond_order}_by_{self.qm_software}".upper(), val
+                    )
+                Chem.CreateBondDoublePropertyList(
+                    rwmol, f"{bond_order}_by_{self.qm_software}".upper()
+                )
+        return rwmol.GetMol()
 
-    def to_population_embedded_SDF_block(self) -> str:
+    def to_population_embedded_SDF_block(
+        self, embed_populations: bool = True, embed_bond_orders: bool = True
+    ) -> str:
         """
         Write the SDF block with population embedded properties.
 
         Follow the guide in https://greglandrum.github.io/rdkit-blog/posts/2025-07-24-writing-partial-charges-to-sd-files.html
+
+        If `embed_populations` is True, this function will use all population properties in the `charge_spin_populations` field
+        to generate the population embedded rdkit molecule object.
+        If `embed_bond_orders` is True, this function will use all bond order properties in the `bond_orders` field
+        to generate the bond order embedded rdkit molecule object.
+
+        Parameters:
+            embed_populations (bool): If True, embed the population properties. Defaults to True.
+            embed_bond_orders (bool): If True, embed the bond order properties. Defaults to True.
+
+        Returns:
+            str: The SDF block with population embedded properties.
         """
         sio = StringIO()
         with Chem.SDWriter(sio) as w:
-            w.write(self.population_embedded_rdmol)
+            w.write(self.qm_embedded_rdmol(embed_populations, embed_bond_orders))
         return sio.getvalue()
 
-    def to_population_embedded_SDF_file(self, filepath: os.PathLike | str):
+    def to_population_embedded_SDF_file(
+        self,
+        filepath: os.PathLike | str,
+        embed_populations: bool = True,
+        embed_bond_orders: bool = True,
+    ):
         """
         Write the SDF block to a file with population embedded properties.
 
@@ -234,9 +279,15 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
 
         Parameters:
             filepath (os.PathLike| str): The path to the output file.
+            embed_populations (bool): If True, embed the population properties. Defaults to True.
+            embed_bond_orders (bool): If True, embed the bond order properties. Defaults to True.
         """
         with open(filepath, "w") as f:
-            f.write(self.to_population_embedded_SDF_block())
+            f.write(
+                self.to_population_embedded_SDF_block(
+                    embed_populations, embed_bond_orders
+                )
+            )
 
     def _add_default_units(self) -> None:
         super()._add_default_units()
@@ -414,11 +465,10 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
             Optional[RdMol]: The rdkit molecule object for the transition state with bond-breaking.
         """
         try:
-            assert self.rdmol, "No valid rdmol object"
             assert self.is_TS, "Must be a TS frame"
 
             reactant_rdmol, product_rdmol = self.possible_pre_post_ts(
-                show_3D=False, ratio=ratio, steps=steps
+                show_3D=True, ratio=ratio, steps=steps
             )
             assert not (
                 reactant_rdmol.HasSubstructMatch(product_rdmol)
@@ -427,7 +477,7 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
                 "The inferred reactant and product rdmol objects are consistent, thus it is not a bond-breaking transition state."
             )
 
-            rwmol = Chem.RWMol(self.rdmol)
+            rwmol = Chem.RWMol(reactant_rdmol)
 
             for bond_idx in range(reactant_rdmol.GetNumBonds()):
                 bond = reactant_rdmol.GetBondWithIdx(bond_idx)

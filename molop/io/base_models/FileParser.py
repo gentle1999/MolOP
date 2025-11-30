@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 22:14:37
 LastEditors: TMJ
-LastEditTime: 2025-10-31 21:53:28
+LastEditTime: 2025-11-30 18:49:25
 Description: 请填写简介
 """
 
@@ -92,6 +92,14 @@ class BaseFileParser(
         return _chem_file
 
     def _add_default_units(self) -> None: ...
+
+    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
+        return {
+            ("FileParser", "forced_charge"): self.forced_charge,
+            ("FileParser", "forced_multiplicity"): self.forced_multiplicity,
+            ("FileParser", "only_extract_structure"): self.only_extract_structure,
+            ("FileParser", "only_last_frame"): self.only_last_frame,
+        }
 
 
 class BaseFileParserMemory(BaseFileParser[ChemFile, ChemFileFrame, FrameParser]):

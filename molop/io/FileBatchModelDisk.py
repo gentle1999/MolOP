@@ -74,6 +74,9 @@ class FileBatchModelDisk(MutableMapping):
         new_batch.add_diskfiles(parsers)
         return new_batch
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({len(self)})"
+
     def __contains__(self, key: Union[str, FileDiskType]) -> bool:
         if isinstance(key, str):
             return key in self.__diskfiles.keys()
@@ -374,7 +377,7 @@ class FileBatchModelDisk(MutableMapping):
     def format_transform(
         self,
         format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
-        output_dir: str | None = os.getcwd(),
+        output_dir: str | None = None,
         frameID: int | Literal["all"] | Sequence[int] = -1,
         embed_in_one_file: bool = True,
         n_jobs: int = 1,
@@ -458,7 +461,11 @@ class FileBatchModelDisk(MutableMapping):
 
         desc = f"MolOP processing {mode} summary with {n_jobs} jobs"
         nested_results = self._parallel_execute(process_file_summary, desc, n_jobs)
-        series_list: list[pd.Series] = [s for sublist in nested_results for s in sublist]  # type: ignore
+        series_list: list[pd.Series] = [
+            s
+            for sublist in nested_results
+            for s in sublist  # type: ignore
+        ]
         if not series_list:
             return pd.DataFrame()
         df = pd.concat(series_list, axis=1).T

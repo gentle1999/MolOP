@@ -106,42 +106,52 @@ class ThermalInformations(BaseDataClassWithUnit):
     ZPVE: Optional[PlainQuantity] = Field(
         default=None,
         description="Zero-point vibrational energy, unit is `kcal/mol`",
+        exclude_if=lambda x: x is None,
     )
     TCE: Optional[PlainQuantity] = Field(
         default=None,
         description="thermal correction to the internal energy at ?K, unit is `kcal/mol`",
+        exclude_if=lambda x: x is None,
     )
     TCH: Optional[PlainQuantity] = Field(
         default=None,
         description="thermal correction to the enthalpy at ?K, unit is `kcal/mol`",
+        exclude_if=lambda x: x is None,
     )
     TCG: Optional[PlainQuantity] = Field(
         default=None,
         description="thermal correction to the Gibbs free energy at ?K, unit is `kcal/mol`",
+        exclude_if=lambda x: x is None,
     )
     U_0: Optional[PlainQuantity] = Field(
         default=None,
         description="Zero-point energy, unit is `kcal/mol`",
+        exclude_if=lambda x: x is None,
     )
     U_T: Optional[PlainQuantity] = Field(
         default=None,
         description="thermal energy at ?K, unit is `kcal/mol`",
+        exclude_if=lambda x: x is None,
     )
     H_T: Optional[PlainQuantity] = Field(
         default=None,
         description="enthalpy at ?K, unit is `kcal/mol`",
+        exclude_if=lambda x: x is None,
     )
     G_T: Optional[PlainQuantity] = Field(
         default=None,
         description="Gibbs Free Energy at ?K, unit is `kcal/mol`",
+        exclude_if=lambda x: x is None,
     )
     S: Optional[PlainQuantity] = Field(
         default=None,
         description="entropy at ?K, unit is `cal/mol/K`",
+        exclude_if=lambda x: x is None,
     )
     C_V: Optional[PlainQuantity] = Field(
         default=None,
         description="heat capacity at constant volume, unit is `cal/mol/K`",
+        exclude_if=lambda x: x is None,
     )
 
     def _add_default_units(self) -> None:
@@ -544,23 +554,185 @@ class MolecularOrbitals(BaseDataClassWithUnit):
         }
 
 
+# TODO: ready for NaturalAtomicOrbitals
+class NaturalAtomicOrbital(BaseDataClassWithUnit):
+    orbital_index: int = Field(
+        default=0,
+        description="index of the orbital",
+    )
+    element: str = Field(
+        default="",
+        description="The atomic elements to which the natural bond orbitals belong",
+        exclude_if=lambda x: x == "",
+    )
+    atom_index: int = Field(
+        default=0,
+        description="The index of the atom to which the natural bond orbital belongs",
+        exclude_if=lambda x: x == 0,
+    )
+    angular_momentum: str = Field(
+        default="",
+        description="The angular momentum of the natural bond orbital",
+        exclude_if=lambda x: x == "",
+    )
+    ao_type: str = Field(
+        default="",
+        description="The type of the atomic orbital to which the natural bond orbital belongs",
+        exclude_if=lambda x: x == "",
+    )
+    occupancy: float = Field(
+        default=0.0,
+        description="The occupancy of the natural bond orbital",
+        exclude_if=lambda x: x == 0.0,
+    )
+    energy: PlainQuantity | None = Field(
+        default=None,
+        description="The energy of the natural bond orbital",
+        exclude_if=lambda x: x is None,
+    )
+
+    def _add_default_units(self) -> None:
+        return self._default_units.update({"energy": atom_ureg.Unit("hartree")})
+
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("NaturalAtomicOrbital", "element"): self.element,
+            ("NaturalAtomicOrbital", "atom_index"): self.atom_index,
+            ("NaturalAtomicOrbital", "angular_momentum"): self.angular_momentum,
+            ("NaturalAtomicOrbital", "ao_type"): self.ao_type,
+            ("NaturalAtomicOrbital", "occupancy"): self.occupancy,
+            ("NaturalAtomicOrbital", "energy"): None
+            if self.energy is None
+            else self.energy.m,
+        }
+
+
+class NaturalAtomicOrbitals(BaseDataClassWithUnit):
+    orbitals: List[NaturalAtomicOrbital] = Field(
+        default_factory=list,
+        description="The list of natural atomic orbitals",
+        exclude_if=lambda x: len(x) == 0,
+    )
+    alpha_spin_orbitals: List[NaturalAtomicOrbital] = Field(
+        default_factory=list,
+        description="The list of alpha spin natural atomic orbitals",
+        exclude_if=lambda x: len(x) == 0,
+    )
+    beta_spin_orbitals: List[NaturalAtomicOrbital] = Field(
+        default_factory=list,
+        description="The list of beta spin natural atomic orbitals",
+        exclude_if=lambda x: len(x) == 0,
+    )
+
+    def _add_default_units(self) -> None: ...
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {}
+
+
+# TODO: ready for NaturalBondOrbitals
+class NaturalBondOrbital(BaseDataClassWithUnit):
+    orbital_index: int = Field(
+        default=0,
+        description="index of the orbital",
+    )
+    orbital_type: str = Field(
+        default="",
+        description="The type of the natural bond orbital",
+        exclude_if=lambda x: x == "",
+    )
+    sub_index: int = Field(
+        default=0,
+        description="The sub-index of the natural bond orbital",
+        exclude_if=lambda x: x == 0,
+    )
+    bonding_atoms_dict: Dict[str, int] = Field(
+        default_factory=dict,
+        description="The dictionary of bonding atoms, key is the atom element, value is the atom index (1-based)",
+        exclude_if=lambda x: len(x) == 0,
+    )
+    occupancy: float = Field(
+        default=0.0,
+        description="The occupancy of the natural bond orbital",
+        exclude_if=lambda x: x == 0.0,
+    )
+    energy: PlainQuantity | None = Field(
+        default=None,
+        description="The energy of the natural bond orbital",
+        exclude_if=lambda x: x is None,
+    )
+    principal_elocalizations_dict: Dict[str, float] = Field(
+        default_factory=dict,
+        description="The dictionary of principal delocalizations, key is the delocalization type "
+        "(geminal,vicinal,remote), value is the bond orbital index",
+        exclude_if=lambda x: len(x) == 0,
+    )
+
+    def _add_default_units(self):
+        self._default_units.update({"energy": atom_ureg.Unit("hartree")})
+
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {
+            ("NaturalBondOrbital", "orbital_type"): self.orbital_type,
+            ("NaturalBondOrbital", "sub_index"): self.sub_index,
+            ("NaturalBondOrbital", "bonding_atoms_dict"): self.bonding_atoms_dict,
+            ("NaturalBondOrbital", "occupancy"): self.occupancy,
+            ("NaturalBondOrbital", "energy"): None
+            if self.energy is None
+            else self.energy.m,
+            (
+                "NaturalBondOrbital",
+                "principal_elocalizations_dict",
+            ): self.principal_elocalizations_dict,
+        }
+
+
+class NaturalBondOrbitals(BaseDataClassWithUnit):
+    orbitals: List[NaturalBondOrbital] = Field(
+        default_factory=list,
+        description="The list of natural bond orbitals",
+        exclude_if=lambda x: len(x) == 0,
+    )
+    alpha_spin_orbitals: List[NaturalBondOrbital] = Field(
+        default_factory=list,
+        description="The list of alpha spin natural bond orbitals",
+        exclude_if=lambda x: len(x) == 0,
+    )
+    beta_spin_orbitals: List[NaturalBondOrbital] = Field(
+        default_factory=list,
+        description="The list of beta spin natural bond orbitals",
+        exclude_if=lambda x: len(x) == 0,
+    )
+
+    def _add_default_units(self) -> None: ...
+    def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
+        return {}
+
+
 class Vibration(BaseDataClassWithUnit):
     frequency: Optional[PlainQuantity] = Field(
-        default=None, description="Frequency of each mode, unit is `cm^-1`"
+        default=None,
+        description="Frequency of each mode, unit is `cm^-1`",
+        exclude_if=lambda x: x is None,
     )
     reduced_mass: Optional[PlainQuantity] = Field(
-        default=None, description="Reduced mass of each mode, unit is `amu`"
+        default=None,
+        description="Reduced mass of each mode, unit is `amu`",
+        exclude_if=lambda x: x is None,
     )
     force_constant: Optional[PlainQuantity] = Field(
         default=None,
         description="Force constant of each mode, unit is `mdyne/angstrom`",
+        exclude_if=lambda x: x is None,
     )
     IR_intensity: Optional[PlainQuantity] = Field(
-        default=None, description="IR intensity of each mode, unit is `km/mol`"
+        default=None,
+        description="IR intensity of each mode, unit is `km/mol`",
+        exclude_if=lambda x: x is None,
     )
     vibration_mode: NumpyQuantity = Field(
         default=np.array([[]]) * atom_ureg.angstrom,
         description="Vibration mode of each mode, unit is `angstrom`",
+        exclude_if=lambda x: x.shape == (0, 0),
     )
 
     def _add_default_units(self) -> None:
@@ -610,22 +782,27 @@ class Vibrations(BaseDataClassWithUnit):
     frequencies: NumpyQuantity = Field(
         default=np.array([]) * atom_ureg.cm_1,
         description="Frequency of each mode, unit is `cm^-1`",
+        exclude_if=lambda x: len(x) == 0,
     )
     reduced_masses: NumpyQuantity = Field(
         default=np.array([]) * atom_ureg.amu,
         description="Reduced mass of each mode, unit is `amu`",
+        exclude_if=lambda x: len(x) == 0,
     )
     force_constants: NumpyQuantity = Field(
         default=np.array([]) * atom_ureg.mdyne / atom_ureg.angstrom,
         description="Force constant of each mode, unit is `mdyne/angstrom`",
+        exclude_if=lambda x: len(x) == 0,
     )
     IR_intensities: NumpyQuantity = Field(
         default=np.array([]) * atom_ureg.km / atom_ureg.mol,
         description="IR intensity of each mode, unit is `km/mol`",
+        exclude_if=lambda x: len(x) == 0,
     )
     vibration_modes: List[NumpyQuantity] = Field(
         default=[],
         description="Vibration mode of each mode, unit is `angstrom`",
+        exclude_if=lambda x: len(x) == 0,
     )
 
     def _add_default_units(self) -> None:
@@ -746,20 +923,46 @@ class Vibrations(BaseDataClassWithUnit):
 
 class ChargeSpinPopulations(BaseDataClassWithUnit):
     # charge and spin populations
-    mulliken_charges: List[float] = Field(default=[], description="Mulliken charges")
+    mulliken_charges: List[float] = Field(
+        default=[], description="Mulliken charges", exclude_if=lambda x: len(x) == 0
+    )
     mulliken_spins: List[float] = Field(
-        default=[], description="Mulliken spin densities"
+        default=[],
+        description="Mulliken spin densities",
+        exclude_if=lambda x: len(x) == 0,
     )
     apt_charges: List[float] = Field(
-        default=[], description="Atomic polarizability tensor charges"
+        default=[],
+        description="Atomic polarizability tensor charges",
+        exclude_if=lambda x: len(x) == 0,
     )
-    lowdin_charges: List[float] = Field(default=[], description="Lowdin charges")
-    hirshfeld_charges: List[float] = Field(default=[], description="Hirshfeld charges")
-    hirshfeld_spins: List[float] = Field(default=[], description="Hirshfeld spins")
+    lowdin_charges: List[float] = Field(
+        default=[], description="Lowdin charges", exclude_if=lambda x: len(x) == 0
+    )
+    hirshfeld_charges: List[float] = Field(
+        default=[], description="Hirshfeld charges", exclude_if=lambda x: len(x) == 0
+    )
+    hirshfeld_spins: List[float] = Field(
+        default=[], description="Hirshfeld spins", exclude_if=lambda x: len(x) == 0
+    )
     hirshfeld_q_cm5: List[float] = Field(
-        default=[], description="Hirshfeld charges in cm5"
+        default=[],
+        description="Hirshfeld charges in cm5",
+        exclude_if=lambda x: len(x) == 0,
     )
-    npa_charges: List[float] = Field(default=[], description="NPA charges")
+    npa_charges: List[float] = Field(
+        default=[], description="NPA charges", exclude_if=lambda x: len(x) == 0
+    )
+    npa_alpha_spin_densities: List[float] = Field(
+        default=[],
+        description="NPA alpha spin densities",
+        exclude_if=lambda x: len(x) == 0,
+    )
+    npa_beta_spin_densities: List[float] = Field(
+        default=[],
+        description="NPA beta spin densities",
+        exclude_if=lambda x: len(x) == 0,
+    )
 
     def _add_default_units(self): ...
 
@@ -781,10 +984,14 @@ class ChargeSpinPopulations(BaseDataClassWithUnit):
 
 class TotalSpin(BaseDataClassWithUnit):
     spin_square: Union[float, None] = Field(
-        default=None, description="Spin square of the molecule"
+        default=None,
+        description="Spin square of the molecule",
+        exclude_if=lambda x: x is None,
     )
     spin_quantum_number: Union[float, None] = Field(
-        default=None, description="Spin quantum number of the molecule"
+        default=None,
+        description="Spin quantum number of the molecule",
+        exclude_if=lambda x: x is None,
     )
 
     def _add_default_units(self): ...
@@ -799,40 +1006,54 @@ class TotalSpin(BaseDataClassWithUnit):
 class Polarizability(BaseDataClassWithUnit):
     # polarizability
     electronic_spatial_extent: Optional[PlainQuantity] = Field(
-        default=None, description="Electronic spatial extent, unit is bohr^2"
+        default=None,
+        description="Electronic spatial extent, unit is bohr^2",
+        exclude_if=lambda x: x is None,
     )
     isotropic_polarizability: Optional[PlainQuantity] = Field(
-        default=None, description="Isotropic polarizability, unit is bohr^3"
+        default=None,
+        description="Isotropic polarizability, unit is bohr^3",
+        exclude_if=lambda x: x is None,
     )
     anisotropic_polarizability: Union[PlainQuantity, None] = Field(
-        default=None, description="Anisotropic polarizability, unit is bohr^3"
+        default=None,
+        description="Anisotropic polarizability, unit is bohr^3",
+        exclude_if=lambda x: x is None,
     )
     polarizability_tensor: Union[PlainQuantity, None] = Field(
-        default=np.array([]) * atom_ureg.bohr**3, description="Polarizability tensor"
+        default=np.array([]) * atom_ureg.bohr**3,
+        description="Polarizability tensor",
+        exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
     electric_dipole_moment: Union[PlainQuantity, None] = Field(
         default=np.array([]) * atom_ureg.debye,
         description="Electric dipole moment, unit is `debye`",
+        exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
     dipole: Union[PlainQuantity, None] = Field(
         default=np.array([]) * atom_ureg.debye,
         description="Dipole moment, unit is `debye`",
+        exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
     quadrupole: Union[PlainQuantity, None] = Field(
         default=np.array([]) * atom_ureg.debye * atom_ureg.angstrom,
         description="Quadrupole moment, unit is `debye*angstrom`",
+        exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
     traceless_quadrupole: Union[PlainQuantity, None] = Field(
         default=np.array([]) * atom_ureg.debye * atom_ureg.angstrom,
         description="Traceless quadrupole moment, unit is `debye*angstrom`",
+        exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
     octapole: Union[PlainQuantity, None] = Field(
         default=np.array([]) * atom_ureg.debye * atom_ureg.angstrom**2,
         description="Octapole moment, unit is `debye*angstrom**2`",
+        exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
     hexadecapole: Union[PlainQuantity, None] = Field(
         default=np.array([]) * atom_ureg.debye * atom_ureg.angstrom**3,
         description="Hexadecapole moment, unit is `debye*angstrom**3`",
+        exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
 
     def _add_default_units(self) -> None:
@@ -864,20 +1085,39 @@ class Polarizability(BaseDataClassWithUnit):
 
 class BondOrders(BaseDataClassWithUnit):
     wiberg_bond_order: np.ndarray = Field(
-        default=np.array([[]]), description="Wiberg bond order"
+        default=np.array([[]]),
+        description="Wiberg bond order",
+        exclude_if=lambda x: x.shape == (0, 0),
     )
     mo_bond_order: np.ndarray = Field(
-        default=np.array([[]]), description="MO bond order, ∑[i∈A]∑[j∈B]P(i,j)"
+        default=np.array([[]]),
+        description="MO bond order, ∑[i∈A]∑[j∈B]P(i,j)",
+        exclude_if=lambda x: x.shape == (0, 0),
     )
     mayer_bond_order: np.ndarray = Field(
         default=np.array([[]]),
         description="MAYER POPULATION ANALYSIS bond order, ∑[i∈A]∑[j∈B]P(i,j)",
+        exclude_if=lambda x: x.shape == (0, 0),
     )
     atom_atom_overlap_bond_order: np.ndarray = Field(
-        default=np.array([[]]), description="Atom-atom overlap bond order"
+        default=np.array([[]]),
+        description="Atom-atom overlap bond order",
+        exclude_if=lambda x: x.shape == (0, 0),
     )
     nbo_bond_order: np.ndarray = Field(
-        default=np.array([[]]), description="NBO bond order"
+        default=np.array([[]]),
+        description="NBO bond order",
+        exclude_if=lambda x: x.shape == (0, 0),
+    )
+    nbo_bond_order_for_alpha_spin: np.ndarray = Field(
+        default=np.array([[]]),
+        description="NBO bond order for alpha spin",
+        exclude_if=lambda x: x.shape == (0, 0),
+    )
+    nbo_bond_order_for_beta_spin: np.ndarray = Field(
+        default=np.array([[]]),
+        description="NBO bond order for beta spin",
+        exclude_if=lambda x: x.shape == (0, 0),
     )
 
     def _add_default_units(self): ...
@@ -890,10 +1130,12 @@ class Dispersions(BaseDataClassWithUnit):
     C6AA: Union[PlainQuantity, None] = Field(
         default=None,
         description="Mol. C6AA dispersion, unit is `bohr^6`",
+        exclude_if=lambda x: x is None,
     )
     C8AA: Union[PlainQuantity, None] = Field(
         default=None,
         description="Mol. C8AA dispersion, unit is `bohr^8`",
+        exclude_if=lambda x: x is None,
     )
 
     def _add_default_units(self) -> None:
@@ -922,17 +1164,29 @@ class SinglePointProperties(BaseDataClassWithUnit):
     """
 
     vip: Union[PlainQuantity, None] = Field(
-        default=None, description="Vertical ionization potential, unit is `eV/particle`"
+        default=None,
+        description="Vertical ionization potential, unit is `eV/particle`",
+        exclude_if=lambda x: x is None,
     )
     vea: Union[PlainQuantity, None] = Field(
-        default=None, description="Vertical electron affinity, unit is `eV/particle`"
+        default=None,
+        description="Vertical electron affinity, unit is `eV/particle`",
+        exclude_if=lambda x: x is None,
     )
     gei: Union[PlainQuantity, None] = Field(
-        default=None, description="Global Electrophilicity Index, unit is `eV/particle`"
+        default=None,
+        description="Global Electrophilicity Index, unit is `eV/particle`",
+        exclude_if=lambda x: x is None,
     )
-    fukui_positive: List[float] = Field(default=[], description="Fukui Index f(+)")
-    fukui_negative: List[float] = Field(default=[], description="Fukui Index f(-)")
-    fukui_zero: List[float] = Field(default=[], description="Fukui Index f(0)")
+    fukui_positive: List[float] = Field(
+        default=[], description="Fukui Index f(+)", exclude_if=lambda x: len(x) == 0
+    )
+    fukui_negative: List[float] = Field(
+        default=[], description="Fukui Index f(-)", exclude_if=lambda x: len(x) == 0
+    )
+    fukui_zero: List[float] = Field(
+        default=[], description="Fukui Index f(0)", exclude_if=lambda x: len(x) == 0
+    )
     fod: List[float] = Field(
         default=[], description="fractional occupation density population"
     )
@@ -956,26 +1210,39 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
     """
 
     geometry_optimized: Union[bool, None] = Field(
-        default=None, description="Whether the geometry has been optimized"
+        default=None,
+        description="Whether the geometry has been optimized",
+        exclude_if=lambda x: x is None,
     )
     energy_change_threshold: Optional[float] = Field(
-        default=None, description="Energy change threshold"
+        default=None,
+        description="Energy change threshold",
+        exclude_if=lambda x: x is None,
     )
     rms_force_threshold: Optional[float] = Field(
         default=None,
         description="RMS force threshold in internal some programs use gradient, which has the same absolute value",
+        exclude_if=lambda x: x is None,
     )
     max_force_threshold: Optional[float] = Field(
         default=None,
         description="Maximum force threshold in internal some programs use gradient, which has the same absolute value",
+        exclude_if=lambda x: x is None,
     )
     rms_displacement_threshold: Optional[float] = Field(
-        default=None, description="RMS displacement threshold in internal"
+        default=None,
+        description="RMS displacement threshold in internal",
+        exclude_if=lambda x: x is None,
     )
     max_displacement_threshold: Optional[float] = Field(
-        default=None, description="Maximum displacement threshold in internal"
+        default=None,
+        description="Maximum displacement threshold in internal",
+        exclude_if=lambda x: x is None,
     )
-    energy_change: float = Field(default=float("inf"), description="Energy change")
+    energy_change: float = Field(
+        default=float("inf"),
+        description="Energy change",
+    )
     rms_force: float = Field(
         default=float("inf"),
         description="RMS force some programs use gradient, which has the same absolute value",
@@ -1240,22 +1507,27 @@ class ImplicitSolvation(BaseDataClassWithUnit):
     solvent: Optional[str] = Field(
         default=None,
         description="Solvent used in the QM calculation",
+        exclude_if=lambda x: x is None,
     )
     solvent_model: Optional[str] = Field(
         default=None,
         description="Solvent model used in the QM calculation",
+        exclude_if=lambda x: x is None,
     )
     atomic_radii: Optional[str] = Field(
         default=None,
         description="Atomic radii used in the QM calculation",
+        exclude_if=lambda x: x is None,
     )
     solvent_epsilon: Optional[float] = Field(
         default=None,
         description="Solvent dielectric constant used in the QM calculation",
+        exclude_if=lambda x: x is None,
     )
     solvent_epsilon_infinite: Optional[float] = Field(
         default=None,
         description="Solvent epsilon infinite used in the QM calculation",
+        exclude_if=lambda x: x is None,
     )
 
     def _add_default_units(self) -> None: ...

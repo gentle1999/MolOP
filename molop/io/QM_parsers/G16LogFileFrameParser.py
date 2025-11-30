@@ -26,6 +26,9 @@ from molop.io.QM_models.G16LogFileFrame import (
 from molop.unit import atom_ureg
 from molop.utils.functions import fill_symmetric_matrix, merge_models
 
+# TODO: Bond order
+# TODO: NMR
+
 pt = Chem.GetPeriodicTable()
 
 

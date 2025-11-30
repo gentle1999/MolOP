@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-02-04 11:04:35
 LastEditors: TMJ
-LastEditTime: 2025-11-23 19:59:06
+LastEditTime: 2025-11-30 16:16:42
 Description: Command-line interface for MolOP, providing file parsing and batch processing utilities.
 """
 
@@ -28,19 +28,26 @@ class MolOPCLI:
     allowing further commands to be appended. Use `-` as the separator to build a chain,
     and end with `end` to execute the chain.
 
-    Examples:
-        - Read all .log files, filter for transition states (TS), and transform them to
-        .sdf format in the current directory:
+    How to use
+    ----------
+    - Read all .log files, filter for transition states (TS), and transform them to
+    .sdf format in the current directory:
 
-        `molop read "*.log" - filter_state --state ts - transform --format sdf --output_dir "." - end`
+    ```bash
+    molop read "*.log" - filter_state --state ts - transform --format sdf --output_dir "." - end
+    ```
 
-        - Read GJF files, filter for molecules with a charge of 0, and print their file paths:
+    - Read GJF files, filter for molecules with a charge of 0, and print their file paths:
 
-        `molop read "*.gjf" - filter_value --target charge --value 0 - paths - end`
+    ```bash
+    molop read "*.gjf" - filter_value --target charge --value 0 - paths - end
+    ```
 
-        - Read files and generate a summary report, saving it to 'my_summary.csv':
+    - Read files and generate a summary report, saving it to 'my_summary.csv':
 
-        `molop read "*.log" - summary --output_path my_summary.csv - end`
+    ```bash
+    molop read "*.log" - summary --output_path my_summary.csv - end
+    ```
 
     Returns:
         FileBatchModelDisk: The processed file batch object.
@@ -147,7 +154,7 @@ class MolOPCLI:
 
     def transform(
         self,
-        format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
+        format: Literal["xyz", "sdf", "cml", "gjf", "smi"] = "sdf",
         output_dir: str = os.getcwd(),
         frame_id: int | Literal["all"] = -1,
         embed_in_one_file: bool = True,
