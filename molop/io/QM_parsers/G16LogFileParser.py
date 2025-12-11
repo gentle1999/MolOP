@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-08-01 16:13:58
 LastEditors: TMJ
-LastEditTime: 2025-11-28 23:21:01
+LastEditTime: 2025-12-10 23:33:06
 Description: 请填写简介
 """
 
@@ -27,8 +27,8 @@ from molop.io.QM_parsers.G16LogFileFrameParser import (
 from molop.unit import atom_ureg
 from molop.utils.functions import find_rigid_transform
 
-split_pattern = "Input orientation:"
-split_pattern_2 = "Standard orientation:"
+SPLIT_PATTERN = "Input orientation:"
+SPLIT_PATTERN_2 = "Standard orientation:"
 
 
 class G16LogFileParserMixin:
@@ -70,10 +70,10 @@ class G16LogFileParserMixin:
         return metadata
 
     def _split_file(self, file_content: str) -> Sequence[str]:
-        if split_pattern in file_content:
-            split_ = split_pattern
-        elif split_pattern_2 in file_content:
-            split_ = split_pattern_2
+        if SPLIT_PATTERN in file_content:
+            split_ = SPLIT_PATTERN
+        elif SPLIT_PATTERN_2 in file_content:
+            split_ = SPLIT_PATTERN_2
         fragments = file_content.split(split_)[1:]
         frame_contents = [f"{split_}\n{fragment}" for fragment in fragments]
         return frame_contents

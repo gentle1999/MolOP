@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 12:36:28
 LastEditors: TMJ
-LastEditTime: 2025-11-21 20:55:36
+LastEditTime: 2025-12-10 23:58:55
 Description: 请填写简介
 """
 
@@ -108,7 +108,7 @@ class DiskStorageMixin(BaseDataClassWithUnit):
         return {
             ("DiskStorage", "FilePath"): self.file_path,
             ("DiskStorage", "FileFormat"): self.file_format,
-            **super().to_summary_dict(**kwargs),
+            **super().to_summary_dict(**kwargs),  # type: ignore
         }
 
 

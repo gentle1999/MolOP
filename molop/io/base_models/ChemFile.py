@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:44:12
 LastEditors: TMJ
-LastEditTime: 2025-11-30 18:49:36
+LastEditTime: 2025-12-11 18:54:21
 Description: 请填写简介
 """
 
@@ -25,6 +25,7 @@ import pandas as pd
 from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr
 
+from molop.config import moloplogger
 from molop.io.base_models.Bases import BaseDataClassWithUnit
 from molop.io.base_models.ChemFileFrame import ChemFileFrame, calc_frame, coords_frame
 from molop.io.base_models.DataClasses import (
@@ -253,6 +254,12 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
     def release_file_content(self) -> None:
         self.file_content = ""
 
+    def log_with_file_info(self, content: str, level: str = "info"):
+        if hasattr(self, "filename"):
+            getattr(moloplogger, level)(f"{self.filename}: {content}")  # type: ignore
+        else:
+            getattr(moloplogger, level)(content)  # type: ignore
+
 
 ChemFile = TypeVar("ChemFile", bound="BaseChemFile")
 
@@ -426,6 +433,9 @@ class BaseCalcFile(BaseChemFile[calc_frame]):
             }
         if self.running_time:
             brief_dict = brief_dict | {
-                ("Status", f"RuningTime ({self.running_time.units})"): self.running_time.m
+                (
+                    "Status",
+                    f"RuningTime ({self.running_time.units})",
+                ): self.running_time.m
             }
         return brief_dict

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:43:45
 LastEditors: TMJ
-LastEditTime: 2025-11-30 21:25:42
+LastEditTime: 2025-12-11 00:10:26
 Description: 请填写简介
 """
 
@@ -83,6 +83,12 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
 
     def to_summary_dict(self, **kwargs) -> Dict[tuple[str, str], Any]:
         return {**super().to_summary_dict(), ("General", "FrameID"): self.frame_id}
+
+    def log_with_file_info(self, content: str, level: str = "info"):
+        if hasattr(self, "filename"):
+            getattr(moloplogger, level)(f"{self.filename}: {content}")  # type: ignore
+        else:
+            getattr(moloplogger, level)(content)  # type: ignore
 
 
 class BaseCoordsFrame(BaseChemFileFrame[ChemFileFrame]): ...

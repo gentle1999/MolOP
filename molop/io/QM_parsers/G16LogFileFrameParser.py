@@ -36,18 +36,12 @@ def extract_coords(
     coords_match: list[tuple[str | Any, ...]],
 ) -> tuple[list[int], NumpyQuantity] | tuple[None, None]:
     try:
-        atoms: list[int] = []
-        coords: list[tuple[float, float, float]] = []
-        for row in coords_match:
-            atom_num, x, y, z = row
-            atoms.append(
-                int(atom_num) if atom_num.isdigit() else pt.GetAtomicNumber(atom_num)
-            )
-            coords.append((float(x), float(y), float(z)))
-        coords_ = np.array(coords) * atom_ureg.angstrom
-        return atoms, coords_
+        raw_atoms, raw_x, raw_y, raw_z = zip(*coords_match, strict=True)
+        atoms = [int(a) if a.isdigit() else pt.GetAtomicNumber(a) for a in raw_atoms]
+        coords_array = np.array([raw_x, raw_y, raw_z], dtype=float).T
+        return atoms, coords_array * atom_ureg.angstrom
     except (ValueError, IndexError) as e:
-        moloplogger.warning(f"Error extracting coordinates: {e}")
+        moloplogger.error(f"Error extracting coordinates: {e}")
         return None, None
 
 

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-31 20:27:55
 LastEditors: TMJ
-LastEditTime: 2025-11-28 23:25:41
+LastEditTime: 2025-12-11 00:50:35
 Description: 请填写简介
 """
 
@@ -34,6 +34,8 @@ from molop.utils.functions import (
 
 class G16LogFileFrameProtocol(Protocol):
     vibrations: Optional[Vibrations] = Field(default=None, description="vibrations")
+
+    def log_with_file_info(self, content: str, level: str = "info"): ...
 
 
 if TYPE_CHECKING:
@@ -71,7 +73,9 @@ class G16LogFileFrameMixin(_G16LogFileFrameProtocol):
 
     @model_validator(mode="after")
     def _post_processing(self) -> Self:
-        if self.standard_coords is not None and (len(self.coords) == len(self.standard_coords)):
+        if self.standard_coords is not None and (
+            len(self.coords) == len(self.standard_coords)
+        ):
             self.standard_orientation_transformation_matrix = find_rigid_transform(
                 self.coords.m, self.standard_coords.m
             )
@@ -86,6 +90,10 @@ class G16LogFileFrameMixin(_G16LogFileFrameProtocol):
                         )
                         * self.standard_coords.u
                     )
+                    # self.log_with_file_info(
+                    #     "To get the correcct input orientation, add `Geom=PrintInputOrient` in the keywords.",
+                    #     level="warning",
+                    # )
                 elif self.standard_orientation_transformation_matrix is None:
                     self.coords = self.standard_coords
             else:  # no standard coords found
