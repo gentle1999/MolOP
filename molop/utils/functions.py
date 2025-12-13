@@ -1,10 +1,5 @@
-import contextlib
-from typing import Generator
-
-import joblib
 import numpy as np
 from pydantic import BaseModel
-from tqdm import tqdm
 
 
 def is_metal(number: int):
@@ -164,27 +159,3 @@ def merge_models(model_1: BaseModel, model_2: BaseModel, force_update: bool = Fa
             if key not in field_dict:
                 field_dict[key] = value
     return model_1.__class__.model_validate(field_dict)
-
-
-@contextlib.contextmanager
-def tqdm_joblib(tqdm_object: tqdm) -> Generator[tqdm, None, None]:
-    """Context manager to patch joblib to report into tqdm progress bar given as argument"""
-
-    if not isinstance(tqdm_object, tqdm):
-        raise ValueError("tqdm_object must be an instance of tqdm")
-
-    old_batch_callback = joblib.parallel.BatchCompletionCallBack
-
-    class TqdmBatchCompletionCallback(joblib.parallel.BatchCompletionCallBack):
-        def __call__(self, *args, **kwargs) -> None:
-            tqdm_object.update(n=self.batch_size)
-            return super().__call__(*args, **kwargs)
-
-    try:
-        joblib.parallel.BatchCompletionCallBack = TqdmBatchCompletionCallback
-        yield tqdm_object
-    except Exception as e:
-        print(f"An error occurred: {e}")
-    finally:
-        joblib.parallel.BatchCompletionCallBack = old_batch_callback
-        tqdm_object.close()

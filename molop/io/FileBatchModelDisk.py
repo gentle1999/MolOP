@@ -3,18 +3,27 @@ import os
 import random
 from collections import OrderedDict
 from collections.abc import MutableMapping
-from typing import Any, Callable, Iterable, List, Literal, Sequence, Union, overload
+from typing import (
+    Callable,
+    Iterable,
+    List,
+    Literal,
+    Sequence,
+    TypeVar,
+    Union,
+    overload,
+)
 
 import pandas as pd
-from joblib import Parallel, delayed
-from tqdm import tqdm
 
 from molop.config import molopconfig, moloplogger
 from molop.io.coords_models import GJFFileDisk, SDFFileDisk, XYZFileDisk
 from molop.io.QM_models import G16LogFileDisk
+from molop.utils.progressbar import parallel_map
 
 FileDiskType = G16LogFileDisk | GJFFileDisk | XYZFileDisk | SDFFileDisk
 QMFileDiskType = G16LogFileDisk
+R = TypeVar("R")
 
 
 class FileBatchModelDisk(MutableMapping):
@@ -30,24 +39,20 @@ class FileBatchModelDisk(MutableMapping):
             self.add_diskfiles(diskfiles)
 
     def _parallel_execute(
-        self, func: Callable[[FileDiskType], Any], desc: str, n_jobs: int
-    ):
+        self, func: Callable[[FileDiskType], R], desc: str, n_jobs: int
+    ) -> List[R]:
         """
         Internal helper to execute a function over the batch in parallel or serial.
-        Refactored to enforce DRY principle.
+        Refactored to support Adaptive UI (Rich/Ipywidgets) and Type Hints.
         """
-        iterator = tqdm(
+        return parallel_map(
+            func,
             self,
+            n_jobs=n_jobs,
             desc=desc,
             total=len(self),
             disable=not molopconfig.show_progress_bar,
         )
-        if n_jobs == 1:
-            return list(map(func, iterator))
-        else:
-            return Parallel(n_jobs=n_jobs, return_as="list")(
-                delayed(func)(diskfile) for diskfile in iterator
-            )
 
     def add_diskfiles(self, diskfiles: Iterable[FileDiskType]) -> None:
         """

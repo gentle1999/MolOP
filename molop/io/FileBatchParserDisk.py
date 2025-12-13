@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-08-20 22:55:18
 LastEditors: TMJ
-LastEditTime: 2025-11-30 18:48:40
+LastEditTime: 2025-12-12 15:34:52
 Description: 请填写简介
 """
 
@@ -12,7 +12,6 @@ from enum import Enum
 from typing import Any, Dict, Iterable, Literal, Optional, Tuple
 
 from joblib import Parallel, delayed
-from tqdm import tqdm
 
 from molop.config import molopconfig, moloplogger
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
@@ -25,6 +24,7 @@ from molop.io.types import (
     SDFFileParserDisk,
     XYZFileParserDisk,
 )
+from molop.utils.progressbar import AdaptiveProgress
 
 
 class FileParser(Enum):
@@ -185,19 +185,20 @@ class FileBatchParserDisk:
                 max_nbytes=molopconfig.parallel_max_size,
             )(
                 delayed(worker_wrapper)(task)
-                for task in tqdm(
+                for task in AdaptiveProgress(
                     total_tasks,
+                    total=len(total_tasks),
                     desc=f"MolOP parsing with {self.__n_jobs} processes",
                     disable=not molopconfig.show_progress_bar,
                 )
             )
         else:
-            desc = "MolOP parsing with single process"
             results = (
                 worker_wrapper(task)
-                for task in tqdm(
+                for task in AdaptiveProgress(
                     total_tasks,
-                    desc=desc,
+                    total=len(total_tasks),
+                    desc="MolOP parsing with single process",
                     disable=not molopconfig.show_progress_bar,
                 )
             )

@@ -50,6 +50,7 @@ class MolOPCLI:
     ```
 
     Returns:
+    -------
         FileBatchModelDisk: The processed file batch object.
     """
 
