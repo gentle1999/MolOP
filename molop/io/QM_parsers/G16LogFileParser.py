@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-08-01 16:13:58
 LastEditors: TMJ
-LastEditTime: 2025-12-10 23:33:06
+LastEditTime: 2025-12-14 21:35:45
 Description: 请填写简介
 """
 
@@ -91,9 +91,7 @@ class G16LogFileParserMixin:
             self._file_content
         )
         if matches := g16_log_patterns.OPTIONS.get_matches(focus_content):
-            options = "\n".join(
-                [f"{match[0]}={match[1]}" for match in matches]
-            )
+            options = "\n".join([f"{match[0]}={match[1]}" for match in matches])
             self._file_content = continued_content
             return options
         return None
@@ -279,5 +277,6 @@ class G16LogFileParserDisk(
     G16LogFileParserMixin,
     BaseFileParserDisk[G16LogFileDisk, G16LogFileFrameDisk, G16LogFileFrameParserDisk],
 ):
+    _allowed_formats_ = (".log", ".g16", ".gal", ".out", ".irc")
     _chem_file = G16LogFileDisk
     _frame_parser = G16LogFileFrameParserDisk

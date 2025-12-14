@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 12:19:07
 LastEditors: TMJ
-LastEditTime: 2025-08-13 14:23:17
+LastEditTime: 2025-12-14 19:05:25
 Description: 请填写简介
 """
 
@@ -23,6 +23,10 @@ bond_type_mapping = {
     Chem.rdchem.BondType.DATIVEONE: 1,
     Chem.rdchem.BondType.DOUBLE: 2,
     Chem.rdchem.BondType.TRIPLE: 3,
+    Chem.rdchem.BondType.AROMATIC: 1.5,
+    Chem.rdchem.BondType.ZERO: 0,
+    Chem.rdchem.BondType.ONEANDAHALF: 1.5,
+    Chem.rdchem.BondType.TWOANDAHALF: 2.5,
 }
 bond_list = list(Chem.rdchem.BondType.values.values())
 bond_stereo_list = list(Chem.rdchem.BondStereo.values.values())

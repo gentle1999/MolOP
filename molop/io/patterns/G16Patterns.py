@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-02-16 19:20:04
 LastEditors: TMJ
-LastEditTime: 2025-11-30 18:13:24
+LastEditTime: 2025-12-14 20:15:25
 Description: 请填写简介
 """
 
@@ -637,7 +637,7 @@ def options_parser(
     }
 
 
-def parameter_comment_parser(
+def route_section_parser(
     route: str,
 ) -> Tuple[Dict[str, Any], str | None]:
     """
@@ -680,10 +680,18 @@ def parameter_comment_parser(
                     for par in m.group(3).split(","):
                         p = par.split("=")
                         pars[p[0]] = None if len(p) == 1 else p[1].lower()
-                    route_params[m.group(1).lower()] = pars
+                    if all(k in ("d", "p") for k in pars.keys()):
+                        d = tok.strip("#").split("=")
+                        route_params[d[0]] = (
+                            None if len(d) == 1 else "=".join(d[1:]).lower()
+                        )
+                    else:
+                        route_params[m.group(1).lower()] = pars
                 else:
                     d = tok.strip("#").split("=")
-                    route_params[d[0]] = None if len(d) == 1 else d[1].lower()
+                    route_params[d[0]] = (
+                        None if len(d) == 1 else "=".join(d[1:]).lower()
+                    )
 
     return route_params, dieze_tag
 

@@ -1818,7 +1818,7 @@ requires-dist = [
     { name = "numpy", specifier = ">=1.26.4" },
     { name = "openbabel-wheel", specifier = ">=3.1.1.22" },
     { name = "pandas", specifier = ">=2.3.1" },
-    { name = "pint", specifier = ">0.24" },
+    { name = "pint", specifier = ">=0.24.2" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "rdkit", specifier = ">=2023.9.6" },
     { name = "rdkit-dof", specifier = ">=0.1.2" },

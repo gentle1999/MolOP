@@ -2,11 +2,10 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2025-11-27 13:56:02
+LastEditTime: 2025-12-14 22:15:36
 Description: 请填写简介
 """
 
-import os
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple, Union
 
 import numpy as np
@@ -19,7 +18,6 @@ from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 
 from molop.config import moloplogger
 from molop.descriptor.spms import SPMSCalculator
-from molop.io.patterns.G16Patterns import options_parser
 from molop.structure.FormatConverter import rdmol_to_omol
 from molop.structure.GeometryTransformation import get_geometry_info, standard_orient
 from molop.structure.GraphReconstruction import xyz_to_rdmol
@@ -40,6 +38,14 @@ from molop.utils.types import RdMol
 from .Bases import BaseDataClassWithUnit
 
 pt = Chem.GetPeriodicTable()
+
+EXCLUDE_FIELDS_NO_BOND = {
+    "smiles",
+    "canonical_smiles",
+    "bonds",
+    "formal_charges",
+    "formal_num_radicals",
+}
 
 
 class Molecule(BaseDataClassWithUnit):
@@ -162,6 +168,8 @@ class Molecule(BaseDataClassWithUnit):
         """
         if self._rdmol is None:
             if len(self.bonds) == 0:
+                if not self.atoms:
+                    return None
                 try:
                     self._rdmol = xyz_to_rdmol(
                         self.to_XYZ_block(), self.charge, self.multiplicity - 1
@@ -204,20 +212,11 @@ class Molecule(BaseDataClassWithUnit):
         """
         if self.coords is None:
             raise ValueError("No coordinates found!")
-        return (
-            f"{len(self.atoms)}\n"
-            + f"charge {self.charge} multiplicity {self.multiplicity}\n"
-            + "\n".join(
-                [
-                    # Using 18.10f for coordinates to ensure high precision and alignment for
-                    # downstream applications that require accurate atomic positions.
-                    f"{atom:10s}{x:18.10f}{y:18.10f}{z:18.10f}"
-                    for atom, (x, y, z) in zip(
-                        self.atom_symbols, self.coords.m, strict=True
-                    )
-                ]
-            )
-        )
+        from molop.io.coords_models.XYZFileFrame import XYZFileFrameDisk
+
+        return XYZFileFrameDisk.model_validate(
+            self.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)
+        )._render()
 
     def to_SDF_block(self, engine: Literal["rdkit", "openbabel"] = "rdkit") -> str:
         """
@@ -232,23 +231,11 @@ class Molecule(BaseDataClassWithUnit):
         """
         if self.rdmol is None:
             raise ValueError("SDF building failed. No RDKit molecule recovered.")
-        if engine == "rdkit":
-            return Chem.MolToMolBlock(self.rdmol)
-        elif engine == "openbabel":
-            return self.omol.write("sdf")  # type: ignore
-        else:
-            raise ValueError(f"Unsupported engine: {engine}")
+        from molop.io.coords_models.SDFFileFrame import SDFFileFrameDisk
 
-    def to_SDF_file(self, filepath: os.PathLike| str, **kwargs):
-        """
-        Write the SDF block to a file.
-
-        Parameters:
-            filepath (os.PathLike| str): The path to the file.
-            **kwargs: The keyword arguments for the `to_SDF_block` method.
-        """
-        with open(filepath, "w") as f:
-            f.write(self.to_SDF_block(**kwargs))
+        return SDFFileFrameDisk.model_validate(
+            self.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)
+        )._render(engine=engine)
 
     def to_CML_block(self, engine: Literal["rdkit", "openbabel"] = "rdkit") -> str:
         """
@@ -268,72 +255,51 @@ class Molecule(BaseDataClassWithUnit):
 
     def to_GJF_block(
         self,
-        options: str = "",
-        route: str = "#p",
+        options: str | None = None,
+        route: str | None = None,
         title_card: str | None = None,
-        suffix: str = "",
+        suffix: str | None = None,
+        template: str | None = None,
+        use_link1: bool = False,
+        chk: bool | str = False,
+        old_chk: bool | str = False,
         **kwargs,
     ) -> str:
         """
-        Generate a GJF block for the frame.
+        Get the GJF block.
 
         Parameters:
-            options (str, optional): The options for the GJF block. Defaults to "".
-            route (str, optional): The route for the GJF block. Defaults to "#p".
-            title_card (str | None, optional): The title card for the GJF block. Defaults to None and use the pure filename.
-            suffix (str, optional): The suffix for the GJF block. Defaults to "".
+            options (str | None, optional): The options for the GJF block. Defaults to None.
+            route (str | None, optional): The route for the GJF block. Defaults to None.
+            title_card (str | None, optional): The title card for the GJF block. Defaults to None.
+            suffix (str | None, optional): The suffix for the GJF block. Defaults to None.
+            template (str | None, optional): The template file path for the GJF block. Defaults to None.
+            use_link1 (bool, optional): Whether to use link1 and return a sequential task gjf. Only
+                valid when `template` is given. Defaults to False.
+            chk (bool | str, optional): Whether to use chk automatically. If str, the chk file name
+                will be the str. Defaults to False.
+            old_chk (bool | str, optional): Whether to use old_chk automatically. If str, the old_chk
+                file name will be the str. Defaults to False.
+            **kwargs: The keyword arguments for the `to_GJF_block` method.
 
         Returns:
-            str: The GJF block for the frame.
+            str: The GJF block.
         """
-        _options = options_parser(options)
-        options_lines = (
-            "\n".join([f"{key}={val}" for key, val in _options.items()]) + "\n"
-            if _options
-            else ""
-        )
-        return (
-            options_lines
-            + route
-            + "\n\n"
-            + f"{title_card or 'title'}\n\n"
-            + f"{self.charge} {self.multiplicity}\n"
-            + "\n".join(
-                [
-                    f"{Chem.Atom(atom).GetSymbol():10s}{x:18.10f}{y:18.10f}{z:18.10f}"
-                    for atom, (x, y, z) in zip(self.atoms, self.coords.m, strict=True)
-                ]
-            )
-            + "\n\n"
-            + suffix
-            + "\n\n"
-        )
+        from molop.io.coords_models.GJFFileFrame import GJFFileFrameDisk
 
-    def to_GJF_file(
-        self,
-        filepath: os.PathLike| str,
-        options: str = "",
-        route: str = "#p",
-        title_card: str | None = None,
-        suffix: str = "",
-        **kwargs,
-    ):
-        """
-        Write the GJF block to a file.
-
-        Parameters:
-            filepath (os.PathLike| str): The path to the file.
-            options (str, optional): The options for the GJF block. Defaults to "".
-            route (str, optional): The route for the GJF block. Defaults to "#p".
-            title_card (str | None, optional): The title card for the GJF block. Defaults to None.
-            suffix (str, optional): The suffix for the GJF block. Defaults to "".
-        """
-        with open(filepath, "w") as f:
-            f.write(
-                self.to_GJF_block(
-                    options=options, route=route, title_card=title_card, suffix=suffix
-                )
-            )
+        return GJFFileFrameDisk.model_validate(
+            self.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)
+        )._render(
+            options=options,
+            route=route,
+            title_card=title_card,
+            suffix=suffix,
+            template=template,
+            use_link1=use_link1,
+            chk=chk,
+            old_chk=old_chk,
+            **kwargs,
+        )
 
     def to_SMILES(self) -> str:
         """
@@ -369,7 +335,7 @@ class Molecule(BaseDataClassWithUnit):
         if self.rdmol is None:
             return ""
         if inchi := Chem.MolToInchi(self.rdmol):
-            return inchi # type: ignore
+            return inchi  # type: ignore
         moloplogger.error("InChI building failed.")
         return ""
 
@@ -701,3 +667,12 @@ class Molecule(BaseDataClassWithUnit):
             ("General", "CanonicalSMILES"): self.to_canonical_SMILES(),
             ("General", "NumAtoms"): len(self.atoms),
         }
+
+    def _render(self, **kwargs) -> str:
+        """
+        Render the Molecule as a string.
+
+        Returns:
+            str: The rendered Molecule.
+        """
+        return ""

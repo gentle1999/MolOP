@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-31 20:27:55
 LastEditors: TMJ
-LastEditTime: 2025-12-11 00:50:35
+LastEditTime: 2025-12-14 21:35:37
 Description: 请填写简介
 """
 
@@ -15,14 +15,11 @@ from typing_extensions import Self
 
 from molop.io.base_models.ChemFileFrame import BaseCalcFrame
 from molop.io.base_models.DataClasses import Vibrations
-from molop.io.base_models.Mixins import (
-    DiskStorageWithFrameMixin,
-    MemoryStorageMixin,
-)
+from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
 from molop.io.base_models.Molecule import Molecule
 from molop.io.patterns.G16Patterns import (
     SEMI_EMPIRICAL_METHODS,
-    parameter_comment_parser,
+    route_section_parser,
 )
 from molop.unit import atom_ureg
 from molop.utils.functions import (
@@ -140,11 +137,11 @@ class G16LogFileFrameMixin(_G16LogFileFrameProtocol):
 
     @property
     def route_params(self) -> dict[str, Any]:
-        return parameter_comment_parser(self.keywords)[0]
+        return route_section_parser(self.keywords)[0]
 
     @property
     def dieze_tag(self) -> str | None:
-        return parameter_comment_parser(self.keywords)[1]
+        return route_section_parser(self.keywords)[1]
 
 
 class G16LogFileFrameMemory(
@@ -153,8 +150,7 @@ class G16LogFileFrameMemory(
 
 
 class G16LogFileFrameDisk(
-    DiskStorageWithFrameMixin,
+    DiskStorageMixin,
     G16LogFileFrameMixin,
     BaseCalcFrame["G16LogFileFrameDisk"],
-):
-    _allowed_formats_ = (".log", ".g16", ".gal", ".out", ".irc")
+): ...

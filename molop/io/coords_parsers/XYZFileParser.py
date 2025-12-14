@@ -47,5 +47,6 @@ class XYZFileParserDisk(
     XYZFileParserMixin,
     BaseFileParserDisk[XYZFileDisk, XYZFileFrameDisk, XYZFileFrameParserDisk],
 ):
+    _allowed_formats_ = ("xyz",)
     _frame_parser = XYZFileFrameParserDisk
     _chem_file = XYZFileDisk

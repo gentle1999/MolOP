@@ -1,8 +1,8 @@
 """
 Author: TMJ
-Date: 2025-07-29 16:54:42
+Date: 2025-12-14 23:26:19
 LastEditors: TMJ
-LastEditTime: 2025-12-14 16:00:19
+LastEditTime: 2025-12-14 23:26:59
 Description: 请填写简介
 """
 
@@ -10,22 +10,22 @@ from typing import TYPE_CHECKING, Protocol, Sequence
 
 from molop.io.base_models.ChemFile import BaseCoordsFile
 from molop.io.base_models.Mixins import DiskStorageMixin, FileMixin, MemoryStorageMixin
-from molop.io.coords_models.XYZFileFrame import XYZFileFrameDisk, XYZFileFrameMemory
+from molop.io.coords_models.SMIFileFrame import SMIFileFrameDisk, SMIFileFrameMemory
 
 
-class XYZFileProtocol(Protocol):
-    frames: list[XYZFileFrameDisk | XYZFileFrameMemory]
+class SMIFileProtocol(Protocol):
+    frames: list[SMIFileFrameDisk | SMIFileFrameMemory]
 
 
 if TYPE_CHECKING:
 
-    class _XYZFileProtocol(XYZFileProtocol, FileMixin): ...
+    class _SMIFileProtocol(SMIFileProtocol, FileMixin): ...
 else:
 
-    class _XYZFileProtocol(FileMixin): ...
+    class _SMIFileProtocol(FileMixin): ...
 
 
-class XYZFileMixin(_XYZFileProtocol):
+class SMIFileMixin(_SMIFileProtocol):
     def _render_frames_in_one_file(self, frameID: Sequence[int], **kwargs) -> str:
         return "\n".join(self._render_frames(frameID, **kwargs))
 
@@ -37,9 +37,9 @@ class XYZFileMixin(_XYZFileProtocol):
         ]
 
 
-class XYZFileMemory(
-    MemoryStorageMixin, XYZFileMixin, BaseCoordsFile[XYZFileFrameMemory]
+class SMIFileMemory(
+    MemoryStorageMixin, SMIFileMixin, BaseCoordsFile[SMIFileFrameMemory]
 ): ...
 
 
-class XYZFileDisk(DiskStorageMixin, XYZFileMixin, BaseCoordsFile[XYZFileFrameDisk]): ...
+class SMIFileDisk(DiskStorageMixin, SMIFileMixin, BaseCoordsFile[SMIFileFrameDisk]): ...

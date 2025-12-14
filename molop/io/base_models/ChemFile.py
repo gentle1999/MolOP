@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:44:12
 LastEditors: TMJ
-LastEditTime: 2025-12-11 18:54:21
+LastEditTime: 2025-12-15 00:35:03
 Description: 请填写简介
 """
 
@@ -33,6 +33,7 @@ from molop.io.base_models.DataClasses import (
     ImplicitSolvation,
     Status,
 )
+from molop.io.base_models.Molecule import EXCLUDE_FIELDS_NO_BOND
 from molop.unit import atom_ureg
 
 
@@ -64,6 +65,9 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
                 return f"{size:.2f} {unit}"
             size /= 1024.0
         return f"{size:.2f} PB"
+
+    def __repr__(self) -> str:
+        return f"frames={len(self)}, {super().__repr__()}"
 
     @overload
     def __getitem__(self, frameID: int) -> ChemFileFrame: ...
@@ -131,25 +135,25 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
     @overload
     def format_transform(
         self,
-        format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
-        frameID: int,
+        format: Literal["xyz", "sdf", "gjf", "smi"],
+        frameID: Sequence[int] | int | Literal["all"] | slice = -1,
         file_path: os.PathLike | str | None = None,
-        embed_in_one_file: bool = True,
+        embed_in_one_file: Literal[True] = True,
         **kwargs,
     ) -> str: ...
     @overload
     def format_transform(
         self,
-        format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
-        frameID: Sequence[int],
+        format: Literal["xyz", "sdf", "gjf", "smi"],
+        frameID: Sequence[int] | int | Literal["all"] | slice = -1,
         file_path: os.PathLike | str | None = None,
-        embed_in_one_file: bool = True,
+        embed_in_one_file: Literal[False] = False,
         **kwargs,
     ) -> List[str]: ...
     def format_transform(
         self,
-        format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
-        frameID: Sequence[int] | int = -1,
+        format: Literal["xyz", "sdf", "gjf", "smi"],
+        frameID: Sequence[int] | int | Literal["all"] | slice = -1,
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         **kwargs,
@@ -159,7 +163,7 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
 
         Parameters:
             format (str): The format to be transformed to.
-            frameID (int | slice | Sequence[int]): The frame(s) to be transformed.
+            frameID (int | slice | Sequence[int] | Literal["all"]): The frame(s) to be transformed.
             file_path (os.PathLike| str | None): If given, the file path to save the transformed block(s); otherwise,
                 no file will be saved.
             **kwargs: Additional keyword arguments for the transformation.
@@ -169,71 +173,76 @@ class BaseChemFile(BaseDataClassWithUnit, Generic[ChemFileFrame]):
         assert format in (
             "xyz",
             "sdf",
-            "cml",
             "gjf",
             "smi",
-        ), "Only 'xyz', 'sdf', 'cml', 'gjf', 'smi' supported"
+        ), "Only 'xyz', 'sdf', 'gjf', 'smi' supported"
         assert file_path is None or not os.path.isdir(file_path), (
             "file_path should be a file path or None"
         )
+        if format == "xyz":
+            from molop.io.coords_models.XYZFile import XYZFileDisk, XYZFileFrameDisk
+
+            FileClass = XYZFileDisk
+            FrameClass = XYZFileFrameDisk
+        elif format == "sdf":
+            from molop.io.coords_models.SDFFile import SDFFileDisk, SDFFileFrameDisk
+
+            FileClass = SDFFileDisk
+            FrameClass = SDFFileFrameDisk
+        elif format == "gjf":
+            from molop.io.coords_models.GJFFile import GJFFileDisk, GJFFileFrameDisk
+
+            FileClass = GJFFileDisk
+            FrameClass = GJFFileFrameDisk
+        elif format == "smi":
+            from molop.io.coords_models.SMIFile import SMIFileDisk, SMIFileFrameDisk
+
+            FileClass = SMIFileDisk
+            FrameClass = SMIFileFrameDisk
+        else:
+            raise NotImplementedError(f"Format {format} not supported")
+
         if isinstance(frameID, int):
-            assert (
-                file_path is None or os.path.splitext(file_path)[1] == f".{format}"
-            ), "file_path should have the same extension as format"
-            keywords = kwargs.copy()
-            if format == "smi":
-                block = self[frameID].to_canonical_SMILES(**kwargs)
-            elif format == "gjf":
-                block = self[frameID].to_GJF_block(
-                    title_card=keywords.pop(
-                        "title_card",
-                        os.path.splitext(file_path)[0] if file_path else "title",
-                    ),
-                    **keywords,
-                )
-            else:
-                block: str = getattr(self[frameID], f"to_{format.upper()}_block")(
-                    **keywords
-                )
-            if file_path is not None:
-                with open(file_path, "w") as f:
-                    f.write(block)
-            return block
+            frameID = [frameID if frameID >= 0 else len(self.frames) + frameID]
+        elif frameID == "all":
+            frameID = list(range(len(self.frames)))
         elif isinstance(frameID, Sequence):
-            if embed_in_one_file:
-                assert (
-                    file_path is None or os.path.splitext(file_path)[1] == f".{format}"
-                ), "file_path should have the same extension as format"
-                sep = {
-                    "xyz": "\n",
-                    "sdf": "$$$$\n",
-                    "cml": "\n",
-                    "gjf": "\n",
-                    "smi": "\n",
-                }
-                blocks = sep[format].join(
-                    [
-                        self.format_transform(format, idx, file_path=None, **kwargs)
-                        for idx in frameID
-                    ]
-                )
-                if file_path is not None:
-                    with open(file_path, "w") as f:
-                        f.write(blocks)
-                return blocks
-            return [
-                self.format_transform(
-                    format,
-                    idx,
-                    file_path=(
-                        f"{os.path.splitext(file_path)[0]}-{idx:03d}.{format}"
-                        if file_path is not None
-                        else None
-                    ),  # type: ignore
-                    **kwargs,
-                )
-                for idx in frameID
-            ]
+            assert all(isinstance(i, int) for i in frameID), (
+                "frameID should be a sequence of integers"
+            )
+            frameID = [i if i >= 0 else len(self.frames) + i for i in frameID]
+        elif isinstance(frameID, slice):
+            frameID = list(range(len(self.frames)))[frameID]
+        else:
+            raise ValueError(
+                "frameID should be an integer, a sequence of integers, or 'all'"
+            )
+
+        file = FileClass.model_validate(self.model_dump())
+
+        for frame in self[frameID]:
+            file.append(
+                FrameClass.model_validate(
+                    frame.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)
+                )  # type: ignore
+            )
+        rendered_file = file._render(
+            frameID="all", embed_in_one_file=embed_in_one_file, **kwargs
+        )
+        if file_path:
+            if isinstance(rendered_file, str):
+                with open(
+                    os.path.basename(file_path).split(".")[0] + f".{format}", "w"
+                ) as f:
+                    f.write(rendered_file)
+            elif isinstance(rendered_file, list):
+                for i, frame in zip(frameID, rendered_file, strict=True):
+                    with open(
+                        os.path.basename(file_path).split(".")[0] + f"{i:03d}.{format}",
+                        "w",
+                    ) as f:
+                        f.write(frame)
+        return rendered_file
 
     def _add_default_units(self) -> None: ...
 

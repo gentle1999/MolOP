@@ -5,9 +5,10 @@ from openbabel import pybel
 from rdkit import Chem
 
 from molop.config import moloplogger
-from molop.structure.utils import bond_list
+from molop.structure.utils import bond_list, bond_type_mapping
 
 DEBUG_TAG = "[FORMAT CONVERTER]"
+
 
 def rdmol_to_omol(rdmol: Chem.rdchem.Mol) -> pybel.Molecule:
     """
@@ -106,7 +107,7 @@ def omol_to_rdmol(
 
 
 def validate_omol(
-    omol: pybel.Molecule, total_charge: int, total_radical_electrons: int
+    omol: pybel.Molecule, total_charge: int = 0, total_radical_electrons: int = 0
 ) -> bool:
     """
     Check if the final structure is valid.
@@ -139,3 +140,60 @@ def validate_omol(
         )
         return False
     return True
+
+
+def rdmol_to_gjf_geom(rdmol: Chem.rdchem.Mol, total_radical=0) -> str:
+    """
+    Convert a rdkit molecule to a gjf geometry block.
+
+    Parameters:
+        rdmol (Chem.rdchem.Mol): The rdkit molecule to be converted.
+        total_radical (int): The total radical number of the target molecule.
+    Returns:
+        str: The gjf geometry block.
+    """
+    charge = sum(atom.GetFormalCharge() for atom in rdmol.GetAtoms())
+    radical = sum(atom.GetNumRadicalElectrons() for atom in rdmol.GetAtoms())
+    # singlet state
+    radical_in_singlet = sum(
+        atom.GetNumRadicalElectrons() % 2 for atom in rdmol.GetAtoms()
+    )
+    if total_radical == radical_in_singlet:
+        radical = radical_in_singlet
+    spin_multiplicity = radical + 1
+    return f"{charge} {spin_multiplicity}\n" + "\n".join(
+        [
+            f"{atom:10s}{x:18.10f}{y:18.10f}{z:18.10f}"
+            for atom, (x, y, z) in zip(
+                [atom.GetSymbol() for atom in rdmol.GetAtoms()],
+                rdmol.GetConformer().GetPositions(),
+                strict=True,
+            )
+        ]
+    )
+
+
+def rdmol_to_gjf_connectivity(rdmol: Chem.rdchem.Mol) -> str:
+    """
+    Convert a rdkit molecule to a gjf connectivity block.
+
+    Parameters:
+        rdmol (Chem.rdchem.Mol): The rdkit molecule to be converted.
+    Returns:
+        str: The gjf connectivity block.
+    """
+    lines = []
+    for atom_idx in range(rdmol.GetNumAtoms()):
+        atom = rdmol.GetAtomWithIdx(atom_idx)
+        gjf_idx = atom_idx + 1
+        line_parts = [str(gjf_idx)]
+        for bond in atom.GetBonds():
+            begin_idx = bond.GetBeginAtomIdx()
+            end_idx = bond.GetEndAtomIdx()
+            neighbor_idx = end_idx if begin_idx == atom_idx else begin_idx
+            gjf_neighbor_idx = neighbor_idx + 1
+            btype = bond.GetBondType()
+            order = bond_type_mapping.get(btype, "1.0")
+            line_parts.append(f"{gjf_neighbor_idx} {order}")
+        lines.append(" ".join(line_parts))
+    return "\n".join(lines)

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2025-11-30 16:12:27
+LastEditTime: 2025-12-14 15:38:27
 Description: 请填写简介
 """
 
@@ -14,9 +14,13 @@ from typing import Literal
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
 from molop.io.FileBatchParserDisk import FileBatchParserDisk
 from molop.io.types import (
+    G16LogFileParserDisk,
     G16LogFileParserMemory,
+    GJFFileParserDisk,
     GJFFileParserMemory,
+    SDFFileParserDisk,
     SDFFileParserMemory,
+    XYZFileParserDisk,
     XYZFileParserMemory,
 )
 
@@ -26,6 +30,10 @@ __all__ = [
     "XYZFileParserMemory",
     "SDFFileParserMemory",
     "G16LogFileParserMemory",
+    "G16LogFileParserDisk",
+    "XYZFileParserDisk",
+    "SDFFileParserDisk",
+    "GJFFileParserDisk",
 ]
 
 

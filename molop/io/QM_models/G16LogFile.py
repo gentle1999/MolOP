@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-31 20:27:42
 LastEditors: TMJ
-LastEditTime: 2025-11-27 16:07:37
+LastEditTime: 2025-12-15 00:24:16
 Description: 请填写简介
 """
 
@@ -17,7 +17,7 @@ from molop.io.base_models.ChemFile import BaseCalcFile
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
 from molop.io.patterns.G16Patterns import (
     SEMI_EMPIRICAL_METHODS,
-    parameter_comment_parser,
+    route_section_parser,
 )
 from molop.io.QM_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
@@ -51,6 +51,7 @@ class G16LogFileMixin(BaseDataClassWithUnit):
         default=None,
         description="Transformation matrix to standard orientation, unit is `angstrom`",
         title="Transformation matrix to standard orientation",
+        repr=False
     )
 
     @model_validator(mode="after")
@@ -76,11 +77,11 @@ class G16LogFileMixin(BaseDataClassWithUnit):
 
     @property
     def route_params(self) -> dict[str, Any]:
-        return parameter_comment_parser(self.keywords)[0]
+        return route_section_parser(self.keywords)[0]
 
     @property
     def dieze_tag(self) -> str | None:
-        return parameter_comment_parser(self.keywords)[1]
+        return route_section_parser(self.keywords)[1]
 
 
 class G16LogFileMemory(
@@ -90,5 +91,4 @@ class G16LogFileMemory(
 
 class G16LogFileDisk(
     DiskStorageMixin, G16LogFileMixin, BaseCalcFile[G16LogFileFrameDisk]
-):
-    _allowed_formats_ = (".log", ".g16", ".gal", ".out", ".irc")
+): ...

@@ -40,5 +40,6 @@ class SDFFileParserDisk(
     SDFFileParserMixin,
     BaseFileParserDisk[SDFFileDisk, SDFFileFrameDisk, SDFFileFrameParserDisk],
 ):
+    _allowed_formats_ = ("sdf", "sd", "mol")
     _frame_parser = SDFFileFrameParserDisk
     _chem_file = SDFFileDisk

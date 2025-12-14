@@ -2,55 +2,25 @@
 Author: TMJ
 Date: 2025-07-29 12:36:28
 LastEditors: TMJ
-LastEditTime: 2025-12-10 23:58:55
+LastEditTime: 2025-12-14 23:24:33
 Description: 请填写简介
 """
 
 import os
-from typing import TYPE_CHECKING, Any, Dict, Protocol, Sequence
+from abc import abstractmethod
+from typing import TYPE_CHECKING, Any, Dict, Literal, Protocol, Sequence, overload
 
-from pint.facets.numpy.quantity import NumpyQuantity
-from pydantic import Field, PrivateAttr, computed_field, field_validator
-from rdkit import Chem
+from pydantic import Field, computed_field
 from typing_extensions import Self
 
 from molop.io.base_models.Bases import BaseDataClassWithUnit
-from molop.io.patterns.G16Patterns import options_parser
 
 
 class MemoryStorageMixin(BaseDataClassWithUnit): ...
 
 
 class DiskStorageMixin(BaseDataClassWithUnit):
-    file_path: str = Field(default="", repr=False, exclude=True)
-    _allowed_formats_: Sequence[str] = PrivateAttr(default_factory=tuple)
-
-    @field_validator("file_path")
-    @classmethod
-    def _check_file_path(cls, v: str) -> str:
-        """
-        Validate the file path.
-
-        Parameters:
-            v (str): The file path to validate.
-
-        Returns:
-            str: The validated file path.
-
-        Raises:
-            ValueError: If the file path does not exist or is not a file.
-        """
-        if not os.path.exists(v):
-            raise ValueError(f"File {v} does not exist.")
-        if not os.path.isfile(v):
-            raise ValueError(f"Path {v} is not a file.")
-        for fmt in cls._allowed_formats_.default:  # type: ignore
-            if v.endswith(fmt):
-                return v
-        raise ValueError(
-            f"File {v} has an invalid format. "
-            f"Allowed formats: {cls._allowed_formats_.default}."  # type: ignore
-        )
+    file_path: str = Field(default="", repr=False)
 
     @computed_field
     @property
@@ -112,70 +82,57 @@ class DiskStorageMixin(BaseDataClassWithUnit):
         }
 
 
-class ChemFrameProtocol(Protocol):
-    atoms: list[int]
-    coords: NumpyQuantity
-    charge: int
-    multiplicity: int
-    pure_filename: str
+class FileProtocol(Protocol):
+    frames: Sequence
 
 
 if TYPE_CHECKING:
 
-    class _ChemFrameProtocol(ChemFrameProtocol, DiskStorageMixin): ...
+    class _FileProtocol(FileProtocol, BaseDataClassWithUnit): ...
 else:
 
-    class _ChemFrameProtocol(DiskStorageMixin): ...
+    class _FileProtocol(BaseDataClassWithUnit): ...
 
 
-class DiskStorageWithFrameMixin(_ChemFrameProtocol):
-    def to_GJF_block(
+class FileMixin(_FileProtocol):
+    @overload
+    def _render(
         self,
-        options: str = "",
-        route: str = "#p",
-        title_card: str | None = None,
-        suffix: str = "",
-        chk: bool = False,
-        oldchk: bool | str = False,
+        frameID: Sequence[int] | int | Literal["all"] = -1,
+        embed_in_one_file: Literal[True] = True,
         **kwargs,
-    ) -> str:
-        """
-        Generate a GJF block for the frame.
-
-        Parameters:
-            options (str, optional): The options for the GJF block. Defaults to "".
-            route (str, optional): The route for the GJF block. Defaults to "#p".
-            title_card (str | None, optional): The title card for the GJF block. Defaults to None and use the pure filename.
-            suffix (str, optional): The suffix for the GJF block. Defaults to "".
-            chk (bool, optional): Whether to include a checkpoint file. Defaults to False.
-            oldchk (bool | str, optional): Whether to include an old checkpoint file. Defaults to False.
-
-        Returns:
-            str: The GJF block for the frame.
-        """
-        _options = options_parser(options)
-        if chk:
-            _options[r"%chk"] = f"{self.pure_filename}.chk"
-        if oldchk:
-            _options[r"%oldchk"] = f"{self.pure_filename}.chk"
-        options_lines = (
-            "\n".join([f"{key}={val}" for key, val in _options.items()]) + "\n"
-            if _options
-            else ""
-        )
-        return (
-            options_lines
-            + route
-            + "\n\n"
-            + f"{title_card or self.pure_filename}\n\n"
-            + f"{self.charge} {self.multiplicity}\n"
-            + "\n".join(
-                [
-                    f"{Chem.Atom(atom).GetSymbol():10s}{x:18.10f}{y:18.10f}{z:18.10f}"
-                    for atom, (x, y, z) in zip(self.atoms, self.coords.m, strict=True)
-                ]
+    ) -> str: ...
+    @overload
+    def _render(
+        self,
+        frameID: Sequence[int] | int | Literal["all"] = -1,
+        embed_in_one_file: Literal[False] = False,
+        **kwargs,
+    ) -> list[str]: ...
+    def _render(
+        self,
+        frameID: Sequence[int] | int | Literal["all"] = -1,
+        embed_in_one_file: bool = True,
+        **kwargs,
+    ) -> str | list[str]:
+        if isinstance(frameID, int):
+            frameID = [frameID if frameID >= 0 else len(self.frames) + frameID]
+        elif frameID == "all":
+            frameID = list(range(len(self.frames)))
+        elif isinstance(frameID, Sequence):
+            assert all(isinstance(i, int) for i in frameID), (
+                "frameID should be a sequence of integers"
             )
-            + "\n\n"
-            + suffix
-            + "\n\n"
-        )
+            frameID = [i if i >= 0 else len(self.frames) + i for i in frameID]
+        if embed_in_one_file:
+            return self._render_frames_in_one_file(frameID, **kwargs)
+        else:
+            return self._render_frames(frameID, **kwargs)
+
+    @abstractmethod
+    def _render_frames_in_one_file(self, frameID: Sequence[int], **kwargs) -> str:
+        raise NotImplementedError
+
+    @abstractmethod
+    def _render_frames(self, frameID: Sequence[int], **kwargs) -> list[str]:
+        raise NotImplementedError

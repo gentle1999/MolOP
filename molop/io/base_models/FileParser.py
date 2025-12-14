@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 22:14:37
 LastEditors: TMJ
-LastEditTime: 2025-11-30 18:49:25
+LastEditTime: 2025-12-14 21:34:43
 Description: 请填写简介
 """
 
@@ -117,6 +117,34 @@ class BaseFileParserMemory(BaseFileParser[ChemFile, ChemFileFrame, FrameParser])
 
 
 class BaseFileParserDisk(BaseFileParser[ChemFile, ChemFileFrame, FrameParser]):
+    _allowed_formats_: Sequence[str] = PrivateAttr(default_factory=tuple)
+
+    @classmethod
+    def _check_file_path(cls, file_path: str) -> str:
+        """
+        Validate the file path.
+
+        Parameters:
+            file_path (str): The file path to validate.
+
+        Returns:
+            str: The validated file path.
+
+        Raises:
+            ValueError: If the file path does not exist or is not a file.
+        """
+        if not os.path.exists(file_path):
+            raise ValueError(f"File {file_path} does not exist.")
+        if not os.path.isfile(file_path):
+            raise ValueError(f"Path {file_path} is not a file.")
+        for fmt in cls._allowed_formats_.default:  # type: ignore
+            if file_path.endswith(fmt):
+                return file_path
+        raise ValueError(
+            f"File {file_path} has an invalid format. "
+            f"Allowed formats: {cls._allowed_formats_.default}."  # type: ignore
+        )
+
     def parse(
         self,
         file_path: str,
@@ -126,7 +154,7 @@ class BaseFileParserDisk(BaseFileParser[ChemFile, ChemFileFrame, FrameParser]):
     ) -> ChemFile:
         with open(file_path, "r") as f:
             file_content = f.read()
-        self._file_path = os.path.abspath(file_path)
+        self._file_path = self._check_file_path(os.path.abspath(file_path))
         _chem_file = self._parse(file_content, total_charge, total_multiplicity)
         if release_file_content:
             _chem_file.release_file_content()

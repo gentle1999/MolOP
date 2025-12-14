@@ -20,28 +20,28 @@ from .Bases import BaseDataClassWithUnit
 
 class Energies(BaseDataClassWithUnit):
     # energies
-    electronic_energy: Union[PlainQuantity, None] = Field(
+    electronic_energy: Union[PlainQuantity[float], None] = Field(
         default=None,
         description="Electronic energy of the molecule, unit is `hartree`",
     )
-    scf_energy: Union[PlainQuantity, None] = Field(
+    scf_energy: Union[PlainQuantity[float], None] = Field(
         default=None, description="SCF energy of the molecule, unit is `hartree`"
     )
-    mp2_energy: Union[PlainQuantity, None] = Field(
+    mp2_energy: Union[PlainQuantity[float], None] = Field(
         default=None, description="MP2 energy of the molecule, unit is `hartree`"
     )
-    mp3_energy: Union[PlainQuantity, None] = Field(
+    mp3_energy: Union[PlainQuantity[float], None] = Field(
         default=None, description="MP3 energy of the molecule, unit is `hartree`"
     )
-    mp4_energy: Union[PlainQuantity, None] = Field(
+    mp4_energy: Union[PlainQuantity[float], None] = Field(
         default=None, description="MP4 energy of the molecule, unit is `hartree`"
     )
-    ccsd_energy: Union[PlainQuantity, None] = Field(
+    ccsd_energy: Union[PlainQuantity[float], None] = Field(
         default=None, description="CCSD energy of the molecule, unit is `hartree`"
     )
 
     @property
-    def energy(self) -> Dict[str, PlainQuantity]:
+    def energy(self) -> Dict[str, PlainQuantity[float]]:
         return {
             energy_type: getattr(self, f"{energy_type}_energy")
             for energy_type in (
@@ -57,7 +57,7 @@ class Energies(BaseDataClassWithUnit):
 
     @computed_field(description="Total energy, unit is `hartree`")
     @property
-    def total_energy(self) -> Union[PlainQuantity, None]:
+    def total_energy(self) -> Union[PlainQuantity[float], None]:
         keys = list(self.energy.keys())
         if len(keys) > 0:
             return self.energy[keys[0]].to(atom_ureg.hartree)
@@ -103,52 +103,52 @@ class ThermalInformations(BaseDataClassWithUnit):
 
     _set_default_units: bool = PrivateAttr(default=True)
 
-    ZPVE: Optional[PlainQuantity] = Field(
+    ZPVE: Optional[PlainQuantity[float]] = Field(
         default=None,
         description="Zero-point vibrational energy, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    TCE: Optional[PlainQuantity] = Field(
+    TCE: Optional[PlainQuantity[float]] = Field(
         default=None,
         description="thermal correction to the internal energy at ?K, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    TCH: Optional[PlainQuantity] = Field(
+    TCH: Optional[PlainQuantity[float]] = Field(
         default=None,
         description="thermal correction to the enthalpy at ?K, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    TCG: Optional[PlainQuantity] = Field(
+    TCG: Optional[PlainQuantity[float]] = Field(
         default=None,
         description="thermal correction to the Gibbs free energy at ?K, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    U_0: Optional[PlainQuantity] = Field(
+    U_0: Optional[PlainQuantity[float]] = Field(
         default=None,
         description="Zero-point energy, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    U_T: Optional[PlainQuantity] = Field(
+    U_T: Optional[PlainQuantity[float]] = Field(
         default=None,
         description="thermal energy at ?K, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    H_T: Optional[PlainQuantity] = Field(
+    H_T: Optional[PlainQuantity[float]] = Field(
         default=None,
         description="enthalpy at ?K, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    G_T: Optional[PlainQuantity] = Field(
+    G_T: Optional[PlainQuantity[float]] = Field(
         default=None,
         description="Gibbs Free Energy at ?K, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    S: Optional[PlainQuantity] = Field(
+    S: Optional[PlainQuantity[float]] = Field(
         default=None,
         description="entropy at ?K, unit is `cal/mol/K`",
         exclude_if=lambda x: x is None,
     )
-    C_V: Optional[PlainQuantity] = Field(
+    C_V: Optional[PlainQuantity[float]] = Field(
         default=None,
         description="heat capacity at constant volume, unit is `cal/mol/K`",
         exclude_if=lambda x: x is None,
@@ -183,10 +183,10 @@ class ThermalInformations(BaseDataClassWithUnit):
 
 
 class MoleculeOrbital(BaseDataClassWithUnit):
-    alpha_energy: Optional[PlainQuantity] = Field(
+    alpha_energy: Optional[PlainQuantity[float]] = Field(
         default=None, description="alpha orbital energy, unit is `hartree`"
     )
-    beta_energy: Optional[PlainQuantity] = Field(
+    beta_energy: Optional[PlainQuantity[float]] = Field(
         default=None, description="beta orbital energy, unit is `hartree`"
     )
     alpha_occupancy: Optional[bool] = Field(
