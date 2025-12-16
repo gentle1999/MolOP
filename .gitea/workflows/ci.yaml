@@ -1,0 +1,93 @@
+name: Gitea CI/CD Workflow
+
+on:
+  push:
+    # 场景 1：Snapshot 模式
+    # 每次推送到 main 分支，都会触发构建和发布 Dev 包
+    branches: 
+      - "main"
+    # 场景 2：Release 模式
+    # 每次在 Gitea 网页上新建 Release (创建 Tag)，都会触发发布正式包
+    tags: 
+      - "v*"
+  pull_request:
+    branches: 
+      - "main"
+
+jobs:
+  # ===========================================================================
+  # 1. 构建与测试 (通用)
+  # ===========================================================================
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # 🚨 核心关键点：
+          # 必须拉取完整历史，hatch-vcs 才能计算出 "当前提交距离上个 Tag 有多远"
+          # 从而生成正确的 dev 版本号 (如 0.1.0.dev5)
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Lint and Format check
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+
+      - name: Run tests
+        run: uv run pytest
+
+  # ===========================================================================
+  # 2. 自动发布 (支持 Snapshot 和 Release)
+  # ===========================================================================
+  publish:
+    name: Publish to Gitea Registry
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    # 仅在 main 分支推送 或 打 Tag 时运行 (忽略 PR)
+    if: github.event_name == 'push'
+    
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # 发布阶段也需要完整历史来构建版本
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      # 🔍 调试步骤：打印一下当前计算出的版本号，方便你在 Action 日志里确认
+      - name: Show computed version
+        run: |
+          # 使用 uv run 执行 python 来动态获取 hatch-vcs 计算的版本
+          VERSION=$(uv run python -c "from hatch_vcs.version_source import VCSVersionSource; import os; print(VCSVersionSource(os.getcwd(), {}).get_version_data()['version'])")
+          echo "📦 Current Build Version: $VERSION"
+
+      - name: Build distributions
+        run: uv build
+
+      - name: Publish to Gitea Registry
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # 你的 Gitea 地址
+          GITEA_HOST: "http://10.72.201.58:13000"
+        run: |
+          PUBLISH_URL="${GITEA_HOST}/api/packages/${{ github.repository_owner }}/pypi"
+          echo "🚀 Publishing to $PUBLISH_URL ..."
+          uv publish --publish-url "$PUBLISH_URL"
