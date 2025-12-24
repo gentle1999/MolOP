@@ -1,3 +1,5 @@
+from typing import TypeVar
+
 import numpy as np
 from pydantic import BaseModel
 
@@ -135,7 +137,10 @@ def invert_transform_coords(orientation_coords: np.ndarray, T: np.ndarray) -> np
     return np.dot(orientation_coords - T[:3, 3], T[:3, :3])
 
 
-def merge_models(model_1: BaseModel, model_2: BaseModel, force_update: bool = False):
+T = TypeVar("T", bound=BaseModel)
+
+
+def merge_models(model_1: T, model_2: T, force_update: bool = False) -> T:
     assert type(model_1) is type(model_2), (
         f"Models must be of the same type, got {type(model_1)} and {type(model_2)}"
     )
