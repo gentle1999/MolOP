@@ -1822,7 +1822,7 @@ requires-dist = [
     { name = "pint", specifier = ">=0.24.2" },
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "rdkit", specifier = ">=2023.9.6" },
-    { name = "rdkit-dof", specifier = ">=0.1.2" },
+    { name = "rdkit-dof", specifier = ">=0.1.3" },
     { name = "regex", specifier = "<=2025.7.33" },
     { name = "scipy", specifier = ">=1.15.3" },
     { name = "tabulate", specifier = ">=0.9.0" },
@@ -2904,16 +2904,16 @@ wheels = [
 
 [[package]]
 name = "rdkit-dof"
-version = "0.1.2"
+version = "0.1.3"
 source = { registry = "https://mirrors.zju.edu.cn/pypi/web/simple" }
 dependencies = [
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "rdkit" },
 ]
-sdist = { url = "https://mirrors.zju.edu.cn/pypi/web/packages/62/34/b61af78b5d32a7c8ba91e4137134f77fc733b4dbff6222d2d83e4514f07d/rdkit_dof-0.1.2.tar.gz", hash = "sha256:bf4e8829e031dab54b72940dd10c8418da0dd462ab4cb38a55ae502a1681c22b" }
+sdist = { url = "https://mirrors.zju.edu.cn/pypi/web/packages/e1/4c/2fd6b2b0315497066f73dd6c0ac3ac905a346f1071ff50ce7155b37d321a/rdkit_dof-0.1.3.tar.gz", hash = "sha256:36fa11e9ff5db582c99a7bbc46255b4a08871d43f6d4d82ea346291e84b5d6af" }
 wheels = [
-    { url = "https://mirrors.zju.edu.cn/pypi/web/packages/0a/59/502ecc9785bc63d60d2b270be8a0eb2c1b0eba35f309793e7904784b7f4f/rdkit_dof-0.1.2-py3-none-any.whl", hash = "sha256:3130cdccdae9e3e03ea5e24a9f27963088babc1845c0d93e53da6f68280028cd" },
+    { url = "https://mirrors.zju.edu.cn/pypi/web/packages/b6/e3/6c711f06a08dc2803212c5ae2088104d89fb2aa017d3306f0673eb3b8b7b/rdkit_dof-0.1.3-py3-none-any.whl", hash = "sha256:47c7c7fbd38c0b1ed9bc9f45b2cf4197bfde6f2fbc101332f5c39f411bb4b124" },
 ]
 
 [[package]]

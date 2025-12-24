@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: http://10.72.201.58:13000/actions/checkout@v4
         with:
           # 🚨 核心关键点：
           # 必须拉取完整历史，hatch-vcs 才能计算出 "当前提交距离上个 Tag 有多远"
@@ -31,7 +31,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: http://10.72.201.58:13000/actions/setup-uv@v5
         with:
           enable-cache: true
 
@@ -65,12 +65,12 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: http://10.72.201.58:13000/actions/checkout@v4
         with:
           fetch-depth: 0 # 发布阶段也需要完整历史来构建版本
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: http://10.72.201.58:13000/actions/setup-uv@v5
 
       # 🔍 调试步骤：打印一下当前计算出的版本号，方便你在 Action 日志里确认
       - name: Show computed version

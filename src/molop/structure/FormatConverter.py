@@ -95,38 +95,6 @@ def omol_to_rdmol(omol: pybel.Molecule, total_charge=0, total_radical=0) -> Chem
     return None
 
 
-def validate_omol(
-    omol: pybel.Molecule, total_charge: int = 0, total_radical_electrons: int = 0
-) -> bool:
-    """
-    Check if the final structure is valid.
-    Parameters:
-        omol (pybel.Molecule): The pybel molecule to be checked.
-        total_charge (int): The total charge of the molecule.
-        total_radical_electrons (int): The total radical of the molecule.
-    Returns:
-        bool: True if the final structure is valid, False otherwise.
-    """
-    if (charge_sum := sum(atom.OBAtom.GetFormalCharge() for atom in omol.atoms)) != total_charge:
-        moloplogger.debug(
-            f"{DEBUG_TAG} | Charge check failed, total charge: "
-            f"{total_charge}, actual charge: {charge_sum}"
-        )
-        return False
-
-    radical_sum = sum(atom.OBAtom.GetSpinMultiplicity() for atom in omol.atoms)
-    radical_sum_singlet = sum(atom.OBAtom.GetSpinMultiplicity() % 2 for atom in omol.atoms)
-    if radical_sum_singlet == total_radical_electrons:
-        radical_sum = radical_sum_singlet
-    if radical_sum != total_radical_electrons:
-        moloplogger.debug(
-            f"{DEBUG_TAG} | Radical check failed, total radical: "
-            f"{total_radical_electrons}, actual radical: {radical_sum}"
-        )
-        return False
-    return True
-
-
 def rdmol_to_gjf_geom(rdmol: Chem.rdchem.Mol, total_radical=0) -> str:
     """
     Convert a rdkit molecule to a gjf geometry block.

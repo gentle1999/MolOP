@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2025-12-16 19:19:11
+LastEditTime: 2025-12-23 19:43:26
 Description: 请填写简介
 """
 
@@ -19,9 +19,9 @@ from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 
 from molop.config import moloplogger
 from molop.descriptor.spms import SPMSCalculator
+from molop.structure import xyz_to_rdmol
 from molop.structure.FormatConverter import rdmol_to_omol
 from molop.structure.GeometryTransformation import get_geometry_info, standard_orient
-from molop.structure.GraphReconstruction import xyz_to_rdmol
 from molop.structure.StructureTransformation import (
     attempt_replacement,
     build_mol_from_atoms_and_bonds,

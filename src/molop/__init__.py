@@ -2,19 +2,22 @@
 Author: TMJ
 Date: 2024-10-19 09:57:26
 LastEditors: TMJ
-LastEditTime: 2025-12-16 01:19:32
-Description: 请填写简介
+LastEditTime: 2025-12-22 13:08:29
+Description: MolOP is a toolbox for molecule operations and QM information extraction.
 """
 
 import importlib.metadata
 
-from molop.config import molopconfig
+from molop.config import molopconfig, moloplogger
 from molop.io import AutoParser
+from molop.io.base_models.Molecule import Molecule
 from molop.io.coords_parsers import (
     GJFFileParserDisk,
     GJFFileParserMemory,
     SDFFileParserDisk,
     SDFFileParserMemory,
+    SMIFileParserDisk,
+    SMIFileParserMemory,
     XYZFileParserDisk,
     XYZFileParserMemory,
 )
@@ -31,6 +34,7 @@ __all__ = [
     "__version__",
     "AutoParser",
     "molopconfig",
+    "moloplogger",
     "GJFFileParserDisk",
     "GJFFileParserMemory",
     "SDFFileParserDisk",
@@ -39,4 +43,7 @@ __all__ = [
     "XYZFileParserMemory",
     "G16LogFileParserDisk",
     "G16LogFileParserMemory",
+    "SMIFileParserDisk",
+    "SMIFileParserMemory",
+    "Molecule",
 ]

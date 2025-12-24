@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 22:53:15
 LastEditors: TMJ
-LastEditTime: 2025-08-20 15:33:35
+LastEditTime: 2025-12-22 13:06:02
 Description: 请填写简介
 """
 
@@ -17,6 +17,12 @@ from .SDFFileParser import (
     SDFFileFrameParserMemory,
     SDFFileParserDisk,
     SDFFileParserMemory,
+)
+from .SMIFileParser import (
+    SMIFileFrameParserDisk,
+    SMIFileFrameParserMemory,
+    SMIFileParserDisk,
+    SMIFileParserMemory,
 )
 from .XYZFileParser import (
     XYZFileFrameParserDisk,
@@ -39,4 +45,8 @@ __all__ = [
     "SDFFileParserMemory",
     "SDFFileFrameParserDisk",
     "SDFFileFrameParserMemory",
+    "SMIFileParserDisk",
+    "SMIFileParserMemory",
+    "SMIFileFrameParserDisk",
+    "SMIFileFrameParserMemory",
 ]

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:43:45
 LastEditors: TMJ
-LastEditTime: 2025-12-16 17:05:38
+LastEditTime: 2025-12-23 19:44:09
 Description: 请填写简介
 """
 
@@ -35,7 +35,7 @@ from molop.io.base_models.DataClasses import (
     Vibrations,
 )
 from molop.io.base_models.Molecule import Molecule
-from molop.structure.GraphReconstruction import xyz_to_rdmol
+from molop.structure import xyz_to_rdmol
 from molop.structure.StructureTransformation import check_crowding
 from molop.unit import atom_ureg
 from molop.utils.types import RdMol
