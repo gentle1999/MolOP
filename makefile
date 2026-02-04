@@ -127,7 +127,13 @@ type-check:
 	@echo "🦆 Running Mypy Type Checker..."
 	uv run mypy src
 
-check: format lint type-check
+pyright:
+	@echo "🦆 Running Pyright Type Checker..."
+	uv run pyright
+
+check-types: type-check pyright
+
+check: format lint check-types
 
 # =============================================================================
 # 🧪 测试与覆盖率

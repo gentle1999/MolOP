@@ -1646,6 +1646,8 @@ dev = [
     { name = "mkdocstrings-python" },
     { name = "mypy" },
     { name = "nbconvert" },
+    { name = "pydantic" },
+    { name = "pyright" },
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "rich" },
@@ -1689,6 +1691,8 @@ dev = [
     { name = "mkdocstrings-python", specifier = ">=1.19.0" },
     { name = "mypy", specifier = ">=1.18.2" },
     { name = "nbconvert", specifier = ">=7.16.6" },
+    { name = "pydantic", extras = ["mypy"], specifier = ">=2.12.5" },
+    { name = "pyright", specifier = ">=1.1.0" },
     { name = "pytest", specifier = ">=9.0.1" },
     { name = "pytest-cov", specifier = ">=7.0.0" },
     { name = "rich", specifier = ">=14.2.0" },
@@ -1832,6 +1836,15 @@ source = { registry = "https://mirrors.zju.edu.cn/pypi/web/simple" }
 sdist = { url = "https://mirrors.zju.edu.cn/pypi/web/packages/cd/16/c44e8550012735b8f21b3df7f39e8ba5a987fb764ac017ad5f3589735889/networkx-2.8.8.tar.gz", hash = "sha256:230d388117af870fce5647a3c52401fcf753e94720e6ea6b4197a5355648885e" }
 wheels = [
     { url = "https://mirrors.zju.edu.cn/pypi/web/packages/42/31/d2f89f1ae42718f8c8a9e440ebe38d7d5fe1e0d9eb9178ce779e365b3ab0/networkx-2.8.8-py3-none-any.whl", hash = "sha256:e435dfa75b1d7195c7b8378c3859f0445cd88c6b0375c181ed66823a9ceb7524" },
+]
+
+[[package]]
+name = "nodeenv"
+version = "1.10.0"
+source = { registry = "https://mirrors.zju.edu.cn/pypi/web/simple" }
+sdist = { url = "https://mirrors.zju.edu.cn/pypi/web/packages/24/bf/d1bda4f6168e0b2e9e5958945e01910052158313224ada5ce1fb2e1113b8/nodeenv-1.10.0.tar.gz", hash = "sha256:996c191ad80897d076bdfba80a41994c2b47c68e224c542b48feba42ba00f8bb" }
+wheels = [
+    { url = "https://mirrors.zju.edu.cn/pypi/web/packages/88/b2/d0896bdcdc8d28a7fc5717c305f1a861c26e18c05047949fb371034d98bd/nodeenv-1.10.0-py2.py3-none-any.whl", hash = "sha256:5bb13e3eed2923615535339b3c620e76779af4cb4c6a90deccc9e36b274d3827" },
 ]
 
 [[package]]
@@ -2446,6 +2459,19 @@ source = { registry = "https://mirrors.zju.edu.cn/pypi/web/simple" }
 sdist = { url = "https://mirrors.zju.edu.cn/pypi/web/packages/f2/a5/181488fc2b9d093e3972d2a472855aae8a03f000592dbfce716a512b3359/pyparsing-3.2.5.tar.gz", hash = "sha256:2df8d5b7b2802ef88e8d016a2eb9c7aeaa923529cd251ed0fe4608275d4105b6" }
 wheels = [
     { url = "https://mirrors.zju.edu.cn/pypi/web/packages/10/5e/1aa9a93198c6b64513c9d7752de7422c06402de6600a8767da1524f9570b/pyparsing-3.2.5-py3-none-any.whl", hash = "sha256:e38a4f02064cf41fe6593d328d0512495ad1f3d8a91c4f73fc401b3079a59a5e" },
+]
+
+[[package]]
+name = "pyright"
+version = "1.1.408"
+source = { registry = "https://mirrors.zju.edu.cn/pypi/web/simple" }
+dependencies = [
+    { name = "nodeenv" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://mirrors.zju.edu.cn/pypi/web/packages/74/b2/5db700e52554b8f025faa9c3c624c59f1f6c8841ba81ab97641b54322f16/pyright-1.1.408.tar.gz", hash = "sha256:f28f2321f96852fa50b5829ea492f6adb0e6954568d1caa3f3af3a5f555eb684" }
+wheels = [
+    { url = "https://mirrors.zju.edu.cn/pypi/web/packages/0c/82/a2c93e32800940d9573fb28c346772a14778b84ba7524e691b324620ab89/pyright-1.1.408-py3-none-any.whl", hash = "sha256:090b32865f4fdb1e0e6cd82bf5618480d48eecd2eb2e70f960982a3d9a4c17c1" },
 ]
 
 [[package]]
