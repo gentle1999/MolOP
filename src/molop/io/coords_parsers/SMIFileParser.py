@@ -37,6 +37,6 @@ class SMIFileParserDisk(
     SMIFileParserMixin,
     BaseFileParserDisk[SMIFileDisk, SMIFileFrameDisk, SMIFileFrameParserDisk],
 ):
-    _allowed_formats_ = ("smi", "txt")
+    allowed_formats = ("smi", "txt")
     _frame_parser = SMIFileFrameParserDisk
     _chem_file = SMIFileDisk

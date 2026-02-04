@@ -2,45 +2,22 @@
 Author: TMJ
 Date: 2025-07-28 23:09:31
 LastEditors: TMJ
-LastEditTime: 2025-12-16 19:22:24
+LastEditTime: 2026-02-04 11:47:50
 Description: 请填写简介
 """
 
 import os
-from typing import TYPE_CHECKING, Protocol
+from typing import cast
 
-from pint.facets.numpy.quantity import NumpyQuantity
 from pydantic import Field
 
-from molop.io.base_models.Bases import BaseDataClassWithUnit
-from molop.io.base_models.ChemFileFrame import BaseCoordsFrame
+from molop.io.base_models.ChemFileFrame import BaseCoordsFrame, _HasCoords, _HasKeywords
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
 from molop.io.patterns.G16Patterns import options_parser, route_section_parser
 from molop.structure.FormatConverter import rdmol_to_gjf_connectivity
-from molop.utils.types import RdMol
 
 
-class GJFFileFrameProtocol(Protocol):
-    frame_id: int
-    atoms: list[int]
-    atom_symbols: list[str]
-    coords: NumpyQuantity
-    charge: int
-    multiplicity: int
-    keywords: str
-
-    rdmol: RdMol | None
-
-
-if TYPE_CHECKING:
-
-    class _GJFFileFrameProtocol(GJFFileFrameProtocol, BaseDataClassWithUnit): ...
-else:
-
-    class _GJFFileFrameProtocol(BaseDataClassWithUnit): ...
-
-
-class GJFFileFrameMixin(_GJFFileFrameProtocol):
+class GJFFileFrameMixin:
     options: str = Field("")
     title_card: str = Field("")
     suffix: str = Field("")
@@ -67,7 +44,7 @@ class GJFFileFrameMixin(_GJFFileFrameProtocol):
                         [
                             self._render_one_frame(
                                 options=frame.options,
-                                route=frame.keywords,
+                                route=cast(_HasKeywords, frame).keywords,
                                 title_card=frame.title_card,
                                 suffix=frame.suffix,
                                 chk=f"chk_{frame.frame_id + 1}_{chk}" if chk else None,
@@ -81,7 +58,7 @@ class GJFFileFrameMixin(_GJFFileFrameProtocol):
                         ]
                     )
                 options = options or template_file[0].options
-                route = route or template_file[0].keywords
+                route = route or cast(_HasKeywords, template_file[0]).keywords
                 title_card = title_card or template_file[0].title_card
                 suffix = suffix or template_file[0].suffix
                 return self._render_one_frame(
@@ -117,8 +94,9 @@ class GJFFileFrameMixin(_GJFFileFrameProtocol):
         old_chk: str | None = None,
         link1_mode: bool = False,
     ) -> str:
+        typed_self = cast(_HasCoords, self)
         options_to_use = options or self.options
-        route_to_use = route or self.keywords
+        route_to_use = route or cast(_HasKeywords, self).keywords
         title_card_to_use = title_card or self.title_card
         suffix_to_use = suffix or self.suffix
         _options = options_parser(options_to_use)
@@ -142,14 +120,10 @@ class GJFFileFrameMixin(_GJFFileFrameProtocol):
                     print_title_card = False
                     print_coords = False
             elif isinstance(route_params.get("geom"), dict):
-                if any(
-                    key in ("check", "checkpoint")
-                    for key in route_params.get("geom")  # type: ignore
-                ):
+                if any(key in ("check", "checkpoint") for key in route_params.get("geom", {})):
                     print_coords = False
                 if any(
-                    key in ("allcheck", "allcheckpoint")
-                    for key in route_params.get("geom")  # type: ignore
+                    key in ("allcheck", "allcheckpoint") for key in route_params.get("geom", {})
                 ):
                     print_electronic_state = False
                     print_title_card = False
@@ -159,12 +133,14 @@ class GJFFileFrameMixin(_GJFFileFrameProtocol):
             options_lines
             + f"{route_to_use}\n\n"
             + (f"{title_card_to_use or 'title'}\n\n" if print_title_card else "")
-            + (f"{self.charge} {self.multiplicity}\n" if print_electronic_state else "")
+            + (f"{typed_self.charge} {typed_self.multiplicity}\n" if print_electronic_state else "")
             + (
                 "\n".join(
                     [
                         f"{atom:10s}{x:18.10f}{y:18.10f}{z:18.10f}"
-                        for atom, (x, y, z) in zip(self.atom_symbols, self.coords.m, strict=True)
+                        for atom, (x, y, z) in zip(
+                            typed_self.atom_symbols, typed_self.coords.m, strict=True
+                        )
                     ]
                 )
                 + "\n\n"
@@ -177,8 +153,9 @@ class GJFFileFrameMixin(_GJFFileFrameProtocol):
         )
 
     def _generate_connectivity(self) -> str:
-        if self.rdmol:
-            return rdmol_to_gjf_connectivity(self.rdmol) + "\n\n"
+        typed_self = cast(_HasCoords, self)
+        if typed_self.rdmol:
+            return rdmol_to_gjf_connectivity(typed_self.rdmol) + "\n\n"
         else:
             return ""
 
@@ -197,8 +174,8 @@ class GJFFileFrameDisk(DiskStorageMixin, GJFFileFrameMixin, BaseCoordsFrame["GJF
         suffix: str | None = None,
         template: str | None = None,
         use_link1: bool = False,
-        chk: bool | str = False,
-        old_chk: bool | str = False,
+        chk: bool | str | None = False,
+        old_chk: bool | str | None = False,
         **kwargs,
     ) -> str:
         valid_chk, valid_old_chk = None, None

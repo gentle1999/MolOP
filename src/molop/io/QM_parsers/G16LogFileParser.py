@@ -2,19 +2,23 @@
 Author: TMJ
 Date: 2025-08-01 16:13:58
 LastEditors: TMJ
-LastEditTime: 2025-12-16 12:17:01
+LastEditTime: 2026-02-04 15:45:28
 Description: 请填写简介
 """
 
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from pint.facets.plain import PlainQuantity
 
 from molop.config import moloplogger
 from molop.io.base_models.DataClasses import ImplicitSolvation, Status
-from molop.io.base_models.FileParser import BaseFileParserDisk, BaseFileParserMemory
+from molop.io.base_models.FileParser import (
+    BaseFileParserDisk,
+    BaseFileParserMemory,
+    _HasFileParseMethod,
+)
 from molop.io.patterns.G16Patterns import MolOPPattern, g16_log_patterns
 from molop.io.QM_models.G16LogFile import G16LogFileDisk, G16LogFileMemory
 from molop.io.QM_models.G16LogFileFrame import (
@@ -34,11 +38,7 @@ SPLIT_PATTERN_2 = "Standard orientation:"
 
 
 class G16LogFileParserMixin:
-    _file_content: str
-    _file_path: str
-    only_extract_structure: bool
-
-    def _parse_metadata(self, file_content: str) -> dict[str, Any]:
+    def _parse_metadata(self, file_content: str) -> dict[str, Any] | None:
         metadata: dict[str, Any] = {"qm_software": "Gaussian"}
         self._file_content = file_content
         if version := self._parse_version():
@@ -54,7 +54,7 @@ class G16LogFileParserMixin:
         transform_matrix = self._parse_standard_orientation_transformation_matrix()
         if transform_matrix is not None:
             metadata["standard_orientation_transformation_matrix"] = transform_matrix
-        if self.only_extract_structure:
+        if cast(_HasFileParseMethod, self).only_extract_structure:
             return metadata
         if solvent := self._parse_solvent():
             metadata["solvent"] = solvent
@@ -72,6 +72,7 @@ class G16LogFileParserMixin:
         return metadata
 
     def _split_file(self, file_content: str) -> Sequence[str]:
+        split_ = SPLIT_PATTERN
         if SPLIT_PATTERN in file_content:
             split_ = SPLIT_PATTERN
         elif SPLIT_PATTERN_2 in file_content:
@@ -195,9 +196,10 @@ class G16LogFileParserMixin:
             nonlocal focus_content
             try:
                 sub_focus_content, sub_continued_content = pattern.split_content(focus_content)
+                file_path = getattr(self, "_file_path", None)
                 moloplogger.debug(
                     f"{key} focus content: \n{sub_focus_content}\n{key} focus content end"
-                    f"\ncorresponding file: {self._file_path}"
+                    f"\ncorresponding file: {file_path}"
                 )
                 if matches := pattern.get_matches(sub_focus_content):
                     tail_dict[key] = matches[0][0]
@@ -257,11 +259,10 @@ class G16LogFileParserMemory(
     _chem_file = G16LogFileMemory
     _frame_parser = G16LogFileFrameParserMemory
 
-
 class G16LogFileParserDisk(
     G16LogFileParserMixin,
     BaseFileParserDisk[G16LogFileDisk, G16LogFileFrameDisk, G16LogFileFrameParserDisk],
 ):
-    _allowed_formats_ = (".log", ".g16", ".gal", ".out", ".irc")
+    allowed_formats = (".log", ".g16", ".gal", ".out", ".irc", "gau")
     _chem_file = G16LogFileDisk
     _frame_parser = G16LogFileFrameParserDisk

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-30 14:30:03
 LastEditors: TMJ
-LastEditTime: 2025-12-14 20:24:50
+LastEditTime: 2026-02-04 15:17:29
 Description: 请填写简介
 """
 
@@ -39,6 +39,6 @@ class GJFFileParserDisk(
     GJFFileParserMixin,
     BaseFileParserDisk[GJFFileDisk, GJFFileFrameDisk, GJFFileFrameParserDisk],
 ):
-    _allowed_formats_ = ("gjf", "gif", "com", ".gau", ".gjc")
+    allowed_formats = ("gjf", "gif", "com", ".gau", ".gjc")
     _frame_parser = GJFFileFrameParserDisk
     _chem_file = GJFFileDisk

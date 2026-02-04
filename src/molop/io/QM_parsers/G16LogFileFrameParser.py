@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import Any, cast
 
 import numpy as np
 from pint.facets.numpy.quantity import NumpyQuantity
@@ -17,7 +17,7 @@ from molop.io.base_models.DataClasses import (
     TotalSpin,
     Vibrations,
 )
-from molop.io.base_models.FrameParser import BaseFrameParser
+from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
 from molop.io.base_models.SearchPattern import MolOPPattern
 from molop.io.patterns.G16Patterns import g16_log_patterns
 from molop.io.QM_models.G16LogFileFrame import (
@@ -47,21 +47,7 @@ def extract_coords(
         return None, None
 
 
-class G16FileFrameParserProtocol(Protocol):
-    _block: str
-    only_extract_structure: bool
-    _file_frame_class_: type[G16LogFileFrameDisk] | type[G16LogFileFrameMemory]
-
-
-if TYPE_CHECKING:
-
-    class _G16LogFileFrameParserProtocol(G16FileFrameParserProtocol): ...
-else:
-
-    class _G16LogFileFrameParserProtocol: ...
-
-
-class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
+class G16LogFileFrameParserMixin:
     def _parse_frame(self) -> Mapping[str, Any]:
         infos: dict[str, Any] = {"qm_software": "Gaussian"}
         if time := self._parse_time():
@@ -75,7 +61,7 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
             atoms, standard_orientation_coords = coords_match
             infos["standard_coords"] = standard_orientation_coords
             infos["atoms"] = atoms
-        if self.only_extract_structure:
+        if cast(_HasParseMethod, self).only_extract_structure:
             return infos
         if (rotation_consts := self._parse_rotation_consts()) is not None:
             infos["rotation_constants"] = rotation_consts
@@ -133,7 +119,9 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
         return infos
 
     def _parse_time(self) -> PlainQuantity | None:
-        if time_match := g16_log_patterns.PROCEDURE_TIME.match_content(self._block):
+        if time_match := g16_log_patterns.PROCEDURE_TIME.match_content(
+            cast(_HasParseMethod, self)._block
+        ):
             return (
                 sum(float(time_part[1]) + float(time_part[2]) for time_part in time_match)
                 * atom_ureg.second
@@ -141,7 +129,9 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
         return None
 
     def _parse_coords(self) -> tuple[list[int] | None, NumpyQuantity | None]:
-        focus_content, continued_content = g16_log_patterns.INPUT_COORDS.split_content(self._block)
+        focus_content, continued_content = g16_log_patterns.INPUT_COORDS.split_content(
+            cast(_HasParseMethod, self)._block
+        )
         if focus_content == "":
             return None, None
         if coords_match := g16_log_patterns.INPUT_COORDS.get_matches(focus_content):
@@ -152,7 +142,9 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
     def _parse_coords_standard_orientation(
         self,
     ) -> tuple[list[int] | None, NumpyQuantity | None]:
-        focus_content, self._block = g16_log_patterns.STANDARD_COORDS.split_content(self._block)
+        focus_content, self._block = g16_log_patterns.STANDARD_COORDS.split_content(
+            cast(_HasParseMethod, self)._block
+        )
         if focus_content == "":
             return None, None
         if coords_match := g16_log_patterns.STANDARD_COORDS.get_matches(focus_content):
@@ -160,7 +152,9 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
         return None, None
 
     def _parse_rotation_consts(self) -> NumpyQuantity | None:
-        if matches := g16_log_patterns.ROTATIONAL_CONST.get_matches(self._block):
+        if matches := g16_log_patterns.ROTATIONAL_CONST.get_matches(
+            cast(_HasParseMethod, self)._block
+        ):
             return np.array(list(map(float, matches[0]))) * atom_ureg.gigahertz
         return None
 
@@ -169,7 +163,9 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
     ) -> tuple[Energies | None, TotalSpin | None]:
         scf_energies_dict: dict[str, PlainQuantity | None] = {}
         total_spin_dict: dict[str, float | None] = {}
-        focus_content, self._block = g16_log_patterns.SCF_ENERGIES.split_content(self._block)
+        focus_content, self._block = g16_log_patterns.SCF_ENERGIES.split_content(
+            cast(_HasParseMethod, self)._block
+        )
         if focus_content == "":
             return (
                 (Energies.model_validate(scf_energies_dict) if scf_energies_dict else None),
@@ -203,7 +199,7 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
 
     def _parse_polarizability(self) -> Polarizability | None:
         focus_content, self._block = g16_log_patterns.ISOTROPIC_POLARIZABILITY.split_content(
-            self._block
+            cast(_HasParseMethod, self)._block
         )
         if focus_content == "":
             return None
@@ -218,7 +214,7 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
         polars: dict[str, Any] = {}
         try:
             focus_content, self._block = g16_log_patterns.POPULATION_ANALYSIS.split_content(
-                self._block
+                cast(_HasParseMethod, self)._block
             )
             if focus_content == "":
                 if mo:
@@ -349,13 +345,13 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
 
     def _parse_vibrations(self) -> Vibrations | None:
         vib_dict: dict[str, Any] = {}
-        start_index = self._block.find(
+        start_index = cast(_HasParseMethod, self)._block.find(
             "Harmonic frequencies (cm**-1), IR intensities (KM/Mole), Raman scattering"
         )
-        end_index = self._block.find("-------------------", start_index)
+        end_index = cast(_HasParseMethod, self)._block.find("-------------------", start_index)
         if start_index == -1 or end_index == -1:
             focus_content, self._block = g16_log_patterns.FREQUENCY_ANALYSIS.split_content(
-                self._block
+                cast(_HasParseMethod, self)._block
             )
         else:
             focus_content = self._block[start_index:end_index]
@@ -430,7 +426,7 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
     def _parse_thermal_infos(self) -> ThermalInformations | None:
         thermal_dict: dict[str, Any] = {}
         focus_content, self._block = g16_log_patterns.THERMOCHEMISTRY_PART.split_content(
-            self._block
+            cast(_HasParseMethod, self)._block
         )
         if matches := g16_log_patterns.THERMOCHEMISTRY_CORRECTION.get_matches(focus_content):
             mapping = {
@@ -464,7 +460,9 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
         return None
 
     def _parse_forces(self) -> NumpyQuantity | None:
-        focus_content, self._block = g16_log_patterns.FORCES_IN_CARTESIAN.split_content(self._block)
+        focus_content, self._block = g16_log_patterns.FORCES_IN_CARTESIAN.split_content(
+            cast(_HasParseMethod, self)._block
+        )
         if focus_content == "":
             return None
         if matches := g16_log_patterns.FORCES_IN_CARTESIAN.get_matches(focus_content):
@@ -478,7 +476,7 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
 
     def _parse_hessian(self) -> NumpyQuantity | None:
         focus_content, self._block = g16_log_patterns.HESSIAN_IN_CARTESIAN.split_content(
-            self._block
+            cast(_HasParseMethod, self)._block
         )
         if matches := g16_log_patterns.HESSIAN_IN_CARTESIAN.get_matches(focus_content):
             hessian_dict: dict[int, list[float]] = {}
@@ -500,14 +498,16 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
 
     def _parse_berny(self) -> GeometryOptimizationStatus | None:
         berny_dict: dict[str, float] = {}
-        start_index = self._block.find("Item               Value     Threshold  Converged?")
-        end_index = self._block.find(
+        start_index = cast(_HasParseMethod, self)._block.find(
+            "Item               Value     Threshold  Converged?"
+        )
+        end_index = cast(_HasParseMethod, self)._block.find(
             "GradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGrad",
             start_index,
         )
         if start_index == -1 or end_index == -1:
             focus_content, self._block = g16_log_patterns.BERNY_STATE_MAJOR_PART.split_content(
-                self._block
+                cast(_HasParseMethod, self)._block
             )
             if focus_content == "":
                 focus_content, self._block = g16_log_patterns.BERNY_STATE_BACKUP_PART.split_content(
@@ -543,7 +543,7 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
     ) -> Polarizability | None:
         polarizability_dict: dict[str, Any] = {}
         focus_content, self._block = g16_log_patterns.ELECTRIC_DIPOLE_PART.split_content(
-            self._block
+            cast(_HasParseMethod, self)._block
         )
         if focus_content == "":
             return None
@@ -570,7 +570,9 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
 
     def _parse_tail(self) -> dict[str, Any]:
         tail_dict: dict[str, Any] = {}
-        focus_content, _ = g16_log_patterns.ARCHIVE_TAIL.split_content(self._block)
+        focus_content, _ = g16_log_patterns.ARCHIVE_TAIL.split_content(
+            cast(_HasParseMethod, self)._block
+        )
         focus_content = focus_content.replace("\n ", "")
 
         def parse_and_update(pattern: MolOPPattern, key: str):
@@ -616,7 +618,7 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
     def _parse_tail_energies(self) -> Energies | None:
         energy_dict: dict[str, Any] = {}
         focus_content, self._block = g16_log_patterns.ENERGIES_IN_ARCHIVE_TAIL.split_content(
-            self._block
+            cast(_HasParseMethod, self)._block
         )
         if focus_content == "":
             return None
@@ -664,7 +666,9 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
 
     def _parse_tail_polarizability(self) -> Polarizability | None:
         polarizability_dict: dict[str, Any] = {}
-        if matches := g16_log_patterns.DIPOLE_IN_ARCHIVE_TAIL.get_matches(self._block):
+        if matches := g16_log_patterns.DIPOLE_IN_ARCHIVE_TAIL.get_matches(
+            cast(_HasParseMethod, self)._block
+        ):
             polarizability_dict["dipole"] = (
                 np.array([float(match[1]) for match in matches[1:]]) * atom_ureg.debye
             )
@@ -682,7 +686,7 @@ class G16LogFileFrameParserMixin(_G16LogFileFrameParserProtocol):
 
     def _parse_tail_hessian(self) -> NumpyQuantity | None:
         focus_content, self._block = g16_log_patterns.HESSIAN_IN_ARCHIVE_TAIL.split_content(
-            self._block
+            cast(_HasParseMethod, self)._block
         )
         if matches := g16_log_patterns.HESSIAN_IN_ARCHIVE_TAIL.get_matches(focus_content):
             return (

@@ -101,7 +101,7 @@ def AutoParser(
         files = [file_path]
     else:
         base_path, pattern = split_path_pattern(file_path)
-        files = list(base_path.glob(pattern))
+        files = [str(p) for p in base_path.glob(pattern)]
     return FileBatchParserDisk(n_jobs=n_jobs).parse(
         files,
         total_charge=total_charge,

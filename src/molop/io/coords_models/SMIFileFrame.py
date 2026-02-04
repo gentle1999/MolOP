@@ -1,29 +1,21 @@
-from typing import TYPE_CHECKING, Protocol
+"""
+Author: TMJ
+Date: 2025-12-14 23:26:19
+LastEditors: TMJ
+LastEditTime: 2026-02-04 11:46:52
+Description: 请填写简介
+"""
 
-from molop.io.base_models.Bases import BaseDataClassWithUnit
-from molop.io.base_models.ChemFileFrame import BaseCoordsFrame
+from typing import cast
+
+from molop.io.base_models.ChemFileFrame import BaseCoordsFrame, _HasCoords
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
-from molop.utils.types import OMol, RdMol
 
 
-class SMIFileFrameProtocol(Protocol):
-    rdmol: RdMol | None
-    omol: OMol | None
-
-    def to_canonical_SMILES(self) -> str: ...
-
-
-if TYPE_CHECKING:
-
-    class _SMIFileFrameProtocol(SMIFileFrameProtocol, BaseDataClassWithUnit): ...
-else:
-
-    class _SMIFileFrameProtocol(BaseDataClassWithUnit): ...
-
-
-class SMIFileFrameMixin(_SMIFileFrameProtocol):
-    def _render(self) -> str:
-        return self.to_canonical_SMILES()
+class SMIFileFrameMixin:
+    def _render(self, **kwargs) -> str:
+        typed_self = cast(_HasCoords, self)
+        return typed_self.to_canonical_SMILES()
 
 
 class SMIFileFrameMemory(

@@ -2,21 +2,20 @@
 Author: TMJ
 Date: 2025-07-31 20:27:55
 LastEditors: TMJ
-LastEditTime: 2025-12-14 21:35:37
+LastEditTime: 2026-02-04 15:47:33
 Description: 请填写简介
 """
 
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import Any, ClassVar, cast
 
 import numpy as np
+from pint._typing import UnitLike
 from pint.facets.numpy.quantity import NumpyQuantity
 from pydantic import Field, model_validator
 from typing_extensions import Self
 
-from molop.io.base_models.ChemFileFrame import BaseCalcFrame
-from molop.io.base_models.DataClasses import Vibrations
+from molop.io.base_models.ChemFileFrame import BaseCalcFrame, _HasVibrations
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
-from molop.io.base_models.Molecule import Molecule
 from molop.io.patterns.G16Patterns import (
     SEMI_EMPIRICAL_METHODS,
     route_section_parser,
@@ -25,24 +24,10 @@ from molop.unit import atom_ureg
 from molop.utils.functions import find_rigid_transform, invert_transform_coords, transform_coords
 
 
-class G16LogFileFrameProtocol(Protocol):
-    vibrations: Vibrations | None
-    functional: str
-    basis_set: str
-    method: str
-
-    def log_with_file_info(self, content: str, level: str = "info"): ...
-
-
-if TYPE_CHECKING:
-
-    class _G16LogFileFrameProtocol(G16LogFileFrameProtocol, Molecule): ...
-else:
-
-    class _G16LogFileFrameProtocol(Molecule): ...
-
-
-class G16LogFileFrameMixin(_G16LogFileFrameProtocol):
+class G16LogFileFrameMixin:
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "standard_orientation_coords": atom_ureg.angstrom
+    }
     qm_software: str = Field(default="Gaussian")
     options: str = Field(default="", description="options comment")
     title_card: str = Field(default="", description="title card")
@@ -63,21 +48,20 @@ class G16LogFileFrameMixin(_G16LogFileFrameProtocol):
         title="Atom coordinates with standard orientation",
     )
 
-    def _add_default_units(self) -> None:
-        super()._add_default_units()
-        self._default_units.update({"standard_orientation_coords": atom_ureg.angstrom})
-
     @model_validator(mode="after")
     def _post_processing(self) -> Self:
-        if self.standard_coords is not None and (len(self.coords) == len(self.standard_coords)):
+        typed_self = cast(_HasVibrations, self)
+        if self.standard_coords is not None and (
+            len(typed_self.coords) == len(self.standard_coords)
+        ):
             self.standard_orientation_transformation_matrix = find_rigid_transform(
-                self.coords.m, self.standard_coords.m
+                typed_self.coords.m, self.standard_coords.m
             )
 
-        if len(self.coords) != len(self.atoms):  # no input orientation found
+        if len(typed_self.coords) != len(typed_self.atoms):  # no input orientation found
             if self.standard_coords is not None:
                 if self.standard_orientation_transformation_matrix is not None:
-                    self.coords = (
+                    typed_self.coords = (
                         invert_transform_coords(
                             self.standard_coords.m,
                             self.standard_orientation_transformation_matrix,
@@ -89,7 +73,7 @@ class G16LogFileFrameMixin(_G16LogFileFrameProtocol):
                     #     level="warning",
                     # )
                 elif self.standard_orientation_transformation_matrix is None:
-                    self.coords = self.standard_coords
+                    typed_self.coords = self.standard_coords
             else:  # no standard coords found
                 raise ValueError(
                     "The number of atoms and coordinates do not match, "
@@ -100,35 +84,37 @@ class G16LogFileFrameMixin(_G16LogFileFrameProtocol):
             and self.standard_orientation_transformation_matrix is not None
         ):
             self.standard_coords = (
-                transform_coords(self.coords.m, self.standard_orientation_transformation_matrix)
-                * self.coords.u
+                transform_coords(
+                    typed_self.coords.m, self.standard_orientation_transformation_matrix
+                )
+                * typed_self.coords.u
             )
         if (
             self.standard_orientation_transformation_matrix is not None
-            and self.vibrations is not None
+            and typed_self.vibrations is not None
         ):
-            self.vibrations.transform_orientation(
+            typed_self.vibrations.transform_orientation(
                 self.standard_orientation_transformation_matrix, inverse=True
             )
 
-        if self.basis_set.lower() == "genecp":
-            self.basis_set = "pseudopotential"
+        if typed_self.basis_set.lower() == "genecp":
+            typed_self.basis_set = "pseudopotential"
         for semi in SEMI_EMPIRICAL_METHODS:
-            if semi in self.functional.lower():
-                self.method = "SEMI-EMPIRICAL"
+            if semi in typed_self.functional.lower():
+                typed_self.method = "SEMI-EMPIRICAL"
                 break
         else:
-            if self.functional.lower().endswith("hf"):
-                self.method = "HF"
-            if self.functional.lower().endswith("fc"):
-                self.method = "FC"
+            if typed_self.functional.lower().endswith("hf"):
+                typed_self.method = "HF"
+            if typed_self.functional.lower().endswith("fc"):
+                typed_self.method = "FC"
             else:
-                self.method = "DFT"
+                typed_self.method = "DFT"
         if "em" in self.route_params:
-            self.functional = f"{self.functional}-{self.route_params['em'].upper()}"
+            typed_self.functional = f"{typed_self.functional}-{self.route_params['em'].upper()}"
         if "empiricaldispersion" in self.route_params:
-            self.functional = (
-                f"{self.functional}-{self.route_params['empiricaldispersion'].upper()}"
+            typed_self.functional = (
+                f"{typed_self.functional}-{self.route_params['empiricaldispersion'].upper()}"
             )
         return self
 
@@ -147,7 +133,5 @@ class G16LogFileFrameMemory(
 
 
 class G16LogFileFrameDisk(
-    DiskStorageMixin,
-    G16LogFileFrameMixin,
-    BaseCalcFrame["G16LogFileFrameDisk"],
+    DiskStorageMixin, G16LogFileFrameMixin, BaseCalcFrame["G16LogFileFrameDisk"]
 ): ...

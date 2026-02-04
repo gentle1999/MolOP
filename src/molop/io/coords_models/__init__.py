@@ -8,6 +8,7 @@ Description: 请填写简介
 
 from .GJFFile import GJFFileDisk, GJFFileFrameDisk, GJFFileFrameMemory, GJFFileMemory
 from .SDFFile import SDFFileDisk, SDFFileFrameDisk, SDFFileFrameMemory, SDFFileMemory
+from .SMIFile import SMIFileDisk, SMIFileFrameDisk, SMIFileFrameMemory, SMIFileMemory
 from .XYZFile import XYZFileDisk, XYZFileFrameDisk, XYZFileFrameMemory, XYZFileMemory
 
 
@@ -24,4 +25,8 @@ __all__ = [
     "SDFFileMemory",
     "SDFFileFrameDisk",
     "SDFFileFrameMemory",
+    "SMIFileDisk",
+    "SMIFileMemory",
+    "SMIFileFrameDisk",
+    "SMIFileFrameMemory",
 ]

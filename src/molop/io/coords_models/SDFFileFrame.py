@@ -2,34 +2,19 @@
 Author: TMJ
 Date: 2025-07-29 16:53:34
 LastEditors: TMJ
-LastEditTime: 2025-12-14 21:30:00
+LastEditTime: 2026-02-04 11:00:34
 Description: 请填写简介
 """
 
-from typing import TYPE_CHECKING, Literal, Protocol
+from typing import Literal, cast
 
 from rdkit import Chem
 
-from molop.io.base_models.Bases import BaseDataClassWithUnit
-from molop.io.base_models.ChemFileFrame import BaseCoordsFrame
+from molop.io.base_models.ChemFileFrame import BaseCoordsFrame, _HasCoords
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
-from molop.utils.types import OMol, RdMol
 
 
-class SDFFileFrameProtocol(Protocol):
-    rdmol: RdMol | None
-    omol: OMol | None
-
-
-if TYPE_CHECKING:
-
-    class _SDFFileFrameProtocol(SDFFileFrameProtocol, BaseDataClassWithUnit): ...
-else:
-
-    class _SDFFileFrameProtocol(BaseDataClassWithUnit): ...
-
-
-class SDFFileFrameMixin(_SDFFileFrameProtocol):
+class SDFFileFrameMixin:
     def _render(self, engine: Literal["rdkit", "openbabel"] = "rdkit", **kwargs) -> str:
         """
         Render the SDFFileFrame as a string.
@@ -37,10 +22,11 @@ class SDFFileFrameMixin(_SDFFileFrameProtocol):
         Returns:
             str: The rendered SDFFileFrame.
         """
+        typed_self = cast(_HasCoords, self)
         if engine == "rdkit":
-            return Chem.MolToMolBlock(self.rdmol) if self.rdmol else ""
+            return Chem.MolToMolBlock(typed_self.rdmol) if typed_self.rdmol else ""
         elif engine == "openbabel":
-            return self.omol.write("sdf") if self.omol else ""  # type: ignore
+            return cast(str, typed_self.omol.write("sdf")) if typed_self.omol else ""
         else:
             raise ValueError(f"Unsupported engine: {engine}")
 

@@ -2,37 +2,19 @@
 Author: TMJ
 Date: 2025-07-28 23:05:56
 LastEditors: TMJ
-LastEditTime: 2025-12-14 21:30:22
+LastEditTime: 2026-02-04 11:49:07
 Description: 请填写简介
 """
 
-from typing import TYPE_CHECKING, Protocol
+from typing import cast
 
-from pint.facets.numpy.quantity import NumpyQuantity
 from pydantic import Field
 
-from molop.io.base_models.Bases import BaseDataClassWithUnit
-from molop.io.base_models.ChemFileFrame import BaseCoordsFrame
+from molop.io.base_models.ChemFileFrame import BaseCoordsFrame, _HasCoords
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
 
 
-class XYZFileFrameProtocol(Protocol):
-    atoms: list[int]
-    atom_symbols: list[str]
-    coords: NumpyQuantity
-    charge: int
-    multiplicity: int
-
-
-if TYPE_CHECKING:
-
-    class _XYZFileFrameProtocol(XYZFileFrameProtocol, BaseDataClassWithUnit): ...
-else:
-
-    class _XYZFileFrameProtocol(BaseDataClassWithUnit): ...
-
-
-class XYZFileFrameMixin(_XYZFileFrameProtocol):
+class XYZFileFrameMixin:
     comment: str = Field(default="", description="comment")
 
     def _render(self, **kwargs) -> str:
@@ -41,17 +23,20 @@ class XYZFileFrameMixin(_XYZFileFrameProtocol):
         Returns:
             str: The rendered XYZ file frame.
         """
+        typed_self = cast(_HasCoords, self)
         return (
-            f"{len(self.atoms)}\n"
+            f"{len(typed_self.atoms)}\n"
             + (
                 f"{self.comment}\n"
                 if self.comment
-                else f"charge {self.charge} multiplicity {self.multiplicity}\n"
+                else f"charge {typed_self.charge} multiplicity {typed_self.multiplicity}\n"
             )
             + "\n".join(
                 [
                     f"{atom:10s}{x:18.10f}{y:18.10f}{z:18.10f}"
-                    for atom, (x, y, z) in zip(self.atom_symbols, self.coords.m, strict=True)
+                    for atom, (x, y, z) in zip(
+                        typed_self.atom_symbols, typed_self.coords.m, strict=True
+                    )
                 ]
             )
         )

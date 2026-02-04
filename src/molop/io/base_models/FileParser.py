@@ -2,27 +2,37 @@
 Author: TMJ
 Date: 2025-07-29 22:14:37
 LastEditors: TMJ
-LastEditTime: 2025-12-14 21:34:43
+LastEditTime: 2026-02-03 18:01:37
 Description: 请填写简介
 """
 
 import os
 from abc import abstractmethod
 from collections.abc import Sequence
-from typing import Any, Generic
+from typing import Any, ClassVar, Generic, Protocol, TypeVar, cast
 
 from pydantic import Field, PrivateAttr
 
 from molop.io.base_models.Bases import BaseDataClassWithUnit
-from molop.io.base_models.ChemFile import ChemFile
-from molop.io.base_models.ChemFileFrame import ChemFileFrame
-from molop.io.base_models.FrameParser import FrameParser
+from molop.io.base_models.ChemFile import BaseChemFile
+from molop.io.base_models.ChemFileFrame import BaseChemFileFrame
+from molop.io.base_models.FrameParser import BaseFrameParser
 
 
-class BaseFileParser(BaseDataClassWithUnit, Generic[ChemFile, ChemFileFrame, FrameParser]):
+FileT = TypeVar("FileT", bound=BaseChemFile)
+FrameT = TypeVar("FrameT", bound=BaseChemFileFrame)
+FrameParserT = TypeVar("FrameParserT", bound=BaseFrameParser[Any])
+
+
+class _HasFileParseMethod(Protocol):
+    _file_content: str
+    only_extract_structure: bool
+
+
+class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]):
     # add by subclass
-    _frame_parser: type[FrameParser] = PrivateAttr()
-    _chem_file: type[ChemFile] = PrivateAttr()
+    _frame_parser: type[FrameParserT] = PrivateAttr()
+    _chem_file: type[FileT] = PrivateAttr()
     _file_path: str | None = PrivateAttr(default=None)
 
     forced_charge: int | None = Field(
@@ -53,17 +63,17 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[ChemFile, ChemFileFrame, Fra
 
     def _parse_frame(
         self, frame_content: str, *, additional_data: dict[str, Any] | None = None
-    ) -> ChemFileFrame:
+    ) -> FrameT:
         """Parse a single frame."""
         frame_parser = self._frame_parser()
-        return frame_parser.parse(frame_content, additional_data=additional_data)
+        return cast(FrameT, frame_parser.parse(frame_content, additional_data=additional_data))
 
     def _parse(
         self,
         file_content: str,
         total_charge: int | None = None,
         total_multiplicity: int | None = None,
-    ) -> ChemFile:
+    ) -> FileT:
         """Parse the file content."""
         metadata: dict[str, Any] = {
             "file_path": self._file_path,
@@ -90,8 +100,6 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[ChemFile, ChemFileFrame, Fra
             _chem_file.append(frame)
         return _chem_file
 
-    def _add_default_units(self) -> None: ...
-
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
             ("FileParser", "forced_charge"): self.forced_charge,
@@ -101,22 +109,22 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[ChemFile, ChemFileFrame, Fra
         }
 
 
-class BaseFileParserMemory(BaseFileParser[ChemFile, ChemFileFrame, FrameParser]):
+class BaseFileParserMemory(BaseFileParser[FileT, FrameT, FrameParserT]):
     def parse(
         self,
         file_content: str,
         total_charge: int | None = None,
         total_multiplicity: int | None = None,
         release_file_content: bool = False,
-    ) -> ChemFile:
+    ) -> FileT:
         _chem_file = self._parse(file_content, total_charge, total_multiplicity)
         if release_file_content:
             _chem_file.release_file_content()
         return _chem_file
 
 
-class BaseFileParserDisk(BaseFileParser[ChemFile, ChemFileFrame, FrameParser]):
-    _allowed_formats_: Sequence[str] = PrivateAttr(default_factory=tuple)
+class BaseFileParserDisk(BaseFileParser[FileT, FrameT, FrameParserT]):
+    allowed_formats: ClassVar[tuple[str, ...]] = ()
 
     @classmethod
     def _check_file_path(cls, file_path: str) -> str:
@@ -136,12 +144,11 @@ class BaseFileParserDisk(BaseFileParser[ChemFile, ChemFileFrame, FrameParser]):
             raise ValueError(f"File {file_path} does not exist.")
         if not os.path.isfile(file_path):
             raise ValueError(f"Path {file_path} is not a file.")
-        for fmt in cls._allowed_formats_.default:  # type: ignore
+        for fmt in cls.allowed_formats:
             if file_path.endswith(fmt):
                 return file_path
         raise ValueError(
-            f"File {file_path} has an invalid format. "
-            f"Allowed formats: {cls._allowed_formats_.default}."  # type: ignore
+            f"File {file_path} has an invalid format. Allowed formats: {cls.allowed_formats}."
         )
 
     def parse(
@@ -150,7 +157,7 @@ class BaseFileParserDisk(BaseFileParser[ChemFile, ChemFileFrame, FrameParser]):
         total_charge: int | None = None,
         total_multiplicity: int | None = None,
         release_file_content: bool = False,
-    ) -> ChemFile:
+    ) -> FileT:
         with open(file_path) as f:
             file_content = f.read()
         self._file_path = self._check_file_path(os.path.abspath(file_path))

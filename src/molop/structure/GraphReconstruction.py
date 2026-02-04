@@ -415,6 +415,8 @@ def pre_clean(omol: pybel.Molecule) -> pybel.Molecule:
     smarts = pybel.Smarts("[#6]1([#6]2)([#6]3)[#7]23[#6]1")
     while res := smarts.findall(omol):
         idxs = res.pop(0)
+        bcp_n = None
+        bcp_c = None
         for idx in idxs:
             indexs = set(idxs) - {idx}
             if all(omol.OBMol.GetBond(idx, idx_2) for idx_2 in indexs):
@@ -422,12 +424,15 @@ def pre_clean(omol: pybel.Molecule) -> pybel.Molecule:
                     bcp_n = idx
                 if omol.OBMol.GetAtom(idx).GetAtomicNum() == 6:
                     bcp_c = idx
-        omol.OBMol.DeleteBond(omol.OBMol.GetBond(bcp_n, bcp_c))
-        moloplogger.debug(f"{DEBUG_TAG} | Fix N-BCP: {bcp_n} - {bcp_c}")
+        if bcp_n is not None and bcp_c is not None:
+            omol.OBMol.DeleteBond(omol.OBMol.GetBond(bcp_n, bcp_c))
+            moloplogger.debug(f"{DEBUG_TAG} | Fix N-BCP: {bcp_n} - {bcp_c}")
 
     smarts = pybel.Smarts("[#6]1([#6]2)[#7]2[#6]1")
     while res := smarts.findall(omol):
         idxs = res.pop(0)
+        amine_n = None
+        butyl_c = None
         for idx in idxs:
             indexs = set(idxs) - {idx}
             if all(omol.OBMol.GetBond(idx, idx_2) for idx_2 in indexs):
@@ -435,8 +440,9 @@ def pre_clean(omol: pybel.Molecule) -> pybel.Molecule:
                     amine_n = idx
                 if omol.OBMol.GetAtom(idx).GetAtomicNum() == 6:
                     butyl_c = idx
-        omol.OBMol.DeleteBond(omol.OBMol.GetBond(amine_n, butyl_c))
-        moloplogger.debug(f"{DEBUG_TAG} | Fix N-BCP: {amine_n} - {butyl_c}")
+        if amine_n is not None and butyl_c is not None:
+            omol.OBMol.DeleteBond(omol.OBMol.GetBond(amine_n, butyl_c))
+            moloplogger.debug(f"{DEBUG_TAG} | Fix N-BCP: {amine_n} - {butyl_c}")
 
     smarts = pybel.Smarts("[Siv5]-[O,F]")
     while res := smarts.findall(omol):
@@ -617,8 +623,8 @@ def break_deformed_ene(
         ):
             return omol
         idxs = res.pop(0)
-        bond: ob.OBBond = omol.OBMol.GetBond(idxs[0], idxs[1])
-        if bond.IsRotor() or bond.GetBondOrder() == 1:
+        bond2: ob.OBBond = omol.OBMol.GetBond(idxs[0], idxs[1])
+        if bond2.IsRotor() or bond2.GetBondOrder() == 1:
             continue
         torsion_angle = abs(omol.OBMol.GetTorsion(*idxs))
         torsion_angle = min(torsion_angle, 180 - torsion_angle)
@@ -627,11 +633,11 @@ def break_deformed_ene(
                 f"{DEBUG_TAG} | torsion angle: {torsion_angle}, tolerance: {tolerance}"
             )
             moloplogger.debug(f"{DEBUG_TAG} | break bond {idxs[0]} and {idxs[1]}")
-            atom1: ob.OBAtom = omol.OBMol.GetAtom(idxs[0])
-            atom2: ob.OBAtom = omol.OBMol.GetAtom(idxs[1])
-            bond.SetBondOrder(bond.GetBondOrder() - 1)
-            atom1.SetSpinMultiplicity(atom1.GetSpinMultiplicity() + 1)
-            atom2.SetSpinMultiplicity(atom2.GetSpinMultiplicity() + 1)
+            atom1_2: ob.OBAtom = omol.OBMol.GetAtom(idxs[0])
+            atom2_2: ob.OBAtom = omol.OBMol.GetAtom(idxs[1])
+            bond2.SetBondOrder(bond2.GetBondOrder() - 1)
+            atom1_2.SetSpinMultiplicity(atom1_2.GetSpinMultiplicity() + 1)
+            atom2_2.SetSpinMultiplicity(atom2_2.GetSpinMultiplicity() + 1)
 
     smarts = pybel.Smarts("[*]~[*+0](=,:[*+0])~[*]")
     res = list(smarts.findall(omol))
@@ -709,12 +715,12 @@ def break_one_bond(
         # Log debug information indicating the bond to be broken
         moloplogger.debug(f"{DEBUG_TAG} | break bond {idxs[0]} and {idxs[1]}: *[N+](*)=[O]")
         # Get and reduce the bond order of the found bond
-        bond: ob.OBBond = omol.OBMol.GetBond(idxs[0], idxs[1])
-        bond.SetBondOrder(bond.GetBondOrder() - 1)
-        begin_atom: ob.OBAtom = bond.GetBeginAtom()
-        end_atom: ob.OBAtom = bond.GetEndAtom()
-        end_atom.SetSpinMultiplicity(end_atom.GetSpinMultiplicity() + 1)
-        begin_atom.SetFormalCharge(int(begin_atom.GetFormalCharge() - 1))
+        bond2: ob.OBBond = omol.OBMol.GetBond(idxs[0], idxs[1])
+        bond2.SetBondOrder(bond2.GetBondOrder() - 1)
+        begin_atom2: ob.OBAtom = bond2.GetBeginAtom()
+        end_atom2: ob.OBAtom = bond2.GetEndAtom()
+        end_atom2.SetSpinMultiplicity(end_atom2.GetSpinMultiplicity() + 1)
+        begin_atom2.SetFormalCharge(int(begin_atom2.GetFormalCharge() - 1))
         given_charge += 1
     smarts = pybel.Smarts("[*+0]:[*+0]")
     # Loop to find suitable bonds, if only aromatic bonds are present
@@ -729,29 +735,30 @@ def break_one_bond(
         # Log debug information indicating the bond to be broken
         moloplogger.debug(f"{DEBUG_TAG} | break bond {idxs[0]} and {idxs[1]}: Aromatic")
         # Get and reduce the bond order of the found bond
-        bond: ob.OBBond = omol.OBMol.GetBond(idxs[0], idxs[1])
-        bond.SetBondOrder(bond.GetBondOrder() - 1)
-        begin_atom: ob.OBAtom = bond.GetBeginAtom()
-        end_atom: ob.OBAtom = bond.GetEndAtom()
-        begin_atom.SetSpinMultiplicity(begin_atom.GetSpinMultiplicity() + 1)
-        end_atom.SetSpinMultiplicity(end_atom.GetSpinMultiplicity() + 1)
+        bond3: ob.OBBond = omol.OBMol.GetBond(idxs[0], idxs[1])
+        bond3.SetBondOrder(bond3.GetBondOrder() - 1)
+        begin_atom3: ob.OBAtom = bond3.GetBeginAtom()
+        end_atom3: ob.OBAtom = bond3.GetEndAtom()
+        begin_atom3.SetSpinMultiplicity(begin_atom3.GetSpinMultiplicity() + 1)
+        end_atom3.SetSpinMultiplicity(end_atom3.GetSpinMultiplicity() + 1)
 
     if all(bond.GetBondOrder() == 1 for bond in ob.OBMolBondIter(omol.OBMol)):
-        for bond in ob.OBMolBondIter(omol.OBMol):
+        for single_bond in ob.OBMolBondIter(omol.OBMol):
             if (
                 sum(atom.GetSpinMultiplicity() for atom in ob.OBMolAtomIter(omol.OBMol))
                 >= abs(given_charge) + given_radical
             ):
                 return omol, given_charge
             moloplogger.debug(
-                f"{DEBUG_TAG} | break bond {bond.GetBeginAtom().GetIdx()} and {bond.GetEndAtom().GetIdx()}:"
+                f"{DEBUG_TAG} | break bond {single_bond.GetBeginAtom().GetIdx()} and "
+                f"{single_bond.GetEndAtom().GetIdx()}:"
                 f" Single bond"
             )
-            begin_atom: ob.OBAtom = bond.GetBeginAtom()
-            end_atom: ob.OBAtom = bond.GetEndAtom()
-            begin_atom.SetSpinMultiplicity(begin_atom.GetSpinMultiplicity() + 1)
-            end_atom.SetSpinMultiplicity(end_atom.GetSpinMultiplicity() + 1)
-            omol.OBMol.DeleteBond(bond)
+            single_begin_atom: ob.OBAtom = single_bond.GetBeginAtom()
+            single_end_atom: ob.OBAtom = single_bond.GetEndAtom()
+            single_begin_atom.SetSpinMultiplicity(single_begin_atom.GetSpinMultiplicity() + 1)
+            single_end_atom.SetSpinMultiplicity(single_end_atom.GetSpinMultiplicity() + 1)
+            omol.OBMol.DeleteBond(single_bond)
     return omol, given_charge
 
 
@@ -934,9 +941,9 @@ def eliminate_positive_charges(
     smarts = pybel.Smarts("[#6v3+0,#6v2+0,#1v0+0]")
     while given_charge > 0 and (res := smarts.findall(omol)):
         idxs = res.pop(0)
-        abatom: ob.OBAtom = omol.OBMol.GetAtom(idxs[0])
-        abatom.SetSpinMultiplicity(abatom.GetSpinMultiplicity() - 1)
-        abatom.SetFormalCharge(1)
+        abatom2: ob.OBAtom = omol.OBMol.GetAtom(idxs[0])
+        abatom2.SetSpinMultiplicity(abatom2.GetSpinMultiplicity() - 1)
+        abatom2.SetFormalCharge(1)
         given_charge -= 1
     for atom in omol.atoms:
         obatom: ob.OBAtom = atom.OBAtom
@@ -984,29 +991,29 @@ def eliminate_negative_charges(
         obatom1.SetFormalCharge(-to_add)
         given_charge += to_add
         moloplogger.debug(
-            f"{DEBUG_TAG} | Eliminate negative charge: {atom.OBAtom.GetIdx()} with charge {to_add}"
+            f"{DEBUG_TAG} | Eliminate negative charge: {obatom1.GetIdx()} with charge {to_add}"
         )
     smarts = pybel.Smarts("[#1v0+0]")
     while given_charge < 0 and (res := smarts.findall(omol)):
         idxs = res.pop(0)
-        obatom1: ob.OBAtom = omol.OBMol.GetAtom(idxs[0])
-        to_add = min(obatom1.GetSpinMultiplicity(), abs(given_charge))
-        obatom1.SetSpinMultiplicity(obatom1.GetSpinMultiplicity() - to_add)
-        obatom1.SetFormalCharge(-to_add)
+        obatom2: ob.OBAtom = omol.OBMol.GetAtom(idxs[0])
+        to_add = min(obatom2.GetSpinMultiplicity(), abs(given_charge))
+        obatom2.SetSpinMultiplicity(obatom2.GetSpinMultiplicity() - to_add)
+        obatom2.SetFormalCharge(-to_add)
         given_charge += to_add
         moloplogger.debug(
-            f"{DEBUG_TAG} | Eliminate negative charge: {atom.OBAtom.GetIdx()} with charge {to_add}"
+            f"{DEBUG_TAG} | Eliminate negative charge: {obatom2.GetIdx()} with charge {to_add}"
         )
     smarts = pybel.Smarts("[#6v2+0,#6v1+0,#6v0+0]")
     while given_charge < 0 and (res := smarts.findall(omol)):
         idxs = res.pop(0)
-        obatom1: ob.OBAtom = omol.OBMol.GetAtom(idxs[0])
-        to_add = min(obatom1.GetSpinMultiplicity(), abs(given_charge))
-        obatom1.SetSpinMultiplicity(obatom1.GetSpinMultiplicity() - to_add)
-        obatom1.SetFormalCharge(-to_add)
+        obatom3: ob.OBAtom = omol.OBMol.GetAtom(idxs[0])
+        to_add = min(obatom3.GetSpinMultiplicity(), abs(given_charge))
+        obatom3.SetSpinMultiplicity(obatom3.GetSpinMultiplicity() - to_add)
+        obatom3.SetFormalCharge(-to_add)
         given_charge += to_add
         moloplogger.debug(
-            f"{DEBUG_TAG} | Eliminate negative charge: {atom.OBAtom.GetIdx()} with charge {to_add}"
+            f"{DEBUG_TAG} | Eliminate negative charge: {obatom3.GetIdx()} with charge {to_add}"
         )
     return omol, given_charge
 

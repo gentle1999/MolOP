@@ -68,7 +68,7 @@ def single_file_parser(
                 return None
             moloplogger.debug(
                 f"Failed to parse file {file_path} with {parser.__class__.__name__}, "
-                f"trying {possible_parsers[idx + 1].__name__} instead"
+                f"trying {possible_parsers[idx + 1].__class__.__name__} instead"
             )
     return None
 

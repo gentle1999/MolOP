@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-31 20:27:42
 LastEditors: TMJ
-LastEditTime: 2025-12-15 00:24:16
+LastEditTime: 2026-02-04 12:56:39
 Description: 请填写简介
 """
 
@@ -12,7 +12,6 @@ import numpy as np
 from pydantic import Field, model_validator
 from typing_extensions import Self
 
-from molop.io.base_models.Bases import BaseDataClassWithUnit
 from molop.io.base_models.ChemFile import BaseCalcFile
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
 from molop.io.patterns.G16Patterns import (
@@ -25,7 +24,7 @@ from molop.io.QM_models.G16LogFileFrame import (
 )
 
 
-class G16LogFileMixin(BaseDataClassWithUnit):
+class G16LogFileMixin:
     qm_software: str = Field(default="Gaussian")
     options: str = Field(default="", description="options comment")
     title_card: str = Field(default="", description="title card")

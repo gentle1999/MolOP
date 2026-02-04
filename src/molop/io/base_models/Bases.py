@@ -2,19 +2,18 @@
 Author: TMJ
 Date: 2025-07-26 19:08:33
 LastEditors: TMJ
-LastEditTime: 2025-11-30 18:46:56
+LastEditTime: 2026-02-04 15:47:57
 Description: 请填写简介
 """
 
 from abc import abstractmethod
 from collections.abc import Mapping
-from typing import Any, Union, overload
+from typing import Any, ClassVar
 
 import numpy as np
 import pandas as pd
-from pint._typing import Magnitude, UnitLike
-from pint.facets.plain import PlainQuantity
-from pydantic import BaseModel, ConfigDict, PrivateAttr, model_validator
+from pint._typing import UnitLike
+from pydantic import BaseModel, ConfigDict, model_validator
 from typing_extensions import Self
 
 from molop.config import molopconfig, moloplogger
@@ -23,50 +22,12 @@ from molop.unit import unit_transform
 
 class BaseDataClassWithUnit(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
-    _default_units: dict[str, UnitLike] = PrivateAttr(default_factory=dict)
-    _set_default_units: bool = PrivateAttr(default=False)
+    default_units: ClassVar[dict[str, UnitLike]] = {}
+    set_default_units: ClassVar[bool] = False
 
     @staticmethod
-    @overload
-    def __unitless_dump__(item: PlainQuantity) -> Magnitude: ...
-    @staticmethod
-    @overload
-    def __unitless_dump__(item: np.ndarray) -> list: ...
-    @staticmethod
-    @overload
-    def __unitless_dump__(item: Magnitude) -> Magnitude: ...
-    @staticmethod
-    @overload
-    def __unitless_dump__(item: str) -> str: ...
-    @staticmethod
-    @overload
-    def __unitless_dump__(item: list) -> list: ...
-    @staticmethod
-    @overload
-    def __unitless_dump__(item: tuple) -> tuple: ...
-    @staticmethod
-    @overload
-    def __unitless_dump__(item: Mapping[str, Any]) -> Mapping[str, Any]: ...
-    @staticmethod
-    @overload
-    def __unitless_dump__(
-        item: "BaseDataClassWithUnit",
-    ) -> str | list | tuple | Mapping[str, Any] | Magnitude: ...
-    @staticmethod
-    def __unitless_dump__(
-        item: Union[
-            PlainQuantity,
-            np.ndarray,
-            str,
-            list,
-            tuple,
-            Magnitude,
-            Mapping[str, Any],
-            "BaseDataClassWithUnit",
-        ],
-        **kwargs,
-    ) -> str | list | tuple | Mapping[str, Any] | Magnitude:
-        if isinstance(item, PlainQuantity):
+    def __unitless_dump__(item: Any, **kwargs) -> Any:
+        if hasattr(item, "m") and hasattr(item, "units"):
             if isinstance(item.m, np.ndarray):
                 return item.m.tolist()
             else:
@@ -99,15 +60,10 @@ class BaseDataClassWithUnit(BaseModel):
 
     @model_validator(mode="after")
     def __unit_transform__(self) -> Self:
-        self._add_default_units()
-        if self._set_default_units or molopconfig.force_unit_transform:
-            self._transform_units(self._default_units)
+        if self.set_default_units or molopconfig.force_unit_transform:
+            self._transform_units(self.default_units)
             moloplogger.debug(f"Data class {self.__class__.__name__} parsed.\n{self}")
         return self
-
-    @abstractmethod
-    def _add_default_units(self) -> None:
-        raise NotImplementedError
 
     def _transform_units(self, unit_dict: Mapping[str, UnitLike]) -> None:
         for key, unit in unit_dict.items():
@@ -120,3 +76,13 @@ class BaseDataClassWithUnit(BaseModel):
     @abstractmethod
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         raise NotImplementedError
+
+    @classmethod
+    def __pydantic_init_subclass__(cls, **kwargs):
+        super().__pydantic_init_subclass__(**kwargs)
+        final_default_units: dict[str, UnitLike] = {}
+        for base in reversed(cls.__mro__):
+            if hasattr(base, "default_units"):
+                base_default_units = getattr(base, "default_units", {})
+                final_default_units.update(base_default_units)
+        cls.default_units = final_default_units
