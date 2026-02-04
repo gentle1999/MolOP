@@ -1,5 +1,6 @@
+import sys
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Any, NoReturn, TypeAlias, TypeVar
+from typing import TYPE_CHECKING, Any, NoReturn, TypeAlias, TypeVar, cast, overload
 
 from joblib import Parallel, delayed
 from tqdm import tqdm as st_tqdm
@@ -21,10 +22,17 @@ else:
     TqdmObj: TypeAlias = Any
 
 
+_best_tqdm_cls: TqdmType | None = None
+
+
 def _is_notebook() -> bool:
     try:
-        from IPython.core.getipython import get_ipython
-
+        ipython_module = sys.modules.get("IPython")
+        if ipython_module is None:
+            return False
+        get_ipython = getattr(ipython_module, "get_ipython", None)
+        if get_ipython is None:
+            return False
         ipython_instance = get_ipython()
         if ipython_instance is None:
             return False
@@ -37,31 +45,39 @@ def _is_notebook() -> bool:
     return True
 
 
-class AdaptiveProgress:
-    _best_tqdm_cls: TqdmType | None = None
+def _detect_best_backend() -> TqdmType:
+    if _is_notebook():
+        try:
+            from tqdm.notebook import tqdm_notebook as nb_tqdm
 
-    def __new__(cls, iterable=None, *args, **kwargs) -> TqdmObj:
-        if cls._best_tqdm_cls is None:
-            cls._best_tqdm_cls = cls._detect_best_backend()
-        return cls._best_tqdm_cls(iterable, *args, **kwargs)
+            return nb_tqdm
+        except ImportError:
+            pass
+    else:
+        try:
+            from tqdm.rich import tqdm_rich as rich_tqdm
 
-    @classmethod
-    def _detect_best_backend(cls) -> TqdmType:
-        if _is_notebook():
-            try:
-                from tqdm.notebook import tqdm_notebook as nb_tqdm
+            return rich_tqdm
+        except ImportError:
+            pass
+    return st_tqdm
 
-                return nb_tqdm
-            except ImportError:
-                pass
-        else:
-            try:
-                from tqdm.rich import tqdm_rich as rich_tqdm
 
-                return rich_tqdm
-            except ImportError:
-                pass
-        return st_tqdm
+@overload
+def AdaptiveProgress(iterable: Iterable[T], *args: Any, **kwargs: Any) -> Iterable[T]: ...
+@overload
+def AdaptiveProgress(iterable: None = ..., *args: Any, **kwargs: Any) -> TqdmObj: ...
+def AdaptiveProgress(
+    iterable: Iterable[T] | None = None, *args: Any, **kwargs: Any
+) -> Iterable[T] | TqdmObj:
+    global _best_tqdm_cls
+    if _best_tqdm_cls is None:
+        _best_tqdm_cls = _detect_best_backend()
+    tqdm_factory = cast(Callable[..., Any], _best_tqdm_cls)
+    obj = tqdm_factory(iterable, *args, **kwargs)
+    if iterable is None:
+        return cast(TqdmObj, obj)
+    return cast(Iterable[T], obj)
 
 
 def parallel_map(
@@ -106,6 +122,10 @@ def parallel_map(
     )
     if n_jobs == 1:
         return [func(item) for item in iterator]
-    return Parallel(n_jobs=n_jobs, return_as="list", **joblib_kwargs)(
+
+    results = Parallel(n_jobs=n_jobs, return_as="list", **joblib_kwargs)(
         delayed(func)(item) for item in iterator
-    )  # pyright: ignore[reportReturnType]
+    )
+    if results is None:
+        raise ValueError("The parallel map returned None.")
+    return cast(list[R], list(results))
