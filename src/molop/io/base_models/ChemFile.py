@@ -17,6 +17,7 @@ from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr
 
 from molop.config import moloplogger
+from molop.io import codec_registry
 from molop.io.base_models.Bases import BaseDataClassWithUnit
 from molop.io.base_models.ChemFileFrame import BaseCalcFrame, BaseChemFileFrame, BaseCoordsFrame
 from molop.io.base_models.DataClasses import (
@@ -24,7 +25,6 @@ from molop.io.base_models.DataClasses import (
     ImplicitSolvation,
     Status,
 )
-from molop.io.base_models.Molecule import EXCLUDE_FIELDS_NO_BOND
 from molop.unit import atom_ureg
 
 
@@ -149,64 +149,6 @@ class BaseChemFile(BaseDataClassWithUnit, Sequence[FrameT], Generic[FrameT]):
         assert file_path is None or not os.path.isdir(file_path), (
             "file_path should be a file path or None"
         )
-        if format == "xyz":
-            from molop.io.coords_models.XYZFile import XYZFileDisk, XYZFileFrameDisk
-
-            FileClass = XYZFileDisk
-            FrameClass = XYZFileFrameDisk
-        elif format == "sdf":
-            from molop.io.coords_models.SDFFile import SDFFileDisk, SDFFileFrameDisk
-
-            FileClass = SDFFileDisk
-            FrameClass = SDFFileFrameDisk
-        elif format == "gjf":
-            from molop.io.coords_models.GJFFile import GJFFileDisk, GJFFileFrameDisk
-
-            FileClass = GJFFileDisk
-            FrameClass = GJFFileFrameDisk
-        elif format == "smi":
-            from molop.io.coords_models.SMIFile import SMIFileDisk, SMIFileFrameDisk
-
-            FileClass = SMIFileDisk
-            FrameClass = SMIFileFrameDisk
-        elif format == "cml":
-            engine = kwargs.pop("engine", "rdkit")
-
-            def _render_one(frame: FrameT) -> str:
-                return frame.to_CML_block(engine=engine)
-
-            if isinstance(frameID, int):
-                frame_ids = [frameID if frameID >= 0 else len(self.frames) + frameID]
-            elif frameID == "all":
-                frame_ids = list(range(len(self.frames)))
-            elif isinstance(frameID, slice):
-                frame_ids = list(range(len(self.frames)))[frameID]
-            elif isinstance(frameID, Sequence):
-                frame_ids = []
-                for i in frameID:
-                    assert isinstance(i, int), "frameID should be a sequence of integers"
-                    frame_ids.append(i)
-            else:
-                raise ValueError("frameID should be an integer, a sequence of integers, or 'all'")
-
-            rendered_frames = [_render_one(frame) for frame in self[frame_ids]]
-            rendered_file: str | list[str] = (
-                "\n".join(rendered_frames) if embed_in_one_file else rendered_frames
-            )
-
-            if file_path:
-                base = os.path.basename(file_path).split(".")[0]
-                if isinstance(rendered_file, str):
-                    with open(base + ".cml", "w") as f:
-                        f.write(rendered_file)
-                else:
-                    for idx, frame_content in zip(frame_ids, rendered_file, strict=True):
-                        with open(base + f"{idx:03d}.cml", "w") as f:
-                            f.write(frame_content)
-            return rendered_file
-        else:
-            raise NotImplementedError(f"Format {format} not supported")
-
         if isinstance(frameID, int):
             frame_ids = [frameID if frameID >= 0 else len(self.frames) + frameID]
         elif frameID == "all":
@@ -221,25 +163,28 @@ class BaseChemFile(BaseDataClassWithUnit, Sequence[FrameT], Generic[FrameT]):
         else:
             raise ValueError("frameID should be an integer, a sequence of integers, or 'all'")
 
-        file = FileClass.model_validate(self.model_dump())
-
-        for frame in self[frame_ids]:
-            file.append(
-                FrameClass.model_validate(frame.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND))  # type: ignore[arg-type]
-            )
-        rendered_file = file._render(frameID="all", embed_in_one_file=embed_in_one_file, **kwargs)
+        graph_policy = kwargs.pop("graph_policy", "prefer")
+        rendered = cast(
+            str | list[str],
+            codec_registry.write(
+                format,
+                self,
+                frameID=frame_ids,
+                embed_in_one_file=embed_in_one_file,
+                graph_policy=graph_policy,
+                **kwargs,
+            ),
+        )
         if file_path:
-            if isinstance(rendered_file, str):
-                with open(os.path.basename(file_path).split(".")[0] + f".{format}", "w") as f:
-                    f.write(rendered_file)
-            elif isinstance(rendered_file, list):
-                for idx, frame_content in zip(frame_ids, rendered_file, strict=True):
-                    with open(
-                        os.path.basename(file_path).split(".")[0] + f"{idx:03d}.{format}",
-                        "w",
-                    ) as f:
+            base = os.path.basename(file_path).split(".")[0]
+            if isinstance(rendered, str):
+                with open(base + f".{format}", "w") as f:
+                    f.write(rendered)
+            elif isinstance(rendered, list):
+                for idx, frame_content in zip(frame_ids, rendered, strict=True):
+                    with open(base + f"{idx:03d}.{format}", "w") as f:
                         f.write(frame_content)
-        return rendered_file
+        return rendered
 
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {

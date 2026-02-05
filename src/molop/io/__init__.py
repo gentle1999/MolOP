@@ -2,40 +2,16 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2025-12-14 15:38:27
+LastEditTime: 2026-02-05 15:12:31
 Description: 请填写简介
 """
 
 import glob
 import os
 from pathlib import Path
-from typing import Literal
 
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
 from molop.io.FileBatchParserDisk import FileBatchParserDisk
-from molop.io.types import (
-    G16LogFileParserDisk,
-    G16LogFileParserMemory,
-    GJFFileParserDisk,
-    GJFFileParserMemory,
-    SDFFileParserDisk,
-    SDFFileParserMemory,
-    XYZFileParserDisk,
-    XYZFileParserMemory,
-)
-
-
-__all__ = [
-    "AutoParser",
-    "GJFFileParserMemory",
-    "XYZFileParserMemory",
-    "SDFFileParserMemory",
-    "G16LogFileParserMemory",
-    "G16LogFileParserDisk",
-    "XYZFileParserDisk",
-    "SDFFileParserDisk",
-    "GJFFileParserDisk",
-]
 
 
 def split_path_pattern(path_str: str) -> tuple[Path, str]:
@@ -62,7 +38,7 @@ def AutoParser(
     only_extract_structure=False,
     only_last_frame=False,
     release_file_content: bool = True,
-    parser_detection: Literal["auto", "gjf", "xyz", "sdf", "g16log"] = "auto",
+    parser_detection: str = "auto",
 ) -> FileBatchModelDisk:
     """
     The Entrypoint of MolOP
@@ -82,8 +58,8 @@ def AutoParser(
             if True, only extract the last frame, else extract all frames.
         release_file_content (bool):
             if True, release the file content after parsing, else keep the file content in memory.
-        parser_detection (Literal["auto", "gjf", "xyz", "sdf", "g16log"]):
-            if "auto", use the file extension to detect the parser, else use the given parser.
+        parser_detection (str):
+            if "auto", use the file extension to detect the parser, else use the given format id.
 
     Returns:
         FileBatchParserDisk

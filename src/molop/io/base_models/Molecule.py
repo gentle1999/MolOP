@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2026-02-04 10:32:16
+LastEditTime: 2026-02-05 19:59:16
 Description: 请填写简介
 """
 
@@ -213,7 +213,7 @@ class Molecule(BaseDataClassWithUnit):
         """
         if self.coords is None:
             raise ValueError("No coordinates found!")
-        from molop.io.coords_models.XYZFileFrame import XYZFileFrameDisk
+        from molop.io.logic.coords_frame_models.XYZFileFrame import XYZFileFrameDisk
 
         return XYZFileFrameDisk.model_validate(
             self.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)
@@ -232,7 +232,7 @@ class Molecule(BaseDataClassWithUnit):
         """
         if self.rdmol is None:
             raise ValueError("SDF building failed. No RDKit molecule recovered.")
-        from molop.io.coords_models.SDFFileFrame import SDFFileFrameDisk
+        from molop.io.logic.coords_frame_models.SDFFileFrame import SDFFileFrameDisk
 
         return SDFFileFrameDisk.model_validate(
             self.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)
@@ -291,7 +291,7 @@ class Molecule(BaseDataClassWithUnit):
         Returns:
             str: The GJF block.
         """
-        from molop.io.coords_models.GJFFileFrame import GJFFileFrameDisk
+        from molop.io.logic.coords_frame_models.GJFFileFrame import GJFFileFrameDisk
 
         return GJFFileFrameDisk.model_validate(
             self.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)

@@ -1,36 +1,52 @@
+from __future__ import annotations
+
 import operator
 import os
 import random
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, MutableMapping, Sequence
-from typing import Literal, TypeAlias, TypeVar, Union, overload
+from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar, overload
 
 import pandas as pd
 
 from molop.config import molopconfig, moloplogger
-from molop.io.coords_models import GJFFileDisk, SDFFileDisk, SMIFileDisk, XYZFileDisk
-from molop.io.QM_models import G16LogFileDisk
 from molop.utils.progressbar import parallel_map
 
 
-FileDiskType: TypeAlias = (
-    type[G16LogFileDisk]
-    | type[GJFFileDisk]
-    | type[XYZFileDisk]
-    | type[SDFFileDisk]
-    | type[SMIFileDisk]
-)
-FileDiskObj: TypeAlias = G16LogFileDisk | GJFFileDisk | XYZFileDisk | SDFFileDisk | SMIFileDisk
-FILEDISK_CLASSES = (
-    G16LogFileDisk,
-    GJFFileDisk,
-    XYZFileDisk,
-    SDFFileDisk,
-    SMIFileDisk,
-)
-QMFileDiskType: TypeAlias = type[G16LogFileDisk]
-QMFileDiskObj: TypeAlias = G16LogFileDisk
+if TYPE_CHECKING:
+    from molop.io._typing_catalog import FileDiskObj
+else:
+    FileDiskObj: TypeAlias = Any
+
+
+def _looks_like_disk_file(obj: object) -> bool:
+    """Compromise runtime validation.
+
+    We avoid importing concrete file model classes here to prevent import graph
+    coupling. Instead we check for a minimal, file-like surface.
+    """
+
+    if not hasattr(obj, "file_path"):
+        return False
+    file_path = getattr(obj, "file_path", None)
+    if not isinstance(file_path, str) or not file_path:
+        return False
+    return all(
+        hasattr(obj, name)
+        for name in (
+            "filename",
+            "file_format",
+            "__len__",
+            "__getitem__",
+            "format_transform",
+            "to_summary_series",
+            "release_file_content",
+        )
+    )
+
+
 R = TypeVar("R")
+TFile = TypeVar("TFile")
 
 
 class FileBatchModelDisk(MutableMapping):
@@ -68,11 +84,9 @@ class FileBatchModelDisk(MutableMapping):
         Parameters:
             diskfiles (Iterable[FileDiscObj]): The disk files to add.
         """
-        for diskfile in sorted(diskfiles):
-            if not isinstance(diskfile, FILEDISK_CLASSES):
-                raise TypeError(
-                    f"file_parsers should be a list in which each element is a subclass of {FileDiskObj}, got {type(diskfile)}"
-                )
+        for diskfile in sorted(diskfiles, key=lambda d: d.file_path):
+            if not _looks_like_disk_file(diskfile):
+                raise TypeError(f"diskfiles must be MolOP file-like objects, got {type(diskfile)}")
             if diskfile.file_path not in self.__diskfiles:
                 self[diskfile.file_path] = diskfile
             else:
@@ -100,13 +114,14 @@ class FileBatchModelDisk(MutableMapping):
     @overload
     def __getitem__(self, key: str) -> FileDiskObj: ...
     @overload
-    def __getitem__(self, key: slice) -> "FileBatchModelDisk": ...
+    def __getitem__(self, key: slice) -> FileBatchModelDisk: ...
     @overload
-    def __getitem__(self, key: Sequence[int]) -> "FileBatchModelDisk": ...
+    def __getitem__(self, key: Sequence[int]) -> FileBatchModelDisk: ...
 
     def __getitem__(
-        self, key: int | str | slice | Sequence[int | str]
-    ) -> Union[FileDiskObj, "FileBatchModelDisk"]:
+        self,
+        key: int | str | slice | Sequence[int | str],
+    ) -> FileDiskObj | FileBatchModelDisk:
         if isinstance(key, int):
             return list(self.__diskfiles.values())[key]
         if isinstance(key, str):
@@ -117,13 +132,31 @@ class FileBatchModelDisk(MutableMapping):
             return self.new_batch([self[k] for k in key])
         raise TypeError(f"Invalid key type: {type(key)}")
 
+    @overload
+    def require(self, key: int, expected_cls: type[TFile]) -> TFile: ...
+
+    @overload
+    def require(self, key: str, expected_cls: type[TFile]) -> TFile: ...
+
+    def require(self, key: int | str, expected_cls: type[TFile]) -> TFile:
+        """Return a file with precise type hints, validating at runtime.
+
+        This avoids hardcoding a global list of concrete file classes while still
+        allowing callers to opt into format-specific APIs.
+        """
+
+        value = self[key]
+        if not isinstance(value, expected_cls):
+            raise TypeError(
+                f"Expected {expected_cls.__name__} for key {key!r}, got {type(value).__name__}"
+            )
+        return value
+
     def __setitem__(self, key: str, value: FileDiskObj) -> None:
         if not isinstance(key, str):
             raise TypeError(f"Key should be a string, got {type(key)}")
-        if not isinstance(value, FILEDISK_CLASSES):
-            raise TypeError(
-                f"file_parsers should be a list in which each element is a subclass of {FileDiskObj}, got {type(value)}"
-            )
+        if not _looks_like_disk_file(value):
+            raise TypeError(f"Value must be a MolOP file-like object, got {type(value)}")
         if key in self.__diskfiles:
             moloplogger.warning(
                 f"File {key} already exists in the batch, replaced with the new one"
@@ -148,7 +181,16 @@ class FileBatchModelDisk(MutableMapping):
         self.__index += 1
         return self[self.__index - 1]
 
-    def __add__(self, other: "FileBatchModelDisk") -> "FileBatchModelDisk":
+    def keys(self):
+        return self.__diskfiles.keys()
+
+    def values(self):
+        return self.__diskfiles.values()
+
+    def items(self):
+        return self.__diskfiles.items()
+
+    def __add__(self, other: FileBatchModelDisk) -> FileBatchModelDisk:
         """
         Operator +: Merge two batches (Union).
 
@@ -166,7 +208,7 @@ class FileBatchModelDisk(MutableMapping):
         new_batch.add_diskfiles(other.__diskfiles.values())
         return new_batch
 
-    def __sub__(self, other: Union["FileBatchModelDisk", Iterable[str]]) -> "FileBatchModelDisk":
+    def __sub__(self, other: FileBatchModelDisk | Iterable[str]) -> FileBatchModelDisk:
         """
         Operator -: Remove files from the batch (Difference).
 
@@ -192,7 +234,7 @@ class FileBatchModelDisk(MutableMapping):
         filtered_files = [f for f in self.__diskfiles.values() if f.file_path not in other_paths]
         return self.new_batch(filtered_files)
 
-    def __and__(self, other: Union["FileBatchModelDisk", Iterable[str]]) -> "FileBatchModelDisk":
+    def __and__(self, other: FileBatchModelDisk | Iterable[str]) -> FileBatchModelDisk:
         """
         Operator &: Keep only files present in both (Intersection).
 
@@ -242,7 +284,7 @@ class FileBatchModelDisk(MutableMapping):
         state: Literal["ts", "error", "opt", "normal"],
         negate: bool = False,
         n_jobs: int = 1,
-    ) -> "FileBatchModelDisk":
+    ) -> FileBatchModelDisk:
         """
         Filter the files based on their state using the new execution engine.
 
@@ -256,8 +298,6 @@ class FileBatchModelDisk(MutableMapping):
         """
 
         def judge_func(diskfile: FileDiskObj) -> bool:
-            if not isinstance(diskfile, FileDiskObj):
-                return False
             if state == "ts":
                 return diskfile[-1].is_TS != negate
             elif state == "error":
@@ -271,10 +311,7 @@ class FileBatchModelDisk(MutableMapping):
                     and (opt_frame := getattr(diskfile, "closest_optimized_frame", None))
                     is not None
                 ):
-                    return (
-                        diskfile[-1].is_normal != negate
-                        and opt_frame.is_optimized != negate
-                    )
+                    return diskfile[-1].is_normal != negate and opt_frame.is_optimized != negate
                 return False
             elif state == "normal":
                 return diskfile[-1].is_normal != negate
@@ -333,7 +370,7 @@ class FileBatchModelDisk(MutableMapping):
         self,
         condition: Callable[[FileDiskObj], bool],
         n_jobs: int = 1,
-    ) -> "FileBatchModelDisk":
+    ) -> FileBatchModelDisk:
         """
         Filter the files based on a custom callable condition.
 
@@ -353,7 +390,7 @@ class FileBatchModelDisk(MutableMapping):
 
     def groupby(
         self, key_func: Callable[[FileDiskObj], str], n_jobs: int = 1
-    ) -> dict[str, "FileBatchModelDisk"]:
+    ) -> dict[str, FileBatchModelDisk]:
         """
         Group the files into multiple batches based on a key function.
 
@@ -531,7 +568,7 @@ class FileBatchModelDisk(MutableMapping):
             **kwargs,
         )
 
-    def sample(self, n: int = 10, seed: int | None = None) -> "FileBatchModelDisk":
+    def sample(self, n: int = 10, seed: int | None = None) -> FileBatchModelDisk:
         """
         Randomly sample n files from the batch.
 
