@@ -17,7 +17,7 @@ else
 	OPEN_CMD := xdg-open
 endif
 
-.PHONY: help init install-uv install sync update tree format lint type-check check test test-cov clean distclean build release rename docker-build docker-up docker-down
+.PHONY: help init install-uv install sync update tree format lint type-check pyright check-types check test test-cov clean distclean build release rename docker-build docker-up docker-down gen-typing-stubs check-typing-stubs
 
 # =============================================================================
 # 📝 帮助文档
@@ -35,6 +35,8 @@ help:
 	@echo "  make format      ✨ Format code (ruff)"
 	@echo "  make lint        🔍 Lint code (ruff check --fix)"
 	@echo "  make type-check  🦆 Static type check (mypy)"
+	@echo "  make gen-typing-stubs     🧩 Generate typing stubs (.pyi)"
+	@echo "  make check-typing-stubs   ✅ Verify typing stubs are up to date"
 	@echo "  make check       🛡️ Run all checks (format + lint + type-check)"
 	@echo ""
 	@echo "🧪 \033[1;33mTesting:\033[0m"
@@ -133,7 +135,17 @@ pyright:
 
 check-types: type-check pyright
 
-check: format lint check-types
+check: format lint check-types check-typing-stubs
+
+# =============================================================================
+# 🧩 Typing stub generation
+# =============================================================================
+
+gen-typing-stubs:
+	uv run python scripts/generate_io_typing_catalog.py
+
+check-typing-stubs:
+	uv run python scripts/generate_io_typing_catalog.py --check
 
 # =============================================================================
 # 🧪 测试与覆盖率
