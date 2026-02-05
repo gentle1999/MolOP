@@ -2,15 +2,16 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2025-12-23 19:43:26
+LastEditTime: 2026-02-05 19:59:16
 Description: 请填写简介
 """
 
 from collections.abc import Sequence
-from typing import Any, Literal, Optional
+from typing import Any, ClassVar, Literal, Optional
 
 import numpy as np
 from openbabel import pybel
+from pint._typing import UnitLike
 from pint.facets.numpy.quantity import NumpyQuantity
 from pydantic import Field, PrivateAttr, computed_field
 from rdkit import Chem
@@ -51,6 +52,7 @@ EXCLUDE_FIELDS_NO_BOND = {
 
 
 class Molecule(BaseDataClassWithUnit):
+    default_units: ClassVar[dict[str, UnitLike]] = {"coords": atom_ureg.angstrom}
     atoms: list[int] = Field(default_factory=list, description="atom numbers", title="Atom numbers")
     coords: NumpyQuantity = Field(
         default=np.array([[]]) * atom_ureg.angstrom,
@@ -60,15 +62,12 @@ class Molecule(BaseDataClassWithUnit):
     charge: int = Field(default=0, description="Molecule total charge")
     multiplicity: int = Field(default=1, description="Molecule total multiplicity")
 
-    def _add_default_units(self) -> None:
-        self._default_units.update({"coords": atom_ureg.angstrom})
-
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def smiles(self) -> str:
         return self.to_SMILES()
 
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def canonical_smiles(self) -> str:
         return self.to_canonical_SMILES()
@@ -214,7 +213,7 @@ class Molecule(BaseDataClassWithUnit):
         """
         if self.coords is None:
             raise ValueError("No coordinates found!")
-        from molop.io.coords_models.XYZFileFrame import XYZFileFrameDisk
+        from molop.io.logic.coords_frame_models.XYZFileFrame import XYZFileFrameDisk
 
         return XYZFileFrameDisk.model_validate(
             self.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)
@@ -233,7 +232,7 @@ class Molecule(BaseDataClassWithUnit):
         """
         if self.rdmol is None:
             raise ValueError("SDF building failed. No RDKit molecule recovered.")
-        from molop.io.coords_models.SDFFileFrame import SDFFileFrameDisk
+        from molop.io.logic.coords_frame_models.SDFFileFrame import SDFFileFrameDisk
 
         return SDFFileFrameDisk.model_validate(
             self.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)
@@ -251,7 +250,12 @@ class Molecule(BaseDataClassWithUnit):
         if engine == "rdkit":
             return Chem.MolToMrvBlock(self.rdmol)
         elif engine == "openbabel":
-            return self.omol.write("cml")  # type: ignore
+            if self.omol is None:
+                raise ValueError("CML building failed. No Openbabel molecule recovered.")
+            cml_text = self.omol.write("cml")
+            if cml_text is None:
+                raise ValueError("CML building failed. No CML text recovered.")
+            return cml_text
         else:
             raise ValueError(f"Unsupported engine: {engine}")
 
@@ -287,7 +291,7 @@ class Molecule(BaseDataClassWithUnit):
         Returns:
             str: The GJF block.
         """
-        from molop.io.coords_models.GJFFileFrame import GJFFileFrameDisk
+        from molop.io.logic.coords_frame_models.GJFFileFrame import GJFFileFrameDisk
 
         return GJFFileFrameDisk.model_validate(
             self.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)

@@ -34,8 +34,9 @@ def xyz_to_rdmol(
     possible_omol = xyz2omol(xyz_block, total_charge, total_radical_electrons)
     if possible_omol is None:
         return None
-    return (
-        make_dative_bonds(omol_to_rdmol(possible_omol, total_charge, total_radical_electrons))
-        if make_dative
-        else omol_to_rdmol(possible_omol, total_charge, total_radical_electrons)
-    )
+    rdmol_opt = omol_to_rdmol(possible_omol, total_charge, total_radical_electrons)
+    if rdmol_opt is None:
+        return None
+    if make_dative:
+        return make_dative_bonds(Chem.RWMol(rdmol_opt))
+    return rdmol_opt

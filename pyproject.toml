@@ -64,6 +64,8 @@ dev = [
     "mkdocstrings-python>=1.19.0",
     "mypy>=1.18.2",
     "nbconvert>=7.16.6",
+    "pydantic[mypy]>=2.12.5",
+    "pyright>=1.1.0",
     "pytest>=9.0.1",
     "pytest-cov>=7.0.0",
     "rich>=14.2.0",
@@ -120,6 +122,7 @@ pythonpath = ["src"]
 
 
 [tool.mypy]
+plugins = ['pydantic.mypy']
 warn_return_any = false        # 允许函数返回 Any (这对调用未加类型的第三方库很有用)
 warn_unused_configs = true     # 警告无用的配置
 explicit_package_bases = true  # 配合 src 目录结构
@@ -134,6 +137,12 @@ warn_unused_ignores = false     # 警告多余的 # type: ignore
 
 ignore_missing_imports = true
 exclude = ["tests", "scripts", "build", "dist"]
+
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
 
 
 [[tool.uv.index]]

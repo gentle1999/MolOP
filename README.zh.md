@@ -45,6 +45,32 @@ uv sync
   - **批量处理**: `FileBatchParserDisk` 和 `FileBatchModelDisk` 提供了强大的并行批量文件处理能力。
   - **入口**: `AutoParser` 函数是推荐的用户入口，可根据文件扩展名自动选择解析器。
 
+## 5. 开发规范（新增/扩展 IO 格式）
+
+本仓库的 IO 扩展目标是：开发者新增一种内置格式时，只需要专注于
+"解析逻辑 + 渲染逻辑 + 数据模型"，而不需要修改批处理/注册中心等基础代码。
+
+- **实现代码统一下沉到 `src/molop/io/logic/`**
+  - 文件级解析器：`src/molop/io/logic/coords_parsers/`、`src/molop/io/logic/QM_parsers/`
+  - 帧级解析器：`src/molop/io/logic/coords_frame_parsers/`、`src/molop/io/logic/QM_frame_parsers/`
+  - 文件级模型：`src/molop/io/logic/coords_models/`、`src/molop/io/logic/QM_models/`
+  - 帧级模型：`src/molop/io/logic/coords_frame_models/`、`src/molop/io/logic/QM_frame_models/`
+
+- **输入（Reader）注册：原位延迟注册**
+  - 在文件级 parser 模块中定义 `register(registry)`（例如 `.../coords_parsers/FooFileParser.py`）。
+  - 避免在模块顶层引入可选/重依赖（需要时在解析路径中局部 import）。
+
+- **输出（Writer）注册：原位延迟注册**
+  - 在文件级 model 模块中定义 `register(registry)`（例如 `.../coords_models/FooFile.py`）。
+  - 常用方式是通过 `FileRendererWriter` 调用 `FileMixin._render(...)`。
+
+- **懒加载原则**
+  - 不允许 import 时自动填充 registry。注册只在 `Registry.ensure_default_codecs_registered()` 触发。
+
+- **类型提示 stub（IDE 补全）**
+  - 新增/删除模型类后，运行：`make gen-typing-stubs`
+  - CI 会校验 stub 是否最新：`make check-typing-stubs`
+
 - **`molop.structure` (分子结构操作)**
 
   - `GraphReconstruction.py`: 从坐标恢复分子连接性（键）。

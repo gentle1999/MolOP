@@ -275,6 +275,9 @@ docs/*/structure_recovery_cases.md
 docs/*/tutorial_for_replacement.md
 optional.json
 *.json
+!pyrightconfig.json
 ts_inital_log
 GEMINI.md
 .pyscn
+
+.sisyphus

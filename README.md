@@ -38,25 +38,63 @@ uv sync
 `MolOP` adopts a modular and layered architecture to ensure code maintainability and extensibility.
 
 - **`molop.io` (Input/Output Core)**
-
   - **Design Pattern**: Adopts a **parser/model separation** design.
     - **Models (`...File`, `...Frame`)**: Based on Pydantic, used to store molecular data in a structured way. For example, `G16LogFile` contains multiple `G16LogFileFrame`s.
     - **Parsers (`...Parser`)**: Contain the parsing logic to extract data from raw text and populate the models.
   - **Batch Processing**: `FileBatchParserDisk` and `FileBatchModelDisk` provide powerful parallel batch file processing capabilities.
   - **Entry Point**: The `AutoParser` function is the recommended user entry point, which automatically selects a parser based on the file extension.
+  - **Codec Registry (Extensibility)**:
+    - Builtin codecs are discovered during lazy activation by scanning:
+      - `src/molop/io/logic/coords_parsers/` and `src/molop/io/logic/QM_parsers/` (reader registration)
+      - `src/molop/io/logic/coords_models/` and `src/molop/io/logic/QM_models/` (writer registration)
+    - To add a builtin codec, co-locate a `register(registry)` function next to:
+      - the file parser module (for reading)
+      - the file model module (for writing)
+    - Third-party packages can register codecs via Python entry points group `molop.codecs`.
+
+## 5. Development Conventions (IO Formats)
+
+This repository is structured so that adding a new builtin format does not
+require editing core batch logic or central codec lists.
+
+- **Logic lives under `src/molop/io/logic/`**
+  - File parsers: `src/molop/io/logic/coords_parsers/`, `src/molop/io/logic/QM_parsers/`
+  - Frame parsers: `src/molop/io/logic/coords_frame_parsers/`, `src/molop/io/logic/QM_frame_parsers/`
+  - File models: `src/molop/io/logic/coords_models/`, `src/molop/io/logic/QM_models/`
+  - Frame models: `src/molop/io/logic/coords_frame_models/`, `src/molop/io/logic/QM_frame_models/`
+
+- **Reader registration (input)**
+  - Put `register(registry)` in the *file parser* module (e.g., `.../coords_parsers/FooFileParser.py`).
+  - Keep imports light at module import time; if you need optional/heavy deps, import them inside parse paths.
+
+- **Writer registration (output)**
+  - Put `register(registry)` in the *file model* module (e.g., `.../coords_models/FooFile.py`).
+  - The writer should typically use `FileMixin._render(...)` via `FileRendererWriter`.
+
+- **Lazy activation rule**
+  - Do not populate registries at import time. Registration is triggered only by
+    `Registry.ensure_default_codecs_registered()`.
+
+- **Helper modules in scanned packages**
+  - Anything in the scanned packages may be imported during activation.
+  - For non-registrar helpers, prefer naming modules with a leading underscore
+    (e.g., `_helpers.py`) so the scanner skips them.
+
+- **Typing stubs (IDE hints)**
+  - After adding/removing model classes, regenerate the typing catalog stub:
+    - `make gen-typing-stubs`
+  - CI enforces it is up to date:
+    - `make check-typing-stubs`
 
 - **`molop.structure` (Molecular Structure Operations)**
-
   - `GraphReconstruction.py`: Recovers molecular connectivity (bonds) from coordinates.
   - `StructureTransformation.py`: Implements chemical structure editing, such as substituent replacement.
   - `GeometryTransformation.py`: Provides 3D geometry operations, such as molecular orientation.
 
 - **`molop.descriptor` (Molecular Descriptors)**
-
   - Encapsulates RDKit descriptors and the custom SPMS 3D structure descriptor.
 
 - **`molop.cli` (Command-Line Interface)**
-
   - Built on the `fire` library, providing powerful terminal tools.
 
 - **`molop.config` (Global Configuration)**
@@ -199,7 +237,6 @@ While implementing powerful features, `MolOP` also places great emphasis on code
 - **Extensive Use of Generics**: In the `molop.io` module, generics are widely used to define the relationships between parsers and data models. For example, the base class `BaseFileParser[ChemFile, ChemFileFrame, FrameParser]` is a generic class that allows subclasses (like `G16LogFileParser`) to specify the concrete model types they handle (such as `G16LogFile` and `G16LogFileFrame`) upon inheritance.
 
   This design brings two major benefits:
-
   1. **Code Reuse and Type Safety**: Generic logic (such as file reading, batch processing) can be implemented in the base class while ensuring strict type safety when subclasses handle specific data types.
   2. **Enhanced Robustness**: Through generic constraints, it can be statically guaranteed that a `G16LogFileParser` will only produce `G16LogFile` and its corresponding `Frame`, effectively preventing runtime errors caused by mismatched parsers and models in complex data flows.
 

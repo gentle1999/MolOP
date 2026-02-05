@@ -251,6 +251,7 @@ def build_mol_from_atoms_and_bonds(
     Chem.AssignCIPLabels(mol)
     for bond_indexes in bonds:
         begin_atom_idx, end_atom_idx, bond_type_idx, bond_stereo_idx = bond_indexes
+        bond_stereo = bond_stereo_list[bond_stereo_idx]
         mol.GetBondBetweenAtoms(begin_atom_idx, end_atom_idx).SetStereo(bond_stereo)
     return mol.GetMol()
 
@@ -440,6 +441,11 @@ def replace_mol(
         RdMol:
             The new molecule with the replacement.
     """
+    start: int | None = None
+    end: int | None = None
+    bond_tag: Chem.rdchem.BondType | None = None
+    rmol: Chem.RWMol | None = None
+    replacement: Chem.RWMol | RdMol | None = None
     if start_idx and end_idx:
         if (
             mol.GetBondBetweenAtoms(start_idx, end_idx)
@@ -469,10 +475,14 @@ def replace_mol(
                 unique_queried_idx = queried_idx_list[0]
             for atom in mol.GetAtomWithIdx(unique_queried_idx[0]).GetNeighbors():
                 if atom.GetIdx() not in unique_queried_idx:
-                    start = atom.GetIdx()
-                    end = unique_queried_idx[0]
-                    bond_tag = mol.GetBondBetweenAtoms(start, end).GetBondType()
+                    start_idx_value = int(atom.GetIdx())
+                    end_idx_value = int(unique_queried_idx[0])
+                    bond_tag = mol.GetBondBetweenAtoms(start_idx_value, end_idx_value).GetBondType()
+                    start = start_idx_value
+                    end = end_idx_value
                     break
+    if start is None or end is None or bond_tag is None:
+        raise ValueError("Failed to locate a valid bond for replacement.")
     assert any(atom.GetNumRadicalElectrons() for atom in replacement_mol.GetAtoms()), (
         "replacement_mol should have at least one radical atom."
     )
@@ -577,6 +587,8 @@ def replace_mol(
                 == bond_stereo_mapping[prefer_ZE]
             ):
                 break
+        if rmol is None:
+            raise RuntimeError("Failed to generate a replacement molecule.")
         for anchor in rmol.GetAtomWithIdx(0).GetNeighbors():
             if anchor.GetIdx() != new_start:
                 set_best_dihedral(
@@ -616,6 +628,8 @@ def replace_mol(
                 )
     else:
         raise ValueError(f"Unsupported bond type: {bond_tag}.")
+    assert rmol is not None
+    assert replacement is not None
     GeometryTransformation.standard_orient(rmol, [0, 1])
     # recover the original atom index of the skeleton
     atom_idxs = list(range(rmol.GetNumAtoms()))
@@ -885,6 +899,8 @@ def attempt_replacement(
     Returns:
         RdMol: The new molecule with the replacement.
     """
+    query_mol: RdMol | None = None
+    replacement_mol: RdMol | None = None
     random_seeds = list(range(1, attempt_num + 1))
     np.random.RandomState(randomSeed).shuffle(random_seeds)
 
@@ -896,6 +912,8 @@ def attempt_replacement(
         replacement_mol = Chem.MolFromSmiles(replacement)
     elif isinstance(replacement, (RdMol, Chem.RWMol)):
         replacement_mol = replacement
+    if query_mol is None or replacement_mol is None:
+        raise ValueError("query and replacement must be SMARTS/SMILES strings or RDKit Mol.")
 
     for random_seed in random_seeds:
         if replace_all:

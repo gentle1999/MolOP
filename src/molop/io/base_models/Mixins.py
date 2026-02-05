@@ -2,28 +2,39 @@
 Author: TMJ
 Date: 2025-07-29 12:36:28
 LastEditors: TMJ
-LastEditTime: 2025-12-16 14:56:32
+LastEditTime: 2026-02-04 16:04:37
 Description: 请填写简介
 """
 
 import os
-from abc import abstractmethod
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Literal, Protocol, overload
+from typing import Any, Literal, Protocol, cast, overload
 
 from pydantic import Field, computed_field
 from typing_extensions import Self
 
-from molop.io.base_models.Bases import BaseDataClassWithUnit
+
+class _RenderableFrame(Protocol):
+    frame_id: int
+
+    def _render(self, **kwargs) -> str: ...
 
 
-class MemoryStorageMixin(BaseDataClassWithUnit): ...
+class _HasRenderableFrames(Protocol):
+    frames: Sequence[_RenderableFrame]
+
+    def _render_frames_in_one_file(self, frameID: Sequence[int], **kwargs) -> str: ...
+
+    def _render_frames(self, frameID: Sequence[int], **kwargs) -> list[str]: ...
 
 
-class DiskStorageMixin(BaseDataClassWithUnit):
+class MemoryStorageMixin: ...
+
+
+class DiskStorageMixin:
     file_path: str = Field(default="", repr=False)
 
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator] # type: ignore[prop-decorator]
     @property
     def filename(self) -> str:
         """
@@ -72,42 +83,33 @@ class DiskStorageMixin(BaseDataClassWithUnit):
     def __lt__(self, other: Self) -> bool:
         return self.file_path < other.file_path
 
-    def __eq__(self, other: Self) -> bool:  # type: ignore[override]
+    def __eq__(self, other: Any) -> bool:
+        assert isinstance(other, DiskStorageMixin), (
+            "other should be an instance of DiskStorageMixin"
+        )
         return self.file_path == other.file_path
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple, Any]:
+    def to_summary_dict(self, brief: bool = True, **kwargs) -> dict[tuple[str, str], Any]:
         return {
             ("DiskStorage", "FilePath"): self.file_path,
             ("DiskStorage", "FileFormat"): self.file_format,
-            **super().to_summary_dict(**kwargs),  # type: ignore
+            **super().to_summary_dict(brief=brief, **kwargs),  # type: ignore
         }
 
 
-class FileProtocol(Protocol):
-    frames: Sequence
-
-
-if TYPE_CHECKING:
-
-    class _FileProtocol(FileProtocol, BaseDataClassWithUnit): ...
-else:
-
-    class _FileProtocol(BaseDataClassWithUnit): ...
-
-
-class FileMixin(_FileProtocol):
+class FileMixin:
     @overload
     def _render(
         self,
-        frameID: Sequence[int] | int | Literal["all"] = -1,
-        embed_in_one_file: Literal[True] = True,
+        frameID: Sequence[int] | int | Literal["all"],
+        embed_in_one_file: Literal[True],
         **kwargs,
     ) -> str: ...
     @overload
     def _render(
         self,
-        frameID: Sequence[int] | int | Literal["all"] = -1,
-        embed_in_one_file: Literal[False] = False,
+        frameID: Sequence[int] | int | Literal["all"],
+        embed_in_one_file: Literal[False],
         **kwargs,
     ) -> list[str]: ...
     def _render(
@@ -116,24 +118,29 @@ class FileMixin(_FileProtocol):
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> str | list[str]:
+        typed_self = cast(_HasRenderableFrames, self)
         if isinstance(frameID, int):
-            frameIDs = [frameID if frameID >= 0 else len(self.frames) + frameID]
+            frameIDs = [frameID if frameID >= 0 else len(typed_self.frames) + frameID]
         elif frameID == "all":
-            frameIDs = list(range(len(self.frames)))
+            frameIDs = list(range(len(typed_self.frames)))
         elif isinstance(frameID, Sequence):
             frameIDs = []
             for i in frameID:
                 assert isinstance(i, int), "frameID should be a sequence of integers"
                 frameIDs.append(i)
-        if embed_in_one_file:
-            return self._render_frames_in_one_file(frameIDs, **kwargs)
         else:
-            return self._render_frames(frameIDs, **kwargs)
+            raise ValueError("frameID should be an integer, a sequence of integers, or 'all'")
+        if embed_in_one_file:
+            return typed_self._render_frames_in_one_file(frameIDs, **kwargs)
+        else:
+            return typed_self._render_frames(frameIDs, **kwargs)
 
-    @abstractmethod
     def _render_frames_in_one_file(self, frameID: Sequence[int], **kwargs) -> str:
-        raise NotImplementedError
+        raise NotImplementedError(
+            f"{self.__class__.__name__} has not implemented _render_frames_in_one_file method yet"
+        )
 
-    @abstractmethod
     def _render_frames(self, frameID: Sequence[int], **kwargs) -> list[str]:
-        raise NotImplementedError
+        raise NotImplementedError(
+            f"{self.__class__.__name__} has not implemented _render_frames method yet"
+        )

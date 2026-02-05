@@ -1,0 +1,17 @@
+{
+  "typeCheckingMode": "standard",
+  "include": ["src"],
+  "exclude": [
+    "tests",
+    "scripts",
+    "build",
+    "dist",
+    ".venv",
+    ".mypy_cache",
+    ".ruff_cache",
+    "**/__pycache__"
+  ],
+  "reportMissingImports": "none",
+  "reportMissingTypeStubs": "none",
+  "pythonVersion": "3.10"
+}

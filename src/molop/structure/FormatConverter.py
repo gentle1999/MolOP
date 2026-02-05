@@ -88,10 +88,12 @@ def omol_to_rdmol(omol: pybel.Molecule, total_charge=0, total_radical=0) -> Chem
             moloplogger.debug(f"{DEBUG_TAG} | success by graph, mol: {Chem.MolToSmiles(rdmol)}")
             return rdmol
     moloplogger.debug(f"{DEBUG_TAG} | try tranform by graph")
-    if rdmol := omol_to_rdmol_by_graph(omol):  # noqa: SIM102
-        if validate_rdmol(rdmol, total_charge, total_radical):
-            moloplogger.debug(f"{DEBUG_TAG} | success by graph, smiles: {Chem.MolToSmiles(rdmol)}")
-            return rdmol
+    if rdmol_by_graph := omol_to_rdmol_by_graph(omol):  # noqa: SIM102
+        if validate_rdmol(rdmol_by_graph, total_charge, total_radical):
+            moloplogger.debug(
+                f"{DEBUG_TAG} | success by graph, smiles: {Chem.MolToSmiles(rdmol_by_graph)}"
+            )
+            return rdmol_by_graph
     return None
 
 

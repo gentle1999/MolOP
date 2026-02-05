@@ -5,7 +5,7 @@ Including functions related to the three-dimensional structure of molecules
 import itertools
 from collections.abc import Iterable, Sequence
 from copy import deepcopy
-from typing import Literal, overload
+from typing import Literal, Protocol, overload
 
 import numpy as np
 from rdkit import Chem, RDLogger
@@ -392,7 +392,11 @@ def standard_orient(mol: RdMol, idx_list: Sequence[int], conformer_id=0):
         conformer_id (int):
             The conformer of id to be oriented
     """
-    methods = (
+
+    class _StandardOrientMethod(Protocol):
+        def __call__(self, mol: RdMol, idx: int, *, conformer_id: int = 0) -> None: ...
+
+    methods: tuple[_StandardOrientMethod, ...] = (
         translate_mol_anchor,
         rotate_mol_anchor_to_axis,
         rotate_mol_anchor_to_plane,

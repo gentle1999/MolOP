@@ -2,83 +2,70 @@
 Author: TMJ
 Date: 2025-08-20 22:55:18
 LastEditors: TMJ
-LastEditTime: 2025-12-16 01:31:00
+LastEditTime: 2026-02-05 15:42:20
 Description: 请填写简介
 """
+
+from __future__ import annotations
 
 import os
 import pathlib
 from collections.abc import Iterable
-from enum import Enum
-from typing import Any, Literal
+from typing import Any, Protocol, cast
 
 from joblib import Parallel, delayed
 
 from molop.config import molopconfig, moloplogger
-from molop.io.FileBatchModelDisk import FileBatchModelDisk
-from molop.io.types import (
-    FILEDISK,
-    PARSERDISK,
-    PARSERS_DICT,
-    G16LogFileParserDisk,
-    GJFFileParserDisk,
-    SDFFileParserDisk,
-    XYZFileParserDisk,
-)
+from molop.io.codec_types import ParseResult
+from molop.io.FileBatchModelDisk import FileBatchModelDisk, FileDiskObj, _looks_like_disk_file
 from molop.utils.progressbar import AdaptiveProgress
 
+from . import codec_registry
 
-class FileParser(Enum):
-    gjf = GJFFileParserDisk
-    xyz = XYZFileParserDisk
-    sdf = SDFFileParserDisk
-    g16log = G16LogFileParserDisk
 
-    def init(self, **kwargs: Any) -> PARSERDISK:
-        return self.value(**kwargs)
+class _FileReaderCodec(Protocol):
+    format_id: str
 
-    def execute(
-        self,
-        file_path: str,
-        total_charge: int | None = None,
-        total_multiplicity: int | None = None,
-        **kwargs: Any,
-    ) -> FILEDISK:
-        return self.init(**kwargs).parse(
-            file_path,
-            total_charge=total_charge,
-            total_multiplicity=total_multiplicity,
-        )
+    def read(self, path: str | pathlib.Path, **kwargs: Any) -> ParseResult[Any]: ...
 
 
 def single_file_parser(
     file_path: str,
-    possible_parsers: tuple[PARSERDISK, ...],
+    possible_readers: tuple[_FileReaderCodec, ...],
+    total_charge: int | None = None,
+    total_multiplicity: int | None = None,
+    only_extract_structure: bool = False,
+    only_last_frame: bool = False,
     release_file_content: bool = False,
-) -> FILEDISK | None:
-    for idx, parser in enumerate(possible_parsers):
+) -> FileDiskObj | None:
+    for idx, reader in enumerate(possible_readers):
         try:
-            diskfile = parser.parse(file_path, release_file_content=release_file_content)
-            return diskfile
-        except Exception as e:
-            if idx == len(possible_parsers) - 1:
-                moloplogger.error(
-                    f"Failed to parse file {file_path} with {parser.__class__.__name__}. {e}"
+            result = reader.read(
+                file_path,
+                total_charge=total_charge,
+                total_multiplicity=total_multiplicity,
+                only_extract_structure=only_extract_structure,
+                only_last_frame=only_last_frame,
+                release_file_content=release_file_content,
+            )
+            value = result.value
+            if not _looks_like_disk_file(value):
+                raise TypeError(
+                    f"Reader {getattr(reader, 'format_id', reader.__class__.__name__)} returned "
+                    f"unexpected value type: {type(value)}"
                 )
+            return cast(FileDiskObj, value)
+        except Exception as e:
+            reader_name = getattr(reader, "format_id", reader.__class__.__name__)
+            if idx == len(possible_readers) - 1:
+                moloplogger.error(f"Failed to parse file {file_path} with {reader_name}. {e}")
                 return None
             moloplogger.debug(
-                f"Failed to parse file {file_path} with {parser.__class__.__name__}, "
-                f"trying {possible_parsers[idx + 1].__name__} instead"
+                f"Failed to parse file {file_path} with {reader_name}, "
+                f"trying {getattr(possible_readers[idx + 1], 'format_id', possible_readers[idx + 1].__class__.__name__)} "
+                "instead"
             )
     return None
-
-
-def worker_wrapper(args_dict: dict[str, Any]) -> FILEDISK | None:
-    """
-    Wrapper to call single_file_parser with keyword arguments from a dictionary.
-    multiprocessing.Pool.imap needs a function that takes a single argument.
-    """
-    return single_file_parser(**args_dict)
 
 
 class FileBatchParserDisk:
@@ -95,7 +82,7 @@ class FileBatchParserDisk:
         only_extract_structure: bool = False,
         only_last_frame: bool = False,
         release_file_content: bool = True,
-        parser_detection: Literal["auto", "gjf", "xyz", "sdf", "g16log"] = "auto",
+        parser_detection: str = "auto",
     ) -> FileBatchModelDisk:
         """
         Parses a list of input files and returns a FileBatchModelDisk object.
@@ -111,63 +98,50 @@ class FileBatchParserDisk:
                 if True, only extract the structure, else extract the whole file.
             only_last_frame (bool):
                 if True, only extract the last frame, else extract all frames.
-            parser_detection (Literal["auto", "gjf", "xyz", "sdf", "g16log"]):
-                if "auto", use the file extension to detect the parser, else use the given parser.
+            parser_detection (str):
+                if "auto", use the file extension to detect the parser, else use the given format id.
         """
-        valid_file_paths = []
+        tasks: list[dict[str, Any]] = []
+        hint_format = None if parser_detection == "auto" else parser_detection
         for file_path in file_paths:
             if isinstance(file_path, pathlib.Path):
                 file_path = file_path.as_posix()
             if not os.path.isfile(file_path):
                 moloplogger.warning(f"{file_path} is not a file.")
                 continue
-            if parser_detection == "auto" and os.path.splitext(file_path)[1] not in PARSERS_DICT:
-                moloplogger.warning(f"Unsupported input file format: {file_path}")
-                continue
             if file_path.endswith("molop.log"):
                 continue
-            valid_file_paths.append(os.path.abspath(file_path))
-        if len(valid_file_paths) == 0:
+            abs_path = os.path.abspath(file_path)
+            try:
+                possible_readers = cast(
+                    tuple[_FileReaderCodec, ...],
+                    codec_registry.select_reader(abs_path, hint_format=hint_format),
+                )
+            except codec_registry.UnsupportedFormatError:
+                if parser_detection == "auto":
+                    moloplogger.warning(f"Unsupported input file format: {abs_path}")
+                    continue
+                moloplogger.error(f"Unsupported input file format: {abs_path}")
+                continue
+            tasks.append(
+                {
+                    "file_path": abs_path,
+                    "possible_readers": possible_readers,
+                    "total_charge": total_charge,
+                    "total_multiplicity": total_multiplicity,
+                    "only_extract_structure": only_extract_structure,
+                    "only_last_frame": only_last_frame,
+                    "release_file_content": release_file_content,
+                }
+            )
+        if len(tasks) == 0:
             moloplogger.error("No valid input files.")
             return FileBatchModelDisk()
-        if parser_detection == "auto":
-            parsers = {
-                key: [
-                    parser(
-                        forced_charge=total_charge,
-                        forced_multiplicity=total_multiplicity,
-                        only_extract_structure=only_extract_structure,
-                        only_last_frame=only_last_frame,
-                    )
-                    for parser in val
-                ]
-                for key, val in PARSERS_DICT.items()
-            }
-        else:
-            parsers = {
-                key: [
-                    FileParser.__getitem__(parser_detection).init(
-                        forced_charge=total_charge,
-                        forced_multiplicity=total_multiplicity,
-                        only_extract_structure=only_extract_structure,
-                        only_last_frame=only_last_frame,
-                    )
-                    for parser in val
-                ]
-                for key, val in PARSERS_DICT.items()
-            }
         try:
-            valid_file_paths.sort(key=os.path.getsize, reverse=True)
+            tasks.sort(key=lambda task: os.path.getsize(task["file_path"]), reverse=True)
         except OSError as e:
             moloplogger.warning(f"Could not get file size for sorting, proceeding without it: {e}")
-        total_tasks = [
-            {
-                "file_path": fp,
-                "possible_parsers": parsers.get(os.path.splitext(fp)[1], ()),
-                "release_file_content": release_file_content,
-            }
-            for fp in valid_file_paths
-        ]
+        total_tasks = tasks
         # Determine if parallel processing should be used
         use_parallel = self.__n_jobs > 1 and len(total_tasks) > self.__n_jobs
 
@@ -179,7 +153,7 @@ class FileBatchParserDisk:
                 return_as="generator",
                 max_nbytes=molopconfig.parallel_max_size,
             )(
-                delayed(worker_wrapper)(task)
+                delayed(single_file_parser)(**task)
                 for task in AdaptiveProgress(
                     total_tasks,
                     total=len(total_tasks),
@@ -189,7 +163,7 @@ class FileBatchParserDisk:
             )
         else:
             results = (
-                worker_wrapper(task)
+                single_file_parser(**task)
                 for task in AdaptiveProgress(
                     total_tasks,
                     total=len(total_tasks),
@@ -197,8 +171,9 @@ class FileBatchParserDisk:
                     disable=not molopconfig.show_progress_bar,
                 )
             )
+        typed_results = cast(Iterable[FileDiskObj | None], results)
         return FileBatchModelDisk.new_batch(
-            result for result in results if result is not None and len(result) > 0
+            result for result in typed_results if result is not None and len(result) > 0
         )
 
     @property
@@ -210,4 +185,4 @@ class FileBatchParserDisk:
         self.__n_jobs = molopconfig.set_n_jobs(n_jobs)
 
     def __repr__(self) -> str:
-        return f"FileBatchParserDisk(n_jobs={self.__n_jobs})"
+        return f"{self.__class__.__name__}(n_jobs={self.__n_jobs})"

@@ -2,16 +2,17 @@
 Author: TMJ
 Date: 2025-07-28 18:43:45
 LastEditors: TMJ
-LastEditTime: 2025-12-23 19:44:09
+LastEditTime: 2026-02-04 15:55:11
 Description: 请填写简介
 """
 
 import os
 from io import StringIO
-from typing import Any, Generic, TypeVar
+from typing import Any, ClassVar, Generic, Protocol, TypeVar
 
 import numpy as np
 import numpy.typing as npt
+from pint._typing import UnitLike
 from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr, computed_field
@@ -38,7 +39,41 @@ from molop.io.base_models.Molecule import Molecule
 from molop.structure import xyz_to_rdmol
 from molop.structure.StructureTransformation import check_crowding
 from molop.unit import atom_ureg
-from molop.utils.types import RdMol
+from molop.utils.types import OMol, RdMol
+
+
+class _HasCoords(Protocol):
+    frame_id: int
+    atoms: list[int]
+
+    @property
+    def atom_symbols(self) -> list[str]: ...
+
+    coords: NumpyQuantity
+    charge: int
+    multiplicity: int
+    _default_units: dict[str, UnitLike]
+
+    @property
+    def rdmol(self) -> RdMol | None: ...
+
+    @property
+    def omol(self) -> OMol | None: ...
+
+    def to_SMILES(self) -> str: ...
+
+    def to_canonical_SMILES(self) -> str: ...
+
+
+class _HasKeywords(_HasCoords):
+    keywords: str
+    basis_set: str
+    functional: str
+    method: str
+
+
+class _HasVibrations(_HasKeywords):
+    vibrations: Vibrations | None
 
 
 ChemFileFrame = TypeVar("ChemFileFrame", bound="BaseChemFileFrame")
@@ -86,16 +121,22 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
         return {**super().to_summary_dict(), ("General", "FrameID"): self.frame_id}
 
     def log_with_file_info(self, content: str, level: str = "info"):
-        if hasattr(self, "filename"):
-            getattr(moloplogger, level)(f"{self.filename}: {content}")  # type: ignore
-        else:
-            getattr(moloplogger, level)(content)  # type: ignore
+        if file_name := getattr(self, "filename", None):
+            getattr(moloplogger, level)(f"{file_name} - Frame {self.frame_id}: {content}")
 
 
 class BaseCoordsFrame(BaseChemFileFrame[ChemFileFrame]): ...
 
 
 class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "coords": atom_ureg.angstrom,
+        "forces": atom_ureg.Unit("hartree / bohr"),
+        "rotation_constants": atom_ureg.Unit("gigahertz"),
+        "running_time": atom_ureg.Unit("second"),
+        "temperature": atom_ureg.Unit("K"),
+        "electron_temperature": atom_ureg.Unit("K"),
+    }
     # QM software
     qm_software: str = Field(
         default="",
@@ -287,19 +328,6 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
         """
         with open(filepath, "w") as f:
             f.write(self.to_population_embedded_SDF_block(embed_populations, embed_bond_orders))
-
-    def _add_default_units(self) -> None:
-        super()._add_default_units()
-        self._default_units.update(
-            {
-                "coords": atom_ureg.angstrom,
-                "forces": atom_ureg.Unit("hartree / bohr"),
-                "rotation_constants": atom_ureg.Unit("gigahertz"),
-                "running_time": atom_ureg.Unit("second"),
-                "temperature": atom_ureg.Unit("K"),
-                "electron_temperature": atom_ureg.Unit("K"),
-            }
-        )
 
     def vibrate(
         self,
@@ -539,7 +567,7 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
         ):
             rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).SetBondType(Chem.BondType.ZERO)
 
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def is_error(self) -> bool | None:
         """
@@ -553,12 +581,12 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
             return True
         return not self.status.normal_terminated
 
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def is_normal(self) -> bool:
         return not self.is_error
 
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def is_TS(self) -> bool | None:
         """
@@ -572,7 +600,7 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
             return False
         return len(self.vibrations.imaginary_idxs) == 1
 
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def is_optimized(self) -> bool | None:
         """

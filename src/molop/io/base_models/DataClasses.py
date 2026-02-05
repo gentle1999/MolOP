@@ -1,8 +1,9 @@
-from collections.abc import Sequence
-from typing import Any, overload
+from collections.abc import Iterator, Sequence
+from typing import Any, ClassVar, cast, overload
 
 import numpy as np
 import pandas as pd
+from pint._typing import UnitLike
 from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr, computed_field, model_validator
@@ -14,30 +15,43 @@ from molop.utils.functions import invert_transform_coords, transform_coords
 from .Bases import BaseDataClassWithUnit
 
 
+def _is_quantity(value: Any) -> bool:
+    return isinstance(value, PlainQuantity)
+
+
 class Energies(BaseDataClassWithUnit):
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "electronic_energy": atom_ureg.hartree,
+        "scf_energy": atom_ureg.hartree,
+        "mp2_energy": atom_ureg.hartree,
+        "mp3_energy": atom_ureg.hartree,
+        "mp4_energy": atom_ureg.hartree,
+        "ccsd_energy": atom_ureg.hartree,
+    }
+
     # energies
-    electronic_energy: PlainQuantity[float] | None = Field(
+    electronic_energy: PlainQuantity | None = Field(
         default=None,
         description="Electronic energy of the molecule, unit is `hartree`",
     )
-    scf_energy: PlainQuantity[float] | None = Field(
+    scf_energy: PlainQuantity | None = Field(
         default=None, description="SCF energy of the molecule, unit is `hartree`"
     )
-    mp2_energy: PlainQuantity[float] | None = Field(
+    mp2_energy: PlainQuantity | None = Field(
         default=None, description="MP2 energy of the molecule, unit is `hartree`"
     )
-    mp3_energy: PlainQuantity[float] | None = Field(
+    mp3_energy: PlainQuantity | None = Field(
         default=None, description="MP3 energy of the molecule, unit is `hartree`"
     )
-    mp4_energy: PlainQuantity[float] | None = Field(
+    mp4_energy: PlainQuantity | None = Field(
         default=None, description="MP4 energy of the molecule, unit is `hartree`"
     )
-    ccsd_energy: PlainQuantity[float] | None = Field(
+    ccsd_energy: PlainQuantity | None = Field(
         default=None, description="CCSD energy of the molecule, unit is `hartree`"
     )
 
     @property
-    def energy(self) -> dict[str, PlainQuantity[float]]:
+    def energy(self) -> dict[str, PlainQuantity]:
         return {
             energy_type: getattr(self, f"{energy_type}_energy")
             for energy_type in (
@@ -51,26 +65,14 @@ class Energies(BaseDataClassWithUnit):
             if getattr(self, f"{energy_type}_energy") is not None
         }
 
-    @computed_field(description="Total energy, unit is `hartree`")  # type: ignore[misc]
+    @computed_field(description="Total energy, unit is `hartree`")  # type: ignore[prop-decorator]
     @property
-    def total_energy(self) -> PlainQuantity[float] | None:
+    def total_energy(self) -> PlainQuantity | None:
         keys = list(self.energy.keys())
         if len(keys) > 0:
             return self.energy[keys[0]].to(atom_ureg.hartree)
         else:
             return None
-
-    def _add_default_units(self) -> None:
-        self._default_units.update(
-            {
-                "electronic_energy": atom_ureg.hartree,
-                "scf_energy": atom_ureg.hartree,
-                "mp2_energy": atom_ureg.hartree,
-                "mp3_energy": atom_ureg.hartree,
-                "mp4_energy": atom_ureg.hartree,
-                "ccsd_energy": atom_ureg.hartree,
-            }
-        )
 
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
@@ -97,74 +99,70 @@ class ThermalInformations(BaseDataClassWithUnit):
     G_T(?K) = H_T(?K) - T * S(?K)
     """
 
-    _set_default_units: bool = PrivateAttr(default=True)
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "ZPVE": atom_ureg.kcal / atom_ureg.mol,
+        "U_0": atom_ureg.kcal / atom_ureg.mol,
+        "TCE": atom_ureg.kcal / atom_ureg.mol,
+        "TCH": atom_ureg.kcal / atom_ureg.mol,
+        "TCG": atom_ureg.kcal / atom_ureg.mol,
+        "U_T": atom_ureg.kcal / atom_ureg.mol,
+        "H_T": atom_ureg.kcal / atom_ureg.mol,
+        "G_T": atom_ureg.kcal / atom_ureg.mol,
+        "S": atom_ureg.calorie / atom_ureg.mol / atom_ureg.kelvin,
+        "C_V": atom_ureg.calorie / atom_ureg.mol / atom_ureg.kelvin,
+    }
+    set_default_units: ClassVar[bool] = True
 
-    ZPVE: PlainQuantity[float] | None = Field(
+    ZPVE: PlainQuantity | None = Field(
         default=None,
         description="Zero-point vibrational energy, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    TCE: PlainQuantity[float] | None = Field(
+    TCE: PlainQuantity | None = Field(
         default=None,
         description="thermal correction to the internal energy at ?K, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    TCH: PlainQuantity[float] | None = Field(
+    TCH: PlainQuantity | None = Field(
         default=None,
         description="thermal correction to the enthalpy at ?K, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    TCG: PlainQuantity[float] | None = Field(
+    TCG: PlainQuantity | None = Field(
         default=None,
         description="thermal correction to the Gibbs free energy at ?K, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    U_0: PlainQuantity[float] | None = Field(
+    U_0: PlainQuantity | None = Field(
         default=None,
         description="Zero-point energy, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    U_T: PlainQuantity[float] | None = Field(
+    U_T: PlainQuantity | None = Field(
         default=None,
         description="thermal energy at ?K, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    H_T: PlainQuantity[float] | None = Field(
+    H_T: PlainQuantity | None = Field(
         default=None,
         description="enthalpy at ?K, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    G_T: PlainQuantity[float] | None = Field(
+    G_T: PlainQuantity | None = Field(
         default=None,
         description="Gibbs Free Energy at ?K, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
-    S: PlainQuantity[float] | None = Field(
+    S: PlainQuantity | None = Field(
         default=None,
         description="entropy at ?K, unit is `cal/mol/K`",
         exclude_if=lambda x: x is None,
     )
-    C_V: PlainQuantity[float] | None = Field(
+    C_V: PlainQuantity | None = Field(
         default=None,
         description="heat capacity at constant volume, unit is `cal/mol/K`",
         exclude_if=lambda x: x is None,
     )
-
-    def _add_default_units(self) -> None:
-        self._default_units.update(
-            {
-                "ZPVE": atom_ureg.kcal / atom_ureg.mol,
-                "U_0": atom_ureg.kcal / atom_ureg.mol,
-                "TCE": atom_ureg.kcal / atom_ureg.mol,
-                "TCH": atom_ureg.kcal / atom_ureg.mol,
-                "TCG": atom_ureg.kcal / atom_ureg.mol,
-                "U_T": atom_ureg.kcal / atom_ureg.mol,
-                "H_T": atom_ureg.kcal / atom_ureg.mol,
-                "G_T": atom_ureg.kcal / atom_ureg.mol,
-                "S": atom_ureg.calorie / atom_ureg.mol / atom_ureg.kelvin,
-                "C_V": atom_ureg.calorie / atom_ureg.mol / atom_ureg.kelvin,
-            }
-        )
 
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
@@ -179,10 +177,15 @@ class ThermalInformations(BaseDataClassWithUnit):
 
 
 class MoleculeOrbital(BaseDataClassWithUnit):
-    alpha_energy: PlainQuantity[float] | None = Field(
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "alpha_energy": atom_ureg.hartree,
+        "beta_energy": atom_ureg.hartree,
+    }
+
+    alpha_energy: PlainQuantity | None = Field(
         default=None, description="alpha orbital energy, unit is `hartree`"
     )
-    beta_energy: PlainQuantity[float] | None = Field(
+    beta_energy: PlainQuantity | None = Field(
         default=None, description="beta orbital energy, unit is `hartree`"
     )
     alpha_occupancy: bool | None = Field(default=None, description="alpha orbital occupancy")
@@ -190,14 +193,6 @@ class MoleculeOrbital(BaseDataClassWithUnit):
     beta_occupancy: bool | None = Field(default=None, description="beta orbital occupancy")
     beta_symmetry: str | None = Field(default=None, description="beta orbital symmetry")
     coefficient: np.ndarray | None = Field(default=None, description="coefficient of the orbital")
-
-    def _add_default_units(self) -> None:
-        self._default_units.update(
-            {
-                "alpha_energy": atom_ureg.hartree,
-                "beta_energy": atom_ureg.hartree,
-            }
-        )
 
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
@@ -211,7 +206,12 @@ class MoleculeOrbital(BaseDataClassWithUnit):
         }
 
 
-class MolecularOrbitals(BaseDataClassWithUnit):
+class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "alpha_energies": atom_ureg.hartree,
+        "beta_energies": atom_ureg.hartree,
+    }
+
     __index: int = PrivateAttr(default=0)
     # orbital energies
     electronic_state: str | None = Field(
@@ -235,12 +235,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
         default=[], description="coefficients of the orbitals"
     )
 
-    def _add_default_units(self) -> None:
-        self._default_units.update(
-            {"alpha_energies": atom_ureg.hartree, "beta_energies": atom_ureg.hartree}
-        )
-
-    @computed_field(description="HOMO orbital idx")  # type: ignore[misc]
+    @computed_field(description="HOMO orbital idx")  # type: ignore[prop-decorator]
     @property
     def HOMO_id(self) -> int | None:
         for i, alpha_occ in enumerate(self.alpha_occupancies):
@@ -250,14 +245,14 @@ class MolecularOrbitals(BaseDataClassWithUnit):
                 return i - 1
         return None
 
-    @computed_field(description="LUMO orbital idx")  # type: ignore[misc]
+    @computed_field(description="LUMO orbital idx")  # type: ignore[prop-decorator]
     @property
     def LUMO_id(self) -> int | None:
         if self.HOMO_id is None:
             return None
         return self.HOMO_id + 1
 
-    @computed_field(description="beta HOMO orbital idx")  # type: ignore[misc]
+    @computed_field(description="beta HOMO orbital idx")  # type: ignore[prop-decorator]
     @property
     def beta_HOMO_id(self) -> int | None:
         for i, beta_occ in enumerate(self.beta_occupancies):
@@ -267,14 +262,14 @@ class MolecularOrbitals(BaseDataClassWithUnit):
                 return i - 1
         return None
 
-    @computed_field(description="beta LUMO orbital idx")  # type: ignore[misc]
+    @computed_field(description="beta LUMO orbital idx")  # type: ignore[prop-decorator]
     @property
     def beta_LUMO_id(self) -> int | None:
         if self.beta_HOMO_id is None:
             return None
         return self.beta_HOMO_id + 1
 
-    @computed_field(description="SOMO orbital idx")  # type: ignore[misc]
+    @computed_field(description="SOMO orbital idx")  # type: ignore[prop-decorator]
     @property
     def SOMO_ids(self) -> list[int]:
         if len(self.beta_occupancies) == 0:
@@ -287,7 +282,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             if alpha_occ and not beta_occ
         ]
 
-    @computed_field(description="NHOMO orbital idx")  # type: ignore[misc]
+    @computed_field(description="NHOMO orbital idx")  # type: ignore[prop-decorator]
     @property
     def NHOMO_id(self) -> int | None:
         if self.HOMO_id is None:
@@ -296,7 +291,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             return None
         return self.HOMO_id - 1
 
-    @computed_field(description="SLUMO orbital idx")  # type: ignore[misc]
+    @computed_field(description="SLUMO orbital idx")  # type: ignore[prop-decorator]
     @property
     def SLUMO_id(self) -> int | None:
         if self.LUMO_id is None:
@@ -305,7 +300,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             return None
         return self.LUMO_id + 1
 
-    @computed_field(description="HOMO energy")  # type: ignore[misc]
+    @computed_field(description="HOMO energy")  # type: ignore[prop-decorator]
     @property
     def HOMO_energy(self) -> PlainQuantity | None:
         if self.HOMO_id is None:
@@ -314,7 +309,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             return None
         return self.alpha_energies[self.HOMO_id]
 
-    @computed_field(description="LUMO energy")  # type: ignore[misc]
+    @computed_field(description="LUMO energy")  # type: ignore[prop-decorator]
     @property
     def LUMO_energy(self) -> PlainQuantity | None:
         if self.LUMO_id is None:
@@ -323,7 +318,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             return None
         return self.alpha_energies[self.LUMO_id]
 
-    @computed_field(description="NHOMO energy")  # type: ignore[misc]
+    @computed_field(description="NHOMO energy")  # type: ignore[prop-decorator]
     @property
     def NHOMO_energy(self) -> PlainQuantity | None:
         if self.NHOMO_id is None:
@@ -332,7 +327,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             return None
         return self.alpha_energies[self.NHOMO_id]
 
-    @computed_field(description="SLUMO energy")  # type: ignore[misc]
+    @computed_field(description="SLUMO energy")  # type: ignore[prop-decorator]
     @property
     def SLUMO_energy(self) -> PlainQuantity | None:
         if self.SLUMO_id is None:
@@ -341,18 +336,26 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             return None
         return self.alpha_energies[self.SLUMO_id]
 
-    @computed_field(description="HOMO-LUMO gap")  # type: ignore[misc]
+    @computed_field(description="HOMO-LUMO gap")  # type: ignore[prop-decorator]
     @property
     def HOMO_LUMO_gap(self) -> PlainQuantity | None:
         if self.HOMO_energy is None or self.LUMO_energy is None:
             return None
-        return self.LUMO_energy - self.HOMO_energy
+        return cast(Any, self.LUMO_energy) - cast(Any, self.HOMO_energy)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[MoleculeOrbital]:  # type: ignore[override]
         self.__index = 0
         return self
 
-    @computed_field(description="beta HOMO energy")  # type: ignore[misc]
+    def __next__(
+        self,
+    ) -> MoleculeOrbital:
+        if self.__index < len(self):
+            self.__index += 1
+            return self[self.__index]
+        raise StopIteration
+
+    @computed_field(description="beta HOMO energy")  # type: ignore[prop-decorator]
     @property
     def beta_HOMO_energy(self) -> PlainQuantity | None:
         if self.beta_HOMO_id is None:
@@ -361,7 +364,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             return None
         return self.beta_energies[self.beta_HOMO_id]
 
-    @computed_field(description="beta LUMO energy")  # type: ignore[misc]
+    @computed_field(description="beta LUMO energy")  # type: ignore[prop-decorator]
     @property
     def beta_LUMO_energy(self) -> PlainQuantity | None:
         if self.beta_LUMO_id is None:
@@ -370,14 +373,14 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             return None
         return self.beta_energies[self.beta_LUMO_id]
 
-    @computed_field(description="beta HOMO-LUMO gap")  # type: ignore[misc]
+    @computed_field(description="beta HOMO-LUMO gap")  # type: ignore[prop-decorator]
     @property
     def beta_HOMO_LUMO_gap(self) -> PlainQuantity | None:
         if self.beta_HOMO_energy is None or self.beta_LUMO_energy is None:
             return None
-        return self.beta_LUMO_energy - self.beta_HOMO_energy
+        return cast(Any, self.beta_LUMO_energy) - cast(Any, self.beta_HOMO_energy)
 
-    @computed_field(description="beta NHOMO orbital idx")  # type: ignore[misc]
+    @computed_field(description="beta NHOMO orbital idx")  # type: ignore[prop-decorator]
     @property
     def beta_NHOMO_id(self) -> int | None:
         if self.beta_HOMO_id is None:
@@ -386,7 +389,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             return None
         return self.beta_HOMO_id - 1
 
-    @computed_field(description="beta NHOMO energy")  # type: ignore[misc]
+    @computed_field(description="beta NHOMO energy")  # type: ignore[prop-decorator]
     @property
     def beta_NHOMO_energy(self) -> PlainQuantity | None:
         if self.beta_NHOMO_id is None:
@@ -395,7 +398,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             return None
         return self.beta_energies[self.beta_NHOMO_id]
 
-    @computed_field(description="beta SLUMO orbital idx")  # type: ignore[misc]
+    @computed_field(description="beta SLUMO orbital idx")  # type: ignore[prop-decorator]
     @property
     def beta_SLUMO_id(self) -> int | None:
         if self.beta_LUMO_id is None:
@@ -404,7 +407,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             return None
         return self.beta_LUMO_id + 1
 
-    @computed_field(description="beta SLUMO energy")  # type: ignore[misc]
+    @computed_field(description="beta SLUMO energy")  # type: ignore[prop-decorator]
     @property
     def beta_SLUMO_energy(self) -> PlainQuantity | None:
         if self.beta_SLUMO_id is None:
@@ -412,15 +415,6 @@ class MolecularOrbitals(BaseDataClassWithUnit):
         if len(self.beta_energies) <= self.beta_SLUMO_id:
             return None
         return self.beta_energies[self.beta_SLUMO_id]
-
-    def __next__(
-        self,
-    ) -> MoleculeOrbital:
-        if self.__index >= len(self):
-            raise StopIteration
-        else:
-            self.__index += 1
-            return self[self.__index - 1]
 
     @overload
     def __getitem__(self, orbitalIDX: int) -> MoleculeOrbital: ...
@@ -431,7 +425,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
     def __getitem__(
         self, orbitalIDX: int | slice | Sequence
     ) -> MoleculeOrbital | list[MoleculeOrbital]:
-        def get_item(seq: Sequence[Any], idx: int):
+        def get_item(seq: Any, idx: int):
             if len(seq) > abs(idx):
                 return seq[idx]
             else:
@@ -451,8 +445,8 @@ class MolecularOrbitals(BaseDataClassWithUnit):
             ) > abs(orbitalIDX), f"orbital index {orbitalIDX} out of range"
             return MoleculeOrbital.model_validate(
                 {
-                    "alpha_energy": get_item(self.alpha_energies, orbitalIDX),  # type: ignore
-                    "beta_energy": get_item(self.beta_energies, orbitalIDX),  # type: ignore
+                    "alpha_energy": get_item(cast(Sequence[Any], self.alpha_energies), orbitalIDX),
+                    "beta_energy": get_item(cast(Sequence[Any], self.beta_energies), orbitalIDX),
                     "alpha_occupancy": get_item(self.alpha_occupancies, orbitalIDX),
                     "beta_occupancy": get_item(self.beta_occupancies, orbitalIDX),
                     "alpha_symmetry": get_item(self.alpha_symmetries, orbitalIDX),
@@ -530,6 +524,7 @@ class MolecularOrbitals(BaseDataClassWithUnit):
 
 # TODO: ready for NaturalAtomicOrbitals
 class NaturalAtomicOrbital(BaseDataClassWithUnit):
+    default_units: ClassVar[dict[str, UnitLike]] = {"energy": atom_ureg.Unit("hartree")}
     orbital_index: int = Field(
         default=0,
         description="index of the orbital",
@@ -565,9 +560,6 @@ class NaturalAtomicOrbital(BaseDataClassWithUnit):
         exclude_if=lambda x: x is None,
     )
 
-    def _add_default_units(self) -> None:
-        return self._default_units.update({"energy": atom_ureg.Unit("hartree")})
-
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
             ("NaturalAtomicOrbital", "element"): self.element,
@@ -596,13 +588,14 @@ class NaturalAtomicOrbitals(BaseDataClassWithUnit):
         exclude_if=lambda x: len(x) == 0,
     )
 
-    def _add_default_units(self) -> None: ...
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {}
 
 
 # TODO: ready for NaturalBondOrbitals
 class NaturalBondOrbital(BaseDataClassWithUnit):
+    default_units: ClassVar[dict[str, UnitLike]] = {"energy": atom_ureg.Unit("hartree")}
+
     orbital_index: int = Field(
         default=0,
         description="index of the orbital",
@@ -639,9 +632,6 @@ class NaturalBondOrbital(BaseDataClassWithUnit):
         exclude_if=lambda x: len(x) == 0,
     )
 
-    def _add_default_units(self):
-        self._default_units.update({"energy": atom_ureg.Unit("hartree")})
-
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
             ("NaturalBondOrbital", "orbital_type"): self.orbital_type,
@@ -673,12 +663,18 @@ class NaturalBondOrbitals(BaseDataClassWithUnit):
         exclude_if=lambda x: len(x) == 0,
     )
 
-    def _add_default_units(self) -> None: ...
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {}
 
 
 class Vibration(BaseDataClassWithUnit):
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "frequency": atom_ureg.cm_1,
+        "reduced_mass": atom_ureg.amu,
+        "force_constant": atom_ureg.Unit("mdyne/angstrom"),
+        "IR_intensity": atom_ureg.Unit("km/mol"),
+        "vibration_mode": atom_ureg.angstrom,
+    }
     frequency: PlainQuantity | None = Field(
         default=None,
         description="Frequency of each mode, unit is `cm^-1`",
@@ -705,21 +701,10 @@ class Vibration(BaseDataClassWithUnit):
         exclude_if=lambda x: x.shape == (0, 0),
     )
 
-    def _add_default_units(self) -> None:
-        self._default_units.update(
-            {
-                "frequency": atom_ureg.cm_1,
-                "reduced_mass": atom_ureg.amu,
-                "force_constant": atom_ureg.Unit("mdyne/angstrom"),
-                "IR_intensity": atom_ureg.Unit("km/mol"),
-                "vibration_mode": atom_ureg.angstrom,
-            }
-        )
-
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def is_imaginary(self) -> bool:
-        return bool(self.frequency is not None and self.frequency < 0)
+        return bool(self.frequency is not None and cast(Any, self.frequency) < 0)
 
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
@@ -736,18 +721,21 @@ class Vibration(BaseDataClassWithUnit):
         self, transformation_matrix: np.ndarray, inverse: bool = False
     ) -> None:
         if inverse:
-            self.vibration_mode = (
-                invert_transform_coords(self.vibration_mode.m, transformation_matrix)
-                * self.vibration_mode.u
-            )
+            mode = cast(Any, self.vibration_mode)
+            self.vibration_mode = invert_transform_coords(mode.m, transformation_matrix) * mode.u
         else:
-            self.vibration_mode = (
-                transform_coords(self.vibration_mode.m, transformation_matrix)
-                * self.vibration_mode.u
-            )
+            mode = cast(Any, self.vibration_mode)
+            self.vibration_mode = transform_coords(mode.m, transformation_matrix) * mode.u
 
 
-class Vibrations(BaseDataClassWithUnit):
+class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "frequency": atom_ureg.cm_1,
+        "reduced_mass": atom_ureg.amu,
+        "force_constant": atom_ureg.Unit("mdyne/angstrom"),
+        "IR_intensity": atom_ureg.Unit("km/mol"),
+        "vibration_mode": atom_ureg.angstrom,
+    }
     __index: int = PrivateAttr(default=0)
     frequencies: NumpyQuantity = Field(
         default=np.array([]) * atom_ureg.cm_1,
@@ -775,18 +763,7 @@ class Vibrations(BaseDataClassWithUnit):
         exclude_if=lambda x: len(x) == 0,
     )
 
-    def _add_default_units(self) -> None:
-        self._default_units.update(
-            {
-                "frequency": atom_ureg.cm_1,
-                "reduced_mass": atom_ureg.amu,
-                "force_constant": atom_ureg.Unit("mdyne/angstrom"),
-                "IR_intensity": atom_ureg.Unit("km/mol"),
-                "vibration_mode": atom_ureg.angstrom,
-            }
-        )
-
-    def __iter__(self) -> Self:
+    def __iter__(self) -> Iterator[Vibration]:  # type: ignore[override]
         self.__index = 0
         return self
 
@@ -840,23 +817,23 @@ class Vibrations(BaseDataClassWithUnit):
         return self.model_validate(
             {
                 "frequencies": (
-                    self.frequencies[imaginary_idxs]
-                    if isinstance(self.frequencies, PlainQuantity)
+                    cast(Any, self.frequencies)[imaginary_idxs]
+                    if _is_quantity(self.frequencies)
                     else None
                 ),
                 "reduced_masses": (
-                    self.reduced_masses[imaginary_idxs]
-                    if isinstance(self.reduced_masses, PlainQuantity)
+                    cast(Any, self.reduced_masses)[imaginary_idxs]
+                    if _is_quantity(self.reduced_masses)
                     else None
                 ),
                 "force_constants": (
-                    self.force_constants[imaginary_idxs]
-                    if isinstance(self.force_constants, PlainQuantity)
+                    cast(Any, self.force_constants)[imaginary_idxs]
+                    if _is_quantity(self.force_constants)
                     else None
                 ),
                 "IR_intensities": (
-                    self.IR_intensities[imaginary_idxs]
-                    if isinstance(self.IR_intensities, PlainQuantity)
+                    cast(Any, self.IR_intensities)[imaginary_idxs]
+                    if _is_quantity(self.IR_intensities)
                     else None
                 ),
                 "vibration_modes": (
@@ -872,12 +849,13 @@ class Vibrations(BaseDataClassWithUnit):
     ) -> None:
         if inverse:
             self.vibration_modes = [
-                invert_transform_coords(mode.m, transformation_matrix) * mode.u
+                invert_transform_coords(cast(Any, mode).m, transformation_matrix)
+                * cast(Any, mode).u
                 for mode in self.vibration_modes
             ]
         else:
             self.vibration_modes = [
-                transform_coords(mode.m, transformation_matrix) * mode.u
+                transform_coords(cast(Any, mode).m, transformation_matrix) * cast(Any, mode).u
                 for mode in self.vibration_modes
             ]
 
@@ -931,8 +909,6 @@ class ChargeSpinPopulations(BaseDataClassWithUnit):
         exclude_if=lambda x: len(x) == 0,
     )
 
-    def _add_default_units(self): ...
-
     @model_validator(mode="after")
     def validate_charge_spin_populations(self) -> Self:
         available_populations = [
@@ -959,13 +935,22 @@ class TotalSpin(BaseDataClassWithUnit):
         exclude_if=lambda x: x is None,
     )
 
-    def _add_default_units(self): ...
-
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {("TotalSpin", key): value for key, value in self.to_unitless_dump(**kwargs).items()}
 
 
 class Polarizability(BaseDataClassWithUnit):
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "electronic_spatial_extent": atom_ureg.bohr**2,
+        "isotropic_polarizability": atom_ureg.bohr**3,
+        "anisotropic_polarizability": atom_ureg.bohr**3,
+        "polarizability_tensor": atom_ureg.bohr**3,
+        "electric_dipole_moment": atom_ureg.debye,
+        "dipole": atom_ureg.debye,
+        "quadrupole": atom_ureg.debye * atom_ureg.angstrom,
+        "octapole": atom_ureg.debye * atom_ureg.angstrom**2,
+        "hexadecapole": atom_ureg.debye * atom_ureg.angstrom**3,
+    }
     # polarizability
     electronic_spatial_extent: PlainQuantity | None = Field(
         default=None,
@@ -1018,21 +1003,6 @@ class Polarizability(BaseDataClassWithUnit):
         exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
 
-    def _add_default_units(self) -> None:
-        self._default_units.update(
-            {
-                "electronic_spatial_extent": atom_ureg.bohr**2,
-                "isotropic_polarizability": atom_ureg.bohr**3,
-                "anisotropic_polarizability": atom_ureg.bohr**3,
-                "polarizability_tensor": atom_ureg.bohr**3,
-                "electric_dipole_moment": atom_ureg.debye,
-                "dipole": atom_ureg.debye,
-                "quadrupole": atom_ureg.debye * atom_ureg.angstrom,
-                "octapole": atom_ureg.debye * atom_ureg.angstrom**2,
-                "hexadecapole": atom_ureg.debye * atom_ureg.angstrom**3,
-            }
-        )
-
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
             ("Polarizability", f"{key} ({getattr(self, key).units})")
@@ -1082,13 +1052,15 @@ class BondOrders(BaseDataClassWithUnit):
         exclude_if=lambda x: x.shape == (0, 0),
     )
 
-    def _add_default_units(self): ...
-
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {}
 
 
 class Dispersions(BaseDataClassWithUnit):
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "C6AA": atom_ureg.bohr**6,
+        "C8AA": atom_ureg.bohr**8,
+    }
     C6AA: PlainQuantity | None = Field(
         default=None,
         description="Mol. C6AA dispersion, unit is `bohr^6`",
@@ -1100,19 +1072,11 @@ class Dispersions(BaseDataClassWithUnit):
         exclude_if=lambda x: x is None,
     )
 
-    def _add_default_units(self) -> None:
-        self._default_units.update(
-            {
-                "C6AA": atom_ureg.bohr**6,
-                "C8AA": atom_ureg.bohr**8,
-            }
-        )
-
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
-            ("Polarizability", f"{key} ({getattr(self, key).units})")
+            ("Dispersion", f"{key} ({getattr(self, key).units})")
             if isinstance(getattr(self, key), PlainQuantity)
-            else ("Polarizability", key): getattr(self, key).m
+            else ("Dispersion", key): getattr(self, key).m
             if isinstance(getattr(self, key), PlainQuantity)
             else getattr(self, key)
             for key in self.model_dump(**kwargs)
@@ -1124,6 +1088,12 @@ class SinglePointProperties(BaseDataClassWithUnit):
     """
     Single point properties.
     """
+
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "vip": atom_ureg.Unit("eV / particle"),
+        "vea": atom_ureg.Unit("eV / particle"),
+        "gei": atom_ureg.Unit("eV / particle"),
+    }
 
     vip: PlainQuantity | None = Field(
         default=None,
@@ -1150,15 +1120,6 @@ class SinglePointProperties(BaseDataClassWithUnit):
         default=[], description="Fukui Index f(0)", exclude_if=lambda x: len(x) == 0
     )
     fod: list[float] = Field(default=[], description="fractional occupation density population")
-
-    def _add_default_units(self) -> None:
-        self._default_units.update(
-            {
-                "vip": atom_ureg.Unit("eV / particle"),
-                "vea": atom_ureg.Unit("eV / particle"),
-                "gei": atom_ureg.Unit("eV / particle"),
-            }
-        )
 
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {}
@@ -1214,8 +1175,7 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
     rms_displacement: float = Field(default=float("inf"), description="RMS displacement")
     max_displacement: float = Field(default=float("inf"), description="Maximum displacement")
 
-    def _add_default_units(self): ...
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def energy_change_converged(self) -> bool | None:
         """
@@ -1225,7 +1185,7 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
             return None
         return self.energy_change < self.energy_change_threshold
 
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def rms_force_converged(self) -> bool | None:
         """
@@ -1235,7 +1195,7 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
             return None
         return self.rms_force < self.rms_force_threshold
 
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def max_force_converged(self) -> bool | None:
         """
@@ -1245,7 +1205,7 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
             return None
         return self.max_force < self.max_force_threshold
 
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def rms_displacement_converged(self) -> bool | None:
         """
@@ -1255,7 +1215,7 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
             return None
         return self.rms_displacement < self.rms_displacement_threshold
 
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def max_displacement_converged(self) -> bool | None:
         """
@@ -1304,7 +1264,11 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
             "rms_displacement",
             "max_displacement",
         )
-        df = pd.DataFrame(index=metrics, columns=["value", "threshold", "converged"])
+        metrics_list = list(metrics)
+        df = pd.DataFrame(
+            index=pd.Index(metrics_list),
+            columns=pd.Index(["value", "threshold", "converged"]),
+        )
         df["value"] = [getattr(self, metric) for metric in metrics]
         df["threshold"] = [getattr(self, f"{metric}_threshold") for metric in metrics]
         df["converged"] = [getattr(self, f"{metric}_converged") for metric in metrics]
@@ -1370,8 +1334,6 @@ class Status(BaseDataClassWithUnit):
         default=False, description="Whether the calculation has terminated normally"
     )
 
-    def _add_default_units(self): ...
-
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
             ("Status", key): getattr(self, key).m
@@ -1387,18 +1349,20 @@ class ShieldingTensor(BaseDataClassWithUnit):
     Shielding tensor data.
     """
 
+    default_units: ClassVar[dict[str, UnitLike]] = {"shielding_tensor": atom_ureg.ppm}
+
     atom: str = Field(default="", description="Atom element")
     shielding_tensor: NumpyQuantity = Field(
         default=np.zeros((3, 3)) * atom_ureg.ppm,
         description="Shielding tensor, unit is `ppm`",
     )
 
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def isotropic(self) -> PlainQuantity:
         return np.mean(np.trace(self.shielding_tensor))
 
-    @computed_field()  # type: ignore[misc]
+    @computed_field()  # type: ignore[prop-decorator]
     @property
     def anisotropy(self) -> PlainQuantity:
         eigenvalues = np.linalg.eigvals(self.shielding_tensor)
@@ -1406,9 +1370,6 @@ class ShieldingTensor(BaseDataClassWithUnit):
         s_iso = np.mean(eigenvalues)
         sorted_eigs = sorted(eigenvalues, key=lambda x: abs(x - s_iso), reverse=True)
         return sorted_eigs[0] - (sorted_eigs[1] + sorted_eigs[2]) / 2
-
-    def _add_default_units(self) -> None:
-        self._default_units.update({"shielding_tensor": atom_ureg.ppm})
 
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
@@ -1424,6 +1385,10 @@ class ShieldingTensor(BaseDataClassWithUnit):
 
 
 class NMR(BaseDataClassWithUnit):
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "spin_spin_coupling_k": atom_ureg.Hz,
+        "spin_spin_coupling_j": atom_ureg.Hz,
+    }
     shielding_tensors: list[ShieldingTensor] = Field(
         default=[], description="NMR shielding tensors"
     )
@@ -1435,14 +1400,6 @@ class NMR(BaseDataClassWithUnit):
         default=None,
         description="Spin-spin coupling constant, unit is `Hz`",
     )
-
-    def _add_default_units(self) -> None:
-        self._default_units.update(
-            {
-                "spin_spin_coupling_k": atom_ureg.Hz,
-                "spin_spin_coupling_j": atom_ureg.Hz,
-            }
-        )
 
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
@@ -1480,8 +1437,6 @@ class ImplicitSolvation(BaseDataClassWithUnit):
         description="Solvent epsilon infinite used in the QM calculation",
         exclude_if=lambda x: x is None,
     )
-
-    def _add_default_units(self) -> None: ...
 
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
