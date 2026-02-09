@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import pathlib
 from collections.abc import Iterable
+from contextlib import suppress
 from typing import Any, Protocol, cast
 
 from joblib import Parallel, delayed
@@ -49,6 +50,10 @@ def single_file_parser(
                 release_file_content=release_file_content,
             )
             value = result.value
+            if hasattr(value, "detected_format_id"):
+                detected = result.detected_format
+                with suppress(Exception):
+                    value.detected_format_id = detected.strip().lower() if detected else None
             if not _looks_like_disk_file(value):
                 raise TypeError(
                     f"Reader {getattr(reader, 'format_id', reader.__class__.__name__)} returned "

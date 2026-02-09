@@ -33,6 +33,7 @@ class MemoryStorageMixin: ...
 
 class DiskStorageMixin:
     file_path: str = Field(default="", repr=False)
+    detected_format_id: str | None = Field(default=None, repr=False)
 
     @computed_field()  # type: ignore[prop-decorator] # type: ignore[prop-decorator]
     @property

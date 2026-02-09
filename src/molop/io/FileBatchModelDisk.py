@@ -5,7 +5,7 @@ import os
 import random
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, MutableMapping, Sequence
-from typing import TYPE_CHECKING, Any, Literal, TypeAlias, TypeVar, overload
+from typing import TYPE_CHECKING, Any, Generic, Literal, TypeAlias, TypeVar, cast, overload
 
 import pandas as pd
 
@@ -47,22 +47,23 @@ def _looks_like_disk_file(obj: object) -> bool:
 
 R = TypeVar("R")
 TFile = TypeVar("TFile")
+TFileDisk = TypeVar("TFileDisk", bound=FileDiskObj)
 
 
-class FileBatchModelDisk(MutableMapping):
+class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
     """
     A class to store a batch of files and their corresponding models.
     """
 
-    __diskfiles: OrderedDict[str, FileDiskObj]
+    __diskfiles: OrderedDict[str, TFileDisk]
 
-    def __init__(self, diskfiles: Iterable[FileDiskObj] | None = None):
-        self.__diskfiles: OrderedDict[str, FileDiskObj] = OrderedDict()
+    def __init__(self, diskfiles: Iterable[TFileDisk] | None = None):
+        self.__diskfiles: OrderedDict[str, TFileDisk] = OrderedDict()
         if diskfiles is not None:
             self.add_diskfiles(diskfiles)
 
     def _parallel_execute(
-        self, func: Callable[[FileDiskObj], R], desc: str, n_jobs: int
+        self, func: Callable[[TFileDisk], R], desc: str, n_jobs: int
     ) -> list[R]:
         """
         Internal helper to execute a function over the batch in parallel or serial.
@@ -70,14 +71,14 @@ class FileBatchModelDisk(MutableMapping):
         """
         return parallel_map(
             func,
-            self,
+            cast(Iterable[TFileDisk], self),
             n_jobs=n_jobs,
             desc=desc,
             total=len(self),
             disable=not molopconfig.show_progress_bar,
         )
 
-    def add_diskfiles(self, diskfiles: Iterable[FileDiskObj]) -> None:
+    def add_diskfiles(self, diskfiles: Iterable[TFileDisk]) -> None:
         """
         Add disk files to the batch.
 
@@ -95,8 +96,8 @@ class FileBatchModelDisk(MutableMapping):
                 )
 
     @classmethod
-    def new_batch(cls, parsers: Iterable[FileDiskObj]):
-        new_batch = cls()
+    def new_batch(cls, parsers: Iterable[TFileDisk]):
+        new_batch: FileBatchModelDisk[TFileDisk] = cls()
         new_batch.add_diskfiles(parsers)
         return new_batch
 
@@ -110,18 +111,18 @@ class FileBatchModelDisk(MutableMapping):
             return key in self.__diskfiles.values()
 
     @overload
-    def __getitem__(self, key: int) -> FileDiskObj: ...
+    def __getitem__(self, key: int) -> TFileDisk: ...
     @overload
-    def __getitem__(self, key: str) -> FileDiskObj: ...
+    def __getitem__(self, key: str) -> TFileDisk: ...
     @overload
-    def __getitem__(self, key: slice) -> FileBatchModelDisk: ...
+    def __getitem__(self, key: slice) -> FileBatchModelDisk[TFileDisk]: ...
     @overload
-    def __getitem__(self, key: Sequence[int]) -> FileBatchModelDisk: ...
+    def __getitem__(self, key: Sequence[int]) -> FileBatchModelDisk[TFileDisk]: ...
 
     def __getitem__(
         self,
         key: int | str | slice | Sequence[int | str],
-    ) -> FileDiskObj | FileBatchModelDisk:
+    ) -> TFileDisk | FileBatchModelDisk[TFileDisk]:
         if isinstance(key, int):
             return list(self.__diskfiles.values())[key]
         if isinstance(key, str):
@@ -161,7 +162,7 @@ class FileBatchModelDisk(MutableMapping):
             moloplogger.warning(
                 f"File {key} already exists in the batch, replaced with the new one"
             )
-        self.__diskfiles[key] = value
+        self.__diskfiles[key] = cast(TFileDisk, value)
 
     def __delitem__(self, key: str | int) -> None:
         if isinstance(key, int):
@@ -171,11 +172,11 @@ class FileBatchModelDisk(MutableMapping):
     def __len__(self) -> int:
         return len(self.__diskfiles)
 
-    def __iter__(self):
+    def __iter__(self) -> FileBatchModelDisk[TFileDisk]:  # type: ignore[override]
         self.__index = 0
         return self
 
-    def __next__(self) -> FileDiskObj:
+    def __next__(self) -> TFileDisk:
         if self.__index >= len(self.__diskfiles):
             raise StopIteration
         self.__index += 1
@@ -297,7 +298,7 @@ class FileBatchModelDisk(MutableMapping):
             FileBatchModelDisk: The filtered batch.
         """
 
-        def judge_func(diskfile: FileDiskObj) -> bool:
+        def judge_func(diskfile: TFileDisk) -> bool:
             if state == "ts":
                 return diskfile[-1].is_TS != negate
             elif state == "error":
@@ -352,7 +353,7 @@ class FileBatchModelDisk(MutableMapping):
         }
         op_func = compare_ops[compare]
 
-        def judge_func(diskfile: FileDiskObj) -> bool:
+        def judge_func(diskfile: TFileDisk) -> bool:
             if target == "charge":
                 return op_func(diskfile[-1].charge, value)
             elif target == "multiplicity":
@@ -368,9 +369,9 @@ class FileBatchModelDisk(MutableMapping):
 
     def filter_custom(
         self,
-        condition: Callable[[FileDiskObj], bool],
+        condition: Callable[[TFileDisk], bool],
         n_jobs: int = 1,
-    ) -> FileBatchModelDisk:
+    ) -> FileBatchModelDisk[TFileDisk]:
         """
         Filter the files based on a custom callable condition.
 
@@ -389,8 +390,8 @@ class FileBatchModelDisk(MutableMapping):
         return self.new_batch(filtered_files)
 
     def groupby(
-        self, key_func: Callable[[FileDiskObj], str], n_jobs: int = 1
-    ) -> dict[str, FileBatchModelDisk]:
+        self, key_func: Callable[[TFileDisk], str], n_jobs: int = 1
+    ) -> dict[str, FileBatchModelDisk[TFileDisk]]:
         """
         Group the files into multiple batches based on a key function.
 
@@ -403,12 +404,55 @@ class FileBatchModelDisk(MutableMapping):
         """
         desc = f"Grouping files with {n_jobs} jobs"
         keys = self._parallel_execute(key_func, desc, n_jobs)
-        temp_groups: dict[str, list[FileDiskObj]] = {}
+        temp_groups: dict[str, list[TFileDisk]] = {}
         for diskfile, key in zip(self, keys, strict=True):
             if key not in temp_groups:
                 temp_groups[key] = []
             temp_groups[key].append(diskfile)
         return {group_key: self.new_batch(files) for group_key, files in temp_groups.items()}
+
+    def filter_by_codec_id(
+        self,
+        codec_id: str,
+        *,
+        negate: bool = False,
+        n_jobs: int = 1,
+        on_missing: Literal["keep", "drop", "error"] = "drop",
+    ) -> FileBatchModelDisk[TFileDisk]:
+        """Filter batch by detected reader codec id.
+
+        This differs from `filter_value(target="format", ...)` which filters by file suffix.
+
+        Parameters:
+            codec_id: Reader format id (e.g. "xyz", "g16log"). Compared against each diskfile's
+                `detected_format_id` populated during parsing.
+            negate: If True, invert the predicate.
+            n_jobs: Parallel jobs.
+            on_missing: Behavior when `detected_format_id` is missing/None on an item.
+                - "drop": drop the item
+                - "keep": keep the item
+                - "error": raise ValueError
+        """
+
+        wanted = codec_id.strip().lower()
+        if not wanted:
+            raise ValueError("codec_id must be non-empty")
+
+        def judge_func(diskfile: TFileDisk) -> bool:
+            detected = getattr(diskfile, "detected_format_id", None)
+            if detected is None:
+                if on_missing == "keep":
+                    return True
+                if on_missing == "drop":
+                    return False
+                raise ValueError(f"Missing detected_format_id for {getattr(diskfile, 'file_path', '?')}")
+            hit = str(detected).strip().lower() == wanted
+            return (not hit) if negate else hit
+
+        desc = f"Filtering files with codec_id == {wanted} with {n_jobs} jobs"
+        mask = self._parallel_execute(judge_func, desc, n_jobs)
+        filtered_files = [diskfile for diskfile, keep in zip(self, mask, strict=True) if keep]
+        return self.new_batch(filtered_files)
 
     def format_transform(
         self,
