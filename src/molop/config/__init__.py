@@ -178,7 +178,7 @@ class MolOPConfig(BaseModel):
         return (
             min(n_jobs, multiprocessing.cpu_count())
             if n_jobs > 0
-            else min(multiprocessing.cpu_count(), molopconfig.max_jobs)
+            else min(multiprocessing.cpu_count(), self.max_jobs)
         )
 
     def set_dof_effect_drawer(self, enable: bool):
