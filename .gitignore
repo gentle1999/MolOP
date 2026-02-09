@@ -197,6 +197,9 @@ ipython_config.py
 # Icon must end with two \r
 Icon
 
+# OhMyOpenCode agent instructions
+AGENTS.md
+
 
 # Thumbnails
 ._*
