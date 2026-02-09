@@ -176,13 +176,18 @@ class BaseChemFile(BaseDataClassWithUnit, Sequence[FrameT], Generic[FrameT]):
             ),
         )
         if file_path:
+            dir_path = os.path.dirname(os.fspath(file_path))
             base = os.path.basename(file_path).split(".")[0]
             if isinstance(rendered, str):
-                with open(base + f".{format}", "w") as f:
+                filename = base + f".{format}"
+                output_path = os.path.join(dir_path, filename)
+                with open(output_path, "w") as f:
                     f.write(rendered)
             elif isinstance(rendered, list):
                 for idx, frame_content in zip(frame_ids, rendered, strict=True):
-                    with open(base + f"{idx:03d}.{format}", "w") as f:
+                    filename = base + f"{idx:03d}.{format}"
+                    output_path = os.path.join(dir_path, filename)
+                    with open(output_path, "w") as f:
                         f.write(frame_content)
         return rendered
 
