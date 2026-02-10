@@ -92,7 +92,9 @@ class ORCAInpFileFrameMixin:
                 line if line.startswith("!") else f"! {line}" for line in keyword_lines
             )
 
-        resources_raw_to_use = resources_raw if resources_raw is not None else typed_self.resources_raw
+        resources_raw_to_use = (
+            resources_raw if resources_raw is not None else typed_self.resources_raw
+        )
         if resources_raw_to_use.strip():
             preamble_parts.append(resources_raw_to_use.strip("\n"))
         if nprocs is not None:
@@ -108,7 +110,9 @@ class ORCAInpFileFrameMixin:
             header = f"* xyz {typed_self.charge} {typed_self.multiplicity}"
             body = "\n".join(
                 f"{atom} {x:.10f} {y:.10f} {z:.10f}"
-                for atom, (x, y, z) in zip(typed_self.atom_symbols, typed_self.coords.m, strict=True)
+                for atom, (x, y, z) in zip(
+                    typed_self.atom_symbols, typed_self.coords.m, strict=True
+                )
             )
             geometry = f"{header}\n{body}\n*" if body else f"{header}\n*"
 

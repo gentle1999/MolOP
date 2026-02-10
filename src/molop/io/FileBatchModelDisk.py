@@ -62,9 +62,7 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
         if diskfiles is not None:
             self.add_diskfiles(diskfiles)
 
-    def _parallel_execute(
-        self, func: Callable[[TFileDisk], R], desc: str, n_jobs: int
-    ) -> list[R]:
+    def _parallel_execute(self, func: Callable[[TFileDisk], R], desc: str, n_jobs: int) -> list[R]:
         """
         Internal helper to execute a function over the batch in parallel or serial.
         Refactored to support Adaptive UI (Rich/Ipywidgets) and Type Hints.
@@ -445,7 +443,9 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
                     return True
                 if on_missing == "drop":
                     return False
-                raise ValueError(f"Missing detected_format_id for {getattr(diskfile, 'file_path', '?')}")
+                raise ValueError(
+                    f"Missing detected_format_id for {getattr(diskfile, 'file_path', '?')}"
+                )
             hit = str(detected).strip().lower() == wanted
             return (not hit) if negate else hit
 

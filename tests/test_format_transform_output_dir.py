@@ -11,9 +11,7 @@ def test_format_transform_file_path_writes_under_requested_dir(tmp_path, monkeyp
 
     monkeypatch.chdir(cwd_dir)
 
-    fixture_path = (
-        Path(__file__).resolve().parent / "test_files" / "xyz" / "dsgdb9nsd_004015-7.xyz"
-    )
+    fixture_path = Path(__file__).resolve().parent / "test_files" / "xyz" / "dsgdb9nsd_004015-7.xyz"
     batch = AutoParser(str(fixture_path))
     file_model = batch[0]
 
@@ -35,9 +33,7 @@ def test_format_transform_batch_output_dir_writes_under_requested_dir(tmp_path, 
 
     monkeypatch.chdir(cwd_dir)
 
-    fixture_path = (
-        Path(__file__).resolve().parent / "test_files" / "xyz" / "dsgdb9nsd_004015-7.xyz"
-    )
+    fixture_path = Path(__file__).resolve().parent / "test_files" / "xyz" / "dsgdb9nsd_004015-7.xyz"
     batch = AutoParser(str(fixture_path))
 
     batch.format_transform("xyz", output_dir=str(out_dir), n_jobs=1)

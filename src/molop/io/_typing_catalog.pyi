@@ -25,5 +25,10 @@ FileDiskObj: TypeAlias = (
     G16LogFileDisk | GJFFileDisk | ORCAInpFileDisk | SDFFileDisk | SMIFileDisk | XYZFileDisk
 )
 FrameDiskObj: TypeAlias = (
-    G16LogFileFrameDisk | GJFFileFrameDisk | ORCAInpFileFrameDisk | SDFFileFrameDisk | SMIFileFrameDisk | XYZFileFrameDisk
+    G16LogFileFrameDisk
+    | GJFFileFrameDisk
+    | ORCAInpFileFrameDisk
+    | SDFFileFrameDisk
+    | SMIFileFrameDisk
+    | XYZFileFrameDisk
 )
