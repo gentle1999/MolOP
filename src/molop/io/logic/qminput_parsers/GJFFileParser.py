@@ -13,12 +13,12 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from molop.io.base_models.FileParser import BaseFileParserDisk, BaseFileParserMemory
-from molop.io.logic.coords_frame_models.GJFFileFrame import GJFFileFrameDisk, GJFFileFrameMemory
-from molop.io.logic.coords_frame_parsers.GJFFileFrameParser import (
+from molop.io.logic.qminput_frame_models.GJFFileFrame import GJFFileFrameDisk, GJFFileFrameMemory
+from molop.io.logic.qminput_frame_parsers.GJFFileFrameParser import (
     GJFFileFrameParserDisk,
     GJFFileFrameParserMemory,
 )
-from molop.io.logic.coords_models.GJFFile import GJFFileDisk, GJFFileMemory
+from molop.io.logic.qminput_models.GJFFile import GJFFileDisk, GJFFileMemory
 
 
 if TYPE_CHECKING:

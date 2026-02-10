@@ -11,7 +11,7 @@ from typing import cast
 
 from pydantic import Field
 
-from molop.io.base_models.ChemFileFrame import BaseCoordsFrame, _HasCoords, _HasKeywords
+from molop.io.base_models.ChemFileFrame import BaseQMInputFrame, _HasCoords, _HasKeywords
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
 from molop.io.patterns.G16Patterns import options_parser, route_section_parser
 from molop.structure.FormatConverter import rdmol_to_gjf_connectivity
@@ -37,7 +37,7 @@ class GJFFileFrameMixin:
         if template:
             if os.path.exists(template) and os.path.isfile(template):
                 # Import parser without relying on `molop.io` re-exports.
-                from molop.io.logic.coords_parsers.GJFFileParser import GJFFileParserDisk
+                from molop.io.logic.qminput_parsers.GJFFileParser import GJFFileParserDisk
 
                 template_file = GJFFileParserDisk().parse(template)
                 if use_link1 and len(template_file) > 1:
@@ -162,11 +162,11 @@ class GJFFileFrameMixin:
 
 
 class GJFFileFrameMemory(
-    MemoryStorageMixin, GJFFileFrameMixin, BaseCoordsFrame["GJFFileFrameMemory"]
+    MemoryStorageMixin, GJFFileFrameMixin, BaseQMInputFrame["GJFFileFrameMemory"]
 ): ...
 
 
-class GJFFileFrameDisk(DiskStorageMixin, GJFFileFrameMixin, BaseCoordsFrame["GJFFileFrameDisk"]):
+class GJFFileFrameDisk(DiskStorageMixin, GJFFileFrameMixin, BaseQMInputFrame["GJFFileFrameDisk"]):
     def _render(
         self,
         options: str | None = None,

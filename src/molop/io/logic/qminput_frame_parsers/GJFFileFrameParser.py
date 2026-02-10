@@ -13,7 +13,7 @@ import numpy as np
 from rdkit import Chem
 
 from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
-from molop.io.logic.coords_frame_models.GJFFileFrame import GJFFileFrameDisk, GJFFileFrameMemory
+from molop.io.logic.qminput_frame_models.GJFFileFrame import GJFFileFrameDisk, GJFFileFrameMemory
 from molop.io.patterns.G16Patterns import g16_input_patterns
 from molop.unit import atom_ureg
 
