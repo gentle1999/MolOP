@@ -1,9 +1,15 @@
 import sys
+import warnings
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any, NoReturn, TypeAlias, TypeVar, cast, overload
 
 from joblib import Parallel, delayed
 from tqdm import tqdm as st_tqdm
+
+try:
+    from tqdm.std import TqdmExperimentalWarning
+except ImportError:
+    TqdmExperimentalWarning = None
 
 
 T = TypeVar("T")
@@ -74,7 +80,12 @@ def AdaptiveProgress(
     if _best_tqdm_cls is None:
         _best_tqdm_cls = _detect_best_backend()
     tqdm_factory = cast(Callable[..., Any], _best_tqdm_cls)
-    obj = tqdm_factory(iterable, *args, **kwargs)
+    with warnings.catch_warnings():
+        if TqdmExperimentalWarning is not None:
+            warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
+        else:
+            warnings.filterwarnings("ignore", message=".*rich is experimental/alpha.*")
+        obj = tqdm_factory(iterable, *args, **kwargs)
     if iterable is None:
         return cast(TqdmObj, obj)
     return cast(Iterable[T], obj)
