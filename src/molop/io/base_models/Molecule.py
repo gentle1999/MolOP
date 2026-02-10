@@ -291,7 +291,7 @@ class Molecule(BaseDataClassWithUnit):
         Returns:
             str: The GJF block.
         """
-        from molop.io.logic.coords_frame_models.GJFFileFrame import GJFFileFrameDisk
+        from molop.io.logic.qminput_frame_models.GJFFileFrame import GJFFileFrameDisk
 
         return GJFFileFrameDisk.model_validate(
             self.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)

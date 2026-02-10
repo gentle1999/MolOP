@@ -154,7 +154,7 @@ class MolOPCLI:
 
     def transform(
         self,
-        format: Literal["xyz", "sdf", "cml", "gjf", "smi"] = "sdf",
+        format: Literal["xyz", "sdf", "cml", "gjf", "smi", "orcainp"] = "sdf",
         output_dir: str = os.getcwd(),
         frame_id: int | Literal["all"] = -1,
         embed_in_one_file: bool = True,

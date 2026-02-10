@@ -456,7 +456,7 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
 
     def format_transform(
         self,
-        format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
+        format: Literal["xyz", "sdf", "cml", "gjf", "smi", "orcainp"],
         output_dir: str | None = None,
         frameID: int | Literal["all"] | Sequence[int] = -1,
         embed_in_one_file: bool = True,

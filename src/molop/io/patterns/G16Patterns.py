@@ -34,7 +34,7 @@ class G16InputPatterns:
         description="The charge and multiplicity of the Gaussian calculation. link 1",
     )
     ATOMS = MolOPPattern(
-        content_pattern=r"^\s*([A-Z][a-z]*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)",
+        content_pattern=r"^\s*([A-Z][a-z]*)(\s*-?\d+(?:\.\d*)?)(\s*-?\d+(?:\.\d*)?)(\s*-?\d+(?:\.\d*)?)",
         content_repeat=0,
     )
 
