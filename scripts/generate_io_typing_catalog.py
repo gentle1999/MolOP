@@ -149,9 +149,11 @@ def main(argv: list[str] | None = None) -> int:
     search_dirs = [
         # File models
         src_root / "molop" / "io" / "logic" / "coords_models",
+        src_root / "molop" / "io" / "logic" / "qminput_models",
         src_root / "molop" / "io" / "logic" / "QM_models",
         # Frame models
         src_root / "molop" / "io" / "logic" / "coords_frame_models",
+        src_root / "molop" / "io" / "logic" / "qminput_frame_models",
         src_root / "molop" / "io" / "logic" / "QM_frame_models",
     ]
 

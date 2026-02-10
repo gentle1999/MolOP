@@ -30,9 +30,11 @@ from typing import Any
 _BUILTIN_SCAN_PACKAGE_NAMES: tuple[str, ...] = (
     # File parsers register reader codecs.
     "molop.io.logic.coords_parsers",
+    "molop.io.logic.qminput_parsers",
     "molop.io.logic.QM_parsers",
     # File models register writer codecs.
     "molop.io.logic.coords_models",
+    "molop.io.logic.qminput_models",
     "molop.io.logic.QM_models",
 )
 
