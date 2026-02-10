@@ -128,7 +128,51 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
 class BaseCoordsFrame(BaseChemFileFrame[ChemFileFrame]): ...
 
 
-class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
+class BaseQMInputFrame(BaseCoordsFrame[ChemFileFrame]):
+    """Frame type for *QM input* files that contain coordinates + input metadata.
+
+    This sits conceptually between `BaseCoordsFrame` and `BaseCalcFrame`:
+    - Has coordinates (like coords formats)
+    - Carries lightweight method/keyword/resource metadata (like QM calculations)
+    - Does NOT imply that QM output properties (energies/forces/vibrations/...) exist
+    """
+
+    # QM software
+    qm_software: str = Field(
+        default="",
+        description="QM software used for this input (e.g., gaussian/orca)",
+    )
+    qm_software_version: str = Field(
+        default="",
+        description="QM software version (if known)",
+    )
+
+    # QM input parameters
+    keywords: str = Field(
+        default="",
+        description="Input keywords / route section (raw or normalized)",
+    )
+    method: str = Field(
+        default="",
+        description="QM method (best-effort, may be empty for raw-only inputs)",
+    )
+    basis_set: str = Field(
+        default="",
+        description="Basis set (best-effort, may be empty for raw-only inputs)",
+    )
+    functional: str = Field(
+        default="",
+        description="Functional (best-effort, may be empty for raw-only inputs)",
+    )
+
+    # Resources: preservation-only (raw)
+    resources_raw: str = Field(
+        default="",
+        description="Raw resource directives from the input (preservation-only)",
+    )
+
+
+class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
     default_units: ClassVar[dict[str, UnitLike]] = {
         "coords": atom_ureg.angstrom,
         "forces": atom_ureg.Unit("hartree / bohr"),
@@ -137,33 +181,8 @@ class BaseCalcFrame(BaseChemFileFrame[ChemFileFrame]):
         "temperature": atom_ureg.Unit("K"),
         "electron_temperature": atom_ureg.Unit("K"),
     }
-    # QM software
-    qm_software: str = Field(
-        default="",
-        description="QM software used to perform the calculation",
-    )
-    qm_software_version: str = Field(
-        default="",
-        description="QM software version used to perform the calculation",
-    )
-    # QM parameters
-    keywords: str = Field(
-        default="",
-        description="Keywords for the QM parameters",
-    )
-    method: str = Field(
-        default="",
-        description="QM method used to perform the calculation. "
-        "e.g. DFT or SEMI-EMPIRICAL or HF et. al.",
-    )
-    basis_set: str = Field(
-        default="",
-        description="Basis set used in the QM calculation, only for DFT calculations",
-    )
-    functional: str = Field(
-        default="",
-        description="Functional used in the QM calculation, only for DFT calculations",
-    )
+    # Note: QM input metadata (keywords/method/basis_set/functional/resources_raw)
+    # lives on BaseQMInputFrame.
     # solvation
     solvent: ImplicitSolvation | None = Field(
         default=None,

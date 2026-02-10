@@ -19,7 +19,12 @@ from pydantic import Field, PrivateAttr
 from molop.config import moloplogger
 from molop.io import codec_registry
 from molop.io.base_models.Bases import BaseDataClassWithUnit
-from molop.io.base_models.ChemFileFrame import BaseCalcFrame, BaseChemFileFrame, BaseCoordsFrame
+from molop.io.base_models.ChemFileFrame import (
+    BaseCalcFrame,
+    BaseChemFileFrame,
+    BaseCoordsFrame,
+    BaseQMInputFrame,
+)
 from molop.io.base_models.DataClasses import (
     GeometryOptimizationStatus,
     ImplicitSolvation,
@@ -31,6 +36,7 @@ from molop.unit import atom_ureg
 FrameT = TypeVar("FrameT", bound=BaseChemFileFrame)
 CoordsFrameT = TypeVar("CoordsFrameT", bound=BaseCoordsFrame)
 CalcFrameT = TypeVar("CalcFrameT", bound=BaseCalcFrame)
+QMInputFrameT = TypeVar("QMInputFrameT", bound=BaseQMInputFrame)
 
 
 class BaseChemFile(BaseDataClassWithUnit, Sequence[FrameT], Generic[FrameT]):
@@ -125,7 +131,7 @@ class BaseChemFile(BaseDataClassWithUnit, Sequence[FrameT], Generic[FrameT]):
 
     def format_transform(
         self,
-        format: Literal["xyz", "sdf", "cml", "gjf", "smi"],
+        format: Literal["xyz", "sdf", "cml", "gjf", "smi", "orcainp"],
         frameID: Sequence[int] | int | Literal["all"] | slice = -1,
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
@@ -143,8 +149,8 @@ class BaseChemFile(BaseDataClassWithUnit, Sequence[FrameT], Generic[FrameT]):
         Returns:
             (str | List[str]): The transformed block(s).
         """
-        assert format in ("xyz", "sdf", "cml", "gjf", "smi"), (
-            "Only 'xyz', 'sdf', 'gjf', 'smi' supported"
+        assert format in ("xyz", "sdf", "cml", "gjf", "smi", "orcainp"), (
+            "Only 'xyz', 'sdf', 'gjf', 'smi', 'orcainp' supported"
         )
         assert file_path is None or not os.path.isdir(file_path), (
             "file_path should be a file path or None"
@@ -222,38 +228,57 @@ ChemFile = TypeVar("ChemFile", bound="BaseChemFile")
 class BaseCoordsFile(BaseChemFile[CoordsFrameT], Generic[CoordsFrameT]): ...
 
 
-class BaseCalcFile(BaseChemFile[CalcFrameT], Generic[CalcFrameT]):
+class BaseQMInputFile(BaseCoordsFile[QMInputFrameT], Generic[QMInputFrameT]):
+    """File type for QM *input* files (coords + lightweight input metadata).
+
+    Sits between `BaseCoordsFile` and `BaseCalcFile`.
+
+    Resource parsing is preservation-only: store raw directives, do not normalize.
+    """
+
+    # QM software
+    qm_software: str = Field(
+        default="",
+        description="QM software used for this input (e.g., gaussian/orca)",
+    )
+    qm_software_version: str = Field(
+        default="",
+        description="QM software version (if known)",
+    )
+
+    # QM input parameters
+    keywords: str = Field(
+        default="",
+        description="Input keywords / route section (raw or normalized)",
+    )
+    method: str = Field(
+        default="",
+        description="QM method (best-effort, may be empty for raw-only inputs)",
+    )
+    basis_set: str = Field(
+        default="",
+        description="Basis set (best-effort, may be empty for raw-only inputs)",
+    )
+    functional: str = Field(
+        default="",
+        description="Functional (best-effort, may be empty for raw-only inputs)",
+    )
+
+    # Resources: preservation-only (raw)
+    resources_raw: str = Field(
+        default="",
+        description="Raw resource directives from the input (preservation-only)",
+    )
+
+
+class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):
     default_units: ClassVar[dict[str, UnitLike]] = {
         "temperature": atom_ureg.K,
         "electron_temperature": atom_ureg.K,
         "running_time": atom_ureg.second,
     }
-    # QM software
-    qm_software: str = Field(
-        default="",
-        description="QM software used to perform the calculation",
-    )
-    qm_software_version: str = Field(
-        default="",
-        description="QM software version used to perform the calculation",
-    )
-    # QM parameters
-    keywords: str = Field(
-        default="",
-        description="Keywords for the QM parameters",
-    )
-    method: str = Field(
-        default="",
-        description="QM method used to perform the calculation. e.g. DFT or GFN2-xTB",
-    )
-    basis_set: str = Field(
-        default="",
-        description="Basis set used in the QM calculation, only for DFT calculations",
-    )
-    functional: str = Field(
-        default="",
-        description="Functional used in the QM calculation, only for DFT calculations",
-    )
+    # Note: QM input metadata (keywords/method/basis_set/functional/resources_raw)
+    # lives on BaseQMInputFile.
     # solvation
     solvent: ImplicitSolvation | None = Field(
         default=None,
