@@ -1,0 +1,53 @@
+name: Docs Deploy
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install uv
+        run: python -m pip install --upgrade pip uv
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy latest from main
+        if: github.ref == 'refs/heads/main'
+        run: |
+          uv run mike deploy --push --alias-type redirect latest
+          if uv run mike list | grep -Eq '(^|[[:space:]])stable($|[[:space:]])'; then
+            uv run mike set-default --push --alias-type redirect stable
+          else
+            uv run mike set-default --push --alias-type redirect latest
+          fi
+
+      - name: Deploy tagged release and update stable
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          VERSION="${GITHUB_REF_NAME}"
+          uv run mike deploy --push --update-aliases --alias-type redirect "${VERSION}" stable
+          uv run mike set-default --push --alias-type redirect stable

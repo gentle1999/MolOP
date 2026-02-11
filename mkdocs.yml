@@ -2,6 +2,7 @@ site_name: MolOP Documentation
 site_dir: public
 repo_url: https://github.com/gentle1999/MolOP.git
 repo_name: gentle1999/MolOP.git
+site_url: https://gentle1999.github.io/MolOP/
 
 theme:
   name: "material"
@@ -16,6 +17,8 @@ theme:
     repo: fontawesome/brands/github
 
 extra:
+  version:
+    provider: mike
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/gentle1999/MolOP.git
@@ -27,70 +30,12 @@ copyright: Copyright &copy; 2023 - 2024 Miao-jiong Tang
 plugins:
   - search
   - mkdocstrings
+  - mkdocs-jupyter
   - i18n:
-      docs_structure: folder
+      default_language: zh
       languages:
-        - locale: en
-          default: true
-          name: English
-          build: true
-        - locale: zh
-          name: 简体中文
-          build: true
-          nav:
-            - 主页: index.md
-            - 安装: install.md
-            - 快速开始:
-                - 读取文件: read_files.md
-                - 结构复原案例: structure_recovery_cases.md
-                - 支持的输入格式: supporting_input_file_formats.md
-                - 支持的输出格式: supporting_output_file_formats.md
-                - 量化解析器基准测试: qc_parser_benchmark.md
-                - 结构复原基准测试: structure_recover_benchmark.md
-            - 从例子学习:
-                - 读取文件并提取信息: read_file_and_extract_info.md
-                - 转换为GJF格式: transform_in_gjf.md
-                - 命令行接口: command_line_interface.md
-            - API: 
-              - io:
-                - bases:
-                  - MolFrame: 
-                    - BaseMolFrameParser.md
-                  - File:
-                    - BaseMolFileParser.md
-                - file_batch.md
-              - structure:
-                - structure_recovery.md
-                - structure.md
-                - geometry.md
-
-
-nav:
-  - Home: index.md
-  - Installaton: install.md
-  - Get Start:
-      - Read Files: read_files.md
-      - Supporting Input File formats: supporting_input_file_formats.md
-      - Supporting Output File formats: supporting_output_file_formats.md
-      - QC parser Benchmark: qc_parser_benchmark.md
-      - Structure Recovery Benchmark: structure_recover_benchmark.md
-  - Examples:
-      - Read a file and extract info: read_file_and_extract_info.md
-      - Transform in gjf: transform_in_gjf.md
-      - Command line interface: command_line_interface.md
-      - Tutorial for replacemnt: tutorial_for_replacement.md
-  - API: 
-    - io:
-      - bases:
-        - MolFrame: 
-          - BaseMolFrameParser.md
-        - File:
-          - BaseMolFileParser.md
-      - file_batch.md
-    - structure:
-      - structure_recovery.md
-      - structure.md
-      - geometry.md
+        en: English
+        zh: 中文
 
 extra_javascript:
   - javascripts/mathjax.js
@@ -132,18 +77,6 @@ markdown_extensions:  #Markdown扩展列表
   - pymdownx.magiclink
   - pymdownx.smartsymbols
   - pymdownx.snippets
-  - pymdownx.superfences:
-      custom_fences:
-        - name: mermaid
-          class: mermaid
-          format: !!python/name:pymdownx.superfences.fence_code_format
-  - pymdownx.tabbed:
-      alternate_style: true
-      combine_header_slug: true
-      slugify: !!python/object/apply:pymdownx.slugs.slugify
-        kwds:
-          case: lower
   - pymdownx.tasklist:
       custom_checkbox: true
       clickable_checkbox: true
-
