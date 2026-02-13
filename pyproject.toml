@@ -76,6 +76,7 @@ type = [
 ]
 
 test = [
+    "ipywidgets>=8.1.8",
     "pytest>=9.0.1",
     "pytest-cov>=7.0.0",
 ]
