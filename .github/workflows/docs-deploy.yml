@@ -43,7 +43,7 @@ jobs:
         run: |
           uv export --frozen --only-group docs --no-emit-project --format requirements.txt --no-hashes -o /tmp/requirements-docs.txt
           python -m venv .venv
-          uv pip sync --prefix .venv --default-index https://pypi.org/simple /tmp/requirements-docs.txt
+          uv pip sync --no-config --prefix .venv --default-index https://pypi.org/simple /tmp/requirements-docs.txt
 
       - name: Build docs
         run: .venv/bin/mkdocs build -f mkdocs.yml
