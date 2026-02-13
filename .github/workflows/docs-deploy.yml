@@ -4,23 +4,26 @@ on:
   push:
     branches:
       - main
-    tags:
-      - "v*"
+  workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
 
@@ -30,24 +33,23 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev
 
-      - name: Configure git identity
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Build docs
+        run: uv run mkdocs build -f mkdocs.yml
 
-      - name: Deploy latest from main
-        if: github.ref == 'refs/heads/main'
-        run: |
-          uv run mike deploy --push --alias-type redirect latest
-          if uv run mike list | grep -Eq '(^|[[:space:]])stable($|[[:space:]])'; then
-            uv run mike set-default --push --alias-type redirect stable
-          else
-            uv run mike set-default --push --alias-type redirect latest
-          fi
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
 
-      - name: Deploy tagged release and update stable
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          VERSION="${GITHUB_REF_NAME}"
-          uv run mike deploy --push --update-aliases --alias-type redirect "${VERSION}" stable
-          uv run mike set-default --push --alias-type redirect stable
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
