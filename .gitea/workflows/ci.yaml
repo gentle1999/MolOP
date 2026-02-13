@@ -18,15 +18,13 @@ jobs:
       - name: Checkout code
         uses: http://10.72.201.58:13000/actions/checkout@v4
         with:
-          # fetch-depth must be 0 so hatch-vcs can compute the dev version.
           fetch-depth: 0
 
       - name: Install uv
         run: |
           apt-get update
-          apt-get install -y python3 python3-pip python3-venv
-          python3 -m pip install --upgrade pip
-          python3 -m pip install --user uv
+          apt-get install -y curl ca-certificates
+          curl -LsSf https://astral.sh/uv/install.sh | sh
           if [ -n "${GITHUB_PATH:-}" ]; then
             echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           fi
@@ -66,9 +64,8 @@ jobs:
       - name: Install uv
         run: |
           apt-get update
-          apt-get install -y python3 python3-pip python3-venv
-          python3 -m pip install --upgrade pip
-          python3 -m pip install --user uv
+          apt-get install -y curl ca-certificates
+          curl -LsSf https://astral.sh/uv/install.sh | sh
           if [ -n "${GITHUB_PATH:-}" ]; then
             echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           fi
@@ -77,9 +74,11 @@ jobs:
       - name: Show uv version
         run: uv --version
 
+      - name: Set up Python
+        run: uv python install 3.11
+
       - name: Show computed version
         run: |
-          # 使用 uv run 执行 python 来动态获取 hatch-vcs 计算的版本
           VERSION=$(uv run python -c "from hatch_vcs.version_source import VCSVersionSource; import os; print(VCSVersionSource(os.getcwd(), {}).get_version_data()['version'])")
           echo "📦 Current Build Version: $VERSION"
 
