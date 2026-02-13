@@ -65,12 +65,12 @@ dev = [
     "mkdocstrings-python>=1.19.0",
     "mypy>=1.18.2",
     "nbconvert>=7.16.6",
-    "pydantic[mypy]>=2.12.5",
     "pyright>=1.1.0",
     "pytest>=9.0.1",
     "pytest-cov>=7.0.0",
     "rich>=14.2.0",
     "ruff>=0.14.6",
+    "rumdl>=0.1.18",
     "seaborn>=0.13.2",
 ]
 

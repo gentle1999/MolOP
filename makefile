@@ -17,7 +17,7 @@ else
 	OPEN_CMD := xdg-open
 endif
 
-.PHONY: help init install-uv install sync update tree format lint type-check pyright check-types check test test-cov clean distclean build release rename docker-build docker-up docker-down gen-typing-stubs check-typing-stubs
+.PHONY: help init install-uv install sync update tree format lint type-check pyright check-types check test test-cov clean distclean build release rename docker-build docker-up docker-down gen-typing-stubs check-typing-stubs docs-serve docs-build docs-build-strict
 
 # =============================================================================
 # 📝 帮助文档
@@ -56,6 +56,11 @@ help:
 	@echo "  make docker-build  🏗️ Build Docker image"
 	@echo "  make docker-up     🚀 Run with Docker Compose"
 	@echo "  make docker-down   🛑 Stop Docker services"
+	@echo ""
+	@echo "📖 \033[1;33mDocumentation:\033[0m"
+	@echo "  make docs-serve        🌐 Serve documentation locally"
+	@echo "  make docs-build        🏗️ Build documentation"
+	@echo "  make docs-build-strict ✅ Build documentation with strict mode"
 	@echo ""
 	@echo "📌 Current Package: $(PACKAGE_NAME)"
 	@echo "📌 Detected Version: $(VERSION)"
@@ -252,3 +257,18 @@ docker-up:
 docker-down:
 	@echo "🛑 Stopping services..."
 	docker compose down
+
+# =============================================================================
+# 📖 文档相关
+# =============================================================================
+docs-serve:
+	@echo "🌐 Serving documentation..."
+	uv run mkdocs serve -f mkdocs.dev.yml -a 127.0.0.1:8000
+
+docs-build:
+	@echo "🏗️ Building documentation..."
+	uv run mkdocs build
+
+docs-build-strict:
+	@echo "✅ Building documentation (strict mode)..."
+	uv run mkdocs build --strict
