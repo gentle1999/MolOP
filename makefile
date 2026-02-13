@@ -98,7 +98,7 @@ init:
 
 	@# 3. 同步依赖
 	@echo "🚀 Installing dependencies..."
-	uv sync --all-extras --dev
+	uv sync --all-extras --group dev --group docs
 	
 	@echo "✅ Environment ready! Activate with: source .venv/bin/activate"
 

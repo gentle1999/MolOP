@@ -35,7 +35,7 @@ jobs:
         run: uv python install 3.11
 
       - name: Install dependencies
-        run: uv sync --all-extras --dev
+        run: uv sync --frozen --all-extras --group test
 
       - name: Check generated typing stubs
         run: uv run python scripts/generate_io_typing_catalog.py
@@ -70,6 +70,9 @@ jobs:
       - name: Show uv version
         run: uv --version
 
+      - name: Install dependencies
+        run: uv sync --frozen --group publish --no-install-project
+
       - name: Set up Python
         run: uv python install 3.11
 
@@ -83,9 +86,9 @@ jobs:
 
       - name: Publish to Gitea Registry
         env:
-          UV_PUBLISH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          UV_PUBLISH_USERNAME: ${{ secrets.OWNER }}
+          UV_PUBLISH_PASSWORD: ${{ secrets.PASSWORD }}
           GITEA_HOST: "http://10.72.201.58:13000"
         run: |
           PUBLISH_URL="${GITEA_HOST}/api/packages/${{ github.repository_owner }}/pypi"
-          echo "🚀 Publishing to $PUBLISH_URL ..."
-          uv publish --publish-url "$PUBLISH_URL"
+          uv publish -u "$UV_PUBLISH_USERNAME" -p "$UV_PUBLISH_PASSWORD" --publish-url "$PUBLISH_URL"
