@@ -21,10 +21,16 @@ jobs:
           # fetch-depth must be 0 so hatch-vcs can compute the dev version.
           fetch-depth: 0
 
-      - name: Install uv (via pip)
+      - name: Install uv
         run: |
-          python3 -m ensurepip --upgrade
-          python3 -m pip install --upgrade pip uv
+          apt-get update
+          apt-get install -y python3 python3-pip python3-venv
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --user uv
+          if [ -n "${GITHUB_PATH:-}" ]; then
+            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          fi
+          export PATH="$HOME/.local/bin:$PATH"
 
       - name: Show uv version
         run: uv --version
@@ -57,10 +63,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install uv (via pip)
+      - name: Install uv
         run: |
-          python3 -m ensurepip --upgrade
-          python3 -m pip install --upgrade pip uv
+          apt-get update
+          apt-get install -y python3 python3-pip python3-venv
+          python3 -m pip install --upgrade pip
+          python3 -m pip install --user uv
+          if [ -n "${GITHUB_PATH:-}" ]; then
+            echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          fi
+          export PATH="$HOME/.local/bin:$PATH"
 
       - name: Show uv version
         run: uv --version
