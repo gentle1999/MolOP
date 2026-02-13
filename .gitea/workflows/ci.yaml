@@ -22,9 +22,7 @@ jobs:
 
       - name: Install uv
         run: |
-          apt-get update
-          apt-get install -y curl ca-certificates
-          curl -LsSf https://astral.sh/uv/install.sh | sh
+          curl -LsSf https://gitee.com/wangnov/uv-custom/releases/download/0.10.2/uv-installer-custom.sh | sh
           if [ -n "${GITHUB_PATH:-}" ]; then
             echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           fi
@@ -63,9 +61,7 @@ jobs:
 
       - name: Install uv
         run: |
-          apt-get update
-          apt-get install -y curl ca-certificates
-          curl -LsSf https://astral.sh/uv/install.sh | sh
+          curl -LsSf https://gitee.com/wangnov/uv-custom/releases/download/0.10.2/uv-installer-custom.sh | sh
           if [ -n "${GITHUB_PATH:-}" ]; then
             echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           fi
