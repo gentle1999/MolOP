@@ -83,7 +83,7 @@ uv sync
 
 - **`molop.cli` (命令行界面)**
 
-  - 基于 `fire` 库构建，提供强大的终端工具。
+  - 主命令行界面基于 `Typer` 构建。传统的链式工作流基于 `Fire`，可通过 `molop chain` 访问。
 
 - **`molop.config` (全局配置)**
   - 通过全局单例 `molopconfig` 管理日志、并行度等行为。

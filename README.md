@@ -95,7 +95,7 @@ require editing core batch logic or central codec lists.
   - Encapsulates RDKit descriptors and the custom SPMS 3D structure descriptor.
 
 - **`molop.cli` (Command-Line Interface)**
-  - Built on the `fire` library, providing powerful terminal tools.
+  - Top-level CLI is built on `Typer`. Legacy chain workflow uses `Fire` and is accessed via `molop chain`.
 
 - **`molop.config` (Global Configuration)**
   - Manages logging, parallelism, and other behaviors through the global singleton `molopconfig`.
