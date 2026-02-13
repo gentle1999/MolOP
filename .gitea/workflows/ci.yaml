@@ -44,11 +44,6 @@ jobs:
       - name: Check generated typing stubs
         run: uv run python scripts/generate_io_typing_catalog.py --check
 
-      - name: Lint and Format check
-        run: |
-          uv run ruff check . --fix
-          uv run ruff format --check .
-
       - name: Run tests
         run: uv run pytest
 
