@@ -40,10 +40,13 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Install dependencies
-        run: uv sync --frozen --group docs --no-install-project --default-index https://pypi.org/simple
+        run: |
+          uv export --frozen --only-group docs --no-emit-project --format requirements.txt --no-hashes -o /tmp/requirements-docs.txt
+          python -m venv .venv
+          uv pip sync --prefix .venv --default-index https://pypi.org/simple /tmp/requirements-docs.txt
 
       - name: Build docs
-        run: uv run --no-project mkdocs build -f mkdocs.yml
+        run: .venv/bin/mkdocs build -f mkdocs.yml
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
