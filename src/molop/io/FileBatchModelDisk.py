@@ -55,14 +55,14 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
     A class to store a batch of files and their corresponding models.
     """
 
-    __diskfiles: OrderedDict[str, TFileDisk]
-
     def __init__(self, diskfiles: Iterable[TFileDisk] | None = None):
         self.__diskfiles: OrderedDict[str, TFileDisk] = OrderedDict()
         if diskfiles is not None:
             self.add_diskfiles(diskfiles)
 
-    def _parallel_execute(self, func: Callable[[TFileDisk], R], desc: str, n_jobs: int) -> list[R]:
+    def parallel_execute(
+        self, func: Callable[[TFileDisk], R], desc: str = "", n_jobs: int = 1
+    ) -> list[R]:
         """
         Internal helper to execute a function over the batch in parallel or serial.
         Refactored to support Adaptive UI (Rich/Ipywidgets) and Type Hints.
@@ -94,9 +94,9 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
                 )
 
     @classmethod
-    def new_batch(cls, parsers: Iterable[TFileDisk]):
+    def new_batch(cls, diskfiles: Iterable[TFileDisk]):
         new_batch: FileBatchModelDisk[TFileDisk] = cls()
-        new_batch.add_diskfiles(parsers)
+        new_batch.add_diskfiles(diskfiles)
         return new_batch
 
     def __repr__(self) -> str:
@@ -297,10 +297,11 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
         """
 
         def judge_func(diskfile: TFileDisk) -> bool:
+            last_frame = diskfile[-1]
             if state == "ts":
-                return diskfile[-1].is_TS != negate
+                return last_frame.is_TS is not None and last_frame.is_TS != negate
             elif state == "error":
-                return diskfile[-1].is_error != negate
+                return last_frame.is_error is not None and last_frame.is_error != negate
             elif state == "opt":
                 if (
                     any(
@@ -310,15 +311,19 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
                     and (opt_frame := getattr(diskfile, "closest_optimized_frame", None))
                     is not None
                 ):
-                    return diskfile[-1].is_normal != negate and opt_frame.is_optimized != negate
+                    return (
+                        last_frame.is_normal is not None
+                        and last_frame.is_normal != negate
+                        and opt_frame.is_optimized != negate
+                    )
                 return False
             elif state == "normal":
-                return diskfile[-1].is_normal != negate
+                return last_frame.is_normal is not None and last_frame.is_normal != negate
             else:
                 raise ValueError(f"Invalid state: {state}")
 
         desc = f"Filtering {state} files {'negated' if negate else ''} with {n_jobs} jobs"
-        mask = self._parallel_execute(judge_func, desc, n_jobs)
+        mask = self.parallel_execute(judge_func, desc, n_jobs)
         filtered_files = [diskfile for diskfile, keep in zip(self, mask, strict=True) if keep]
         return self.new_batch(filtered_files)
 
@@ -328,7 +333,7 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
         value: str | float | int,
         compare: Literal["==", "!=", ">", "<", ">=", "<="] = "==",
         n_jobs: int = 1,
-    ):
+    ) -> FileBatchModelDisk[TFileDisk]:
         """
         Filter with updated operator module and parallel execution.
 
@@ -361,7 +366,7 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
             return False
 
         desc = f"Filtering files with {target} {compare} {value} with {n_jobs} jobs"
-        mask = self._parallel_execute(judge_func, desc, n_jobs)
+        mask = self.parallel_execute(judge_func, desc, n_jobs)
         filtered_files = [diskfile for diskfile, keep in zip(self, mask, strict=True) if keep]
         return self.new_batch(filtered_files)
 
@@ -383,7 +388,7 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
             FileBatchModelDisk: A new batch containing only the files that satisfy the condition.
         """
         desc = f"Filtering with custom function with {n_jobs} jobs"
-        mask = self._parallel_execute(condition, desc, n_jobs)
+        mask = self.parallel_execute(condition, desc, n_jobs)
         filtered_files = [diskfile for diskfile, keep in zip(self, mask, strict=True) if keep]
         return self.new_batch(filtered_files)
 
@@ -401,7 +406,7 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
             (dict[str, FileBatchModelDisk]): A dictionary where keys are group names and values are new batch objects.
         """
         desc = f"Grouping files with {n_jobs} jobs"
-        keys = self._parallel_execute(key_func, desc, n_jobs)
+        keys = self.parallel_execute(key_func, desc, n_jobs)
         temp_groups: dict[str, list[TFileDisk]] = {}
         for diskfile, key in zip(self, keys, strict=True):
             if key not in temp_groups:
@@ -450,7 +455,7 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
             return (not hit) if negate else hit
 
         desc = f"Filtering files with codec_id == {wanted} with {n_jobs} jobs"
-        mask = self._parallel_execute(judge_func, desc, n_jobs)
+        mask = self.parallel_execute(judge_func, desc, n_jobs)
         filtered_files = [diskfile for diskfile, keep in zip(self, mask, strict=True) if keep]
         return self.new_batch(filtered_files)
 
@@ -461,7 +466,7 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
         frameID: int | Literal["all"] | Sequence[int] = -1,
         embed_in_one_file: bool = True,
         n_jobs: int = 1,
-        **kwargs,
+        **kwargs: Any,
     ) -> dict[str, str | list[str]]:
         """
         Transform formats using the parallel execution engine.
@@ -502,7 +507,7 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
                 return diskfile.file_path, ("" if embed_in_one_file else [])
 
         desc = f"MolOP processing {format} format with {n_jobs} jobs"
-        results = self._parallel_execute(transform_func, desc, n_jobs)
+        results = self.parallel_execute(transform_func, desc, n_jobs)
         return dict(results)
 
     def to_summary_df(
@@ -510,7 +515,7 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
         mode: Literal["file", "frame"] = "frame",
         frameIDs: int | Sequence[int] = -1,
         n_jobs: int = 1,
-        **kwargs,
+        **kwargs: Any,
     ) -> pd.DataFrame:
         """
         Generate summary DataFrame using the parallel execution engine.
@@ -540,7 +545,7 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
             return []
 
         desc = f"MolOP processing {mode} summary with {n_jobs} jobs"
-        nested_results = self._parallel_execute(process_file_summary, desc, n_jobs)
+        nested_results = self.parallel_execute(process_file_summary, desc, n_jobs)
         series_list: list[pd.Series] = [s for sublist in nested_results for s in sublist]
         if not series_list:
             return pd.DataFrame()
@@ -562,7 +567,7 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
         maxMols: int = 16,
         useSVG: bool = True,
         n_jobs: int = 1,
-        **kwargs,
+        **kwargs: Any,
     ):
         """
         Quick preview of the structures of the first N molecules in a Jupyter Notebook.

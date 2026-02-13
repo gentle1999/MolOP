@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:43:45
 LastEditors: TMJ
-LastEditTime: 2026-02-04 15:55:11
+LastEditTime: 2026-02-12 20:26:22
 Description: 请填写简介
 """
 
@@ -74,6 +74,36 @@ class _HasKeywords(_HasCoords):
 
 class _HasVibrations(_HasKeywords):
     vibrations: Vibrations | None
+
+
+def _process_bond_helper(
+    rwmol: Chem.RWMol,
+    start_atom_idx: int,
+    end_atom_idx: int,
+    other_rdmol: RdMol,
+    bond_type: Chem.BondType,
+) -> None:
+    """
+    Helper function to process bonds and set bond types to zero if necessary.
+
+    Parameters:
+        rwmol (Chem.RWMol):
+            The RDKit molecule to modify.
+        start_atom_idx (int):
+            The index of the start atom in the bond.
+        end_atom_idx (int):
+            The index of the end atom in the bond.
+        other_rdmol (RdMol):
+            The other RDKit molecule to compare against.
+        bond_type (Chem.BondType):
+            The type of the bond in the reactant or product molecule.
+    """
+    bond_1 = rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx)
+    bond_2 = other_rdmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx)
+    if bond_1 is None:
+        rwmol.AddBond(start_atom_idx, end_atom_idx, Chem.BondType.ZERO)
+    elif bond_2 is None or bond_type != bond_2.GetBondType():
+        rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).SetBondType(Chem.BondType.ZERO)
 
 
 ChemFileFrame = TypeVar("ChemFileFrame", bound="BaseChemFileFrame")
@@ -523,7 +553,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                     bond.GetBeginAtomIdx(),
                     bond.GetEndAtomIdx(),
                 )
-                self._process_bond(
+                _process_bond_helper(
                     rwmol,
                     start_atom_idx,
                     end_atom_idx,
@@ -537,14 +567,17 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                     bond.GetBeginAtomIdx(),
                     bond.GetEndAtomIdx(),
                 )
-                self._process_bond(
+                _process_bond_helper(
                     rwmol,
                     start_atom_idx,
                     end_atom_idx,
                     reactant_rdmol,
                     bond.GetBondType(),
                 )
-
+            for atom_idx in range(rwmol.GetNumAtoms()):
+                atom = rwmol.GetAtomWithIdx(atom_idx)
+                atom.SetNoImplicit(True)
+                atom.SetNumExplicitHs(0)
             return rwmol.GetMol()
 
         except AssertionError as e:
@@ -553,38 +586,6 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         except Exception as e:
             moloplogger.error(f"Unexpected error occurred: {e}")
             return None
-
-    def _process_bond(
-        self,
-        rwmol: Chem.RWMol,
-        start_atom_idx: int,
-        end_atom_idx: int,
-        other_rdmol: RdMol,
-        bond_type: Chem.BondType,
-    ) -> None:
-        """
-        Helper function to process bonds and set bond types to zero if necessary.
-
-        Parameters:
-            rwmol (Chem.RWMol):
-                The RDKit molecule to modify.
-            start_atom_idx (int):
-                The index of the start atom in the bond.
-            end_atom_idx (int):
-                The index of the end atom in the bond.
-            other_rdmol (RdMol):
-                The other RDKit molecule to compare against.
-            bond_type (Chem.BondType):
-                The type of the bond in the reactant or product molecule.
-        """
-        if rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx) is None:
-            rwmol.AddBond(start_atom_idx, end_atom_idx, Chem.BondType.ZERO)
-        elif (
-            other_rdmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx) is None
-            or bond_type
-            != other_rdmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).GetBondType()
-        ):
-            rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).SetBondType(Chem.BondType.ZERO)
 
     @computed_field()  # type: ignore[prop-decorator]
     @property

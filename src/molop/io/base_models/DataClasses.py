@@ -6,7 +6,7 @@ import pandas as pd
 from pint._typing import UnitLike
 from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity
-from pydantic import Field, PrivateAttr, computed_field, model_validator
+from pydantic import Field, computed_field, model_validator
 from typing_extensions import Self
 
 from molop.unit import atom_ureg
@@ -212,7 +212,6 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
         "beta_energies": atom_ureg.hartree,
     }
 
-    __index: int = PrivateAttr(default=0)
     # orbital energies
     electronic_state: str | None = Field(
         default=None, description="electronic state of the molecule"
@@ -344,16 +343,8 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
         return cast(Any, self.LUMO_energy) - cast(Any, self.HOMO_energy)
 
     def __iter__(self) -> Iterator[MoleculeOrbital]:  # type: ignore[override]
-        self.__index = 0
-        return self
-
-    def __next__(
-        self,
-    ) -> MoleculeOrbital:
-        if self.__index < len(self):
-            self.__index += 1
-            return self[self.__index]
-        raise StopIteration
+        for i in range(len(self)):
+            yield self[i]
 
     @computed_field(description="beta HOMO energy")  # type: ignore[prop-decorator]
     @property
@@ -736,7 +727,6 @@ class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
         "IR_intensity": atom_ureg.Unit("km/mol"),
         "vibration_mode": atom_ureg.angstrom,
     }
-    __index: int = PrivateAttr(default=0)
     frequencies: NumpyQuantity = Field(
         default=np.array([]) * atom_ureg.cm_1,
         description="Frequency of each mode, unit is `cm^-1`",
@@ -764,16 +754,8 @@ class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
     )
 
     def __iter__(self) -> Iterator[Vibration]:  # type: ignore[override]
-        self.__index = 0
-        return self
-
-    def __next__(
-        self,
-    ) -> Vibration:
-        if self.__index < len(self):
-            self.__index += 1
-            return self[self.__index]
-        raise StopIteration
+        for i in range(len(self)):
+            yield self[i]
 
     @overload
     def __getitem__(self, frameID: int) -> Vibration: ...

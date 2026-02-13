@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-08-20 22:55:18
 LastEditors: TMJ
-LastEditTime: 2026-02-05 15:42:20
+LastEditTime: 2026-02-11 22:20:34
 Description: 请填写简介
 """
 
@@ -88,7 +88,7 @@ class FileBatchParserDisk:
         only_last_frame: bool = False,
         release_file_content: bool = True,
         parser_detection: str = "auto",
-    ) -> FileBatchModelDisk:
+    ) -> FileBatchModelDisk[FileDiskObj]:
         """
         Parses a list of input files and returns a FileBatchModelDisk object.
 

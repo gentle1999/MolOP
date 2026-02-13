@@ -1101,7 +1101,7 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                 negative_atom = negative_atoms.pop(0)
                 if temp_rwmol.GetBondBetweenAtoms(negative_atom, metal_atom) is None:
                     moloplogger.debug(
-                        f"{DEBUG_TAG} | Trying to add dative bond between "
+                        f"{DEBUG_TAG} | Trying to add dative bond (type 1) between "
                         f"{metal_atom} and {negative_atom}"
                     )
                     temp_rwmol.AddBond(
@@ -1109,6 +1109,7 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                         metal_atom,
                         Chem.BondType.DATIVE,
                     )
+                Chem.SanitizeMol(temp_rwmol)
         for metal_atom in metal_atoms:
             dative_atoms = [
                 idxs[0]
@@ -1129,7 +1130,7 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                         Chem.rdchem.BondType.DATIVE,
                     ):
                         moloplogger.debug(
-                            f"{DEBUG_TAG} | Trying to add dative bond between "
+                            f"{DEBUG_TAG} | Trying to add dative bond (type 2) between "
                             f"{metal_atom} and {dative_atom}"
                         )
                         neighbour_atoms = [
@@ -1186,7 +1187,7 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                 and temp_rwmol.GetBondBetweenAtoms(metal_atoms[0], remained_negative_atom) is None
             ):
                 moloplogger.debug(
-                    f"{DEBUG_TAG} | Trying to add dative bond between "
+                    f"{DEBUG_TAG} | Trying to add dative bond (type 3) between "
                     f"{metal_atoms[0]} and {remained_negative_atom}"
                 )
                 temp_rwmol.AddBond(
@@ -1199,6 +1200,7 @@ def make_dative_bonds(rwmol: Chem.rdchem.RWMol, ratio=1.3) -> Chem.rdchem.RWMol:
                     + temp_rwmol.GetAtomWithIdx(remained_negative_atom).GetFormalCharge()
                 )
                 temp_rwmol.GetAtomWithIdx(remained_negative_atom).SetFormalCharge(0)
+                Chem.SanitizeMol(temp_rwmol)
         datived_rwmol.append(temp_rwmol)
     datived_rwmol_smiles = [Chem.MolToSmiles(rwmol) for rwmol in datived_rwmol]
     moloplogger.debug(

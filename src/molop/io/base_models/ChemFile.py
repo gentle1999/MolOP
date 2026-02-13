@@ -203,9 +203,9 @@ class BaseChemFile(BaseDataClassWithUnit, Sequence[FrameT], Generic[FrameT]):
             ("General", "FileSize"): self._format_file_size(),
         }
 
-    def to_summary_df(self, **kwargs) -> pd.DataFrame:
+    def to_summary_df(self, brief: bool = True, **kwargs) -> pd.DataFrame:
         df = pd.concat(
-            [frame.to_summary_series(**kwargs) for frame in self._frames_],
+            [frame.to_summary_series(brief=brief, **kwargs) for frame in self._frames_],
             axis=1,
         ).T
         top_level_order = df.columns.get_level_values(0).unique()
