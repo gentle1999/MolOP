@@ -46,7 +46,9 @@ class ORCAInpFileMemory(
 ): ...
 
 
-class ORCAInpFileDisk(DiskStorageMixin, ORCAInpFileMixin, BaseQMInputFile[ORCAInpFileFrameDisk]): ...
+class ORCAInpFileDisk(
+    DiskStorageMixin, ORCAInpFileMixin, BaseQMInputFile[ORCAInpFileFrameDisk]
+): ...
 
 
 def register(registry: Registry) -> None:

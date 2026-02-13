@@ -72,6 +72,9 @@ instance/
 # Sphinx documentation
 docs/_build/
 
+# MkDocs output
+public/
+
 # PyBuilder
 .pybuilder/
 target/
@@ -267,15 +270,6 @@ temp.ipynb
 temp/
 docs/en/*/*.png
 docs/zh/*/*.png
-docs/*/command_line_interface.md
-docs/*/read_file_and_extract_info.md
-docs/*/read_files.md
-docs/*/spatial_features.md
-docs/*/structure_recover_benchmark.md
-docs/*/qc_parser_benchmark.md
-docs/*/transform_in_gjf.md
-docs/*/structure_recovery_cases.md
-docs/*/tutorial_for_replacement.md
 optional.json
 *.json
 !pyrightconfig.json
@@ -284,3 +278,5 @@ GEMINI.md
 .pyscn
 
 .sisyphus
+
+public

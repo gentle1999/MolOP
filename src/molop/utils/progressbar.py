@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any, NoReturn, TypeAlias, TypeVar, cast, overl
 from joblib import Parallel, delayed
 from tqdm import tqdm as st_tqdm
 
+
 try:
     from tqdm.std import TqdmExperimentalWarning
 except ImportError:

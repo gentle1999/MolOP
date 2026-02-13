@@ -2,16 +2,21 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2026-02-05 15:12:31
+LastEditTime: 2026-02-12 14:27:09
 Description: 请填写简介
 """
 
 import glob
 import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
 from molop.io.FileBatchParserDisk import FileBatchParserDisk
+
+
+if TYPE_CHECKING:
+    from molop.io.FileBatchModelDisk import FileDiskObj
 
 
 def split_path_pattern(path_str: str) -> tuple[Path, str]:
@@ -39,7 +44,7 @@ def AutoParser(
     only_last_frame=False,
     release_file_content: bool = True,
     parser_detection: str = "auto",
-) -> FileBatchModelDisk:
+) -> FileBatchModelDisk["FileDiskObj"]:
     """
     The Entrypoint of MolOP
 

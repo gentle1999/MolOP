@@ -1,36 +1,34 @@
-<!--
- * @Author: TMJ
- * @Date: 2024-01-30 16:53:29
- * @LastEditors: TMJ
- * @LastEditTime: 2024-06-28 18:51:20
- * @Description: 请填写简介
--->
-# MolOP
+# MolOP (Molecule OPerator)
 
-**Molecule OPerator**, which is the basic molecule information extraction and operation library.
+MolOP is a Python 3.10+ library and CLI designed to streamline computational chemistry workflows. It bridges the gap between raw calculation outputs and structured, analysis-ready molecular data.
 
-## Features
+## What is MolOP?
 
-- Automatically extract molecule information from the Input and Output files of the common QM calculation softwares.
-    - Coords file
-        - GJF `Done`
-        - XYZ `Done`
-        - SDF `Done`
-    - QM output file
-        - G16 LOG `Done`
-        - G16 IRC `Done`
-        - G16 FCHK `Done`
-        - xTB OUT `Done`
-        - ORCA `TODO`
+- **Unified Parser**: A single interface (`AutoParser`) to read Gaussian logs, GJF, XYZ, SDF, and more.
+- **Structure Recovery**: Advanced algorithms to reconstruct molecular graphs (bonds) from coordinates, with superior support for radicals and metal complexes.
+- **Data Modeling**: Pydantic-based models providing type-safe access to energies, vibrations, orbitals, and population analysis.
+- **Batch Processor**: Parallelized processing of thousands of files with built-in filtering and transformation capabilities.
 
-- Offer a [molecular graph recovery algorithm](structure_recovery.md) from the simple coodinates of atoms based on the initial work by [OpenBabel](https://openbabel.org/index.html), which can be easily used in the file reading process. The accuracy of this heuristic molecular graph recovery algorithm has far surpassed that of `rdDetermineBond` provided in rdkit, especially for free radicals and metal complexes. See [structure_recovery_cases.ipynb](structure_recovery_cases.ipynb) to learn more about the difference).
+## When to use
 
-- Offer the moleculer geometry and structure edit functions. `Doing`
-    - Substructure replacement `Done`
-    - Atom index reset `Done`
-    - Orientation change `Done`
-    - Other functions `TODO`
+- You need to extract thermodynamic data or properties from hundreds of Gaussian log files.
+- You want to convert between chemical file formats while preserving or recovering bonding information.
+- You are building a machine learning pipeline and need a reliable way to featurize molecular structures from QM outputs.
+- You prefer a "chained" CLI for quick data inspection and manipulation without writing Python scripts.
 
+## Non-goals
+
+- **Quantum Solver**: MolOP does not perform QM calculations; it parses and processes their results.
+- **Visualization**: While it integrates with RDKit, it is not a dedicated molecular viewer.
+- **Force Field Engine**: It is not designed for running molecular dynamics simulations.
+
+## Getting Started
+
+- [Installation](getting_started/installation.md)
+- [Quickstart](getting_started/quickstart.md)
+- [Command Line Interface](command_line_interface.md)
 
 ## Citation
-arXiv paper is to be submitted soon.
+
+If MolOP helps your research, please cite it as:
+> MolOP (Molecule OPerator), <https://github.com/gentle1999/MolOP>

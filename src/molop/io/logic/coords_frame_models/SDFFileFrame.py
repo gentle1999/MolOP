@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 16:53:34
 LastEditors: TMJ
-LastEditTime: 2026-02-04 11:00:34
+LastEditTime: 2026-02-12 20:33:42
 Description: 请填写简介
 """
 
@@ -19,12 +19,16 @@ class SDFFileFrameMixin:
         """
         Render the SDFFileFrame as a string.
 
+        Args:
+            engine (Literal["rdkit", "openbabel"], optional): The engine to use for rendering. Defaults to "rdkit".
+
         Returns:
             str: The rendered SDFFileFrame.
         """
         typed_self = cast(_HasCoords, self)
         if engine == "rdkit":
-            return Chem.MolToMolBlock(typed_self.rdmol) if typed_self.rdmol else ""
+            rdmol = getattr(typed_self, "qm_embedded_rdmol", typed_self.rdmol)
+            return Chem.MolToMolBlock(rdmol) if rdmol else ""
         elif engine == "openbabel":
             return cast(str, typed_self.omol.write("sdf")) if typed_self.omol else ""
         else:
