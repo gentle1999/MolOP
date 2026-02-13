@@ -7,6 +7,7 @@ site_url: https://gentle1999.github.io/MolOP/
 theme:
   name: "material"
   features:
+    - navigation.tabs
     - navigation.footer
     - header.autohide
     - announce.dismiss
@@ -17,25 +18,110 @@ theme:
     repo: fontawesome/brands/github
 
 extra:
-  version:
-    provider: mike
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/gentle1999/MolOP.git
     - icon: fontawesome/solid/paper-plane
       link: mailto:mj_t@zju.edu.cn
 
-copyright: Copyright &copy; 2023 - 2024 Miao-jiong Tang
+copyright: Copyright &copy; 2023 - 2026 Miao-jiong Tang
 
 plugins:
-  - search
-  - mkdocstrings
-  - mkdocs-jupyter
+  - search:
+      lang:
+        - en
+        - zh
+  - autorefs:
+      resolve_closest: true
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            show_source: true
+  - mkdocs-jupyter:
+      execute: false
   - i18n:
-      default_language: zh
+      docs_structure: folder
       languages:
-        en: English
-        zh: 中文
+        - locale: zh
+          name: 中文
+          default: true
+          build: true
+        - locale: en
+          name: English
+          build: true
+          nav_translations:
+            首页: Home
+            入门指南: Getting Started
+            安装: Installation
+            快速上手: Quickstart
+            概念: Concepts
+            命令行界面: Command Line Interface
+            教程: Tutorials
+            示例（Notebooks）: Examples (Notebooks)
+            教程概览: Tutorials Overview
+            01-Gaussian 解析与检查: 01-Gaussian Parse and Inspect
+            02-批量汇总、过滤与选择: 02-Batch Summary, Filter and Select
+            03-转换与导出: 03-Transform and Export
+            API 参考: API Reference
+            概览: Overview
+            关键入口: Key Entry Points
+            模块: Modules
+            molop: molop
+            molop.io: molop.io
+            molop.cli: molop.cli
+            molop.config: molop.config
+            molop.structure: molop.structure
+            molop.descriptor: molop.descriptor
+            molop.unit: molop.unit
+            molop.utils: molop.utils
+            参考: Reference
+            格式支持清单: Format Support Checklist
+            转换行为: Transform Behaviors
+            模型字段: Model Field Map
+            贡献指南: Contributing
+            更新日志: Changelog
+
+hooks:
+  - scripts/mkdocs_hooks.py
+
+nav:
+  - 首页: index.md
+  - 入门指南:
+    - 安装: getting_started/installation.md
+    - 快速上手: getting_started/quickstart.md
+  - 概念: concepts.md
+  - 命令行界面: command_line_interface.md
+  - 教程:
+    - 教程概览: tutorials/index.md
+    - 示例（Notebooks）:
+      - 01-Gaussian 解析与检查: examples/01-gaussian-parse-and-inspect.ipynb
+      - 02-批量汇总、过滤与选择: examples/02-batch-summary-filter-select.ipynb
+      - 03-转换与导出: examples/03-transform-and-export.ipynb
+  - 参考:
+    - 格式支持清单: reference/format_support.md
+    - 转换行为: reference/transform_behavior.md
+    - 模型字段: reference/model_fields.md
+  - 贡献指南: contributing.md
+  - 更新日志: changelog.md
+  - API 参考:
+    - 概览: reference/api.md
+    - 关键入口:
+      - AutoParser: reference/api/autoparser.md
+      - FileBatchModelDisk: reference/api/filebatchmodeldisk.md
+      - Registry: reference/api/registry.md
+      - xyz_to_rdmol: reference/api/xyz_to_rdmol.md
+    - 模块:
+      - molop: reference/api/molop.md
+      - molop.io: reference/api/io.md
+      - molop.cli: reference/api/cli.md
+      - molop.config: reference/api/config.md
+      - molop.structure: reference/api/structure.md
+      - molop.descriptor: reference/api/descriptor.md
+      - molop.unit: reference/api/unit.md
+      - molop.utils: reference/api/utils.md
+
 
 extra_javascript:
   - javascripts/mathjax.js
@@ -55,8 +141,6 @@ markdown_extensions:  #Markdown扩展列表
   - smarty  #启用 SmartyPants 排版扩展
   - admonition  #通过不同颜色现实告警、备注信息
   - pymdownx.betterem
-  - pymdownx.tasklist:
-      custom_checkbox: true
   - pymdownx.arithmatex:
       generic: true
   - pymdownx.caret
@@ -72,6 +156,10 @@ markdown_extensions:  #Markdown扩展列表
       linenums: true
       linenums_style: pymdownx-inline
       line_spans: __span
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
   - pymdownx.inlinehilite
   - pymdownx.keys
   - pymdownx.magiclink
@@ -79,4 +167,3 @@ markdown_extensions:  #Markdown扩展列表
   - pymdownx.snippets
   - pymdownx.tasklist:
       custom_checkbox: true
-      clickable_checkbox: true
