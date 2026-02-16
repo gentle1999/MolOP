@@ -160,6 +160,17 @@ def main(argv: list[str] | None = None) -> int:
     file_exports, frame_exports = _discover_exports(src_root, search_dirs)
     out = _render_stub(file_exports, frame_exports)
 
+    import subprocess
+
+    res = subprocess.run(
+        ["uv", "run", "ruff", "format", "-", "--stdin-filename", "stub.pyi"],
+        input=out,
+        text=True,
+        capture_output=True,
+    )
+    if res.returncode == 0:
+        out = res.stdout
+
     out_path = (repo_root / args.output).resolve()
 
     if args.check:

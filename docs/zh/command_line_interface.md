@@ -37,8 +37,6 @@ uv run molop --help
 │ --help                -h        Show this message and exit.                  │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-│ chain             Legacy chain compatibility mode. Forwards all arguments to │
-│                   the Fire-based CLI.                                        │
 │ summary           Generate a summary of the molecules in the given files.    │
 │ visualize         Visualize molecules in a grid image.                       │
 │ transform         Transform molecular files to another format.               │
@@ -380,53 +378,3 @@ uv run molop -q groupby "tests/test_files/mix_format/*.gjf" --key detected_forma
 }
 ```
 
-### `chain`
-
-旧版链式兼容模式。将所有参数转发给基于 Fire 的 CLI。
-
-```bash
-uv run molop chain --help
-```
-
-```text
-
- Usage: molop chain [OPTIONS]
-
- Legacy chain compatibility mode. Forwards all arguments to the Fire-based CLI.
-
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --help  -h        Show this message and exit.                                │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
-
----
-
-## 旧版链式语法（高级）
-
-旧版链式语法允许你在单个命令行中串联多个 MolOP 操作。这由 [Google Fire](https://github.com/google/python-fire) 提供支持。
-
-### 操作指南
-
-- **分隔符：** 使用单个连字符 `-` 来分隔链中的不同命令。
-- **执行：** 每个链 **必须** 以 `end` 命令结尾，以触发执行并执行必要的清理。
-- **引号：** 始终对通配符模式（例如 `"*.log"`）加引号，以防止 Shell 在它们到达 MolOP 之前对其进行展开。
-
-### 链式示例
-
-使用旧版链式语法生成 Gaussian 日志文件的 CSV 摘要。
-
-```bash
-uv run molop chain read "tests/test_files/g16log/2-TS1-Opt.log" - summary --output_path ".sisyphus/tmp/chain_ts_summary.csv" - end
-```
-
-```text
-MolOP parsing with single process 100% ━━━━━━ 1/1  [ 0:00:00 < 0:00:… , ? it/s ]
-MolOP processing frame summary with 1 jobs 100% ━━━━ 1/1  [ 0:0… < 0:0… , ?    ]
-                                                                          it/s
-INFO - Summary saved to .sisyphus/tmp/chain_ts_summary.csv
-```
-
-## 重要注意事项
-
-- **Shell 展开：** 在 `zsh`（macOS 默认）等 Shell 中，未加引号且不匹配任何文件的通配符会导致错误（`no matches found`）。请始终使用引号：`"*.log"`。
-- **安静模式：** 建议使用 `-q` 或 `--quiet` 以在示例和自动化脚本中获得稳定、干净的输出。

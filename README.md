@@ -16,7 +16,7 @@ MolOP is a Python 3.10+ library and command-line tool designed for computational
 - Need to extract thermodynamic data or molecular properties from hundreds of Gaussian log files.
 - Need to convert between different chemical file formats while preserving or recovering bond information.
 - Building machine learning pipelines and need to reliably extract molecular features from quantum chemistry output.
-- Prefer using "chained" command-line tools to quickly inspect and process data without writing Python scripts.
+- Prefer using command-line tools to quickly inspect and process data without writing Python scripts.
 
 ## Non-goals
 
@@ -73,14 +73,14 @@ print(df)
 
 ### Command Line Interface (CLI)
 
-MolOP provides a modern Typer CLI and powerful chained operations:
+MolOP provides a modern Typer CLI:
 
 ```bash
 # Generate a summary CSV
 molop summary "path/to/*.log" -o summary.csv
 
-# Chained operation: Filter transition states and convert to SDF (using legacy chain mode)
-molop chain read "path/to/*.log" - filter_state ts - transform sdf --output_dir=. --embed_in_one_file=True - end
+# Transform molecular files to another format
+molop transform "path/to/*.log" --to sdf --output-dir ./output --frame -1 --embed
 ```
 
 ## Documentation & Tutorials

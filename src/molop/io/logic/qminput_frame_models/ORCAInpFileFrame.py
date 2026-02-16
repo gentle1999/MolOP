@@ -2,16 +2,16 @@
 Author: TMJ
 Date: 2026-02-10 00:00:00
 LastEditors: TMJ
-LastEditTime: 2026-02-10 21:20:17
+LastEditTime: 2026-02-16 12:18:32
 Description: ORCA input frame models
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any, cast
+from typing import cast
 
-from pydantic import Field, model_validator
+from pydantic import Field, PrivateAttr, model_validator
 from typing_extensions import Self
 
 from molop.io.base_models.ChemFileFrame import BaseQMInputFrame
@@ -19,42 +19,8 @@ from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
 
 
 class ORCAInpFileFrameMixin:
-    orca_raw_preamble: str | None = Field(
-        default=None, description="Raw text before geometry block"
-    )
-    orca_raw_geometry: str | None = Field(default=None, description="Raw geometry block text")
-    orca_raw_postamble: str | None = Field(
-        default=None, description="Raw text after geometry block"
-    )
-
-    orca_fragments: list[list[int]] | None = Field(
-        default=None,
-        description="Best-effort ORCA fragment markers for round-trip",
-    )
-    orca_ghost_markers: list[int] | None = Field(
-        default=None,
-        description="Best-effort ORCA ghost atom markers for round-trip",
-    )
-    orca_dummy_markers: list[int] | None = Field(
-        default=None,
-        description="Best-effort ORCA dummy atom markers for round-trip",
-    )
-    orca_point_charges: list[dict[str, Any]] | None = Field(
-        default=None,
-        description="Best-effort ORCA point-charge placeholders for round-trip",
-    )
-    orca_freeze_markers: list[int] | None = Field(
-        default=None,
-        description="Best-effort ORCA coordinate freeze markers for round-trip",
-    )
-    orca_isotope_tokens: dict[int, str] | None = Field(
-        default=None,
-        description="Best-effort ORCA isotope tokens keyed by atom index",
-    )
-    orca_nuclear_charge_tokens: dict[int, str] | None = Field(
-        default=None,
-        description="Best-effort ORCA nuclear charge tokens keyed by atom index",
-    )
+    orca_raw_preamble: str = Field(default="", description="Raw preamble (preservation-only)")
+    orca_raw_postamble: str = Field(default="", description="Raw postamble (preservation-only)")
 
     def _render(
         self,
@@ -77,49 +43,72 @@ class ORCAInpFileFrameMixin:
             or not use_raw_geometry
         )
 
-        if not has_overrides and self.orca_raw_geometry is not None:
-            parts = [self.orca_raw_preamble, self.orca_raw_geometry, self.orca_raw_postamble]
-            return "".join(part for part in parts if part)
-
         typed_self = cast(BaseQMInputFrame, self)
 
         preamble_parts: list[str] = []
 
-        keywords_to_use = keywords if keywords is not None else typed_self.keywords
-        if keywords_to_use:
-            keyword_lines = [line.strip() for line in keywords_to_use.splitlines() if line.strip()]
-            preamble_parts.extend(
-                line if line.startswith("!") else f"! {line}" for line in keyword_lines
+        if has_overrides:
+            keywords_to_use = keywords if keywords is not None else typed_self.keywords
+            if keywords_to_use:
+                keyword_lines = [
+                    line.strip() for line in keywords_to_use.splitlines() if line.strip()
+                ]
+                preamble_parts.extend(
+                    line if line.startswith("!") else f"! {line}" for line in keyword_lines
+                )
+
+            resources_raw_to_use = (
+                resources_raw if resources_raw is not None else typed_self.resources_raw
             )
+            if resources_raw_to_use.strip():
+                preamble_parts.append(resources_raw_to_use.strip("\n"))
+            if nprocs is not None:
+                preamble_parts.append(f"%pal\n  nprocs {nprocs}\nend")
+            if maxcore is not None:
+                preamble_parts.append(f"%maxcore {maxcore}")
+            if blocks is not None and blocks.strip():
+                preamble_parts.append(blocks.strip("\n"))
+            preamble = "\n".join(preamble_parts)
+        else:
+            preamble = self.orca_raw_preamble.strip("\n")
 
-        resources_raw_to_use = (
-            resources_raw if resources_raw is not None else typed_self.resources_raw
-        )
-        if resources_raw_to_use.strip():
-            preamble_parts.append(resources_raw_to_use.strip("\n"))
-        if nprocs is not None:
-            preamble_parts.append(f"%pal\n  nprocs {nprocs}\nend")
-        if maxcore is not None:
-            preamble_parts.append(f"%maxcore {maxcore}")
-        if blocks is not None and blocks.strip():
-            preamble_parts.append(blocks.strip("\n"))
+        coords_ctype = getattr(self, "_orca_coords_ctype", None)
+        external_path = getattr(self, "_orca_external_path", None)
 
-        if self.orca_raw_geometry is not None and use_raw_geometry:
-            geometry = self.orca_raw_geometry
+        if isinstance(coords_ctype, str) and coords_ctype.lower() in {"xyzfile", "gzmtfile"}:
+            coords_type = coords_ctype.lower()
+            charge = int(getattr(typed_self, "charge", 0))
+            multiplicity = int(getattr(typed_self, "multiplicity", 1))
+            suffix = f" {external_path}" if isinstance(external_path, str) and external_path else ""
+            geometry = f"* {coords_type} {charge} {multiplicity}{suffix}".rstrip()
         else:
             header = f"* xyz {typed_self.charge} {typed_self.multiplicity}"
-            body = "\n".join(
-                f"{atom} {x:.10f} {y:.10f} {z:.10f}"
-                for atom, (x, y, z) in zip(
-                    typed_self.atom_symbols, typed_self.coords.m, strict=True
+            lines: list[str] = []
+            if typed_self.atoms:
+                coords_m = typed_self.coords.m
+                lines.extend(
+                    f"{atom} {x:.10f} {y:.10f} {z:.10f}"
+                    for atom, (x, y, z) in zip(typed_self.atom_symbols, coords_m, strict=False)
                 )
-            )
+            point_charges = getattr(self, "_orca_point_charges", None)
+            if isinstance(point_charges, list) and point_charges:
+                for pc in point_charges:
+                    try:
+                        q = float(pc["charge"])
+                        x = float(pc["x"])
+                        y = float(pc["y"])
+                        z = float(pc["z"])
+                        lines.append(f"Q {q:.2f} {x:.6f} {y:.6f} {z:.6f}")
+                    except (KeyError, ValueError, TypeError):
+                        continue
+            body = "\n".join(lines)
             geometry = f"{header}\n{body}\n*" if body else f"{header}\n*"
 
-        preamble = "\n".join(preamble_parts)
-        if preamble:
-            return f"{preamble}\n{geometry}"
-        return geometry
+        postamble = self.orca_raw_postamble.strip("\n")
+        rendered = f"{preamble}\n{geometry}" if preamble else geometry
+        if postamble:
+            return f"{rendered}\n{postamble}"
+        return rendered
 
     @model_validator(mode="after")
     def _fill_qm_input_metadata(self) -> Self:
@@ -133,8 +122,9 @@ class ORCAInpFileFrameMixin:
         if not getattr(typed_self, "resources_raw", ""):
             resources_blocks: list[str] = []
             for part_name in ["orca_raw_preamble", "orca_raw_postamble"]:
-                if part_text := getattr(typed_self, part_name, None):
-                    lines = cast(str, part_text).splitlines()
+                part_text = cast(str, getattr(typed_self, part_name, "") or "")
+                if part_text:
+                    lines = part_text.splitlines()
                     i = 0
                     while i < len(lines):
                         line = lines[i]
@@ -220,9 +210,15 @@ class ORCAInpFileFrameMixin:
 
 class ORCAInpFileFrameMemory(
     MemoryStorageMixin, ORCAInpFileFrameMixin, BaseQMInputFrame["ORCAInpFileFrameMemory"]
-): ...
+):
+    _orca_coords_ctype: str | None = PrivateAttr(default=None)
+    _orca_external_path: str | None = PrivateAttr(default=None)
+    _orca_point_charges: list[dict[str, float]] | None = PrivateAttr(default=None)
 
 
 class ORCAInpFileFrameDisk(
     DiskStorageMixin, ORCAInpFileFrameMixin, BaseQMInputFrame["ORCAInpFileFrameDisk"]
-): ...
+):
+    _orca_coords_ctype: str | None = PrivateAttr(default=None)
+    _orca_external_path: str | None = PrivateAttr(default=None)
+    _orca_point_charges: list[dict[str, float]] | None = PrivateAttr(default=None)

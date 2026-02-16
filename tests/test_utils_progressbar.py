@@ -1,5 +1,6 @@
 import sys
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 
@@ -69,3 +70,46 @@ def test_is_notebook_returns_true_when_ipkernelapp_present_in_config(
         SimpleNamespace(get_ipython=lambda: ipython_instance),
     )
     assert _is_notebook() is True
+
+
+def test_parallel_map_joblib_kwargs_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_kwargs = {}
+
+    class StubParallel:
+        def __init__(self, **kwargs: Any) -> None:
+            nonlocal captured_kwargs
+            captured_kwargs = kwargs
+
+        def __call__(self, iterable: Any) -> list[Any]:
+            return [None] * len(list(iterable))
+
+    monkeypatch.setattr(progressbar_module, "Parallel", StubParallel)
+    monkeypatch.setattr(progressbar_module, "_best_tqdm_cls", None, raising=False)
+
+    items = [1, 2, 3]
+    parallel_map(lambda x: x, items, n_jobs=2, disable=True)
+
+    assert captured_kwargs["n_jobs"] == 2
+    assert captured_kwargs["return_as"] == "list"
+
+
+def test_parallel_map_joblib_kwargs_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_kwargs = {}
+
+    class StubParallel:
+        def __init__(self, **kwargs: Any) -> None:
+            nonlocal captured_kwargs
+            captured_kwargs = kwargs
+
+        def __call__(self, iterable: Any) -> list[Any]:
+            return [None] * len(list(iterable))
+
+    monkeypatch.setattr(progressbar_module, "Parallel", StubParallel)
+    monkeypatch.setattr(progressbar_module, "_best_tqdm_cls", None, raising=False)
+
+    items = [1, 2, 3]
+    parallel_map(lambda x: x, items, n_jobs=2, disable=True, batch_size=10)
+
+    assert captured_kwargs["n_jobs"] == 2
+    assert captured_kwargs["batch_size"] == 10
+    assert captured_kwargs["return_as"] == "list"

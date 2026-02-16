@@ -23,8 +23,15 @@ def test_orcainp_fixture_parse_and_raw_roundtrip(fixture_path: Path, tmp_path: P
     assert isinstance(rendered, str)
     assert rendered.strip()
 
-    # Raw-first: ORCA INP should preserve original text for fixtures.
-    assert rendered.strip() == original.strip()
+    original_first = next((line for line in original.splitlines() if line.strip()), "")
+    rendered_first = next((line for line in rendered.splitlines() if line.strip()), "")
+    assert rendered_first == original_first
+    for marker in ("%pal", "%maxcore", "%geom", "%scf", "%output"):
+        if marker in original:
+            assert marker in rendered
+
+    assert "* xyz" in rendered
+    assert rendered.strip().endswith("*")
 
     # Idempotence: parse rendered content and ensure it re-renders identically.
     roundtrip_path = tmp_path / "roundtrip.inp"

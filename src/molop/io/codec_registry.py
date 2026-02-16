@@ -200,6 +200,12 @@ class Registry:
 
         return decorator
 
+    def get_supported_writer_formats(self) -> list[str]:
+        """Return a sorted list of all registered writer format IDs."""
+        if self._autoload_defaults:
+            self.ensure_default_codecs_registered()
+        return sorted(self._writers_by_format.keys())
+
     def select_reader(
         self, path: str | Path, hint_format: str | None = None
     ) -> tuple[ReaderCodec, ...]:
@@ -374,6 +380,10 @@ def writer_factory(
     )
 
 
+def get_supported_writer_formats() -> list[str]:
+    return default_registry.get_supported_writer_formats()
+
+
 def select_reader(path: str | Path, hint_format: str | None = None) -> tuple[ReaderCodec, ...]:
     return default_registry.select_reader(path, hint_format=hint_format)
 
@@ -540,6 +550,7 @@ __all__ = [
     "Registry",
     "default_registry",
     "ensure_default_codecs_registered",
+    "get_supported_writer_formats",
     "reader_factory",
     "register_openbabel_fallback",
     "register_reader",

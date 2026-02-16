@@ -2,14 +2,14 @@
 Author: TMJ
 Date: 2025-07-28 18:44:12
 LastEditors: TMJ
-LastEditTime: 2026-02-04 10:51:49
+LastEditTime: 2026-02-15 19:13:44
 Description: 请填写简介
 """
 
-import os
+import importlib
 from collections.abc import Iterator, Sequence
 from sys import getsizeof
-from typing import Any, ClassVar, Generic, Literal, TypeVar, cast, overload
+from typing import Any, ClassVar, Generic, TypeVar, cast, overload
 
 import pandas as pd
 from pint._typing import UnitLike
@@ -17,7 +17,7 @@ from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr
 
 from molop.config import moloplogger
-from molop.io import codec_registry
+from molop.io.base_models._format_transform import FormatTransformMixin
 from molop.io.base_models.Bases import BaseDataClassWithUnit
 from molop.io.base_models.ChemFileFrame import (
     BaseCalcFrame,
@@ -39,7 +39,7 @@ CalcFrameT = TypeVar("CalcFrameT", bound=BaseCalcFrame)
 QMInputFrameT = TypeVar("QMInputFrameT", bound=BaseQMInputFrame)
 
 
-class BaseChemFile(BaseDataClassWithUnit, Sequence[FrameT], Generic[FrameT]):
+class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT], Generic[FrameT]):
     # inside frames parsed from the file
     _frames_: list[FrameT] = PrivateAttr(default_factory=list)
     _index_: int = PrivateAttr(default=0)
@@ -128,74 +128,6 @@ class BaseChemFile(BaseDataClassWithUnit, Sequence[FrameT], Generic[FrameT]):
             List[chem_file_frame]: The list of parsed frames.
         """
         return self._frames_
-
-    def format_transform(
-        self,
-        format: Literal["xyz", "sdf", "cml", "gjf", "smi", "orcainp"],
-        frameID: Sequence[int] | int | Literal["all"] | slice = -1,
-        file_path: os.PathLike | str | None = None,
-        embed_in_one_file: bool = True,
-        **kwargs,
-    ) -> str | list[str]:
-        """
-        Transform the selected frames to the specified format.
-
-        Parameters:
-            format (str): The format to be transformed to.
-            frameID (int | slice | Sequence[int] | Literal["all"]): The frame(s) to be transformed.
-            file_path (os.PathLike| str | None): If given, the file path to save the transformed block(s); otherwise,
-                no file will be saved.
-            **kwargs: Additional keyword arguments for the transformation.
-        Returns:
-            (str | List[str]): The transformed block(s).
-        """
-        assert format in ("xyz", "sdf", "cml", "gjf", "smi", "orcainp"), (
-            "Only 'xyz', 'sdf', 'gjf', 'smi', 'orcainp' supported"
-        )
-        assert file_path is None or not os.path.isdir(file_path), (
-            "file_path should be a file path or None"
-        )
-        if isinstance(frameID, int):
-            frame_ids = [frameID if frameID >= 0 else len(self.frames) + frameID]
-        elif frameID == "all":
-            frame_ids = list(range(len(self.frames)))
-        elif isinstance(frameID, slice):
-            frame_ids = list(range(len(self.frames)))[frameID]
-        elif isinstance(frameID, Sequence):
-            frame_ids = []
-            for i in frameID:
-                assert isinstance(i, int), "frameID should be a sequence of integers"
-                frame_ids.append(i)
-        else:
-            raise ValueError("frameID should be an integer, a sequence of integers, or 'all'")
-
-        graph_policy = kwargs.pop("graph_policy", "prefer")
-        rendered = cast(
-            str | list[str],
-            codec_registry.write(
-                format,
-                self,
-                frameID=frame_ids,
-                embed_in_one_file=embed_in_one_file,
-                graph_policy=graph_policy,
-                **kwargs,
-            ),
-        )
-        if file_path:
-            dir_path = os.path.dirname(os.fspath(file_path))
-            base = os.path.basename(file_path).split(".")[0]
-            if isinstance(rendered, str):
-                filename = base + f".{format}"
-                output_path = os.path.join(dir_path, filename)
-                with open(output_path, "w") as f:
-                    f.write(rendered)
-            elif isinstance(rendered, list):
-                for idx, frame_content in zip(frame_ids, rendered, strict=True):
-                    filename = base + f"{idx:03d}.{format}"
-                    output_path = os.path.join(dir_path, filename)
-                    with open(output_path, "w") as f:
-                        f.write(frame_content)
-        return rendered
 
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
@@ -366,7 +298,7 @@ class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):
             matplotlib.axes.Axes: The axes of the energy curve plot.
         """
         try:
-            import seaborn as sns
+            sns = cast(Any, importlib.import_module("seaborn"))
         except ImportError as e:
             raise ImportError(
                 "Seaborn is required for drawing energy curve. Please install it first by `pip install seaborn`."

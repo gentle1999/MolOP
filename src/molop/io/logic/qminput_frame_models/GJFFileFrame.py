@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 23:09:31
 LastEditors: TMJ
-LastEditTime: 2026-02-05 19:56:42
+LastEditTime: 2026-02-16 10:50:46
 Description: 请填写简介
 """
 
@@ -30,8 +30,8 @@ class GJFFileFrameMixin:
         suffix: str | None = None,
         template: str | None = None,
         use_link1: bool = False,
-        chk: str | None = None,
-        old_chk: str | None = None,
+        chk: str | bool | None = None,
+        old_chk: bool | str | None = None,
         **kwargs,
     ) -> str:
         if template:
@@ -91,20 +91,24 @@ class GJFFileFrameMixin:
         route: str | None = None,
         title_card: str | None = None,
         suffix: str | None = None,
-        chk: str | None = None,
-        old_chk: str | None = None,
+        chk: str | bool | None = None,
+        old_chk: bool | str | None = None,
         link1_mode: bool = False,
     ) -> str:
         typed_self = cast(_HasCoords, self)
         options_to_use = options or self.options
         route_to_use = route or cast(_HasKeywords, self).keywords
-        title_card_to_use = title_card or self.title_card
+        title_card_to_use = (
+            title_card or self.title_card or getattr(self, "pure_filename", None) or "title"
+        )
         suffix_to_use = suffix or self.suffix
         _options = options_parser(options_to_use)
         if chk:
-            _options[r"%chk"] = chk
+            _options[r"%chk"] = chk if isinstance(chk, str) else f"{title_card_to_use}.chk"
         if old_chk:
-            _options[r"%oldchk"] = old_chk
+            _options[r"%oldchk"] = (
+                old_chk if isinstance(old_chk, str) else f"{title_card_to_use}.chk"
+            )
         options_lines = (
             "\n".join([f"{key}={val}" for key, val in _options.items()]) + "\n" if _options else ""
         )
@@ -176,7 +180,7 @@ class GJFFileFrameDisk(DiskStorageMixin, GJFFileFrameMixin, BaseQMInputFrame["GJ
         template: str | None = None,
         use_link1: bool = False,
         chk: bool | str | None = False,
-        old_chk: bool | str | None = False,
+        old_chk: bool | str | None = None,
         **kwargs,
     ) -> str:
         valid_chk, valid_old_chk = None, None
@@ -188,10 +192,8 @@ class GJFFileFrameDisk(DiskStorageMixin, GJFFileFrameMixin, BaseQMInputFrame["GJ
             else:
                 raise ValueError(f"chk must be a bool or str, but got {chk}")
         if old_chk:
-            if isinstance(old_chk, str):
+            if isinstance(old_chk, (str, bool)):
                 valid_old_chk = old_chk
-            elif isinstance(old_chk, bool):
-                valid_old_chk = f"{self.pure_filename}.chk"
             else:
                 raise ValueError(f"old_chk must be a bool or str, but got {old_chk}")
         return super()._render(

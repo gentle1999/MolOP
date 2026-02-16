@@ -87,7 +87,7 @@ batch.format_transform(format="sdf", output_dir="./output", frameID=-1)
 
 - `./output` 目录下生成对应的 `.sdf` 文件。
 
-## 5. CLI 链式调用 (CLI Chained Usage)
+## 5. CLI 使用示例
 
 ### 前提条件
 
@@ -96,22 +96,12 @@ batch.format_transform(format="sdf", output_dir="./output", frameID=-1)
 ### 命令示例
 
 ```bash
-uv run molop chain read "tests/test_files/g16log/2-TS1-Opt.log" - summary --output_path "tutorial_ts_summary.csv" - end
+# 生成摘要 CSV
+uv run molop -q summary "tests/test_files/g16log/2-TS1-Opt.log" --out tutorial_ts_summary.csv --format csv --mode frame --frame -1 --n-jobs 1
+
+# 将分子文件转换为另一种格式
+uv run molop -q transform "tests/test_files/orca/h2_grad_orca.inp" --to sdf --output-dir ./tutorial_transform_out --frame -1 --embed --parser-detection orcainp --n-jobs 1
 ```
-
-```text
-INFO - Summary saved to tutorial_ts_summary.csv
-```
-
-### 预期输出
-
-- 终端输出 `INFO - Summary saved to tutorial_ts_summary.csv`。
-- 当前工作目录生成 `tutorial_ts_summary.csv` 文件。
-
-### 注意
-
-- 顶层 `molop` 是 Typer 入口，Fire 风格链式工作流通过 `molop chain` 访问。
-- 命令之间必须使用 `-` 分隔，详见 [CLI 文档](../command_line_interface.md)。
 
 ## 6. 插件与编解码器扩展 (Plugin/Codec Extension)
 

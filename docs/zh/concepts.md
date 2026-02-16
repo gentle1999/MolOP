@@ -42,7 +42,7 @@ MolOP 拥有高度可扩展的插件式架构：
 ```mermaid
 graph TD
     subgraph CLI [CLI 层]
-        MolOPCLI["MolOPCLI (cli.py)"]
+        MolOPCLI["Typer CLI (app.py)"]
     end
 
     subgraph Entry [入口点]

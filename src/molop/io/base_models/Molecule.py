@@ -42,7 +42,7 @@ from .Bases import BaseDataClassWithUnit
 
 pt = Chem.GetPeriodicTable()
 
-EXCLUDE_FIELDS_NO_BOND = {
+EXCLUDE_FIELDS_IF_NO_BOND = {
     "smiles",
     "canonical_smiles",
     "bonds",
@@ -216,7 +216,7 @@ class Molecule(BaseDataClassWithUnit):
         from molop.io.logic.coords_frame_models.XYZFileFrame import XYZFileFrameDisk
 
         return XYZFileFrameDisk.model_validate(
-            self.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)
+            self.model_dump(exclude=EXCLUDE_FIELDS_IF_NO_BOND)
         )._render()
 
     def to_SDF_block(self, engine: Literal["rdkit", "openbabel"] = "rdkit") -> str:
@@ -235,7 +235,7 @@ class Molecule(BaseDataClassWithUnit):
         from molop.io.logic.coords_frame_models.SDFFileFrame import SDFFileFrameDisk
 
         return SDFFileFrameDisk.model_validate(
-            self.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)
+            self.model_dump(exclude=EXCLUDE_FIELDS_IF_NO_BOND)
         )._render(engine=engine)
 
     def to_CML_block(self, engine: Literal["rdkit", "openbabel"] = "rdkit") -> str:
@@ -267,8 +267,8 @@ class Molecule(BaseDataClassWithUnit):
         suffix: str | None = None,
         template: str | None = None,
         use_link1: bool = False,
-        chk: bool | str = False,
-        old_chk: bool | str = False,
+        chk: bool | str | None = None,
+        old_chk: None | str = None,
         **kwargs,
     ) -> str:
         """
@@ -284,8 +284,8 @@ class Molecule(BaseDataClassWithUnit):
                 valid when `template` is given. Defaults to False.
             chk (bool | str, optional): Whether to use chk automatically. If str, the chk file name
                 will be the str. Defaults to False.
-            old_chk (bool | str, optional): Whether to use old_chk automatically. If str, the old_chk
-                file name will be the str. Defaults to False.
+            old_chk (None | str, optional): Whether to use old_chk automatically. If str, the old_chk
+                file name will be the str. Defaults to None.
             **kwargs: The keyword arguments for the `to_GJF_block` method.
 
         Returns:
@@ -294,7 +294,7 @@ class Molecule(BaseDataClassWithUnit):
         from molop.io.logic.qminput_frame_models.GJFFileFrame import GJFFileFrameDisk
 
         return GJFFileFrameDisk.model_validate(
-            self.model_dump(exclude=EXCLUDE_FIELDS_NO_BOND)
+            self.model_dump(exclude=EXCLUDE_FIELDS_IF_NO_BOND)
         )._render(
             options=options,
             route=route,

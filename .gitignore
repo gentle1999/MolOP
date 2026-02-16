@@ -284,3 +284,5 @@ GEMINI.md
 
 public
 .ci-docs-venv
+
+tmp/

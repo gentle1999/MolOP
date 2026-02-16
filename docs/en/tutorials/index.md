@@ -93,31 +93,21 @@ batch.format_transform(format="sdf", output_dir="./output", frameID=-1)
 
 - `.sdf` files generated in the `./output` directory.
 
-## 5. CLI Chained Usage
+## 5. CLI Usage
 
 ### Prerequisites
 
 - `molop` command configured in your terminal.
 
-### Command Example
+### Command Examples
 
 ```bash
-uv run molop chain read "tests/test_files/g16log/2-TS1-Opt.log" - summary --output_path "tutorial_ts_summary.csv" - end
+# Generate a summary CSV
+uv run molop -q summary "tests/test_files/g16log/2-TS1-Opt.log" --out tutorial_ts_summary.csv --format csv --mode frame --frame -1 --n-jobs 1
+
+# Transform molecular files to another format
+uv run molop -q transform "tests/test_files/orca/h2_grad_orca.inp" --to sdf --output-dir ./tutorial_transform_out --frame -1 --embed --parser-detection orcainp --n-jobs 1
 ```
-
-```text
-INFO - Summary saved to tutorial_ts_summary.csv
-```
-
-### Expected Output
-
-- `INFO - Summary saved to tutorial_ts_summary.csv` is printed in the terminal.
-- `tutorial_ts_summary.csv` is generated in the current working directory.
-
-### Notes
-
-- Top-level `molop` is the Typer CLI entrypoint; Fire-style chain workflow is accessed via `molop chain`.
-- Commands must be separated by `-`; see [CLI Documentation](../command_line_interface.md).
 
 ## 6. Plugin/Codec Extension
 

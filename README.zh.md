@@ -16,7 +16,7 @@ MolOP 是一个专为计算化学工作流设计的 Python 3.10+ 库和命令行
 - 需要从数百个 Gaussian log 文件中提取热力学数据或分子性质。
 - 需要在不同化学文件格式之间转换，同时希望保留或恢复化学键信息。
 - 正在构建机器学习流水线，需要从量子化学输出中可靠地提取分子特征。
-- 倾向于使用“链式”命令行工具快速检查和处理数据，而无需编写 Python 脚本。
+- 倾向于使用命令行工具快速检查和处理数据，而无需编写 Python 脚本。
 
 ## 非目标
 
@@ -73,14 +73,14 @@ print(df)
 
 ### 命令行界面 (CLI)
 
-MolOP 提供现代化的 Typer CLI 和强大的链式操作：
+MolOP 提供现代化的 Typer CLI：
 
 ```bash
 # 生成摘要 CSV
 molop summary "path/to/*.log" -o summary.csv
 
-# 链式操作：过滤过渡态并转换为 SDF (使用 legacy chain 模式)
-molop chain read "path/to/*.log" - filter_state ts - transform sdf --output_dir=. --embed_in_one_file=True - end
+# 将分子文件转换为另一种格式
+molop transform "path/to/*.log" --to sdf --output-dir ./output --frame -1 --embed
 ```
 
 ## 文档与教程

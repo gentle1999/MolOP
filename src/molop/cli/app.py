@@ -9,7 +9,7 @@ app = typer.Typer(
     help="MolOP: Molecule OPerator CLI",
     add_completion=True,
     no_args_is_help=True,
-    context_settings={"help_option_names": ["-h", "--help"]}
+    context_settings={"help_option_names": ["-h", "--help"]},
 )
 
 
@@ -55,21 +55,6 @@ def main(
             molopconfig.quiet()
         if verbose:
             molopconfig.verbose()
-
-
-@app.command(
-    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
-    help="Legacy chain compatibility mode. Forwards all arguments to the Fire-based CLI.",
-)
-def chain(ctx: typer.Context):
-    """
-    Legacy chain compatibility mode. Forwards all arguments to the Fire-based CLI.
-    """
-    import fire
-
-    from molop.cli.cli import MolOPCLI
-
-    fire.Fire(MolOPCLI, command=ctx.args)
 
 
 @app.command(help="Generate a summary of the molecules in the given files.")
@@ -241,7 +226,7 @@ def visualize(
     typer.echo(f"Visualization saved to {out}", err=True)
 
 
-@app.command(help="Transform molecular files to another format.")
+@app.command(help="")
 def transform(
     pattern: Annotated[str, typer.Argument(help="File pattern to match.")],
     to: Annotated[
@@ -262,15 +247,12 @@ def transform(
     ] = "auto",
     n_jobs: Annotated[int, typer.Option("--n-jobs", "-j", help="Number of parallel jobs.")] = -1,
 ):
-    """
-    Transform molecular files to another format.
-    """
-    from typing import Literal, cast
+    from typing import Any, cast
 
     from molop.cli.shared.frames import parse_frame_selection
-    from molop.io import AutoParser
+    from molop.io import AutoParser, codec_registry
 
-    valid_formats = ["xyz", "sdf", "cml", "gjf", "smi", "orcainp"]
+    valid_formats = codec_registry.get_supported_writer_formats()
     if to not in valid_formats:
         typer.echo(
             f"Error: Invalid format '{to}'. Supported formats: {', '.join(valid_formats)}",
@@ -293,7 +275,7 @@ def transform(
         raise typer.Exit(0)
 
     batch.format_transform(
-        format=cast(Literal["xyz", "sdf", "cml", "gjf", "smi", "orcainp"], to),
+        format=cast(Any, to),
         output_dir=str(output_dir),
         frameID=frame_selection,
         embed_in_one_file=embed,

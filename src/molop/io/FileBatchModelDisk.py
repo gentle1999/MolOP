@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any, Generic, Literal, TypeAlias, TypeVar, cas
 import pandas as pd
 
 from molop.config import molopconfig, moloplogger
+from molop.io._batch_format_transform import BatchFormatTransformMixin
 from molop.utils.progressbar import parallel_map
 
 
@@ -50,7 +51,7 @@ TFile = TypeVar("TFile")
 TFileDisk = TypeVar("TFileDisk", bound=FileDiskObj)
 
 
-class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
+class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFileDisk]):
     """
     A class to store a batch of files and their corresponding models.
     """
@@ -70,10 +71,12 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
         return parallel_map(
             func,
             cast(Iterable[TFileDisk], self),
-            n_jobs=n_jobs,
+            n_jobs=molopconfig.set_n_jobs(n_jobs),
             desc=desc,
             total=len(self),
             disable=not molopconfig.show_progress_bar,
+            maxtasks_per_child=50,
+            max_nbytes=molopconfig.parallel_max_size,
         )
 
     def add_diskfiles(self, diskfiles: Iterable[TFileDisk]) -> None:
@@ -458,57 +461,6 @@ class FileBatchModelDisk(MutableMapping, Generic[TFileDisk]):
         mask = self.parallel_execute(judge_func, desc, n_jobs)
         filtered_files = [diskfile for diskfile, keep in zip(self, mask, strict=True) if keep]
         return self.new_batch(filtered_files)
-
-    def format_transform(
-        self,
-        format: Literal["xyz", "sdf", "cml", "gjf", "smi", "orcainp"],
-        output_dir: str | None = None,
-        frameID: int | Literal["all"] | Sequence[int] = -1,
-        embed_in_one_file: bool = True,
-        n_jobs: int = 1,
-        **kwargs: Any,
-    ) -> dict[str, str | list[str]]:
-        """
-        Transform formats using the parallel execution engine.
-
-        Parameters:
-            format (Literal["xyz", "sdf", "cml", "gjf", "smi"]): The target format.
-            output_dir (str): Directory to save transformed files.
-            frameID (int | Literal["all"]): Frame ID to transform.
-            embed_in_one_file (bool): Whether to embed multiple frames in one file.
-            n_jobs (int): Number of parallel jobs.
-            **kwargs: Additional arguments for format_transform.
-
-        Returns:
-            (dict[str, str | List[str]]): A dictionary where keys are file paths and values are transformed file paths or lists of paths.
-        """
-        if output_dir is not None:
-            assert os.path.isdir(output_dir), f"{output_dir} is not a directory"
-
-        def transform_func(diskfile: FileDiskObj) -> tuple[str, str | list[str]]:
-            frame_ids = range(len(diskfile)) if frameID == "all" else frameID
-            try:
-                res = diskfile.format_transform(
-                    format,
-                    frameID=frame_ids,
-                    embed_in_one_file=embed_in_one_file,
-                    file_path=os.path.join(
-                        output_dir, f"{os.path.splitext(diskfile.filename)[0]}.{format}"
-                    )
-                    if output_dir
-                    else None,
-                    **kwargs,
-                )
-                return diskfile.file_path, res
-            except Exception as e:
-                moloplogger.warning(
-                    f"Format transform failed for {diskfile.filename}: {type(e).__name__}: {e}"
-                )
-                return diskfile.file_path, ("" if embed_in_one_file else [])
-
-        desc = f"MolOP processing {format} format with {n_jobs} jobs"
-        results = self.parallel_execute(transform_func, desc, n_jobs)
-        return dict(results)
 
     def to_summary_df(
         self,

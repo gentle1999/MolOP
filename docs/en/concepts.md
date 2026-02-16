@@ -42,7 +42,7 @@ The following diagram illustrates the dataflow of the MolOP parsing pipeline, fr
 ```mermaid
 graph TD
     subgraph CLI [CLI Layer]
-        MolOPCLI["MolOPCLI (cli.py)"]
+        MolOPCLI["Typer CLI (app.py)"]
     end
 
     subgraph Entry [Entry Point]

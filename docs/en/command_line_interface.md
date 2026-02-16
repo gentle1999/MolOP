@@ -36,8 +36,6 @@ uv run molop --help
 │ --help                -h        Show this message and exit.                  │
 ╰──────────────────────────────────────────────────────────────────────────────╯
 ╭─ Commands ───────────────────────────────────────────────────────────────────╮
-│ chain             Legacy chain compatibility mode. Forwards all arguments to │
-│                   the Fire-based CLI.                                        │
 │ summary           Generate a summary of the molecules in the given files.    │
 │ visualize         Visualize molecules in a grid image.                       │
 │ transform         Transform molecular files to another format.               │
@@ -377,53 +375,3 @@ uv run molop -q groupby "tests/test_files/mix_format/*.gjf" --key detected_forma
 }
 ```
 
-### `chain`
-
-Legacy chain compatibility mode. Forwards all arguments to the Fire-based CLI.
-
-```bash
-uv run molop chain --help
-```
-
-```text
-
- Usage: molop chain [OPTIONS]                                                   
-
- Legacy chain compatibility mode. Forwards all arguments to the Fire-based CLI. 
-
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --help  -h        Show this message and exit.                                │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
-
----
-
-## Legacy Chain Syntax (Advanced)
-
-The legacy chain syntax allows you to string together multiple MolOP operations in a single command line. This is powered by [Google Fire](https://github.com/google/python-fire).
-
-### Operation Guide
-
-- **Separators:** Use a single hyphen `-` to separate different commands in the chain.
-- **Execution:** Every chain **must** end with the `end` command to trigger execution and perform necessary cleanup.
-- **Quoting:** Always quote glob patterns (e.g., `"*.log"`) to prevent your shell from expanding them before they reach MolOP.
-
-### Chain Recipe Example
-
-Generate a CSV summary of a Gaussian log file using the legacy chain syntax.
-
-```bash
-uv run molop chain read "tests/test_files/g16log/2-TS1-Opt.log" - summary --output_path ".sisyphus/tmp/chain_ts_summary.csv" - end
-```
-
-```text
-MolOP parsing with single process 100% ━━━━━━ 1/1  [ 0:00:00 < 0:00:… , ? it/s ]
-MolOP processing frame summary with 1 jobs 100% ━━━━ 1/1  [ 0:0… < 0:0… , ?    ]
-                                                                          it/s  
-INFO - Summary saved to .sisyphus/tmp/chain_ts_summary.csv
-```
-
-## Important Notes
-
-- **Shell Expansion:** In shells like `zsh` (default on macOS), unquoted globs that don't match any files will cause an error (`no matches found`). Always use quotes: `"*.log"`.
-- **Quiet Mode:** Using `-q` or `--quiet` is recommended for stable, clean outputs in examples and automated scripts.

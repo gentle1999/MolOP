@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 import numpy as np
+from pydantic import PrivateAttr
 from rdkit import Chem
 
 from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
@@ -57,6 +58,7 @@ class _GeometrySection:
 class _CartesianParseResult:
     atoms: list[int]
     coords: list[tuple[float, float, float]]
+    entries: list[dict[str, Any]]
     fragments: list[list[int]]
     ghost_markers: list[int]
     dummy_markers: list[int]
@@ -352,6 +354,7 @@ def _is_bohr_unit(unit_hint: str | None) -> bool:
 def _parse_cartesian_coordinate_lines(lines: Sequence[str]) -> _CartesianParseResult:
     atoms: list[int] = []
     coords: list[tuple[float, float, float]] = []
+    entries: list[dict[str, Any]] = []
     fragments: list[list[int]] = []
     ghost_markers: list[int] = []
     dummy_markers: list[int] = []
@@ -371,10 +374,6 @@ def _parse_cartesian_coordinate_lines(lines: Sequence[str]) -> _CartesianParseRe
 
         line_index += 1
         if tokens[0].upper() == "Q":
-            point_entry: dict[str, Any] = {
-                "line_index": line_index,
-                "raw": raw_line,
-            }
             if len(tokens) >= 5:
                 point_charge = _parse_float(tokens[1])
                 point_x = _parse_float(tokens[2])
@@ -386,15 +385,22 @@ def _parse_cartesian_coordinate_lines(lines: Sequence[str]) -> _CartesianParseRe
                     and point_y is not None
                     and point_z is not None
                 ):
-                    point_entry.update(
+                    point_entry: dict[str, Any] = {
+                        "charge": point_charge,
+                        "x": point_x,
+                        "y": point_y,
+                        "z": point_z,
+                    }
+                    entries.append(
                         {
+                            "kind": "q",
                             "charge": point_charge,
                             "x": point_x,
                             "y": point_y,
                             "z": point_z,
                         }
                     )
-            point_charges.append(point_entry)
+                    point_charges.append(point_entry)
             continue
 
         symbol, fragment_id, is_ghost, is_dummy = _parse_symbol_token(tokens[0])
@@ -416,6 +422,15 @@ def _parse_cartesian_coordinate_lines(lines: Sequence[str]) -> _CartesianParseRe
         atom_index = len(atoms) + 1
         atoms.append(atomic_number)
         coords.append(coord_triplet)
+        entries.append(
+            {
+                "kind": "atom",
+                "symbol": symbol,
+                "x": coord_triplet[0],
+                "y": coord_triplet[1],
+                "z": coord_triplet[2],
+            }
+        )
 
         if fragment_id is not None:
             fragments.append([atom_index, fragment_id])
@@ -434,6 +449,7 @@ def _parse_cartesian_coordinate_lines(lines: Sequence[str]) -> _CartesianParseRe
     return _CartesianParseResult(
         atoms=atoms,
         coords=coords,
+        entries=entries,
         fragments=fragments,
         ghost_markers=ghost_markers,
         dummy_markers=dummy_markers,
@@ -445,10 +461,17 @@ def _parse_cartesian_coordinate_lines(lines: Sequence[str]) -> _CartesianParseRe
 
 
 class ORCAInpFileFrameParserMixin:
+    _last_coords_ctype: str | None = PrivateAttr(default=None)
+    _last_external_path: str | None = PrivateAttr(default=None)
+    _last_point_charges: list[dict[str, float]] | None = PrivateAttr(default=None)
+
     def _parse_frame(self) -> Mapping[str, Any]:
         typed_self = cast(_HasParseMethod, self)
         block = typed_self._block
 
+        self._last_coords_ctype = None
+        self._last_external_path = None
+        self._last_point_charges = None
         section = _extract_star_geometry(block)
         if section is None:
             section = _extract_percent_coords_geometry(block)
@@ -456,9 +479,12 @@ class ORCAInpFileFrameParserMixin:
         if section is None:
             return {}
 
+        self._last_coords_ctype = section.ctype
+        if section.ctype in _EXTERNAL_TYPES:
+            self._last_external_path = section.units
+
         metadata: dict[str, Any] = {
             "orca_raw_preamble": section.preamble,
-            "orca_raw_geometry": section.geometry,
             "orca_raw_postamble": section.postamble,
         }
 
@@ -479,32 +505,72 @@ class ORCAInpFileFrameParserMixin:
 
         if section.ctype in _CARTESIAN_TYPES and section.coordinate_lines:
             parsed = _parse_cartesian_coordinate_lines(section.coordinate_lines)
+            use_bohr_units = _is_bohr_unit(section.units)
             if parsed.atoms:
                 coords_array = np.array(parsed.coords, dtype=np.float32)
-                if _is_bohr_unit(section.units):
+                if use_bohr_units:
                     bohr_coords = coords_array * atom_ureg.bohr
                     coords_quantity = cast(Any, bohr_coords).to(atom_ureg.angstrom)
                 else:
                     coords_quantity = coords_array * atom_ureg.angstrom
                 metadata["atoms"] = parsed.atoms
                 metadata["coords"] = coords_quantity
-
-            if parsed.fragments:
-                metadata["orca_fragments"] = parsed.fragments
-            if parsed.ghost_markers:
-                metadata["orca_ghost_markers"] = parsed.ghost_markers
-            if parsed.dummy_markers:
-                metadata["orca_dummy_markers"] = parsed.dummy_markers
             if parsed.point_charges:
-                metadata["orca_point_charges"] = parsed.point_charges
-            if parsed.freeze_markers:
-                metadata["orca_freeze_markers"] = parsed.freeze_markers
-            if parsed.isotope_tokens:
-                metadata["orca_isotope_tokens"] = parsed.isotope_tokens
-            if parsed.nuclear_charge_tokens:
-                metadata["orca_nuclear_charge_tokens"] = parsed.nuclear_charge_tokens
+                point_charges: list[dict[str, float]] = []
+                for point_charge in parsed.point_charges:
+                    charge = point_charge.get("charge")
+                    x = point_charge.get("x")
+                    y = point_charge.get("y")
+                    z = point_charge.get("z")
+                    if not all(isinstance(value, (int, float)) for value in (charge, x, y, z)):
+                        continue
+
+                    charge_f = float(cast(float, charge))
+                    x_f = float(cast(float, x))
+                    y_f = float(cast(float, y))
+                    z_f = float(cast(float, z))
+
+                    parsed_point_charge = {
+                        "charge": charge_f,
+                        "x": x_f,
+                        "y": y_f,
+                        "z": z_f,
+                    }
+                    if use_bohr_units:
+                        parsed_point_charge["x"] = float(
+                            cast(Any, parsed_point_charge["x"] * atom_ureg.bohr)
+                            .to(atom_ureg.angstrom)
+                            .m
+                        )
+                        parsed_point_charge["y"] = float(
+                            cast(Any, parsed_point_charge["y"] * atom_ureg.bohr)
+                            .to(atom_ureg.angstrom)
+                            .m
+                        )
+                        parsed_point_charge["z"] = float(
+                            cast(Any, parsed_point_charge["z"] * atom_ureg.bohr)
+                            .to(atom_ureg.angstrom)
+                            .m
+                        )
+                    point_charges.append(parsed_point_charge)
+
+                if point_charges:
+                    self._last_point_charges = point_charges
 
         return metadata
+
+    def parse(self, block: str, *, additional_data: dict[str, Any] | None = None) -> Any:
+        frame = cast(Any, super()).parse(block, additional_data=additional_data)
+        if hasattr(frame, "_orca_coords_ctype"):
+            frame._orca_coords_ctype = self._last_coords_ctype
+        if hasattr(frame, "_orca_external_path"):
+            frame._orca_external_path = self._last_external_path
+        if hasattr(frame, "_orca_point_charges"):
+            frame._orca_point_charges = self._last_point_charges
+        self._last_coords_ctype = None
+        self._last_external_path = None
+        self._last_point_charges = None
+        return frame
 
 
 class ORCAInpFileFrameParserMemory(
