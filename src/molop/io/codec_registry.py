@@ -14,6 +14,9 @@ from itertools import count
 from pathlib import Path
 from typing import Any, cast
 
+from molgr.interface import xyz_to_rdmol
+
+from molop.config import molopconfig
 from molop.io.codec_exceptions import (
     ConversionError,
     MissingOptionalDependencyError,
@@ -431,12 +434,12 @@ def upgrade_coords_to_graph(
         total_radical_electrons=total_radical_electrons,
     )
 
-    from molop.structure import xyz_to_rdmol
-
     graph_value = xyz_to_rdmol(
         xyz_block,
         total_charge=charge,
-        total_radical_electrons=radical_electrons,
+        spin_multiplicity=radical_electrons + 1,
+        backend=molopconfig.graph_reconstruction_backend,
+        make_dative_bonds=molopconfig.make_dative_bonds,
     )
     if graph_value is None:
         raise ConversionError("Graph reconstruction failed from coordinates.")

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-02-16 19:20:04
 LastEditors: TMJ
-LastEditTime: 2025-12-14 20:15:25
+LastEditTime: 2026-03-23 15:56:46
 Description: 请填写简介
 """
 
@@ -622,7 +622,7 @@ class G16FchkPatterns:
 
 def options_parser(
     link0: str,
-) -> dict[str, str]:
+) -> dict[str, str | None]:
     """
     Parse link0 from G16 log file.
 
@@ -632,10 +632,15 @@ def options_parser(
     Returns:
         - link0 (Dict): A dictionary containing parameter-value pairs extracted from the link0 section.
     """
-    return {
-        f"{para[0]}": f"{para[1]}"
-        for para in re.compile(r"(%[a-zA-Z0-9]+)=([^\s]+)").findall(link0)
-    }
+    res: dict[str, str | None] = {}
+    for lines in link0.splitlines():
+        if lines.startswith("%"):
+            if "=" in lines:
+                k, v = lines.split("=")
+                res[k.strip().strip("%")] = v.strip()
+            else:
+                res[lines.strip()] = None
+    return res
 
 
 def route_section_parser(
@@ -654,37 +659,10 @@ def route_section_parser(
         dieze_tag (str):
             The dieze tag extracted from the route section of the parameter comment.
     """
-    _route = (
-        route.replace(" =", "=").replace("= ", "=").replace(" ,", ",").replace(", ", ",").lower()
-    )
-    while split_match := re.search(r"/[a-z]", _route):
-        _route = _route[: split_match.start()] + " " + _route[split_match.start() + 1 :]
-    multi_params_patt = re.compile(r"([a-zA-Z\d\+\-]+)([\s=]+)*\(([a-zA-Z\d,=\-\(\)/]+)\)")
-    route_params: dict[str, Any] = {}
-    dieze_tag = None
+    from molop.io.logic.gaussian_route_models import parse_gaussian_route_semantic
 
-    if _route:
-        for tok in _route.split():
-            if tok.upper() in ["#", "#N", "#P", "#T"]:
-                # does not store # in route to avoid error in input
-                dieze_tag = "#N" if tok == "#" else tok
-                continue
-            else:
-                if m := re.search(multi_params_patt, tok.strip("#")):
-                    pars = {}
-                    for par in m.group(3).split(","):
-                        p = par.split("=")
-                        pars[p[0]] = None if len(p) == 1 else p[1].lower()
-                    if all(k in ("d", "p") for k in pars):
-                        d = tok.strip("#").split("=")
-                        route_params[d[0]] = None if len(d) == 1 else "=".join(d[1:]).lower()
-                    else:
-                        route_params[m.group(1).lower()] = pars
-                else:
-                    d = tok.strip("#").split("=")
-                    route_params[d[0]] = None if len(d) == 1 else "=".join(d[1:]).lower()
-
-    return route_params, dieze_tag
+    semantic = parse_gaussian_route_semantic(route)
+    return semantic.to_route_dict(), semantic.dieze_tag
 
 
 g16_log_patterns = G16LogPatterns()

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 12:19:07
 LastEditors: TMJ
-LastEditTime: 2025-12-14 19:05:25
+LastEditTime: 2026-03-22 15:43:40
 Description: 请填写简介
 """
 
@@ -16,16 +16,16 @@ bond_stereo_mapping = {
     "Z": Chem.rdchem.BondStereo.STEREOZ,
     "E": Chem.rdchem.BondStereo.STEREOE,
 }
-bond_type_mapping = {
-    Chem.rdchem.BondType.SINGLE: 1,
-    Chem.rdchem.BondType.DATIVE: 1,
-    Chem.rdchem.BondType.DATIVEL: 1,
-    Chem.rdchem.BondType.DATIVER: 1,
-    Chem.rdchem.BondType.DATIVEONE: 1,
-    Chem.rdchem.BondType.DOUBLE: 2,
-    Chem.rdchem.BondType.TRIPLE: 3,
+bond_type_mapping: dict[Chem.rdchem.BondType, float] = {
+    Chem.rdchem.BondType.SINGLE: 1.0,
+    Chem.rdchem.BondType.DATIVE: 1.0,
+    Chem.rdchem.BondType.DATIVEL: 1.0,
+    Chem.rdchem.BondType.DATIVER: 1.0,
+    Chem.rdchem.BondType.DATIVEONE: 1.0,
+    Chem.rdchem.BondType.DOUBLE: 2.0,
+    Chem.rdchem.BondType.TRIPLE: 3.0,
     Chem.rdchem.BondType.AROMATIC: 1.5,
-    Chem.rdchem.BondType.ZERO: 0,
+    Chem.rdchem.BondType.ZERO: 0.0,
     Chem.rdchem.BondType.ONEANDAHALF: 1.5,
     Chem.rdchem.BondType.TWOANDAHALF: 2.5,
 }

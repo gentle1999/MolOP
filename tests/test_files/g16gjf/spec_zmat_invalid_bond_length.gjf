@@ -1,0 +1,10 @@
+%chk=spec_zmat_invalid_bond_length.chk
+#p hf/3-21g opt
+
+Invalid Z-matrix bond length
+
+! Source: gaussian.com/zmat/ bond length must be positive
+0 1
+O
+H 1 -0.9600
+H 1 0.9700 2 104.5000

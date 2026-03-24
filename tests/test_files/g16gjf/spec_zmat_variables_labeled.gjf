@@ -1,0 +1,20 @@
+%chk=spec_zmat_variables_labeled.chk
+#p hf/3-21g opt
+
+Water Z-matrix with labeled variables
+
+! Source: gaussian.com/input/ canonical section order
+! Source: gaussian.com/molspec/ Z-matrix molecule specification
+0 1
+O
+H 1 r1
+H 1 r2 2 a1
+
+! Source: gaussian.com/zmat/ labeled variable blocks
+Variables:
+r1 0.9600
+r2 0.9700
+
+! Source: gaussian.com/zmat/ constants block
+Constants:
+a1 104.5000

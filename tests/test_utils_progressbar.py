@@ -90,7 +90,7 @@ def test_parallel_map_joblib_kwargs_defaults(monkeypatch: pytest.MonkeyPatch) ->
     parallel_map(lambda x: x, items, n_jobs=2, disable=True)
 
     assert captured_kwargs["n_jobs"] == 2
-    assert captured_kwargs["return_as"] == "list"
+    assert captured_kwargs["return_as"] == "generator"
 
 
 def test_parallel_map_joblib_kwargs_overrides(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -112,4 +112,4 @@ def test_parallel_map_joblib_kwargs_overrides(monkeypatch: pytest.MonkeyPatch) -
 
     assert captured_kwargs["n_jobs"] == 2
     assert captured_kwargs["batch_size"] == 10
-    assert captured_kwargs["return_as"] == "list"
+    assert captured_kwargs["return_as"] == "generator"

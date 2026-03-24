@@ -21,6 +21,27 @@ from .utils import pt
 RDLogger.DisableLog("rdApp.*")  # type: ignore
 
 
+def merge_mols_directly(mols: list[RdMol | RWMol]):
+    """
+    Merge a list of molecules directly.
+
+    Parameters:
+        mols (List[RdMol | RWMol]):
+            List of RDkit molecules.
+            All molecules must have conformers.
+
+    Returns:
+        Chem.rdchem.Mol: merged RDkit molecules
+    """
+    if not mols:
+        return Chem.Mol()
+    mols_copy = deepcopy(mols)
+    merged_mols = mols_copy[0]
+    for mol in mols_copy[1:]:
+        merged_mols = Chem.CombineMols(merged_mols, mol)
+    return merged_mols
+
+
 def merge_mols(
     mols: list[RdMol | RWMol], scale=3.0, overlap_threshold=0.9, random_state=3407
 ) -> RdMol:
@@ -41,14 +62,14 @@ def merge_mols(
     Returns:
         Chem.rdchem.Mol: merged RDkit molecules
     """
+    if not mols:
+        return Chem.Mol()
     rng = np.random.RandomState(random_state)
     mols_copy = deepcopy(mols)
     points = fibonacci_sphere(len(mols_copy), rng.randint(0, min(random_state * 100, 65535)))
     for mol, point in zip(mols_copy, points, strict=True):
         translate_mol(mol, xyz_to_point(point) * scale)
-    merged_mols = mols_copy[0]
-    for mol in mols_copy[1:]:
-        merged_mols = Chem.CombineMols(merged_mols, mol)
+    merged_mols = merge_mols_directly(mols_copy)
     while is_overlap(merged_mols, threshold=overlap_threshold):
         for mol, point in zip(mols_copy, points, strict=True):
             translate_mol(mol, xyz_to_point(point) * scale)

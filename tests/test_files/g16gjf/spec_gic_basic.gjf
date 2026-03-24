@@ -1,0 +1,15 @@
+%chk=spec_gic_basic.chk
+#p b3lyp/6-31g(d) opt=(gic,addgic)
+
+Water with GIC section
+
+! Source: gaussian.com/molspec/ Cartesian molecule block
+0 1
+O 0.000000 0.000000 0.000000
+H 0.757000 0.586000 0.000000
+H -0.757000 0.586000 0.000000
+
+! Source: gaussian.com/gic/ coordinate definitions and standalone options
+rOH=R(1,2)
+aHOH=A(2,1,3)
+FreezeAll

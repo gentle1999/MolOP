@@ -2,16 +2,17 @@
 Author: TMJ
 Date: 2025-07-28 18:43:45
 LastEditors: TMJ
-LastEditTime: 2026-02-12 20:26:22
+LastEditTime: 2026-03-23 19:07:36
 Description: 请填写简介
 """
 
 import os
 from io import StringIO
-from typing import Any, ClassVar, Generic, Protocol, TypeVar
+from typing import Any, ClassVar, Generic, Protocol, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
+from molgr.interface import xyz_to_rdmol
 from pint._typing import UnitLike
 from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity
@@ -19,7 +20,7 @@ from pydantic import Field, PrivateAttr, computed_field
 from rdkit import Chem
 from scipy.sparse import coo_matrix
 
-from molop.config import moloplogger
+from molop.config import molopconfig, moloplogger
 from molop.io.base_models.DataClasses import (
     BondOrders,
     ChargeSpinPopulations,
@@ -36,7 +37,6 @@ from molop.io.base_models.DataClasses import (
     Vibrations,
 )
 from molop.io.base_models.Molecule import Molecule
-from molop.structure import xyz_to_rdmol
 from molop.structure.StructureTransformation import check_crowding
 from molop.unit import atom_ureg
 from molop.utils.types import OMol, RdMol
@@ -154,6 +154,9 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
         if file_name := getattr(self, "filename", None):
             getattr(moloplogger, level)(f"{file_name} - Frame {self.frame_id}: {content}")
 
+    def release_frame_content(self) -> None:
+        self.frame_content = ""
+
 
 class BaseCoordsFrame(BaseChemFileFrame[ChemFileFrame]): ...
 
@@ -195,10 +198,18 @@ class BaseQMInputFrame(BaseCoordsFrame[ChemFileFrame]):
         description="Functional (best-effort, may be empty for raw-only inputs)",
     )
 
-    # Resources: preservation-only (raw)
+    # Resources
     resources_raw: str = Field(
         default="",
         description="Raw resource directives from the input (preservation-only)",
+    )
+    request_num_cpu: int | None = Field(
+        default=None,
+        description="Number of CPUs used for the QM calculation",
+    )
+    request_memory: PlainQuantity | None = Field(
+        default=None,
+        description="Memory used for the QM calculation",
     )
 
 
@@ -420,7 +431,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         # Iterate over a list of ratios
         for r in np.linspace(-ratio, ratio, num=steps, endpoint=True):
             # Calculate extreme coordinates based on current ratio
-            extreme_coords = self.coords.m - vibration.vibration_mode.m * r
+            extreme_coords = cast(np.ndarray, self.coords.m - vibration.vibration_mode.m * r)
 
             try:
                 # Convert extreme coordinates to rdkit molecule object
@@ -438,8 +449,9 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                         ]
                     ),
                     total_charge=self.charge,
-                    total_radical_electrons=self.multiplicity - 1,
-                    make_dative=not ignore_dative,
+                    spin_multiplicity=self.multiplicity,
+                    backend=molopconfig.graph_reconstruction_backend,
+                    make_dative_bonds=not ignore_dative and molopconfig.make_dative_bonds,
                 )
                 # Rebuild using the rdkit molecule object
                 if rdmol is None:

@@ -1,0 +1,10 @@
+%chk=spec_zmat_invalid_angle.chk
+#p hf/3-21g opt
+
+Invalid Z-matrix bond angle
+
+! Source: gaussian.com/zmat/ bond angle must be between 0 and 180 degrees
+0 1
+O
+H 1 0.9600
+H 1 0.9700 2 180.0000

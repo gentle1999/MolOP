@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2026-02-05 19:59:16
+LastEditTime: 2026-03-19 10:28:30
 Description: 请填写简介
 """
 
@@ -10,6 +10,7 @@ from collections.abc import Sequence
 from typing import Any, ClassVar, Literal, Optional
 
 import numpy as np
+from molgr.interface import xyz_to_rdmol
 from openbabel import pybel
 from pint._typing import UnitLike
 from pint.facets.numpy.quantity import NumpyQuantity
@@ -18,9 +19,8 @@ from rdkit import Chem
 from rdkit.Chem.rdMolAlign import GetBestRMS
 from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 
-from molop.config import moloplogger
+from molop.config import molopconfig, moloplogger
 from molop.descriptor.spms import SPMSCalculator
-from molop.structure import xyz_to_rdmol
 from molop.structure.FormatConverter import rdmol_to_omol
 from molop.structure.GeometryTransformation import get_geometry_info, standard_orient
 from molop.structure.StructureTransformation import (
@@ -38,6 +38,7 @@ from molop.unit import atom_ureg
 from molop.utils.types import RdMol
 
 from .Bases import BaseDataClassWithUnit
+from .DataClasses import InternalCoords
 
 
 pt = Chem.GetPeriodicTable()
@@ -73,18 +74,18 @@ class Molecule(BaseDataClassWithUnit):
         return self.to_canonical_SMILES()
 
     bonds: list[tuple[int, int, int, int]] = Field(
-        default=[],
+        default_factory=list,
         description="Bond information, each bond is represented by a tuple of three integers, "
         "where the first two integers represent the indices of the two atoms involved in the bond, "
         "the third integer represents the bond order (follow the RDKit convention)"
         "the fourth integer represents the stereo configuration (follow the RDKit convention)",
     )
     formal_charges: list[int] = Field(
-        default=[],
+        default_factory=list,
         description="Formal charges of each atom",
     )
     formal_num_radicals: list[int] = Field(
-        default=[],
+        default_factory=list,
         description="Number of radical electrons of each atom",
     )
     _rdmol: RdMol | None = PrivateAttr(default=None)
@@ -171,7 +172,11 @@ class Molecule(BaseDataClassWithUnit):
                     return None
                 try:
                     self._rdmol = xyz_to_rdmol(
-                        self.to_XYZ_block(), self.charge, self.multiplicity - 1
+                        self.to_XYZ_block(),
+                        self.charge,
+                        self.multiplicity,
+                        backend=molopconfig.graph_reconstruction_backend,
+                        make_dative_bonds=molopconfig.make_dative_bonds,
                     )
                 except Exception as e:
                     moloplogger.error(f"{e}")
@@ -679,4 +684,13 @@ class Molecule(BaseDataClassWithUnit):
         Returns:
             str: The rendered Molecule.
         """
-        return ""
+        return self.to_canonical_SMILES()
+
+    def to_internal_coords(self) -> InternalCoords:
+        """
+        Convert the cartesian coordinates to internal coordinates.
+
+        Returns:
+            Molecule: The new Molecule with internal coordinates.
+        """
+        return InternalCoords.from_cartesian_coords(self.atom_symbols, self.coords)

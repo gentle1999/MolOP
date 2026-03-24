@@ -1,0 +1,10 @@
+%chk=spec_zmat_invalid_duplicate_reference.chk
+#p hf/3-21g opt
+
+Invalid Z-matrix duplicate references
+
+! Source: gaussian.com/zmat/ distinct reference atoms are required for angle/third-reference fields
+0 1
+O
+H 1 0.9600
+H 1 0.9700 1 104.5000

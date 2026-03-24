@@ -705,16 +705,21 @@ def combine_skeleton_replacement(
     new_start = start + replacement.GetNumAtoms()
     rmol = Chem.RWMol(new_mol)
     rmol.AddBond(0, new_start, bond_tag)
+    radical_delta = int(round(bond_type_mapping[bond_tag]))
     rmol.GetAtomWithIdx(new_start).SetNumRadicalElectrons(
-        max(
-            0,
-            rmol.GetAtomWithIdx(new_start).GetNumRadicalElectrons() - bond_type_mapping[bond_tag],
+        int(
+            max(
+                0,
+                rmol.GetAtomWithIdx(new_start).GetNumRadicalElectrons() - radical_delta,
+            )
         )
     )
     rmol.GetAtomWithIdx(0).SetNumRadicalElectrons(
-        max(
-            0,
-            rmol.GetAtomWithIdx(0).GetNumRadicalElectrons() - bond_type_mapping[bond_tag],
+        int(
+            max(
+                0,
+                rmol.GetAtomWithIdx(0).GetNumRadicalElectrons() - radical_delta,
+            )
         )
     )
     moloplogger.debug(
@@ -729,13 +734,14 @@ def get_skeleton(origin_mol: Chem.RWMol, start: int, end: int):
     # Substitution in Heterocyclic Aromatic Hydrocarbons
     Chem.Kekulize(origin_mol)
     bond_type = origin_mol.GetBondBetweenAtoms(start, end).GetBondType()
+    radical_delta = int(round(bond_type_mapping[bond_type]))
     original_frags = Chem.GetMolFrags(origin_mol, asMols=True)
     origin_mol.RemoveBond(start, end)
     origin_mol.GetAtomWithIdx(start).SetNumRadicalElectrons(
-        origin_mol.GetAtomWithIdx(start).GetNumRadicalElectrons() + bond_type_mapping[bond_type]
+        int(origin_mol.GetAtomWithIdx(start).GetNumRadicalElectrons() + radical_delta)
     )
     origin_mol.GetAtomWithIdx(end).SetNumRadicalElectrons(
-        origin_mol.GetAtomWithIdx(end).GetNumRadicalElectrons() + bond_type_mapping[bond_type]
+        int(origin_mol.GetAtomWithIdx(end).GetNumRadicalElectrons() + radical_delta)
     )
     # get all frags
     frags, frag_idxs = (

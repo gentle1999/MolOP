@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 22:14:37
 LastEditors: TMJ
-LastEditTime: 2026-02-03 18:01:37
+LastEditTime: 2026-03-23 19:06:15
 Description: 请填写简介
 """
 
@@ -98,6 +98,10 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
             if final_multiplicity:
                 frame.multiplicity = final_multiplicity
             _chem_file.append(frame)
+        if not final_charge and _chem_file:
+            metadata["charge"] = _chem_file.frames[0].charge
+        if not final_multiplicity and _chem_file:
+            metadata["multiplicity"] = _chem_file.frames[0].multiplicity
         return _chem_file
 
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:

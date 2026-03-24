@@ -1,0 +1,14 @@
+%chk=spec_mixed_gic_modredundant_invalid.chk
+#p b3lyp/6-31g(d) opt=(gic,addgic)
+
+Invalid mixed GIC and ModRedundant section
+
+! Source: gaussian.com/gic/ GIC syntax
+! Source: gaussian.com/opt/ ModRedundant syntax
+0 1
+O 0.000000 0.000000 0.000000
+H 0.757000 0.586000 0.000000
+H -0.757000 0.586000 0.000000
+
+rOH=R(1,2)
+B 1 2 F

@@ -99,9 +99,10 @@ def parallel_map(
     total: int | None = None,
     desc: str = "Processing",
     disable: bool = False,
+    return_as: str | None = None,
     tqdm_kwargs: dict[str, Any] | None = None,
     **joblib_kwargs: Any,
-) -> list[R]:
+) -> Iterable[R]:
     """
     A parallel wrapper with type hints and progress bar
 
@@ -126,8 +127,8 @@ def parallel_map(
 
     Returns
     -------
-    list[R]
-        The list of results after applying the function to each item in the iterable.
+    Iterable[R]
+        The iterable of results after applying the function to each item in the iterable.
     """
     iterator = AdaptiveProgress(
         iterable, desc=desc, total=total, disable=disable, **(tqdm_kwargs or {})
@@ -135,9 +136,13 @@ def parallel_map(
     if n_jobs == 1:
         return [func(item) for item in iterator]
 
-    results = Parallel(n_jobs=n_jobs, return_as="list", **joblib_kwargs)(
+    effective_return_as = return_as
+    if effective_return_as is None:
+        effective_return_as = "generator" if joblib_kwargs else "list"
+
+    results = Parallel(n_jobs=n_jobs, return_as=effective_return_as, **joblib_kwargs)(
         delayed(func)(item) for item in iterator
     )
     if results is None:
         raise ValueError("The parallel map returned None.")
-    return cast(list[R], list(results))
+    return cast(Iterable[R], results)

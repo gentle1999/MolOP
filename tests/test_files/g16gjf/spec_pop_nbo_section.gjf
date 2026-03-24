@@ -1,0 +1,15 @@
+%chk=spec_pop_nbo_section.chk
+#p b3lyp/6-31g(d) pop=(full,nbo,nboread,hirshfeld,cm5,mk,chelpg,orbitals=3)
+
+Pop options with trailing NBO input
+
+! Source: gaussian.com/population/ Pop suboptions and NBORead route usage
+0 1
+O 0.000000 0.000000 0.000000
+H 0.757000 0.586000 0.000000
+H -0.757000 0.586000 0.000000
+
+$NBO
+FILE=water
+PRINT=3
+$END

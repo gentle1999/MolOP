@@ -16,6 +16,10 @@ from typing_extensions import Self
 
 from molop.io.base_models.ChemFileFrame import BaseCalcFrame, _HasVibrations
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
+from molop.io.logic.gaussian_route_models import (
+    GaussianRouteSemantic,
+    parse_gaussian_route_semantic,
+)
 from molop.io.patterns.G16Patterns import (
     SEMI_EMPIRICAL_METHODS,
     route_section_parser,
@@ -51,6 +55,7 @@ class G16LogFileFrameMixin:
     @model_validator(mode="after")
     def _post_processing(self) -> Self:
         typed_self = cast(_HasVibrations, self)
+        semantic_route = self.semantic_route
         if self.standard_coords is not None and (
             len(typed_self.coords) == len(self.standard_coords)
         ):
@@ -99,32 +104,38 @@ class G16LogFileFrameMixin:
 
         if typed_self.basis_set.lower() == "genecp":
             typed_self.basis_set = "pseudopotential"
+        elif not typed_self.basis_set and semantic_route.model_chemistry.basis_set is not None:
+            typed_self.basis_set = semantic_route.model_chemistry.basis_set
+
+        if not typed_self.functional and semantic_route.model_chemistry.functional is not None:
+            typed_self.functional = semantic_route.model_chemistry.functional
+
         for semi in SEMI_EMPIRICAL_METHODS:
             if semi in typed_self.functional.lower():
                 typed_self.method = "SEMI-EMPIRICAL"
                 break
         else:
+            if not typed_self.method and semantic_route.model_chemistry.method_family is not None:
+                typed_self.method = semantic_route.model_chemistry.method_family
             if typed_self.functional.lower().endswith("hf"):
                 typed_self.method = "HF"
             if typed_self.functional.lower().endswith("fc"):
                 typed_self.method = "FC"
             else:
                 typed_self.method = "DFT"
-        if "em" in self.route_params:
-            typed_self.functional = f"{typed_self.functional}-{self.route_params['em'].upper()}"
-        if "empiricaldispersion" in self.route_params:
+        if semantic_route.empirical_dispersion:
             typed_self.functional = (
-                f"{typed_self.functional}-{self.route_params['empiricaldispersion'].upper()}"
+                f"{typed_self.functional}-{semantic_route.empirical_dispersion.upper()}"
             )
         return self
 
     @property
-    def route_params(self) -> dict[str, Any]:
-        return route_section_parser(self.keywords)[0]
+    def dieze_tag(self) -> str | None:
+        return self.semantic_route.dieze_tag
 
     @property
-    def dieze_tag(self) -> str | None:
-        return route_section_parser(self.keywords)[1]
+    def semantic_route(self) -> GaussianRouteSemantic:
+        return parse_gaussian_route_semantic(self.keywords)
 
 
 class G16LogFileFrameMemory(

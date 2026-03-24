@@ -19,6 +19,7 @@ classifiers = [
 ]
 dependencies = [
     "joblib>=1.5.1",
+    "molgr",
     "openbabel-wheel>=3.1.1.22",
     "pandas>=2.3.1",
     "pint>=0.24.2",
@@ -31,18 +32,6 @@ dependencies = [
     "timeout-decorator>=0.5.0",
     "tqdm>=4.67.1",
     "typer>=0.12.0",
-]
-
-[project.optional-dependencies]
-desc = [
-    "mordred~=1.2",
-    "dscribe~=2.1",
-    "ase~=3.22",
-]
-full = [
-    "mordred~=1.2",
-    "dscribe~=2.1",
-    "ase~=3.22",
 ]
 
 [project.urls]
@@ -140,6 +129,11 @@ minversion = "6.0"
 addopts = "-ra -q --cov=src --cov-report=term-missing"
 testpaths = ["tests"]
 pythonpath = ["src"]
+filterwarnings = [
+    "ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type SwigPyObject has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
+]
 
 
 [tool.mypy]
@@ -175,3 +169,6 @@ name = "hong"
 url = "http://10.72.201.58:13000/api/packages/tmj/pypi/simple/"
 publish-url = "http://10.72.201.58:13000/api/packages/tmj/pypi/"
 explicit = true
+
+[tool.uv.sources]
+molgr = { git = "http://10.72.201.58:13000/tmj/MolGR" }

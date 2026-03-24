@@ -1,0 +1,17 @@
+%chk=spec_zmat_variables_unlabeled.chk
+#p hf/3-21g opt
+
+Water Z-matrix with unlabeled variable blocks
+
+! Source: gaussian.com/molspec/ Z-matrix atom specification lines
+0 1
+O
+H 1 r1
+H 1 r2 2 a1
+
+! Source: gaussian.com/opt/ unlabeled variables/constants by positional blocks
+r1 0.9600
+r2 0.9700
+
+! Source: gaussian.com/opt/ second unlabeled block interpreted as constants
+a1 104.5000

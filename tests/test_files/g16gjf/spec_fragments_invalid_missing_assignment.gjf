@@ -1,0 +1,9 @@
+%chk=spec_fragments_invalid_missing_assignment.chk
+#p b3lyp/6-31g(d)
+
+Invalid multi-fragment missing assignment
+
+! Source: gaussian.com/molspec/ multi-fragment inputs require Fragment=n on atom specifications
+0 1 0 1 0 1
+Na(Fragment=1) 0.000000 0.000000 0.000000
+Cl 2.300000 0.000000 0.000000

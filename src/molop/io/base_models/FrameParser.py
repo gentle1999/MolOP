@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-29 19:04:21
 LastEditors: TMJ
-LastEditTime: 2026-02-04 15:15:14
+LastEditTime: 2026-03-23 10:59:00
 Description: 请填写简介
 """
 
@@ -34,9 +34,9 @@ class BaseFrameParser(BaseDataClassWithUnit, Generic[FrameT]):
     def parse(self, block: str, *, additional_data: dict[str, Any] | None = None) -> FrameT:
         self._block = block
         temp_dict = {"frame_content": block}
+        temp_dict.update(self._parse_frame())
         if additional_data is not None:
             temp_dict.update(additional_data)
-        temp_dict.update(self._parse_frame())
         return cast(FrameT, self._file_frame_class_.model_validate(temp_dict))
 
     @abstractmethod

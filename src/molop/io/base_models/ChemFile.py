@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:44:12
 LastEditors: TMJ
-LastEditTime: 2026-02-15 19:13:44
+LastEditTime: 2026-03-23 19:03:23
 Description: 请填写简介
 """
 
@@ -89,14 +89,11 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
     def __iter__(self) -> Iterator[FrameT]:  # type: ignore[override]
         return iter(self._frames_)
 
-    def __next__(
-        self,
-    ) -> FrameT:
+    def __next__(self) -> FrameT:
         if self._index_ >= len(self):
             raise StopIteration
-        else:
-            self._index_ += 1
-            return self._frames_[self._index_ - 1]
+        self._index_ += 1
+        return self._frames_[self._index_ - 1]
 
     def __len__(self) -> int:
         return len(self._frames_)
@@ -145,6 +142,8 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
 
     def release_file_content(self) -> None:
         self.file_content = ""
+        for frame in self._frames_:
+            frame.release_frame_content()
 
     def log_with_file_info(self, content: str, level: str = "info"):
         filename = getattr(self, "filename", None)
@@ -196,10 +195,18 @@ class BaseQMInputFile(BaseCoordsFile[QMInputFrameT], Generic[QMInputFrameT]):
         description="Functional (best-effort, may be empty for raw-only inputs)",
     )
 
-    # Resources: preservation-only (raw)
+    # Resources
     resources_raw: str = Field(
         default="",
         description="Raw resource directives from the input (preservation-only)",
+    )
+    request_num_cpu: int | None = Field(
+        default=None,
+        description="Number of CPUs used for the QM calculation",
+    )
+    request_memory: PlainQuantity | None = Field(
+        default=None,
+        description="Memory used for the QM calculation, unit is `megabyte`",
     )
 
 

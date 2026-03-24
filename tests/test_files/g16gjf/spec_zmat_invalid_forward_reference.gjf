@@ -1,0 +1,10 @@
+%chk=spec_zmat_invalid_forward_reference.chk
+#p hf/3-21g opt
+
+Invalid Z-matrix forward reference
+
+! Source: gaussian.com/zmat/ references must point to previously defined atoms
+0 1
+O
+H 2 0.9600
+H 1 0.9700 2 104.5000

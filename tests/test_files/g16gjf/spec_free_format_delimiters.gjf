@@ -1,0 +1,17 @@
+%chk=spec_free_format_delimiters.chk
+#p hf/3-21g opt
+
+Free-format delimiters in molspec and zmat variables
+
+! Source: gaussian.com/input and gaussian.com/molspec free-format separators
+0,1
+O
+H,1,r1
+H/1/r2/2/a1/0
+
+! Source: gaussian.com/zmat + gaussian.com/opt variable definitions with flexible separators
+Variables:
+r1,0.9600
+r2/0.9700
+Constants:
+a1,104.5000

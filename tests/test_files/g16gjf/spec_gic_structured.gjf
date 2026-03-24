@@ -1,0 +1,16 @@
+%chk=spec_gic_structured.chk
+#p b3lyp/6-31g(d) opt=(gic,addgic)
+
+Structured GIC parsing example
+
+! Source: gaussian.com/molspec/ Cartesian molecule block
+0 1
+O 0.000000 0.000000 0.000000
+H 0.757000 0.586000 0.000000
+H -0.757000 0.586000 0.000000
+
+! Source: gaussian.com/gic/ labels, options, function expressions, and standalone options
+rOH(active,min=0.8,max=1.2)=R(1,2)
+aHOH=A(2,1,3)
+combo=DotDiff(R(1,2),R(1,3))
+Atom 2 Freeze

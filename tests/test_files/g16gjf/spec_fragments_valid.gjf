@@ -1,0 +1,9 @@
+%chk=spec_fragments_valid.chk
+#p b3lyp/6-31g(d)
+
+Valid multi-fragment molspec
+
+! Source: gaussian.com/molspec/ fragment charge and multiplicity pairs with Fragment=n atom tags
+0 1 0 1 0 1
+Na(Fragment=1) 0.000000 0.000000 0.000000
+Cl(Fragment=2) 2.300000 0.000000 0.000000

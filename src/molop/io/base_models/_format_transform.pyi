@@ -54,14 +54,17 @@ class FormatTransformMixin:
         embed_in_one_file: bool = True,
         *,
         graph_policy: GraphPolicy = "prefer",
-        options: str | None = ...,
-        route: str | None = ...,
-        title_card: str | None = ...,
-        suffix: str | None = ...,
-        template: str | None = ...,
-        use_link1: bool = ...,
-        chk: bool | str | None = ...,
+        link0_commands: str | GJFLink0Commands | dict[str, str | None] | None = ...,
+        route_section: str | GJFRouteSection | None = ...,
+        title_card: str | GJFTitleCard | None = ...,
+        molecule_specifications: str | GJFMoleculeSpecifications | None = ...,
+        additional_sections: str | None = ...,
+        parsed_additional_sections: list[GJFGICSection | GJFModRedundantSection | GJFUnknownSection]
+        | None = ...,
+        chk: str | bool | None = ...,
         old_chk: bool | str | None = ...,
+        coords_type: Literal["cartesian", "internal", "auto"] = ...,
+        add_gjf_connectivity: bool = ...,
         **kwargs: Any,
     ) -> str | list[str]:
         """Transform using the `gjf` writer overload.
@@ -75,20 +78,22 @@ class FormatTransformMixin:
             **kwargs: Additional writer options accepted by the implementation.
 
         Format-specific Args:
-            options: `str | None` (optional).
-            route: `str | None` (optional).
-            title_card: `str | None` (optional).
-            suffix: `str | None` (optional).
-            template: `str | None` (optional).
-            use_link1: `bool` (optional).
-            chk: `bool | str | None` (optional).
+            link0_commands: `str | GJFLink0Commands | dict[str, str | None] | None` (optional).
+            route_section: `str | GJFRouteSection | None` (optional).
+            title_card: `str | GJFTitleCard | None` (optional).
+            molecule_specifications: `str | GJFMoleculeSpecifications | None` (optional).
+            additional_sections: `str | None` (optional).
+            parsed_additional_sections: `list[GJFGICSection | GJFModRedundantSection | GJFUnknownSection] | None` (optional).
+            chk: `str | bool | None` (optional).
             old_chk: `bool | str | None` (optional).
+            coords_type: `Literal['cartesian', 'internal', 'auto']` (optional).
+            add_gjf_connectivity: `bool` (optional).
 
         Returns:
             (str | list[str]): Output path string or list of output path strings.
 
         Source:
-            src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:174
+            src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1311
         """
         ...
     @overload
@@ -252,14 +257,16 @@ class FormatTransformMixin:
             cml:
                 engine: `Literal['rdkit', 'openbabel']` (optional).
             gjf:
-                options: `str | None` (optional).
-                route: `str | None` (optional).
-                title_card: `str | None` (optional).
-                suffix: `str | None` (optional).
-                template: `str | None` (optional).
-                use_link1: `bool` (optional).
-                chk: `bool | str | None` (optional).
+                link0_commands: `str | GJFLink0Commands | dict[str, str | None] | None` (optional).
+                route_section: `str | GJFRouteSection | None` (optional).
+                title_card: `str | GJFTitleCard | None` (optional).
+                molecule_specifications: `str | GJFMoleculeSpecifications | None` (optional).
+                additional_sections: `str | None` (optional).
+                parsed_additional_sections: `list[GJFGICSection | GJFModRedundantSection | GJFUnknownSection] | None` (optional).
+                chk: `str | bool | None` (optional).
                 old_chk: `bool | str | None` (optional).
+                coords_type: `Literal['cartesian', 'internal', 'auto']` (optional).
+                add_gjf_connectivity: `bool` (optional).
             orcainp:
                 keywords: `str | None` (optional).
                 resources_raw: `str | None` (optional).
@@ -279,7 +286,7 @@ class FormatTransformMixin:
 
         Source:
             cml: src/molop/io/codecs/_shared/writer_helpers.py:115
-            gjf: src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:174
+            gjf: src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1311
             orcainp: src/molop/io/logic/qminput_frame_models/ORCAInpFileFrame.py:25
             sdf: src/molop/io/logic/coords_frame_models/SDFFileFrame.py:18
             smi: src/molop/io/logic/coords_frame_models/SMIFileFrame.py:16

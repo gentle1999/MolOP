@@ -63,7 +63,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
 
     def parallel_execute(
         self, func: Callable[[TFileDisk], R], desc: str = "", n_jobs: int = 1
-    ) -> list[R]:
+    ) -> Iterable[R]:
         """
         Internal helper to execute a function over the batch in parallel or serial.
         Refactored to support Adaptive UI (Rich/Ipywidgets) and Type Hints.
@@ -75,6 +75,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             desc=desc,
             total=len(self),
             disable=not molopconfig.show_progress_bar,
+            return_as="generator",
             maxtasks_per_child=50,
             max_nbytes=molopconfig.parallel_max_size,
         )
@@ -192,7 +193,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
     def items(self):
         return self.__diskfiles.items()
 
-    def __add__(self, other: FileBatchModelDisk) -> FileBatchModelDisk:
+    def __add__(self, other: FileBatchModelDisk[TFileDisk]) -> FileBatchModelDisk[TFileDisk]:
         """
         Operator +: Merge two batches (Union).
 
@@ -210,7 +211,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         new_batch.add_diskfiles(other.__diskfiles.values())
         return new_batch
 
-    def __sub__(self, other: FileBatchModelDisk | Iterable[str]) -> FileBatchModelDisk:
+    def __sub__(self, other: FileBatchModelDisk[TFileDisk] | Iterable[str]) -> FileBatchModelDisk[TFileDisk]:
         """
         Operator -: Remove files from the batch (Difference).
 
@@ -236,7 +237,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         filtered_files = [f for f in self.__diskfiles.values() if f.file_path not in other_paths]
         return self.new_batch(filtered_files)
 
-    def __and__(self, other: FileBatchModelDisk | Iterable[str]) -> FileBatchModelDisk:
+    def __and__(self, other: FileBatchModelDisk[TFileDisk] | Iterable[str]) -> FileBatchModelDisk[TFileDisk]:
         """
         Operator &: Keep only files present in both (Intersection).
 
@@ -286,7 +287,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         state: Literal["ts", "error", "opt", "normal"],
         negate: bool = False,
         n_jobs: int = 1,
-    ) -> FileBatchModelDisk:
+    ) -> FileBatchModelDisk[TFileDisk]:
         """
         Filter the files based on their state using the new execution engine.
 
@@ -326,9 +327,15 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
                 raise ValueError(f"Invalid state: {state}")
 
         desc = f"Filtering {state} files {'negated' if negate else ''} with {n_jobs} jobs"
-        mask = self.parallel_execute(judge_func, desc, n_jobs)
-        filtered_files = [diskfile for diskfile, keep in zip(self, mask, strict=True) if keep]
-        return self.new_batch(filtered_files)
+        return self.new_batch(
+            (
+                diskfile
+                for diskfile, keep in zip(
+                    self, self.parallel_execute(judge_func, desc, n_jobs), strict=True
+                )
+                if keep
+            )
+        )
 
     def filter_value(
         self,
@@ -369,9 +376,15 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             return False
 
         desc = f"Filtering files with {target} {compare} {value} with {n_jobs} jobs"
-        mask = self.parallel_execute(judge_func, desc, n_jobs)
-        filtered_files = [diskfile for diskfile, keep in zip(self, mask, strict=True) if keep]
-        return self.new_batch(filtered_files)
+        return self.new_batch(
+            (
+                diskfile
+                for diskfile, keep in zip(
+                    self, self.parallel_execute(judge_func, desc, n_jobs), strict=True
+                )
+                if keep
+            )
+        )
 
     def filter_custom(
         self,
@@ -391,9 +404,15 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             FileBatchModelDisk: A new batch containing only the files that satisfy the condition.
         """
         desc = f"Filtering with custom function with {n_jobs} jobs"
-        mask = self.parallel_execute(condition, desc, n_jobs)
-        filtered_files = [diskfile for diskfile, keep in zip(self, mask, strict=True) if keep]
-        return self.new_batch(filtered_files)
+        return self.new_batch(
+            (
+                diskfile
+                for diskfile, keep in zip(
+                    self, self.parallel_execute(condition, desc, n_jobs), strict=True
+                )
+                if keep
+            )
+        )
 
     def groupby(
         self, key_func: Callable[[TFileDisk], str], n_jobs: int = 1
@@ -458,9 +477,15 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             return (not hit) if negate else hit
 
         desc = f"Filtering files with codec_id == {wanted} with {n_jobs} jobs"
-        mask = self.parallel_execute(judge_func, desc, n_jobs)
-        filtered_files = [diskfile for diskfile, keep in zip(self, mask, strict=True) if keep]
-        return self.new_batch(filtered_files)
+        return self.new_batch(
+            (
+                diskfile
+                for diskfile, keep in zip(
+                    self, self.parallel_execute(judge_func, desc, n_jobs), strict=True
+                )
+                if keep
+            )
+        )
 
     def to_summary_df(
         self,
@@ -569,7 +594,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             **kwargs,
         )
 
-    def sample(self, n: int = 10, seed: int | None = None) -> FileBatchModelDisk:
+    def sample(self, n: int = 10, seed: int | None = None) -> FileBatchModelDisk[TFileDisk]:
         """
         Randomly sample n files from the batch.
 

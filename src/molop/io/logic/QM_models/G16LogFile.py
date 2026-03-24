@@ -14,6 +14,10 @@ from typing_extensions import Self
 
 from molop.io.base_models.ChemFile import BaseCalcFile
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
+from molop.io.logic.gaussian_route_models import (
+    GaussianRouteSemantic,
+    parse_gaussian_route_semantic,
+)
 from molop.io.logic.QM_frame_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
     G16LogFileFrameMemory,
@@ -55,32 +59,37 @@ class G16LogFileMixin:
 
     @model_validator(mode="after")
     def _validate_metadata(self) -> Self:
+        semantic_route = self.semantic_route
         if self.basis_set.lower() == "genecp":
             self.basis_set = "pseudopotential"
+        elif not self.basis_set and semantic_route.model_chemistry.basis_set is not None:
+            self.basis_set = semantic_route.model_chemistry.basis_set
+
+        if not self.functional and semantic_route.model_chemistry.functional is not None:
+            self.functional = semantic_route.model_chemistry.functional
+
         if any(semi in self.keywords.lower() for semi in SEMI_EMPIRICAL_METHODS):
             self.method = "SEMI-EMPIRICAL"
         else:
+            if not self.method and semantic_route.model_chemistry.method_family is not None:
+                self.method = semantic_route.model_chemistry.method_family
             if self.functional.lower().endswith("hf"):
                 self.method = "HF"
             if self.functional.lower().endswith("fc"):
                 self.method = "FC"
             else:
                 self.method = "DFT"
-        if "em" in self.route_params:
-            self.functional = f"{self.functional}-{self.route_params['em'].upper()}"
-        if "empiricaldispersion" in self.route_params:
-            self.functional = (
-                f"{self.functional}-{self.route_params['empiricaldispersion'].upper()}"
-            )
+        if semantic_route.empirical_dispersion:
+            self.functional = f"{self.functional}-{semantic_route.empirical_dispersion.upper()}"
         return self
 
     @property
-    def route_params(self) -> dict[str, Any]:
-        return route_section_parser(self.keywords)[0]
+    def dieze_tag(self) -> str | None:
+        return self.semantic_route.dieze_tag
 
     @property
-    def dieze_tag(self) -> str | None:
-        return route_section_parser(self.keywords)[1]
+    def semantic_route(self) -> GaussianRouteSemantic:
+        return parse_gaussian_route_semantic(self.keywords)
 
 
 class G16LogFileMemory(

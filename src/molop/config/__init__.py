@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2025-12-10 23:37:08
+LastEditTime: 2026-03-18 14:03:30
 Description: 请填写简介
 """
 
@@ -77,7 +77,12 @@ class MolOPConfig(BaseModel):
     max_structure_recovery_time: float = Field(
         default=10.0, description="Maximum structure recovery time (seconds)"
     )
-    allow_spin_change: bool = Field(default=False, description="Whether to allow spin changes")
+    graph_reconstruction_backend: Literal["cpp", "python"] = Field(
+        default="cpp", description="Backend for graph reconstruction"
+    )
+    make_dative_bonds: bool = Field(
+        default=True, description="Whether to make dative bonds"
+    )
     force_unit_transform: bool = Field(
         default=False, description="Whether to force unit conversion"
     )

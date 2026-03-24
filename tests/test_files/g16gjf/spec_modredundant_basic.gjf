@@ -1,0 +1,14 @@
+%chk=spec_modredundant_basic.chk
+#p b3lyp/6-31g(d) opt=modredundant
+
+Water with ModRedundant section
+
+! Source: gaussian.com/molspec/ Cartesian coordinates in molecule specification
+0 1
+O 0.000000 0.000000 0.000000
+H 0.757000 0.586000 0.000000
+H -0.757000 0.586000 0.000000
+
+! Source: gaussian.com/opt/ ModRedundant syntax and action codes
+B 1 2 F
+A 2 1 3 S 4 1.0

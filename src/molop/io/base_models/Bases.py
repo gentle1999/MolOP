@@ -2,11 +2,10 @@
 Author: TMJ
 Date: 2025-07-26 19:08:33
 LastEditors: TMJ
-LastEditTime: 2026-02-04 15:47:57
+LastEditTime: 2026-03-18 22:24:50
 Description: 请填写简介
 """
 
-from abc import abstractmethod
 from collections.abc import Mapping
 from typing import Any, ClassVar
 
@@ -73,9 +72,8 @@ class BaseDataClassWithUnit(BaseModel):
     def to_summary_series(self, **kwargs) -> pd.Series:
         return pd.Series(self.to_summary_dict(**kwargs))
 
-    @abstractmethod
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        raise NotImplementedError
+        return {}
 
     @classmethod
     def __pydantic_init_subclass__(cls, **kwargs):
