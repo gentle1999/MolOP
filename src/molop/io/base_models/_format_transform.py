@@ -5,11 +5,68 @@ from collections.abc import Sequence
 from typing import Any, Literal, Protocol, cast
 
 from molop.io import codec_registry
+from molop.io.codec_types import GraphPolicy
 
 
 class _HasFrames(Protocol):
     @property
     def frames(self) -> Sequence[Any]: ...
+
+
+class _HasFramePayload(Protocol):
+    def model_dump(self, **kwargs: Any) -> dict[str, Any]: ...
+
+
+class FrameFormatTransformMixin:
+    def format_transform(
+        self,
+        format: str,
+        file_path: os.PathLike | str | None = None,
+        **kwargs: Any,
+    ) -> str:
+        assert file_path is None or not os.path.isdir(file_path), (
+            "file_path should be a file path or None"
+        )
+        normalized_format = format.strip().lower()
+        graph_policy = kwargs.pop("graph_policy", "prefer")
+        rendered = self._render_frame_format(
+            normalized_format,
+            file_path=file_path,
+            graph_policy=graph_policy,
+            **kwargs,
+        )
+        if file_path is not None:
+            output_path = self._resolve_output_path(file_path, normalized_format)
+            with open(output_path, "w") as f:
+                f.write(rendered)
+        return rendered
+
+    def _render_frame_format(
+        self,
+        format: str,
+        *,
+        file_path: os.PathLike | str | None = None,
+        graph_policy: GraphPolicy = "prefer",
+        **kwargs: Any,
+    ) -> str:
+        rendered = codec_registry.write_frame(
+            format,
+            cast(_HasFramePayload, self),
+            graph_policy=graph_policy,
+            file_path=os.fspath(file_path) if file_path is not None else None,
+            **kwargs,
+        )
+        if not isinstance(rendered, str):
+            raise TypeError(
+                f"Frame format transform expected str output for {format}, got {type(rendered)}"
+            )
+        return rendered
+
+    def _resolve_output_path(self, file_path: os.PathLike | str, format: str) -> str:
+        normalized_file_path = os.fspath(file_path)
+        dir_path = os.path.dirname(normalized_file_path)
+        base = os.path.basename(normalized_file_path).split(".")[0]
+        return os.path.join(dir_path, f"{base}.{format}")
 
 
 class FormatTransformMixin:

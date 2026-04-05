@@ -130,15 +130,17 @@ def parallel_map(
     Iterable[R]
         The iterable of results after applying the function to each item in the iterable.
     """
+    effective_return_as = return_as
+    if effective_return_as is None:
+        effective_return_as = "generator" if joblib_kwargs else "list"
+
     iterator = AdaptiveProgress(
         iterable, desc=desc, total=total, disable=disable, **(tqdm_kwargs or {})
     )
     if n_jobs == 1:
+        if effective_return_as in {"generator", "generator_unordered"}:
+            return (func(item) for item in iterator)
         return [func(item) for item in iterator]
-
-    effective_return_as = return_as
-    if effective_return_as is None:
-        effective_return_as = "generator" if joblib_kwargs else "list"
 
     results = Parallel(n_jobs=n_jobs, return_as=effective_return_as, **joblib_kwargs)(
         delayed(func)(item) for item in iterator

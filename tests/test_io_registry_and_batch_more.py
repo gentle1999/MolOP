@@ -6,10 +6,12 @@ from typing import Any, cast
 
 import pytest
 
+from molop.io.base_models._format_transform import FrameFormatTransformMixin
 from molop.io.codec_exceptions import UnsupportedFormatError
 from molop.io.codec_registry import Registry
 from molop.io.codec_types import ParseResult, StructureLevel
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
+from molop.io.FileBatchParserDisk import FileBatchParserDisk
 
 
 @dataclass
@@ -50,6 +52,24 @@ class FakeDiskFile:
 
     def release_file_content(self) -> None:
         return None
+
+
+class DummyFrameTransform(FrameFormatTransformMixin):
+    def __init__(self) -> None:
+        self.charge = 0
+        self.multiplicity = 1
+        self.rdmol = object()
+        self.omol = type(
+            "DummyOMol", (), {"write": lambda self, fmt: "<cml />" if fmt == "cml" else None}
+        )()
+
+    def model_dump(self, **_kwargs: Any) -> dict[str, Any]:
+        return {
+            "atoms": [1],
+            "coords": [[0.0, 0.0, 0.0]],
+            "charge": self.charge,
+            "multiplicity": self.multiplicity,
+        }
 
 
 _MISSING = object()
@@ -141,3 +161,194 @@ def test_filebatch_add_and_slice_semantics_with_fake_diskfiles() -> None:
     sliced = merged[1:]
     assert isinstance(sliced, FileBatchModelDisk)
     assert sliced.file_paths == ["/tmp/b.xyz", "/tmp/c.xyz"]
+
+
+def test_filebatch_iteration_is_reentrant_for_nested_loops() -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(
+            cast(
+                Any,
+                [
+                    FakeDiskFile("/tmp/a.xyz", "xyz", "xyz"),
+                    FakeDiskFile("/tmp/b.xyz", "xyz", "xyz"),
+                ],
+            )
+        ),
+    )
+
+    pairs = [(left.file_path, right.file_path) for left in batch for right in batch]
+
+    assert pairs == [
+        ("/tmp/a.xyz", "/tmp/a.xyz"),
+        ("/tmp/a.xyz", "/tmp/b.xyz"),
+        ("/tmp/b.xyz", "/tmp/a.xyz"),
+        ("/tmp/b.xyz", "/tmp/b.xyz"),
+    ]
+
+
+def test_filter_custom_keeps_alignment_with_generator_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(
+            cast(
+                Any,
+                [
+                    FakeDiskFile("/tmp/a.xyz", "xyz", "xyz"),
+                    FakeDiskFile("/tmp/b.xyz", "xyz", "xyz"),
+                    FakeDiskFile("/tmp/c.xyz", "xyz", "xyz"),
+                ],
+            )
+        ),
+    )
+
+    def generator_parallel_execute(_func: Any, _desc: str = "", _n_jobs: int = 1) -> Any:
+        return (keep for keep in [True, False, True])
+
+    monkeypatch.setattr(batch, "parallel_execute", generator_parallel_execute)
+
+    filtered = batch.filter_custom(lambda _diskfile: True)
+
+    assert filtered.file_paths == ["/tmp/a.xyz", "/tmp/c.xyz"]
+
+
+def test_groupby_uses_generator_results_without_index_skew(monkeypatch: pytest.MonkeyPatch) -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(
+            cast(
+                Any,
+                [
+                    FakeDiskFile("/tmp/a.xyz", "xyz", "xyz"),
+                    FakeDiskFile("/tmp/b.log", "log", "g16log"),
+                    FakeDiskFile("/tmp/c.xyz", "xyz", "xyz"),
+                ],
+            )
+        ),
+    )
+
+    def generator_parallel_execute(
+        _func: Any, _desc: str = "", _n_jobs: int = 1, **_kwargs: Any
+    ) -> Any:
+        return (key for key in ["xyz", "log", "xyz"])
+
+    monkeypatch.setattr(batch, "parallel_execute", generator_parallel_execute)
+
+    grouped = batch.groupby(lambda diskfile: diskfile.file_format)
+
+    assert grouped["xyz"].file_paths == ["/tmp/a.xyz", "/tmp/c.xyz"]
+    assert grouped["log"].file_paths == ["/tmp/b.log"]
+
+
+def test_filebatchparser_parallel_generator_path_filters_results_safely(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parser = FileBatchParserDisk(n_jobs=2)
+    file_paths = ["/tmp/b.xyz", "/tmp/a.xyz", "/tmp/c.xyz"]
+
+    monkeypatch.setattr("molop.io.FileBatchParserDisk.os.path.isfile", lambda path: True)
+    monkeypatch.setattr(
+        "molop.io.FileBatchParserDisk.os.path.abspath",
+        lambda path: cast(str, path),
+    )
+    monkeypatch.setattr(
+        "molop.io.FileBatchParserDisk.os.path.getsize",
+        lambda path: {"/tmp/b.xyz": 30, "/tmp/a.xyz": 20, "/tmp/c.xyz": 10}[cast(str, path)],
+    )
+    monkeypatch.setattr(
+        "molop.io.FileBatchParserDisk.codec_registry.select_reader",
+        lambda _path, hint_format=None: (DummyReader("xyz", frozenset({".xyz"}), 1),),
+    )
+
+    parsed_by_path = {
+        "/tmp/b.xyz": FakeDiskFile("/tmp/b.xyz", "xyz", "xyz"),
+        "/tmp/a.xyz": None,
+        "/tmp/c.xyz": FakeDiskFile("/tmp/c.xyz", "xyz", "xyz"),
+    }
+
+    monkeypatch.setattr(
+        "molop.io.FileBatchParserDisk.single_file_parser",
+        lambda **task: parsed_by_path[task["file_path"]],
+    )
+
+    monkeypatch.setattr(
+        "molop.io.FileBatchParserDisk.delayed",
+        lambda func: lambda **task: lambda: func(**task),
+    )
+
+    class StubParallel:
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def __call__(self, iterable: Any) -> Any:
+            return (callable_obj() for callable_obj in iterable)
+
+    monkeypatch.setattr("molop.io.FileBatchParserDisk.Parallel", StubParallel)
+
+    batch = parser.parse(file_paths)
+
+    assert batch.file_paths == ["/tmp/b.xyz", "/tmp/c.xyz"]
+
+
+def test_frame_format_transform_routes_single_frame_through_codec_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = DummyFrameTransform()
+    captured: dict[str, Any] = {}
+
+    def fake_write(format_id: str, value: object, **kwargs: Any) -> str:
+        captured["format_id"] = format_id
+        captured["value"] = value
+        captured["kwargs"] = kwargs
+        return "rendered-block"
+
+    monkeypatch.setattr(
+        "molop.io.base_models._format_transform.codec_registry.write_frame", fake_write
+    )
+
+    rendered = frame.format_transform("xyz", graph_policy="coords")
+
+    assert rendered == "rendered-block"
+    assert captured["format_id"] == "xyz"
+    assert captured["kwargs"]["graph_policy"] == "coords"
+    assert captured["value"] is frame
+
+
+def test_frame_format_transform_writes_requested_output_file(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = DummyFrameTransform()
+    monkeypatch.setattr(
+        "molop.io.base_models._format_transform.codec_registry.write_frame",
+        lambda *_args, **_kwargs: "xyz-block",
+    )
+
+    target = tmp_path / "frame.anything"
+    rendered = frame.format_transform("xyz", file_path=target)
+
+    assert rendered == "xyz-block"
+    assert (tmp_path / "frame.xyz").read_text() == "xyz-block"
+
+
+def test_frame_format_transform_cml_routes_through_codec_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = DummyFrameTransform()
+    captured: dict[str, Any] = {}
+
+    def fake_write(format_id: str, value: object, **kwargs: Any) -> str:
+        captured["format_id"] = format_id
+        captured["value"] = value
+        captured["kwargs"] = kwargs
+        return "<cml />"
+
+    monkeypatch.setattr(
+        "molop.io.base_models._format_transform.codec_registry.write_frame", fake_write
+    )
+
+    assert frame.format_transform("cml", engine="openbabel") == "<cml />"
+    assert captured["format_id"] == "cml"
+    assert captured["value"] is frame

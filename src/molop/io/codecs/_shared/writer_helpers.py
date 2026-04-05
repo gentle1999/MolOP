@@ -5,9 +5,9 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, cast
 
-from molop.io.base_models.ChemFile import BaseChemFile, BaseCoordsFile
-from molop.io.base_models.ChemFileFrame import BaseChemFileFrame, BaseCoordsFrame
-from molop.io.base_models.Mixins import DiskStorageMixin, FileMixin, _HasRenderableFrames
+from molop.io.base_models.ChemFile import BaseChemFile
+from molop.io.base_models.ChemFileFrame import BaseChemFileFrame
+from molop.io.base_models.Mixins import DiskStorageMixin, FileMixin
 from molop.io.codec_types import StructureLevel, WriterCodec
 
 
@@ -40,6 +40,26 @@ def clone_file_and_frames(
                     setattr(cloned_frame, key, value)
         cloned_file.append(cast(Any, cloned_frame))
     return cloned_file
+
+
+def clone_frame(
+    source: object,
+    frame_cls: type[BaseChemFileFrame],
+    *,
+    file_path: str | None = None,
+) -> Any:
+    source_frame = cast(BaseChemFileFrame, source)
+    frame_payload = source_frame.model_dump(exclude={"file_path"})
+    if file_path is not None and issubclass(frame_cls, DiskStorageMixin):
+        frame_payload["file_path"] = file_path
+    cloned_frame = frame_cls.model_validate(frame_payload)
+
+    source_private = getattr(source_frame, "__pydantic_private__", None)
+    if isinstance(source_private, dict):
+        for key, value in source_private.items():
+            if isinstance(key, str) and key.startswith("_orca_") and hasattr(cloned_frame, key):
+                setattr(cloned_frame, key, value)
+    return cloned_frame
 
 
 @dataclass
@@ -111,39 +131,40 @@ class FileRendererWriter:
         }
 
 
-class CMLFileFrameMixin:
-    def _render(self, engine: Literal["rdkit", "openbabel"] = "rdkit", **kwargs: Any) -> str:
-        typed_self = cast(BaseCoordsFrame, self)
-        return typed_self.to_CML_block(engine=engine)
+@dataclass
+class FrameRendererWriter:
+    format_id: str
+    required_level: StructureLevel
+    frame_cls: type[BaseChemFileFrame]
+    priority: int
 
-
-class CMLFileFrameDisk(
-    DiskStorageMixin, CMLFileFrameMixin, BaseCoordsFrame["CMLFileFrameDisk"]
-): ...
-
-
-class CMLFileMixin(FileMixin):
-    def _render_frames_in_one_file(self, frameID: Sequence[int], **kwargs: Any) -> str:
-        typed_self = cast(_HasRenderableFrames, self)
-        return "\n".join(
-            frame._render(**kwargs) for frame in typed_self.frames if frame.frame_id in frameID
+    def write(self, value: object, **kwargs: Any) -> object:
+        if not hasattr(value, "model_dump") or not hasattr(value, "_render"):
+            raise TypeError("Writer requires a BaseChemFileFrame-compatible input.")
+        output_file_path = kwargs.pop("file_path", None)
+        kwargs.pop("frameID", None)
+        kwargs.pop("embed_in_one_file", None)
+        cloned_frame = clone_frame(
+            value,
+            self.frame_cls,
+            file_path=self._derive_file_path(output_file_path),
         )
+        return cast(Any, cloned_frame)._render(**kwargs)
 
-    def _render_frames(self, frameID: Sequence[int], **kwargs: Any) -> list[str]:
-        typed_self = cast(_HasRenderableFrames, self)
-        return [frame._render(**kwargs) for frame in typed_self.frames if frame.frame_id in frameID]
-
-
-class CMLFileDisk(DiskStorageMixin, CMLFileMixin, BaseCoordsFile[CMLFileFrameDisk]): ...
+    def _derive_file_path(self, file_path: os.PathLike[str] | str | None) -> str | None:
+        if file_path is None:
+            return None
+        normalized_file_path = os.fspath(file_path)
+        dir_path = os.path.dirname(normalized_file_path)
+        base = os.path.basename(normalized_file_path).split(".")[0]
+        return os.path.join(dir_path, f"{base}.{self.format_id}")
 
 
 __all__ = [
-    "CMLFileDisk",
-    "CMLFileFrameDisk",
-    "CMLFileFrameMixin",
-    "CMLFileMixin",
     "FileRendererWriter",
+    "FrameRendererWriter",
     "StructureLevel",
     "WriterCodec",
+    "clone_frame",
     "clone_file_and_frames",
 ]

@@ -12,6 +12,7 @@ class StructureLevel(str, Enum):
 
 
 GraphPolicy = Literal["prefer", "strict", "coords"]
+WriterDomain = Literal["file", "frame"]
 
 
 @dataclass(frozen=True, slots=True)

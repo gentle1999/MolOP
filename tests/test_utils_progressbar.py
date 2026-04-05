@@ -26,6 +26,23 @@ def test_parallel_map_n_jobs_one_returns_expected_results(
     assert results == [1, 4, 9, 16]
 
 
+def test_parallel_map_n_jobs_one_supports_generator_return_as(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(progressbar_module, "_best_tqdm_cls", None, raising=False)
+    items = [1, 2, 3, 4]
+
+    results = parallel_map(
+        lambda value: value * value,
+        items,
+        n_jobs=1,
+        disable=True,
+        return_as="generator",
+    )
+
+    assert list(results) == [1, 4, 9, 16]
+
+
 def test_is_notebook_returns_false_when_ipython_module_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -90,7 +107,7 @@ def test_parallel_map_joblib_kwargs_defaults(monkeypatch: pytest.MonkeyPatch) ->
     parallel_map(lambda x: x, items, n_jobs=2, disable=True)
 
     assert captured_kwargs["n_jobs"] == 2
-    assert captured_kwargs["return_as"] == "generator"
+    assert captured_kwargs["return_as"] == "list"
 
 
 def test_parallel_map_joblib_kwargs_overrides(monkeypatch: pytest.MonkeyPatch) -> None:

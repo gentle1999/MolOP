@@ -50,6 +50,7 @@ def register(registry: Registry) -> None:
 
     from molop.io.codecs._shared.writer_helpers import (
         FileRendererWriter,
+        FrameRendererWriter,
         StructureLevel,
         WriterCodec,
     )
@@ -59,6 +60,7 @@ def register(registry: Registry) -> None:
     @registry.writer_factory(
         format_id="smi",
         required_level=StructureLevel.GRAPH,
+        domain="file",
         priority=priority,
     )
     def _factory() -> WriterCodec:
@@ -68,6 +70,23 @@ def register(registry: Registry) -> None:
                 format_id="smi",
                 required_level=StructureLevel.GRAPH,
                 file_cls=SMIFileDisk,
+                frame_cls=SMIFileFrameDisk,
+                priority=priority,
+            ),
+        )
+
+    @registry.writer_factory(
+        format_id="smi",
+        required_level=StructureLevel.GRAPH,
+        domain="frame",
+        priority=priority,
+    )
+    def _frame_factory() -> WriterCodec:
+        return cast(
+            WriterCodec,
+            FrameRendererWriter(
+                format_id="smi",
+                required_level=StructureLevel.GRAPH,
                 frame_cls=SMIFileFrameDisk,
                 priority=priority,
             ),

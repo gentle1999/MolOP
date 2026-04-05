@@ -6,7 +6,6 @@ LastEditTime: 2026-02-05 19:54:13
 Description: 请填写简介
 """
 
-from typing import Any
 
 import numpy as np
 from pydantic import Field, model_validator
@@ -24,7 +23,6 @@ from molop.io.logic.QM_frame_models.G16LogFileFrame import (
 )
 from molop.io.patterns.G16Patterns import (
     SEMI_EMPIRICAL_METHODS,
-    route_section_parser,
 )
 
 

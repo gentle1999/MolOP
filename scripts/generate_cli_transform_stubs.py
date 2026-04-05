@@ -22,6 +22,28 @@ _TRANSFORM_BASE_ARG_DOCS: tuple[tuple[str, str], ...] = (
     ("n_jobs", "Number of parallel jobs."),
 )
 
+_ANNOTATION_BUILTINS = {
+    "Any",
+    "Literal",
+    "None",
+    "Path",
+    "bool",
+    "dict",
+    "float",
+    "int",
+    "list",
+    "str",
+}
+
+_DEFAULT_FORMAT_DOCS = {
+    "cml": "Render the selected structure as CML text.",
+    "gjf": "Render the current GJF frame as Gaussian input text.",
+    "orcainp": "Render the selected structure as an ORCA input deck.",
+    "sdf": "Render the selected structure as an SDF mol block.",
+    "smi": "Render the selected structure as a SMILES string.",
+    "xyz": "Render the selected structure as XYZ coordinates.",
+}
+
 
 @dataclass(frozen=True)
 class _Param:
@@ -43,6 +65,8 @@ class _RenderSpec:
     format_id: str
     params: tuple[_Param, ...]
     source: str
+    imports: tuple[tuple[str, str], ...] = ()
+    doc: str | None = None
 
 
 def _iter_py_files(dir_path: Path) -> list[Path]:
@@ -292,6 +316,82 @@ def _extract_params(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[_Param,
     return tuple(params)
 
 
+def _annotation_imports(
+    annotation: str,
+    *,
+    source_module: str,
+    import_map: dict[str, str],
+    local_names: set[str],
+) -> set[tuple[str, str]]:
+    try:
+        expr = ast.parse(annotation, mode="eval")
+    except SyntaxError:
+        return set()
+
+    imports: set[tuple[str, str]] = set()
+    for node in ast.walk(expr):
+        if not isinstance(node, ast.Name):
+            continue
+        if node.id in _ANNOTATION_BUILTINS:
+            continue
+        module = import_map.get(node.id)
+        if module is None and node.id in local_names:
+            module = source_module
+        if module is not None:
+            imports.add((module, node.id))
+    return imports
+
+
+def _collect_spec_imports(
+    *,
+    params: tuple[_Param, ...],
+    source_module: str,
+    import_map: dict[str, str],
+    local_names: set[str],
+) -> tuple[tuple[str, str], ...]:
+    imports: set[tuple[str, str]] = set()
+    for param in params:
+        imports.update(
+            _annotation_imports(
+                param.annotation,
+                source_module=source_module,
+                import_map=import_map,
+                local_names=local_names,
+            )
+        )
+    return tuple(sorted(imports))
+
+
+def _normalize_doc(text: str) -> str:
+    return text.replace("\r\n", "\n").replace("\r", "\n").strip("\n")
+
+
+def _doc_summary(text: str | None, format_id: str) -> str:
+    if text:
+        lines: list[str] = []
+        for raw_line in _normalize_doc(text).splitlines():
+            stripped = raw_line.strip()
+            if not stripped:
+                if lines:
+                    break
+                continue
+            if stripped in {"Args:", "Parameters", "Returns:", "Source:"}:
+                break
+            lines.append(stripped)
+        if lines:
+            return " ".join(lines)
+    return _DEFAULT_FORMAT_DOCS.get(
+        format_id, f"Render the selected structure as {format_id} text."
+    )
+
+
+def _full_doc_lines(spec: _RenderSpec) -> list[str]:
+    text = spec.doc or _DEFAULT_FORMAT_DOCS.get(
+        spec.format_id, f"Render the selected structure as {spec.format_id} text."
+    )
+    return _normalize_doc(text).splitlines()
+
+
 def _render_spec_from_writer(repo_root: Path, writer: _WriterSpec) -> _RenderSpec:
     writer_path = _resolve_module_to_path(repo_root, writer.writer_module)
     writer_tree = ast.parse(writer_path.read_text(encoding="utf-8"), filename=str(writer_path))
@@ -300,20 +400,31 @@ def _render_spec_from_writer(repo_root: Path, writer: _WriterSpec) -> _RenderSpe
     frame_cls_name = writer.frame_cls_name
     if not frame_cls_name:
         source = writer_path.relative_to(repo_root).as_posix()
-        return _RenderSpec(format_id=writer.format_id, params=(), source=source)
+        return _RenderSpec(format_id=writer.format_id, params=(), source=source, doc=None)
 
     frame_mod = import_map.get(frame_cls_name, writer.writer_module)
     frame_path = _resolve_module_to_path(repo_root, frame_mod)
     frame_tree = ast.parse(frame_path.read_text(encoding="utf-8"), filename=str(frame_path))
     classes = _class_map(frame_tree)
+    frame_import_map = _extract_import_map(frame_tree)
     render_def = _find_render_def(classes, frame_cls_name, seen=set())
     if render_def is None:
         source = frame_path.relative_to(repo_root).as_posix()
-        return _RenderSpec(format_id=writer.format_id, params=(), source=source)
+        return _RenderSpec(format_id=writer.format_id, params=(), source=source, doc=None)
 
     source = f"{frame_path.relative_to(repo_root).as_posix()}:{render_def.lineno}"
+    params = _extract_params(render_def)
     return _RenderSpec(
-        format_id=writer.format_id, params=_extract_params(render_def), source=source
+        format_id=writer.format_id,
+        params=params,
+        source=source,
+        doc=_normalize_doc(ast.get_docstring(render_def) or "") or None,
+        imports=_collect_spec_imports(
+            params=params,
+            source_module=frame_mod,
+            import_map=frame_import_map,
+            local_names=set(classes),
+        ),
     )
 
 
@@ -333,33 +444,55 @@ def _render_doc_block(doc_text: str, indent: str = "    ") -> list[str]:
 
 
 def _render_transform_overload_doc(spec: _RenderSpec) -> str:
-    lines = [f"Transform files using the `{spec.format_id}` writer.", "", "Args:"]
-    lines.extend(f"    {name}: {desc}" for name, desc in _TRANSFORM_BASE_ARG_DOCS)
-    lines.extend(["", "Format-specific Args:"])
+    lines = [
+        f"Transform files using the `{spec.format_id}` writer.",
+        "",
+        "Parameters",
+        "----------",
+    ]
+    for name, desc in _TRANSFORM_BASE_ARG_DOCS:
+        lines.append(f"{name} :")
+        lines.append(f"    {desc}")
+    lines.extend(
+        ["", "Format behavior", "---------------", f"    {_doc_summary(spec.doc, spec.format_id)}"]
+    )
+    lines.extend(["", "Format-specific parameters", "--------------------------"])
     if spec.params:
         for param in spec.params:
             optional = " (optional)" if param.has_default else ""
-            lines.append(f"    {param.name}: `{param.annotation}`{optional}.")
+            lines.append(f"{param.name} : {param.annotation}")
+            lines.append(f"    Format-specific writer argument{optional}.")
     else:
-        lines.append("    None.")
-    lines.extend(["", "Source:", f"    {spec.source}"])
+        lines.append("None.")
+    lines.extend([""])
+    lines.extend(_full_doc_lines(spec))
+    lines.extend(["", "Source", "------", spec.source])
     return "\n".join(lines)
 
 
 def _render_transform_fallback_doc(specs: list[_RenderSpec]) -> str:
-    lines = ["Transform files using a dynamic writer format.", "", "Args:"]
-    lines.extend(f"    {name}: {desc}" for name, desc in _TRANSFORM_BASE_ARG_DOCS)
-    lines.extend(["", "Format-specific Args:"])
+    lines = ["Transform files using a dynamic writer format.", "", "Parameters", "----------"]
+    for name, desc in _TRANSFORM_BASE_ARG_DOCS:
+        lines.append(f"{name} :")
+        lines.append(f"    {desc}")
+    lines.extend(["", "Format behavior by format", "-------------------------"])
     for spec in specs:
-        lines.append(f"    {spec.format_id}:")
+        lines.append(f"{spec.format_id} :")
+        lines.append(f"    {_doc_summary(spec.doc, spec.format_id)}")
+    lines.extend(
+        ["", "Format-specific parameters by format", "------------------------------------"]
+    )
+    for spec in specs:
+        lines.append(f"{spec.format_id} :")
         if spec.params:
             for param in spec.params:
                 optional = " (optional)" if param.has_default else ""
-                lines.append(f"        {param.name}: `{param.annotation}`{optional}.")
+                lines.append(f"    {param.name} : {param.annotation}")
+                lines.append(f"        Format-specific writer argument{optional}.")
         else:
-            lines.append("        None.")
-    lines.extend(["", "Source:"])
-    lines.extend(f"    {spec.format_id}: {spec.source}" for spec in specs)
+            lines.append("    None.")
+    lines.extend(["", "Source", "------"])
+    lines.extend(f"{spec.format_id} : {spec.source}" for spec in specs)
     return "\n".join(lines)
 
 
@@ -490,7 +623,20 @@ def _collect_public_names(tree: ast.Module) -> set[str]:
     return public
 
 
+def _render_extra_import_lines(specs: list[_RenderSpec]) -> list[str]:
+    by_module: dict[str, set[str]] = {}
+    for spec in specs:
+        for module, name in spec.imports:
+            by_module.setdefault(module, set()).add(name)
+    lines: list[str] = []
+    for module in sorted(by_module):
+        imported = ", ".join(sorted(by_module[module]))
+        lines.append(f"from {module} import {imported}")
+    return lines
+
+
 def _render_module_stub(app_tree: ast.Module, specs: list[_RenderSpec]) -> str:
+    extra_imports = _render_extra_import_lines(specs)
     lines = [
         '"""Static Typer CLI stubs for transform overloads (generated).',
         "",
@@ -502,6 +648,7 @@ def _render_module_stub(app_tree: ast.Module, specs: list[_RenderSpec]) -> str:
         "",
         "from pathlib import Path",
         "from typing import Any, Literal, overload",
+        *([""] + extra_imports if extra_imports else []),
         "",
         "import typer",
         "",

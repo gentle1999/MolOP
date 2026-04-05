@@ -80,9 +80,7 @@ class MolOPConfig(BaseModel):
     graph_reconstruction_backend: Literal["cpp", "python"] = Field(
         default="cpp", description="Backend for graph reconstruction"
     )
-    make_dative_bonds: bool = Field(
-        default=True, description="Whether to make dative bonds"
-    )
+    make_dative_bonds: bool = Field(default=True, description="Whether to make dative bonds")
     force_unit_transform: bool = Field(
         default=False, description="Whether to force unit conversion"
     )

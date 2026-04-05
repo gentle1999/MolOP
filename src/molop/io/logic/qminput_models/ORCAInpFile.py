@@ -58,6 +58,7 @@ def register(registry: Registry) -> None:
 
     from molop.io.codecs._shared.writer_helpers import (
         FileRendererWriter,
+        FrameRendererWriter,
         StructureLevel,
         WriterCodec,
     )
@@ -67,6 +68,7 @@ def register(registry: Registry) -> None:
     @registry.writer_factory(
         format_id="orcainp",
         required_level=StructureLevel.COORDS,
+        domain="file",
         priority=priority,
     )
     def _factory() -> WriterCodec:
@@ -76,6 +78,23 @@ def register(registry: Registry) -> None:
                 format_id="orcainp",
                 required_level=StructureLevel.COORDS,
                 file_cls=ORCAInpFileDisk,
+                frame_cls=ORCAInpFileFrameDisk,
+                priority=priority,
+            ),
+        )
+
+    @registry.writer_factory(
+        format_id="orcainp",
+        required_level=StructureLevel.COORDS,
+        domain="frame",
+        priority=priority,
+    )
+    def _frame_factory() -> WriterCodec:
+        return cast(
+            WriterCodec,
+            FrameRendererWriter(
+                format_id="orcainp",
+                required_level=StructureLevel.COORDS,
                 frame_cls=ORCAInpFileFrameDisk,
                 priority=priority,
             ),

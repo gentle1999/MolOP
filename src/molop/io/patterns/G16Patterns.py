@@ -6,7 +6,6 @@ LastEditTime: 2026-03-23 15:56:46
 Description: 请填写简介
 """
 
-import re
 from typing import Any
 
 from molop.io.base_models.SearchPattern import MolOPPattern

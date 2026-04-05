@@ -42,7 +42,6 @@ QMInputFrameT = TypeVar("QMInputFrameT", bound=BaseQMInputFrame)
 class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT], Generic[FrameT]):
     # inside frames parsed from the file
     _frames_: list[FrameT] = PrivateAttr(default_factory=list)
-    _index_: int = PrivateAttr(default=0)
 
     file_content: str = Field(default="", description="File content.", repr=False, exclude=True)
     charge: int = Field(default=0, description="charge")
@@ -88,12 +87,6 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
 
     def __iter__(self) -> Iterator[FrameT]:  # type: ignore[override]
         return iter(self._frames_)
-
-    def __next__(self) -> FrameT:
-        if self._index_ >= len(self):
-            raise StopIteration
-        self._index_ += 1
-        return self._frames_[self._index_ - 1]
 
     def __len__(self) -> int:
         return len(self._frames_)

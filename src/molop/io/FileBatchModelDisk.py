@@ -4,7 +4,7 @@ import operator
 import os
 import random
 from collections import OrderedDict
-from collections.abc import Callable, Iterable, MutableMapping, Sequence
+from collections.abc import Callable, Iterable, Iterator, MutableMapping, Sequence
 from typing import TYPE_CHECKING, Any, Generic, Literal, TypeAlias, TypeVar, cast, overload
 
 import pandas as pd
@@ -62,22 +62,38 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             self.add_diskfiles(diskfiles)
 
     def parallel_execute(
-        self, func: Callable[[TFileDisk], R], desc: str = "", n_jobs: int = 1
+        self,
+        func: Callable[[TFileDisk], R],
+        desc: str = "",
+        n_jobs: int = 1,
+        *,
+        return_as: Literal["list", "generator", "generator_unordered"] = "generator",
     ) -> Iterable[R]:
         """
         Internal helper to execute a function over the batch in parallel or serial.
         Refactored to support Adaptive UI (Rich/Ipywidgets) and Type Hints.
         """
+        diskfiles = self._snapshot_diskfiles()
         return parallel_map(
             func,
-            cast(Iterable[TFileDisk], self),
+            diskfiles,
             n_jobs=molopconfig.set_n_jobs(n_jobs),
             desc=desc,
-            total=len(self),
+            total=len(diskfiles),
             disable=not molopconfig.show_progress_bar,
-            return_as="generator",
+            return_as=return_as,
             maxtasks_per_child=50,
             max_nbytes=molopconfig.parallel_max_size,
+        )
+
+    def _snapshot_diskfiles(self) -> list[TFileDisk]:
+        return list(self.__diskfiles.values())
+
+    def _filter_diskfiles(
+        self, diskfiles: Sequence[TFileDisk], keep_flags: Iterable[bool]
+    ) -> FileBatchModelDisk[TFileDisk]:
+        return self.new_batch(
+            diskfile for diskfile, keep in zip(diskfiles, keep_flags, strict=True) if keep
         )
 
     def add_diskfiles(self, diskfiles: Iterable[TFileDisk]) -> None:
@@ -174,15 +190,8 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
     def __len__(self) -> int:
         return len(self.__diskfiles)
 
-    def __iter__(self) -> FileBatchModelDisk[TFileDisk]:  # type: ignore[override]
-        self.__index = 0
-        return self
-
-    def __next__(self) -> TFileDisk:
-        if self.__index >= len(self.__diskfiles):
-            raise StopIteration
-        self.__index += 1
-        return self[self.__index - 1]
+    def __iter__(self) -> Iterator[TFileDisk]:  # type: ignore[override]
+        return iter(self.__diskfiles.values())
 
     def keys(self):
         return self.__diskfiles.keys()
@@ -211,7 +220,9 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         new_batch.add_diskfiles(other.__diskfiles.values())
         return new_batch
 
-    def __sub__(self, other: FileBatchModelDisk[TFileDisk] | Iterable[str]) -> FileBatchModelDisk[TFileDisk]:
+    def __sub__(
+        self, other: FileBatchModelDisk[TFileDisk] | Iterable[str]
+    ) -> FileBatchModelDisk[TFileDisk]:
         """
         Operator -: Remove files from the batch (Difference).
 
@@ -237,7 +248,9 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         filtered_files = [f for f in self.__diskfiles.values() if f.file_path not in other_paths]
         return self.new_batch(filtered_files)
 
-    def __and__(self, other: FileBatchModelDisk[TFileDisk] | Iterable[str]) -> FileBatchModelDisk[TFileDisk]:
+    def __and__(
+        self, other: FileBatchModelDisk[TFileDisk] | Iterable[str]
+    ) -> FileBatchModelDisk[TFileDisk]:
         """
         Operator &: Keep only files present in both (Intersection).
 
@@ -326,15 +339,11 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             else:
                 raise ValueError(f"Invalid state: {state}")
 
-        desc = f"Filtering {state} files {'negated' if negate else ''} with {n_jobs} jobs"
-        return self.new_batch(
-            (
-                diskfile
-                for diskfile, keep in zip(
-                    self, self.parallel_execute(judge_func, desc, n_jobs), strict=True
-                )
-                if keep
-            )
+        desc = f"Filtering {state} files{' negated' if negate else ''} with {molopconfig.set_n_jobs(n_jobs)} jobs"
+        diskfiles = self._snapshot_diskfiles()
+        return self._filter_diskfiles(
+            diskfiles,
+            self.parallel_execute(judge_func, desc, n_jobs, return_as="generator"),
         )
 
     def filter_value(
@@ -375,15 +384,11 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
                 return op_func(diskfile.file_format, value)
             return False
 
-        desc = f"Filtering files with {target} {compare} {value} with {n_jobs} jobs"
-        return self.new_batch(
-            (
-                diskfile
-                for diskfile, keep in zip(
-                    self, self.parallel_execute(judge_func, desc, n_jobs), strict=True
-                )
-                if keep
-            )
+        desc = f"Filtering files with {target} {compare} {value} with {molopconfig.set_n_jobs(n_jobs)} jobs"
+        diskfiles = self._snapshot_diskfiles()
+        return self._filter_diskfiles(
+            diskfiles,
+            self.parallel_execute(judge_func, desc, n_jobs, return_as="generator"),
         )
 
     def filter_custom(
@@ -403,15 +408,11 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         Returns:
             FileBatchModelDisk: A new batch containing only the files that satisfy the condition.
         """
-        desc = f"Filtering with custom function with {n_jobs} jobs"
-        return self.new_batch(
-            (
-                diskfile
-                for diskfile, keep in zip(
-                    self, self.parallel_execute(condition, desc, n_jobs), strict=True
-                )
-                if keep
-            )
+        desc = f"Filtering with custom function with {molopconfig.set_n_jobs(n_jobs)} jobs"
+        diskfiles = self._snapshot_diskfiles()
+        return self._filter_diskfiles(
+            diskfiles,
+            self.parallel_execute(condition, desc, n_jobs, return_as="generator"),
         )
 
     def groupby(
@@ -427,10 +428,16 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         Returns:
             (dict[str, FileBatchModelDisk]): A dictionary where keys are group names and values are new batch objects.
         """
-        desc = f"Grouping files with {n_jobs} jobs"
-        keys = self.parallel_execute(key_func, desc, n_jobs)
+        desc = f"Grouping files with {molopconfig.set_n_jobs(n_jobs)} jobs"
+        diskfiles = self._snapshot_diskfiles()
+        keys = self.parallel_execute(
+            key_func,
+            desc,
+            n_jobs,
+            return_as="generator",
+        )
         temp_groups: dict[str, list[TFileDisk]] = {}
-        for diskfile, key in zip(self, keys, strict=True):
+        for diskfile, key in zip(diskfiles, keys, strict=True):
             if key not in temp_groups:
                 temp_groups[key] = []
             temp_groups[key].append(diskfile)
@@ -476,15 +483,13 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             hit = str(detected).strip().lower() == wanted
             return (not hit) if negate else hit
 
-        desc = f"Filtering files with codec_id == {wanted} with {n_jobs} jobs"
-        return self.new_batch(
-            (
-                diskfile
-                for diskfile, keep in zip(
-                    self, self.parallel_execute(judge_func, desc, n_jobs), strict=True
-                )
-                if keep
-            )
+        desc = (
+            f"Filtering files with codec_id == {wanted} with {molopconfig.set_n_jobs(n_jobs)} jobs"
+        )
+        diskfiles = self._snapshot_diskfiles()
+        return self._filter_diskfiles(
+            diskfiles,
+            self.parallel_execute(judge_func, desc, n_jobs, return_as="generator"),
         )
 
     def to_summary_df(
@@ -521,7 +526,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
                 ]
             return []
 
-        desc = f"MolOP processing {mode} summary with {n_jobs} jobs"
+        desc = f"MolOP processing {mode} summary with {molopconfig.set_n_jobs(n_jobs)} jobs"
         nested_results = self.parallel_execute(process_file_summary, desc, n_jobs)
         series_list: list[pd.Series] = [s for sublist in nested_results for s in sublist]
         if not series_list:

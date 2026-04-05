@@ -11,6 +11,16 @@ from typing import Any, Literal, overload
 
 import typer
 
+from molop.io.logic.qminput_frame_models.GJFFileFrame import (
+    GJFGICSection,
+    GJFLink0Commands,
+    GJFModRedundantSection,
+    GJFMoleculeSpecifications,
+    GJFRouteSection,
+    GJFTitleCard,
+    GJFUnknownSection,
+)
+
 app: typer.Typer
 
 def version_callback(
@@ -49,26 +59,40 @@ def transform(
     embed: bool = True,
     parser_detection: str = "auto",
     n_jobs: int = -1,
-    *,
-    engine: Literal["rdkit", "openbabel"] = ...,
     **kwargs: Any,
 ) -> None:
     """Transform files using the `cml` writer.
 
-    Args:
-        pattern: File pattern to match.
-        to: Target writer format.
-        output_dir: Directory to save transformed files.
-        frame: Frame selection (for example, `all`, `-1`, `1,2`).
-        embed: Whether to embed multiple frames in one file.
-        parser_detection: Parser detection mode.
-        n_jobs: Number of parallel jobs.
+    Parameters
+    ----------
+    pattern :
+        File pattern to match.
+    to :
+        Target writer format.
+    output_dir :
+        Directory to save transformed files.
+    frame :
+        Frame selection (for example, `all`, `-1`, `1,2`).
+    embed :
+        Whether to embed multiple frames in one file.
+    parser_detection :
+        Parser detection mode.
+    n_jobs :
+        Number of parallel jobs.
 
-    Format-specific Args:
-        engine: `Literal['rdkit', 'openbabel']` (optional).
+    Format behavior
+    ---------------
+        Render the selected structure as CML text.
 
-    Source:
-        src/molop/io/codecs/_shared/writer_helpers.py:115
+    Format-specific parameters
+    --------------------------
+    None.
+
+    Render the selected structure as CML text.
+
+    Source
+    ------
+    src/molop/io/codecs/cml_codec.py
     """
     ...
 
@@ -97,29 +121,231 @@ def transform(
 ) -> None:
     """Transform files using the `gjf` writer.
 
-    Args:
-        pattern: File pattern to match.
-        to: Target writer format.
-        output_dir: Directory to save transformed files.
-        frame: Frame selection (for example, `all`, `-1`, `1,2`).
-        embed: Whether to embed multiple frames in one file.
-        parser_detection: Parser detection mode.
-        n_jobs: Number of parallel jobs.
+    Parameters
+    ----------
+    pattern :
+        File pattern to match.
+    to :
+        Target writer format.
+    output_dir :
+        Directory to save transformed files.
+    frame :
+        Frame selection (for example, `all`, `-1`, `1,2`).
+    embed :
+        Whether to embed multiple frames in one file.
+    parser_detection :
+        Parser detection mode.
+    n_jobs :
+        Number of parallel jobs.
 
-    Format-specific Args:
-        link0_commands: `str | GJFLink0Commands | dict[str, str | None] | None` (optional).
-        route_section: `str | GJFRouteSection | None` (optional).
-        title_card: `str | GJFTitleCard | None` (optional).
-        molecule_specifications: `str | GJFMoleculeSpecifications | None` (optional).
-        additional_sections: `str | None` (optional).
-        parsed_additional_sections: `list[GJFGICSection | GJFModRedundantSection | GJFUnknownSection] | None` (optional).
-        chk: `str | bool | None` (optional).
-        old_chk: `bool | str | None` (optional).
-        coords_type: `Literal['cartesian', 'internal', 'auto']` (optional).
-        add_gjf_connectivity: `bool` (optional).
+    Format behavior
+    ---------------
+        Render the current GJF frame as Gaussian input text.
 
-    Source:
-        src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1311
+    Format-specific parameters
+    --------------------------
+    link0_commands : str | GJFLink0Commands | dict[str, str | None] | None
+        Format-specific writer argument (optional).
+    route_section : str | GJFRouteSection | None
+        Format-specific writer argument (optional).
+    title_card : str | GJFTitleCard | None
+        Format-specific writer argument (optional).
+    molecule_specifications : str | GJFMoleculeSpecifications | None
+        Format-specific writer argument (optional).
+    additional_sections : str | None
+        Format-specific writer argument (optional).
+    parsed_additional_sections : list[GJFGICSection | GJFModRedundantSection | GJFUnknownSection] | None
+        Format-specific writer argument (optional).
+    chk : str | bool | None
+        Format-specific writer argument (optional).
+    old_chk : bool | str | None
+        Format-specific writer argument (optional).
+    coords_type : Literal['cartesian', 'internal', 'auto']
+        Format-specific writer argument (optional).
+    add_gjf_connectivity : bool
+        Format-specific writer argument (optional).
+
+    Render the current GJF frame as Gaussian input text.
+
+    The method assembles the output in standard Gaussian input order:
+    1. Link0 commands
+    2. Route section
+    3. Title card
+    4. Molecule specifications
+    5. Additional sections
+
+    Callers may temporarily override any of these parts for a single render
+    without mutating the instance first. Any argument left as ``None`` falls
+    back to the corresponding attribute on ``self``.
+
+    Parameters
+    ----------
+    link0_commands : str | GJFLink0Commands | dict[str, str | None] | None, optional
+        Link0 content, i.e. the resource and job-control directives at the
+        beginning of the file such as ``%mem``, ``%nprocshared``, and
+        ``%chk``.
+
+        Actual behavior:
+        - ``str``: parsed as Link0 syntax into ``GJFLink0Commands``;
+        - ``dict``: converted into a Link0 keyword list;
+        - ``GJFLink0Commands``: used directly;
+        - ``None``: falls back to ``self.link0_commands``.
+
+    route_section : str | GJFRouteSection | None, optional
+        Gaussian route section, i.e. the keyword line beginning with ``#``,
+        for example ``#p b3lyp/6-31g(d) opt freq``.
+
+        Actual behavior:
+        - ``str``: converted to ``GJFRouteSection`` and normalized there;
+        - ``GJFRouteSection``: used directly;
+        - ``None``: falls back to ``self.route_section``.
+
+    title_card : str | GJFTitleCard | None, optional
+        Gaussian title section.
+
+        Actual behavior:
+        - ``str``: converted to ``GJFTitleCard``;
+        - ``GJFTitleCard``: used directly;
+        - ``None``: falls back to ``self.title_card``;
+        - if the final title is empty, it falls back to ``self.pure_filename``
+          or, if unavailable, ``"title"``.
+
+    molecule_specifications : str | GJFMoleculeSpecifications | None, optional
+        Molecule specification block, i.e. the charge/multiplicity line plus
+        the coordinate block that follows it.
+
+        Actual behavior:
+        - ``str``: parsed as Gaussian molecule-block syntax into
+          ``GJFMoleculeSpecifications``;
+        - ``GJFMoleculeSpecifications``: used directly;
+        - ``None``: falls back to ``self.molecule_specifications``.
+
+    additional_sections : str | None, optional
+        Raw additional-section text appended after the main molecule block,
+        such as GIC, ModRedundant, NBO, or other Gaussian extra-input blocks.
+
+        Actual behavior:
+        - whenever this argument is explicitly provided, it has top priority;
+        - even an empty string overrides the structured additional-section
+          sources.
+
+    parsed_additional_sections : list[...] | None, optional
+        Structured additional sections. Each section is rendered via its own
+        ``_render()`` and then joined with blank lines.
+
+        Actual behavior:
+        - only used when ``additional_sections is None``;
+        - when provided, it takes priority over
+          ``self.parsed_additional_sections``;
+        - sections whose rendered text is blank are skipped.
+
+        Additional-section priority is:
+        1. ``additional_sections``
+        2. ``parsed_additional_sections``
+        3. ``self.parsed_additional_sections``
+        4. ``self.additional_sections``
+        5. empty string
+
+    chk : str | bool | None, optional
+        Whether to append an extra ``%chk`` Link0 keyword for this render.
+
+        Actual behavior:
+        - ``None`` / ``False``: do not append anything;
+        - ``True``: append ``%chk=<basename>.chk``;
+        - ``str``: append ``%chk=<given string>``.
+
+        ``<basename>`` is taken from ``self.pure_filename`` when available,
+        otherwise from the final title card. This is an append operation, not
+        a replacement, and existing ``%chk`` entries are not deduplicated.
+
+    old_chk : str | bool | None, optional
+        Whether to append an extra ``%oldchk`` Link0 keyword for this render,
+        typically to reference a previous checkpoint file.
+
+        Actual behavior matches ``chk``:
+        - ``None`` / ``False``: do not append anything;
+        - ``True``: append ``%oldchk=<basename>.chk``;
+        - ``str``: append ``%oldchk=<given string>``.
+
+        This is also an append operation and does not replace or deduplicate
+        existing ``%oldchk`` entries.
+
+    coords_type : {"cartesian", "internal", "auto"}, default "auto"
+        Controls the preferred output form of the coordinate block.
+
+        Actual behavior in the current implementation:
+        - ``"auto"``: preserve the stored representation. Each atom
+          specification renders itself according to the structure of its own
+          ``coords_part``: Cartesian coordinates, internal coordinates, or
+          raw text.
+        - ``"cartesian"``: require the molecule block to be rendered in
+          Cartesian coordinates.
+          - If all atoms in a fragment already store Cartesian coordinates,
+            they are rendered directly in their current order.
+          - If a fragment stores internal coordinates, the fragment is first
+            converted through ``frag.coords()`` and then reconstructed as
+            Cartesian atom lines.
+          - If the fragment contains dummy atoms or ghost atoms, the
+            conversion is rejected with ``ValueError`` because the current
+            ``coords()`` / ``to_XYZ_block()`` path only returns coordinates
+            for real atoms and cannot be aligned back to the original atom
+            list safely.
+        - ``"internal"``: require the molecule block to be rendered in
+          internal-coordinate form.
+          - If all atoms in a fragment already store internal coordinates,
+            they are rendered directly in their current order.
+          - If a fragment stores Cartesian coordinates, the fragment is
+            converted with ``InternalCoords.from_cartesian_coords()`` and
+            then reconstructed as Gaussian Z-matrix-style atom lines.
+          - If the fragment contains dummy atoms or ghost atoms, the
+            conversion is rejected with ``ValueError`` because the current
+            Cartesian -> internal conversion path operates on the real-atom
+            symbol/coordinate sequence returned by ``self.symbols()`` and
+            ``self.coords()``, so it cannot be mapped back to the original
+            mixed atom list safely.
+
+        In other words, ``coords_type`` is now an active rendering control,
+        but its supported scope is intentionally limited:
+        - internal -> Cartesian is supported;
+        - Cartesian -> internal is supported for ordinary real-atom
+          fragments;
+        - fragments containing dummy or ghost atoms are not converted
+          implicitly in either direction.
+
+    add_gjf_connectivity : bool, default False
+        Whether to append a Gaussian connectivity section after the molecule
+        coordinate block.
+
+        Actual behavior:
+        - ``False``: render only charge/multiplicity plus coordinates;
+        - ``True``: append the connectivity information generated by
+          ``self.connectivity()``.
+
+    **kwargs
+        Extra keyword arguments forwarded to downstream section, fragment,
+        and atom ``_render()`` methods. This method consumes only a small
+        subset directly; the rest are interpreted by child renderers if they
+        recognize them.
+
+    Returns
+    -------
+    str
+        Complete Gaussian input text. The returned string always ends with
+        two trailing newlines.
+
+    Notes
+    -----
+    - This is a render-time override interface: supplied arguments affect
+      only the current output and are not meant to be permanent field
+      updates.
+    - ``chk`` / ``old_chk`` append keywords to the ``link0_commands_to_use``
+      object used for this render. If that object is ``self.link0_commands``,
+      the appended entries may therefore be visible on the instance-backed
+      object as a side effect.
+
+    Source
+    ------
+    src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1401
     """
     ...
 
@@ -143,25 +369,47 @@ def transform(
 ) -> None:
     """Transform files using the `orcainp` writer.
 
-    Args:
-        pattern: File pattern to match.
-        to: Target writer format.
-        output_dir: Directory to save transformed files.
-        frame: Frame selection (for example, `all`, `-1`, `1,2`).
-        embed: Whether to embed multiple frames in one file.
-        parser_detection: Parser detection mode.
-        n_jobs: Number of parallel jobs.
+    Parameters
+    ----------
+    pattern :
+        File pattern to match.
+    to :
+        Target writer format.
+    output_dir :
+        Directory to save transformed files.
+    frame :
+        Frame selection (for example, `all`, `-1`, `1,2`).
+    embed :
+        Whether to embed multiple frames in one file.
+    parser_detection :
+        Parser detection mode.
+    n_jobs :
+        Number of parallel jobs.
 
-    Format-specific Args:
-        keywords: `str | None` (optional).
-        resources_raw: `str | None` (optional).
-        nprocs: `int | None` (optional).
-        maxcore: `int | None` (optional).
-        blocks: `str | None` (optional).
-        use_raw_geometry: `bool` (optional).
+    Format behavior
+    ---------------
+        Render the selected structure as an ORCA input deck.
 
-    Source:
-        src/molop/io/logic/qminput_frame_models/ORCAInpFileFrame.py:25
+    Format-specific parameters
+    --------------------------
+    keywords : str | None
+        Format-specific writer argument (optional).
+    resources_raw : str | None
+        Format-specific writer argument (optional).
+    nprocs : int | None
+        Format-specific writer argument (optional).
+    maxcore : int | None
+        Format-specific writer argument (optional).
+    blocks : str | None
+        Format-specific writer argument (optional).
+    use_raw_geometry : bool
+        Format-specific writer argument (optional).
+
+    Render the selected structure as an ORCA input deck.
+
+    Source
+    ------
+    src/molop/io/logic/qminput_frame_models/ORCAInpFileFrame.py:25
     """
     ...
 
@@ -180,20 +428,43 @@ def transform(
 ) -> None:
     """Transform files using the `sdf` writer.
 
+    Parameters
+    ----------
+    pattern :
+        File pattern to match.
+    to :
+        Target writer format.
+    output_dir :
+        Directory to save transformed files.
+    frame :
+        Frame selection (for example, `all`, `-1`, `1,2`).
+    embed :
+        Whether to embed multiple frames in one file.
+    parser_detection :
+        Parser detection mode.
+    n_jobs :
+        Number of parallel jobs.
+
+    Format behavior
+    ---------------
+        Render the SDFFileFrame as a string.
+
+    Format-specific parameters
+    --------------------------
+    engine : Literal['rdkit', 'openbabel']
+        Format-specific writer argument (optional).
+
+    Render the SDFFileFrame as a string.
+
     Args:
-        pattern: File pattern to match.
-        to: Target writer format.
-        output_dir: Directory to save transformed files.
-        frame: Frame selection (for example, `all`, `-1`, `1,2`).
-        embed: Whether to embed multiple frames in one file.
-        parser_detection: Parser detection mode.
-        n_jobs: Number of parallel jobs.
+        engine (Literal["rdkit", "openbabel"], optional): The engine to use for rendering. Defaults to "rdkit".
 
-    Format-specific Args:
-        engine: `Literal['rdkit', 'openbabel']` (optional).
+    Returns:
+        str: The rendered SDFFileFrame.
 
-    Source:
-        src/molop/io/logic/coords_frame_models/SDFFileFrame.py:18
+    Source
+    ------
+    src/molop/io/logic/coords_frame_models/SDFFileFrame.py:18
     """
     ...
 
@@ -210,20 +481,36 @@ def transform(
 ) -> None:
     """Transform files using the `smi` writer.
 
-    Args:
-        pattern: File pattern to match.
-        to: Target writer format.
-        output_dir: Directory to save transformed files.
-        frame: Frame selection (for example, `all`, `-1`, `1,2`).
-        embed: Whether to embed multiple frames in one file.
-        parser_detection: Parser detection mode.
-        n_jobs: Number of parallel jobs.
+    Parameters
+    ----------
+    pattern :
+        File pattern to match.
+    to :
+        Target writer format.
+    output_dir :
+        Directory to save transformed files.
+    frame :
+        Frame selection (for example, `all`, `-1`, `1,2`).
+    embed :
+        Whether to embed multiple frames in one file.
+    parser_detection :
+        Parser detection mode.
+    n_jobs :
+        Number of parallel jobs.
 
-    Format-specific Args:
-        None.
+    Format behavior
+    ---------------
+        Render the selected structure as a SMILES string.
 
-    Source:
-        src/molop/io/logic/coords_frame_models/SMIFileFrame.py:16
+    Format-specific parameters
+    --------------------------
+    None.
+
+    Render the selected structure as a SMILES string.
+
+    Source
+    ------
+    src/molop/io/logic/coords_frame_models/SMIFileFrame.py:16
     """
     ...
 
@@ -240,20 +527,39 @@ def transform(
 ) -> None:
     """Transform files using the `xyz` writer.
 
-    Args:
-        pattern: File pattern to match.
-        to: Target writer format.
-        output_dir: Directory to save transformed files.
-        frame: Frame selection (for example, `all`, `-1`, `1,2`).
-        embed: Whether to embed multiple frames in one file.
-        parser_detection: Parser detection mode.
-        n_jobs: Number of parallel jobs.
+    Parameters
+    ----------
+    pattern :
+        File pattern to match.
+    to :
+        Target writer format.
+    output_dir :
+        Directory to save transformed files.
+    frame :
+        Frame selection (for example, `all`, `-1`, `1,2`).
+    embed :
+        Whether to embed multiple frames in one file.
+    parser_detection :
+        Parser detection mode.
+    n_jobs :
+        Number of parallel jobs.
 
-    Format-specific Args:
-        None.
+    Format behavior
+    ---------------
+        Render the XYZ file frame as a string.
 
-    Source:
-        src/molop/io/logic/coords_frame_models/XYZFileFrame.py:20
+    Format-specific parameters
+    --------------------------
+    None.
+
+    Render the XYZ file frame as a string.
+
+    Returns:
+        str: The rendered XYZ file frame.
+
+    Source
+    ------
+    src/molop/io/logic/coords_frame_models/XYZFileFrame.py:20
     """
     ...
 
@@ -270,50 +576,92 @@ def transform(
 ) -> None:
     """Transform files using a dynamic writer format.
 
-    Args:
-        pattern: File pattern to match.
-        to: Target writer format.
-        output_dir: Directory to save transformed files.
-        frame: Frame selection (for example, `all`, `-1`, `1,2`).
-        embed: Whether to embed multiple frames in one file.
-        parser_detection: Parser detection mode.
-        n_jobs: Number of parallel jobs.
+    Parameters
+    ----------
+    pattern :
+        File pattern to match.
+    to :
+        Target writer format.
+    output_dir :
+        Directory to save transformed files.
+    frame :
+        Frame selection (for example, `all`, `-1`, `1,2`).
+    embed :
+        Whether to embed multiple frames in one file.
+    parser_detection :
+        Parser detection mode.
+    n_jobs :
+        Number of parallel jobs.
 
-    Format-specific Args:
-        cml:
-            engine: `Literal['rdkit', 'openbabel']` (optional).
-        gjf:
-            link0_commands: `str | GJFLink0Commands | dict[str, str | None] | None` (optional).
-            route_section: `str | GJFRouteSection | None` (optional).
-            title_card: `str | GJFTitleCard | None` (optional).
-            molecule_specifications: `str | GJFMoleculeSpecifications | None` (optional).
-            additional_sections: `str | None` (optional).
-            parsed_additional_sections: `list[GJFGICSection | GJFModRedundantSection | GJFUnknownSection] | None` (optional).
-            chk: `str | bool | None` (optional).
-            old_chk: `bool | str | None` (optional).
-            coords_type: `Literal['cartesian', 'internal', 'auto']` (optional).
-            add_gjf_connectivity: `bool` (optional).
-        orcainp:
-            keywords: `str | None` (optional).
-            resources_raw: `str | None` (optional).
-            nprocs: `int | None` (optional).
-            maxcore: `int | None` (optional).
-            blocks: `str | None` (optional).
-            use_raw_geometry: `bool` (optional).
-        sdf:
-            engine: `Literal['rdkit', 'openbabel']` (optional).
-        smi:
-            None.
-        xyz:
-            None.
+    Format behavior by format
+    -------------------------
+    cml :
+        Render the selected structure as CML text.
+    gjf :
+        Render the current GJF frame as Gaussian input text.
+    orcainp :
+        Render the selected structure as an ORCA input deck.
+    sdf :
+        Render the SDFFileFrame as a string.
+    smi :
+        Render the selected structure as a SMILES string.
+    xyz :
+        Render the XYZ file frame as a string.
 
-    Source:
-        cml: src/molop/io/codecs/_shared/writer_helpers.py:115
-        gjf: src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1311
-        orcainp: src/molop/io/logic/qminput_frame_models/ORCAInpFileFrame.py:25
-        sdf: src/molop/io/logic/coords_frame_models/SDFFileFrame.py:18
-        smi: src/molop/io/logic/coords_frame_models/SMIFileFrame.py:16
-        xyz: src/molop/io/logic/coords_frame_models/XYZFileFrame.py:20
+    Format-specific parameters by format
+    ------------------------------------
+    cml :
+        None.
+    gjf :
+        link0_commands : str | GJFLink0Commands | dict[str, str | None] | None
+            Format-specific writer argument (optional).
+        route_section : str | GJFRouteSection | None
+            Format-specific writer argument (optional).
+        title_card : str | GJFTitleCard | None
+            Format-specific writer argument (optional).
+        molecule_specifications : str | GJFMoleculeSpecifications | None
+            Format-specific writer argument (optional).
+        additional_sections : str | None
+            Format-specific writer argument (optional).
+        parsed_additional_sections : list[GJFGICSection | GJFModRedundantSection | GJFUnknownSection] | None
+            Format-specific writer argument (optional).
+        chk : str | bool | None
+            Format-specific writer argument (optional).
+        old_chk : bool | str | None
+            Format-specific writer argument (optional).
+        coords_type : Literal['cartesian', 'internal', 'auto']
+            Format-specific writer argument (optional).
+        add_gjf_connectivity : bool
+            Format-specific writer argument (optional).
+    orcainp :
+        keywords : str | None
+            Format-specific writer argument (optional).
+        resources_raw : str | None
+            Format-specific writer argument (optional).
+        nprocs : int | None
+            Format-specific writer argument (optional).
+        maxcore : int | None
+            Format-specific writer argument (optional).
+        blocks : str | None
+            Format-specific writer argument (optional).
+        use_raw_geometry : bool
+            Format-specific writer argument (optional).
+    sdf :
+        engine : Literal['rdkit', 'openbabel']
+            Format-specific writer argument (optional).
+    smi :
+        None.
+    xyz :
+        None.
+
+    Source
+    ------
+    cml : src/molop/io/codecs/cml_codec.py
+    gjf : src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1401
+    orcainp : src/molop/io/logic/qminput_frame_models/ORCAInpFileFrame.py:25
+    sdf : src/molop/io/logic/coords_frame_models/SDFFileFrame.py:18
+    smi : src/molop/io/logic/coords_frame_models/SMIFileFrame.py:16
+    xyz : src/molop/io/logic/coords_frame_models/XYZFileFrame.py:20
     """
     ...
 

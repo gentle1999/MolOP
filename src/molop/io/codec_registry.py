@@ -28,6 +28,7 @@ from molop.io.codec_types import (
     ReaderCodec,
     StructureLevel,
     WriterCodec,
+    WriterDomain,
 )
 
 
@@ -51,6 +52,7 @@ class _ReaderSpec:
 class _WriterSpec:
     format_id: str
     required_level: StructureLevel
+    domain: WriterDomain
     priority: int
     factory: WriterFactory
     order: int
@@ -145,12 +147,14 @@ class Registry:
         *,
         format_id: str,
         required_level: StructureLevel,
+        domain: WriterDomain = "file",
         priority: int = 0,
     ) -> None:
         normalized_format_id = _normalize_format_id(format_id)
         spec = _WriterSpec(
             format_id=normalized_format_id,
             required_level=required_level,
+            domain=domain,
             priority=priority,
             factory=factory,
             order=next(self._registration_counter),
@@ -188,6 +192,7 @@ class Registry:
         *,
         format_id: str,
         required_level: StructureLevel,
+        domain: WriterDomain = "file",
         priority: int = 0,
     ):
         """Decorator that registers a writer factory into this registry."""
@@ -197,6 +202,7 @@ class Registry:
                 factory,
                 format_id=format_id,
                 required_level=required_level,
+                domain=domain,
                 priority=priority,
             )
             return factory
@@ -272,36 +278,45 @@ class Registry:
             raise UnsupportedFormatError(f"No writer codecs registered for {format_id}.")
 
         raw_value, structure_level = _unwrap_parse_result(value)
+        file_writer_specs = [spec for spec in writer_specs if spec.domain == "file"]
+        if not file_writer_specs:
+            raise UnsupportedFormatError(f"No file writer codecs registered for {format_id}.")
 
-        graph_writers = [
-            spec for spec in writer_specs if spec.required_level == StructureLevel.GRAPH
-        ]
-        coords_writers = [
-            spec for spec in writer_specs if spec.required_level == StructureLevel.COORDS
-        ]
+        return _write_with_domain_specs(
+            file_writer_specs,
+            raw_value,
+            structure_level=structure_level,
+            graph_policy=graph_policy,
+            **kwargs,
+        )
 
-        if graph_policy == "coords":
-            if not coords_writers:
-                raise ConversionError(f"No coords-level writers registered for {format_id}.")
-            return _write_with_specs(coords_writers, raw_value, **kwargs)
+    def write_frame(
+        self,
+        format_id: str,
+        value: object,
+        *,
+        graph_policy: GraphPolicy = "prefer",
+        **kwargs: Any,
+    ) -> object:
+        if self._autoload_defaults:
+            self.ensure_default_codecs_registered()
+        normalized_format_id = _normalize_format_id(format_id)
+        writer_specs = self._writers_by_format.get(normalized_format_id, [])
+        if not writer_specs:
+            raise UnsupportedFormatError(f"No writer codecs registered for {format_id}.")
 
-        if graph_policy == "strict":
-            if not graph_writers:
-                raise ConversionError(f"No graph-level writers registered for {format_id}.")
-            graph_value = _coerce_graph_value(raw_value, structure_level)
-            return _write_with_specs(graph_writers, graph_value, **kwargs)
+        raw_value, structure_level = _unwrap_parse_result(value)
+        frame_writer_specs = [spec for spec in writer_specs if spec.domain == "frame"]
+        if not frame_writer_specs:
+            raise UnsupportedFormatError(f"No frame writer codecs registered for {format_id}.")
 
-        if graph_writers:
-            try:
-                graph_value = _coerce_graph_value(raw_value, structure_level)
-                return _write_with_specs(graph_writers, graph_value, **kwargs)
-            except ConversionError:
-                pass
-        if coords_writers:
-            return _write_with_specs(coords_writers, raw_value, **kwargs)
-        if graph_writers:
-            raise ConversionError(f"Unable to upgrade value for graph writers of {format_id}.")
-        raise UnsupportedFormatError(f"No compatible writers registered for {format_id}.")
+        return _write_with_domain_specs(
+            frame_writer_specs,
+            raw_value,
+            structure_level=structure_level,
+            graph_policy=graph_policy,
+            **kwargs,
+        )
 
 
 default_registry = Registry(autoload_defaults=True)
@@ -341,12 +356,14 @@ def register_writer_factory(
     *,
     format_id: str,
     required_level: StructureLevel,
+    domain: WriterDomain = "file",
     priority: int = 0,
 ) -> None:
     default_registry.register_writer_factory(
         factory,
         format_id=format_id,
         required_level=required_level,
+        domain=domain,
         priority=priority,
     )
 
@@ -374,11 +391,13 @@ def writer_factory(
     *,
     format_id: str,
     required_level: StructureLevel,
+    domain: WriterDomain = "file",
     priority: int = 0,
 ):
     return default_registry.writer_factory(
         format_id=format_id,
         required_level=required_level,
+        domain=domain,
         priority=priority,
     )
 
@@ -399,6 +418,16 @@ def write(
     **kwargs: Any,
 ) -> object:
     return default_registry.write(format_id, value, graph_policy=graph_policy, **kwargs)
+
+
+def write_frame(
+    format_id: str,
+    value: object,
+    *,
+    graph_policy: GraphPolicy = "prefer",
+    **kwargs: Any,
+) -> object:
+    return default_registry.write_frame(format_id, value, graph_policy=graph_policy, **kwargs)
 
 
 def upgrade_coords_to_graph(
@@ -449,9 +478,50 @@ def upgrade_coords_to_graph(
 def _coerce_graph_value(value: object, level: StructureLevel | None) -> object:
     if level == StructureLevel.GRAPH:
         return value
-    if hasattr(value, "frames") and hasattr(value, "model_dump"):
+    if _is_structured_render_value(value):
         return value
     return upgrade_coords_to_graph(value)
+
+
+def _is_structured_render_value(value: object) -> bool:
+    return hasattr(value, "model_dump") and (
+        hasattr(value, "frames") or (hasattr(value, "frame_id") and hasattr(value, "_render"))
+    )
+
+
+def _write_with_domain_specs(
+    specs: Sequence[_WriterSpec],
+    value: object,
+    *,
+    structure_level: StructureLevel | None,
+    graph_policy: GraphPolicy,
+    **kwargs: Any,
+) -> object:
+    graph_writers = [spec for spec in specs if spec.required_level == StructureLevel.GRAPH]
+    coords_writers = [spec for spec in specs if spec.required_level == StructureLevel.COORDS]
+
+    if graph_policy == "coords":
+        if not coords_writers:
+            raise ConversionError("No coords-level writers registered.")
+        return _write_with_specs(coords_writers, value, **kwargs)
+
+    if graph_policy == "strict":
+        if not graph_writers:
+            raise ConversionError("No graph-level writers registered.")
+        graph_value = _coerce_graph_value(value, structure_level)
+        return _write_with_specs(graph_writers, graph_value, **kwargs)
+
+    if graph_writers:
+        try:
+            graph_value = _coerce_graph_value(value, structure_level)
+            return _write_with_specs(graph_writers, graph_value, **kwargs)
+        except ConversionError:
+            pass
+    if coords_writers:
+        return _write_with_specs(coords_writers, value, **kwargs)
+    if graph_writers:
+        raise ConversionError("Unable to upgrade value for graph writers.")
+    raise UnsupportedFormatError("No compatible writers registered.")
 
 
 def _write_with_specs(
@@ -563,5 +633,6 @@ __all__ = [
     "select_reader",
     "upgrade_coords_to_graph",
     "write",
+    "write_frame",
     "writer_factory",
 ]

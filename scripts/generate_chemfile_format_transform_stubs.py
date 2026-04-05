@@ -25,12 +25,15 @@ class _RenderSpec:
     params: tuple[_Param, ...]
     doc: str | None
     source: str
+    imports: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)
 class _WriterSpec:
     format_id: str
     writer_module: str
+    domain: str
+    writer_cls_name: str | None
     frame_cls_name: str | None
 
 
@@ -164,6 +167,7 @@ def _extract_writer_specs(src_root: Path, writer_modules: list[str]) -> list[_Wr
                 continue
 
             format_id: str | None = None
+            domain = "file"
             for dec in node.decorator_list:
                 if not isinstance(dec, ast.Call):
                     continue
@@ -176,16 +180,24 @@ def _extract_writer_specs(src_root: Path, writer_modules: list[str]) -> list[_Wr
                         and isinstance(kw.value.value, str)
                     ):
                         format_id = kw.value.value
+                    elif (
+                        kw.arg == "domain"
+                        and isinstance(kw.value, ast.Constant)
+                        and isinstance(kw.value.value, str)
+                    ):
+                        domain = kw.value.value
 
             if not format_id:
                 continue
 
             frame_cls_name: str | None = None
+            writer_cls_name: str | None = None
             for inner in ast.walk(node):
                 if not isinstance(inner, ast.Call):
                     continue
-                if not isinstance(inner.func, ast.Name) or inner.func.id != "FileRendererWriter":
+                if not isinstance(inner.func, ast.Name):
                     continue
+                writer_cls_name = inner.func.id
                 for kw in inner.keywords:
                     if kw.arg == "frame_cls" and isinstance(kw.value, ast.Name):
                         frame_cls_name = kw.value.id
@@ -194,6 +206,8 @@ def _extract_writer_specs(src_root: Path, writer_modules: list[str]) -> list[_Wr
                 _WriterSpec(
                     format_id=format_id,
                     writer_module=mod,
+                    domain=domain,
+                    writer_cls_name=writer_cls_name,
                     frame_cls_name=frame_cls_name,
                 )
             )
@@ -274,6 +288,99 @@ def _normalize_doc(text: str) -> str:
     return text.replace("\r\n", "\n").replace("\r", "\n").strip("\n")
 
 
+_ANNOTATION_BUILTINS = {
+    "Any",
+    "Literal",
+    "Sequence",
+    "PathLike",
+    "None",
+    "bool",
+    "dict",
+    "float",
+    "int",
+    "list",
+    "object",
+    "os",
+    "str",
+    "tuple",
+}
+
+
+_DEFAULT_FORMAT_DOCS = {
+    "cml": "Render the selected structure as CML text.",
+    "gjf": "Render the selected structure as a Gaussian input deck.",
+    "orcainp": "Render the selected structure as an ORCA input deck.",
+    "sdf": "Render the selected structure as an SDF mol block.",
+    "smi": "Render the selected structure as a SMILES string.",
+    "xyz": "Render the selected structure as XYZ coordinates.",
+}
+
+
+def _doc_summary(text: str | None, format_id: str) -> str:
+    if text:
+        lines: list[str] = []
+        for raw_line in _normalize_doc(text).splitlines():
+            stripped = raw_line.strip()
+            if not stripped:
+                if lines:
+                    break
+                continue
+            if stripped in {"Args:", "Returns:", "Source:"}:
+                break
+            lines.append(stripped)
+        if lines:
+            return " ".join(lines)
+    return _DEFAULT_FORMAT_DOCS.get(
+        format_id, f"Render the selected structure as {format_id} text."
+    )
+
+
+def _annotation_imports(
+    annotation: str,
+    *,
+    source_module: str,
+    import_map: dict[str, str],
+    local_names: set[str],
+) -> set[tuple[str, str]]:
+    try:
+        expr = ast.parse(annotation, mode="eval")
+    except SyntaxError:
+        return set()
+
+    imports: set[tuple[str, str]] = set()
+    for node in ast.walk(expr):
+        if not isinstance(node, ast.Name):
+            continue
+        if node.id in _ANNOTATION_BUILTINS:
+            continue
+        module = import_map.get(node.id)
+        if module is None and node.id in local_names:
+            module = source_module
+        if module is not None:
+            imports.add((module, node.id))
+    return imports
+
+
+def _collect_spec_imports(
+    *,
+    params: tuple[_Param, ...],
+    source_module: str,
+    import_map: dict[str, str],
+    local_names: set[str],
+) -> tuple[tuple[str, str], ...]:
+    imports: set[tuple[str, str]] = set()
+    for param in params:
+        imports.update(
+            _annotation_imports(
+                param.annotation,
+                source_module=source_module,
+                import_map=import_map,
+                local_names=local_names,
+            )
+        )
+    return tuple(sorted(imports))
+
+
 def _format_with_ruff(text: str) -> str:
     res = subprocess.run(
         ["uv", "run", "ruff", "format", "-", "--stdin-filename", "stub.pyi"],
@@ -323,6 +430,21 @@ def _file_base_args() -> tuple[tuple[str, str], ...]:
     )
 
 
+def _frame_base_args() -> tuple[tuple[str, str], ...]:
+    return (
+        ("format", "Target output format literal for this overload."),
+        (
+            "file_path",
+            "Optional output path. If provided, the rendered text is also written to a format-derived file.",
+        ),
+        (
+            "graph_policy",
+            'Molecular graph policy used before rendering (for example, `"prefer"`).',
+        ),
+        ("**kwargs", "Additional writer options accepted by the implementation."),
+    )
+
+
 def _batch_base_args() -> tuple[tuple[str, str], ...]:
     return (
         ("format", "Target output format literal for this overload."),
@@ -346,13 +468,33 @@ def _batch_base_args() -> tuple[tuple[str, str], ...]:
 
 def _format_specific_lines(spec: _RenderSpec) -> list[str]:
     if not spec.params:
-        return ["    None."]
+        return ["None."]
 
     out: list[str] = []
     for p in spec.params:
         default_hint = " (optional)" if p.has_default else ""
-        out.append(f"    {p.name}: `{p.annotation}`{default_hint}.")
+        out.append(f"{p.name} : {p.annotation}")
+        out.append(f"    Format-specific writer argument{default_hint}.")
     return out
+
+
+def _format_behavior_lines(spec: _RenderSpec, indent: str = "    ") -> list[str]:
+    return [f"{indent}{line}" for line in _doc_summary(spec.doc, spec.format_id).splitlines()]
+
+
+def _full_doc_lines(spec: _RenderSpec) -> list[str]:
+    text = spec.doc or _DEFAULT_FORMAT_DOCS.get(
+        spec.format_id, f"Render the selected structure as {spec.format_id} text."
+    )
+    return _normalize_doc(text).splitlines()
+
+
+def _numpy_params_lines(args: tuple[tuple[str, str], ...], *, indent: str = "") -> list[str]:
+    lines: list[str] = []
+    for name, desc in args:
+        lines.append(f"{indent}{name} :")
+        lines.append(f"{indent}    {desc}")
+    return lines
 
 
 def _render_literal_overload_doc(
@@ -363,18 +505,27 @@ def _render_literal_overload_doc(
     return_type: str,
     return_desc: str,
 ) -> str:
-    lines = [f"Transform using the `{format_id}` writer overload.", "", "Args:"]
-    lines.extend(f"    {name}: {desc}" for name, desc in base_args)
-    lines.extend(["", "Format-specific Args:"])
-    lines.extend(_format_specific_lines(spec))
+    lines = [f"Transform using the `{format_id}` writer overload.", "", "Parameters", "----------"]
+    lines.extend(_numpy_params_lines(base_args))
+    lines.extend(["", "Format behavior", "---------------"])
+    lines.extend(_format_behavior_lines(spec))
+    lines.extend(["", "Format-specific parameters", "--------------------------"])
+    lines.extend(
+        f"    {line}" if line != "None." else "    None." for line in _format_specific_lines(spec)
+    )
+    lines.extend([""])
+    lines.extend(_full_doc_lines(spec))
     lines.extend(
         [
             "",
-            "Returns:",
-            f"    ({return_type}): {return_desc}",
+            "Returns",
+            "-------",
+            return_type,
+            f"    {return_desc}",
             "",
-            "Source:",
-            f"    {spec.source}",
+            "Source",
+            "------",
+            spec.source,
         ]
     )
     return "\n".join(lines)
@@ -390,21 +541,31 @@ def _render_combined_overload_doc(
     lines = [
         "Transform using a format string and format-specific writer options.",
         "",
-        "Args:",
+        "Parameters",
+        "----------",
     ]
-    lines.extend(f"    {name}: {desc}" for name, desc in base_args)
-    lines.extend(["", "Format-specific Args by format:"])
+    lines.extend(_numpy_params_lines(base_args))
+    lines.extend(["", "Format behavior by format", "-------------------------"])
     for spec in specs:
-        lines.append(f"    {spec.format_id}:")
+        lines.append(f"{spec.format_id} :")
+        lines.append(f"    {_doc_summary(spec.doc, spec.format_id)}")
+    lines.extend(
+        ["", "Format-specific parameters by format", "------------------------------------"]
+    )
+    for spec in specs:
+        lines.append(f"{spec.format_id} :")
         if spec.params:
             for p in spec.params:
                 default_hint = " (optional)" if p.has_default else ""
-                lines.append(f"        {p.name}: `{p.annotation}`{default_hint}.")
+                lines.append(f"    {p.name} : {p.annotation}")
+                lines.append(f"        Format-specific writer argument{default_hint}.")
         else:
-            lines.append("        None.")
+            lines.append("    None.")
 
-    lines.extend(["", "Returns:", f"    ({return_type}): {return_desc}", "", "Source:"])
-    lines.extend(f"    {spec.format_id}: {spec.source}" for spec in specs)
+    lines.extend(
+        ["", "Returns", "-------", return_type, f"    {return_desc}", "", "Source", "------"]
+    )
+    lines.extend(f"{spec.format_id} : {spec.source}" for spec in specs)
     return "\n".join(lines)
 
 
@@ -412,22 +573,50 @@ def _render_spec_from_writer(repo_root: Path, writer: _WriterSpec) -> _RenderSpe
     writer_path = _resolve_module_to_path(repo_root, writer.writer_module)
     writer_tree = ast.parse(writer_path.read_text(encoding="utf-8"), filename=str(writer_path))
     import_map = _extract_import_map(writer_tree)
+    writer_classes = _class_map(writer_tree)
 
     rel_writer_path = writer_path.relative_to(repo_root).as_posix()
 
     frame_cls_name = writer.frame_cls_name
     if not frame_cls_name:
+        writer_cls = writer_classes.get(writer.writer_cls_name or "")
+        write_def = None
+        if writer_cls is not None:
+            for stmt in writer_cls.body:
+                if (
+                    isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef))
+                    and stmt.name == "write"
+                ):
+                    write_def = stmt
+                    break
+        if write_def is None:
+            return _RenderSpec(
+                format_id=writer.format_id,
+                params=(),
+                doc=None,
+                source=f"{rel_writer_path}",
+            )
+
+        excluded = {"value", "frameID", "embed_in_one_file", "file_path"}
+        params = tuple(param for param in _extract_params(write_def) if param.name not in excluded)
         return _RenderSpec(
             format_id=writer.format_id,
-            params=(),
-            doc=None,
-            source=f"{rel_writer_path}",
+            params=params,
+            doc=_normalize_doc(ast.get_docstring(write_def) or "") or None,
+            source=f"{rel_writer_path}:{write_def.lineno}",
+            imports=_collect_spec_imports(
+                params=params,
+                source_module=writer.writer_module,
+                import_map=import_map,
+                local_names=set(writer_classes),
+            ),
         )
 
     frame_mod = import_map.get(frame_cls_name, writer.writer_module)
     frame_path = _resolve_module_to_path(repo_root, frame_mod)
     frame_tree = ast.parse(frame_path.read_text(encoding="utf-8"), filename=str(frame_path))
     classes = _class_map(frame_tree)
+    frame_import_map = _extract_import_map(frame_tree)
     render_def = _find_render_def(classes, frame_cls_name, seen=set())
 
     rel_frame_path = frame_path.relative_to(repo_root).as_posix()
@@ -446,6 +635,12 @@ def _render_spec_from_writer(repo_root: Path, writer: _WriterSpec) -> _RenderSpe
         params=_extract_params(render_def),
         doc=_normalize_doc(doc) if doc else None,
         source=f"{rel_frame_path}:{render_def.lineno}",
+        imports=_collect_spec_imports(
+            params=_extract_params(render_def),
+            source_module=frame_mod,
+            import_map=frame_import_map,
+            local_names=set(classes),
+        ),
     )
 
 
@@ -466,31 +661,95 @@ def _stub_prelude(lines: list[str], title: str, imports: list[str]) -> None:
     lines.extend(["", ""])
 
 
-def _render_file_stub(specs: list[_RenderSpec]) -> str:
-    specs = sorted(specs, key=lambda s: s.format_id)
-    base_args = _file_base_args()
-    return_type = "str | list[str]"
-    return_desc = "Output path string or list of output path strings."
-    combined_doc = _render_combined_overload_doc(
-        base_args=base_args,
-        specs=specs,
-        return_type=return_type,
-        return_desc=return_desc,
-    )
+def _render_extra_import_lines(specs: list[_RenderSpec]) -> list[str]:
+    by_module: dict[str, set[str]] = {}
+    for spec in specs:
+        for module, name in spec.imports:
+            by_module.setdefault(module, set()).add(name)
     lines: list[str] = []
+    for module in sorted(by_module):
+        imported = ", ".join(sorted(by_module[module]))
+        lines.append(f"from {module} import {imported}")
+    return lines
+
+
+def _render_base_model_stub(file_specs: list[_RenderSpec], frame_specs: list[_RenderSpec]) -> str:
+    file_specs = sorted(file_specs, key=lambda s: s.format_id)
+    frame_specs = sorted(frame_specs, key=lambda s: s.format_id)
+    file_base_args = _file_base_args()
+    frame_base_args = _frame_base_args()
+    file_return_type = "str | list[str]"
+    file_return_desc = "Rendered text for the selected frame set as a single string or a list of per-frame strings."
+    frame_return_type = "str"
+    frame_return_desc = "Rendered text for the selected frame."
+    file_combined_doc = _render_combined_overload_doc(
+        base_args=file_base_args,
+        specs=file_specs,
+        return_type=file_return_type,
+        return_desc=file_return_desc,
+    )
+    frame_combined_doc = _render_combined_overload_doc(
+        base_args=frame_base_args,
+        specs=frame_specs,
+        return_type=frame_return_type,
+        return_desc=frame_return_desc,
+    )
+
+    lines: list[str] = []
+    extra_imports = _render_extra_import_lines([*file_specs, *frame_specs])
     _stub_prelude(
         lines,
-        "Static file format_transform overload stubs",
+        "Static chemfile format_transform overload stubs",
         [
             "import os",
             "from collections.abc import Sequence",
             "from typing import Any, Literal, overload",
             "",
             "from molop.io.codec_types import GraphPolicy",
+            *([""] + extra_imports if extra_imports else []),
         ],
     )
+
+    lines.append("class FrameFormatTransformMixin:")
+    for s in frame_specs:
+        lines.append("    @overload")
+        lines.append("    def format_transform(")
+        lines.append("        self,")
+        lines.append(f'        format: Literal["{s.format_id}"],')
+        lines.append("        file_path: os.PathLike | str | None = None,")
+        lines.append("        *,")
+        lines.append('        graph_policy: GraphPolicy = "prefer",')
+        for p in s.params:
+            lines.append(f"        {_render_param_decl(p)}")
+        lines.append("        **kwargs: Any,")
+        lines.append("    ) -> str:")
+        lines.extend(
+            _render_doc_block(
+                _render_literal_overload_doc(
+                    format_id=s.format_id,
+                    spec=s,
+                    base_args=frame_base_args,
+                    return_type=frame_return_type,
+                    return_desc=frame_return_desc,
+                )
+            )
+        )
+        lines.append("        ...")
+    lines.append("    @overload")
+    lines.append("    def format_transform(")
+    lines.append("        self,")
+    lines.append("        format: str,")
+    lines.append("        file_path: os.PathLike | str | None = None,")
+    lines.append("        *,")
+    lines.append('        graph_policy: GraphPolicy = "prefer",')
+    lines.append("        **kwargs: Any,")
+    lines.append("    ) -> str:")
+    lines.extend(_render_doc_block(frame_combined_doc))
+    lines.append("        ...")
+    lines.append("")
+
     lines.append("class FormatTransformMixin:")
-    for s in specs:
+    for s in file_specs:
         lines.append("    @overload")
         lines.append("    def format_transform(")
         lines.append("        self,")
@@ -509,9 +768,9 @@ def _render_file_stub(specs: list[_RenderSpec]) -> str:
                 _render_literal_overload_doc(
                     format_id=s.format_id,
                     spec=s,
-                    base_args=base_args,
-                    return_type=return_type,
-                    return_desc=return_desc,
+                    base_args=file_base_args,
+                    return_type=file_return_type,
+                    return_desc=file_return_desc,
                 )
             )
         )
@@ -527,7 +786,7 @@ def _render_file_stub(specs: list[_RenderSpec]) -> str:
     lines.append('        graph_policy: GraphPolicy = "prefer",')
     lines.append("        **kwargs: Any,")
     lines.append("    ) -> str | list[str]:")
-    lines.extend(_render_doc_block(combined_doc))
+    lines.extend(_render_doc_block(file_combined_doc))
     lines.append("        ...")
     lines.append("")
     return "\n".join(lines)
@@ -537,7 +796,7 @@ def _render_batch_stub(specs: list[_RenderSpec]) -> str:
     specs = sorted(specs, key=lambda s: s.format_id)
     base_args = _batch_base_args()
     return_type = "dict[str, str | list[str]]"
-    return_desc = "Mapping from source path to generated output path(s)."
+    return_desc = "Mapping from source path to rendered text output(s)."
     combined_doc = _render_combined_overload_doc(
         base_args=base_args,
         specs=specs,
@@ -545,6 +804,7 @@ def _render_batch_stub(specs: list[_RenderSpec]) -> str:
         return_desc=return_desc,
     )
     lines: list[str] = []
+    extra_imports = _render_extra_import_lines(specs)
     _stub_prelude(
         lines,
         "Static batch format_transform overload stubs",
@@ -553,6 +813,7 @@ def _render_batch_stub(specs: list[_RenderSpec]) -> str:
             "from typing import Any, Literal, overload",
             "",
             "from molop.io.codec_types import GraphPolicy",
+            *([""] + extra_imports if extra_imports else []),
         ],
     )
     lines.append("class BatchFormatTransformMixin:")
@@ -613,23 +874,29 @@ def main(argv: list[str] | None = None) -> int:
     writer_modules = _discover_writer_modules(repo_root, src_root)
     writer_specs = sorted(
         _extract_writer_specs(src_root, writer_modules),
-        key=lambda x: (x.writer_module, x.format_id),
+        key=lambda x: (x.domain, x.writer_module, x.format_id),
     )
-    by_format: dict[str, _WriterSpec] = {}
+    file_specs_by_format: dict[str, _WriterSpec] = {}
+    frame_specs_by_format: dict[str, _WriterSpec] = {}
     for w in writer_specs:
-        by_format.setdefault(w.format_id, w)
+        target = frame_specs_by_format if w.domain == "frame" else file_specs_by_format
+        target.setdefault(w.format_id, w)
 
-    render_specs = [
+    file_render_specs = [
         _render_spec_from_writer(repo_root, w)
-        for w in sorted(by_format.values(), key=lambda x: x.format_id)
+        for w in sorted(file_specs_by_format.values(), key=lambda x: x.format_id)
+    ]
+    frame_render_specs = [
+        _render_spec_from_writer(repo_root, w)
+        for w in sorted(frame_specs_by_format.values(), key=lambda x: x.format_id)
     ]
 
     outputs: dict[Path, str] = {
         (io_root / "base_models" / "_format_transform.pyi").resolve(): _format_with_ruff(
-            _render_file_stub(render_specs)
+            _render_base_model_stub(file_render_specs, frame_render_specs)
         ),
         (io_root / "_batch_format_transform.pyi").resolve(): _format_with_ruff(
-            _render_batch_stub(render_specs)
+            _render_batch_stub(file_render_specs)
         ),
     }
 

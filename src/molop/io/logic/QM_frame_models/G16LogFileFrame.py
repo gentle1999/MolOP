@@ -6,7 +6,7 @@ LastEditTime: 2026-02-04 15:47:33
 Description: 请填写简介
 """
 
-from typing import Any, ClassVar, cast
+from typing import ClassVar, cast
 
 import numpy as np
 from pint._typing import UnitLike
@@ -22,7 +22,6 @@ from molop.io.logic.gaussian_route_models import (
 )
 from molop.io.patterns.G16Patterns import (
     SEMI_EMPIRICAL_METHODS,
-    route_section_parser,
 )
 from molop.unit import atom_ureg
 from molop.utils.functions import find_rigid_transform, invert_transform_coords, transform_coords

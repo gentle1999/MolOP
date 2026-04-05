@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2026-03-19 10:28:30
+LastEditTime: 2026-04-05 16:58:53
 Description: 请填写简介
 """
 
@@ -21,6 +21,9 @@ from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 
 from molop.config import molopconfig, moloplogger
 from molop.descriptor.spms import SPMSCalculator
+from molop.io.base_models._format_transform import (
+    FrameFormatTransformMixin,  # pyright: ignore[reportAttributeAccessIssue]
+)
 from molop.structure.FormatConverter import rdmol_to_omol
 from molop.structure.GeometryTransformation import get_geometry_info, standard_orient
 from molop.structure.StructureTransformation import (
@@ -52,7 +55,7 @@ EXCLUDE_FIELDS_IF_NO_BOND = {
 }
 
 
-class Molecule(BaseDataClassWithUnit):
+class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
     default_units: ClassVar[dict[str, UnitLike]] = {"coords": atom_ureg.angstrom}
     atoms: list[int] = Field(default_factory=list, description="atom numbers", title="Atom numbers")
     coords: NumpyQuantity = Field(
@@ -172,7 +175,7 @@ class Molecule(BaseDataClassWithUnit):
                     return None
                 try:
                     self._rdmol = xyz_to_rdmol(
-                        self.to_XYZ_block(),
+                        self.format_transform("xyz"),
                         self.charge,
                         self.multiplicity,
                         backend=molopconfig.graph_reconstruction_backend,
@@ -208,109 +211,6 @@ class Molecule(BaseDataClassWithUnit):
         rdmol = Chem.RWMol(self.rdmol)
         rdmol.RemoveAllConformers()
         return rdmol.GetMol()
-
-    def to_XYZ_block(self) -> str:
-        """
-        Get the XYZ block.
-
-        Returns:
-            str: The XYZ block.
-        """
-        if self.coords is None:
-            raise ValueError("No coordinates found!")
-        from molop.io.logic.coords_frame_models.XYZFileFrame import XYZFileFrameDisk
-
-        return XYZFileFrameDisk.model_validate(
-            self.model_dump(exclude=EXCLUDE_FIELDS_IF_NO_BOND)
-        )._render()
-
-    def to_SDF_block(self, engine: Literal["rdkit", "openbabel"] = "rdkit") -> str:
-        """
-        Get the SDF block.
-
-        Parameters:
-            engine (Literal["rdkit", "openbabel"]):
-                The engine to generate the SDF block. default is "rdkit".
-
-        Returns:
-            str: The SDF block.
-        """
-        if self.rdmol is None:
-            raise ValueError("SDF building failed. No RDKit molecule recovered.")
-        from molop.io.logic.coords_frame_models.SDFFileFrame import SDFFileFrameDisk
-
-        return SDFFileFrameDisk.model_validate(
-            self.model_dump(exclude=EXCLUDE_FIELDS_IF_NO_BOND)
-        )._render(engine=engine)
-
-    def to_CML_block(self, engine: Literal["rdkit", "openbabel"] = "rdkit") -> str:
-        """
-        Get the CML block.
-
-        Returns:
-            str: The CML block.
-        """
-        if self.rdmol is None:
-            raise ValueError("CML building failed. No RDKit molecule recovered.")
-        if engine == "rdkit":
-            return Chem.MolToMrvBlock(self.rdmol)
-        elif engine == "openbabel":
-            if self.omol is None:
-                raise ValueError("CML building failed. No Openbabel molecule recovered.")
-            cml_text = self.omol.write("cml")
-            if cml_text is None:
-                raise ValueError("CML building failed. No CML text recovered.")
-            return cml_text
-        else:
-            raise ValueError(f"Unsupported engine: {engine}")
-
-    def to_GJF_block(
-        self,
-        options: str | None = None,
-        route: str | None = None,
-        title_card: str | None = None,
-        suffix: str | None = None,
-        template: str | None = None,
-        use_link1: bool = False,
-        chk: bool | str | None = None,
-        old_chk: None | str = None,
-        **kwargs,
-    ) -> str:
-        """
-        Get the GJF block.
-
-        Parameters:
-            options (str | None, optional): The options for the GJF block. Defaults to None.
-            route (str | None, optional): The route for the GJF block. Defaults to None.
-            title_card (str | None, optional): The title card for the GJF block. Defaults to None.
-            suffix (str | None, optional): The suffix for the GJF block. Defaults to None.
-            template (str | None, optional): The template file path for the GJF block. Defaults to None.
-            use_link1 (bool, optional): Whether to use link1 and return a sequential task gjf. Only
-                valid when `template` is given. Defaults to False.
-            chk (bool | str, optional): Whether to use chk automatically. If str, the chk file name
-                will be the str. Defaults to False.
-            old_chk (None | str, optional): Whether to use old_chk automatically. If str, the old_chk
-                file name will be the str. Defaults to None.
-            **kwargs: The keyword arguments for the `to_GJF_block` method.
-
-        Returns:
-            str: The GJF block.
-        """
-        from molop.io.logic.qminput_frame_models.GJFFileFrame import GJFFileFrameDisk
-
-        return GJFFileFrameDisk.model_validate(
-            self.model_dump(exclude=EXCLUDE_FIELDS_IF_NO_BOND)
-        )._render(
-            options=options,
-            route=route,
-            title_card=title_card,
-            suffix=suffix,
-            template=template,
-            use_link1=use_link1,
-            chk=chk,
-            old_chk=old_chk,
-            **kwargs,
-        )
 
     def to_SMILES(self) -> str:
         """

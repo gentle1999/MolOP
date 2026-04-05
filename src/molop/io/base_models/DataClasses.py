@@ -6,7 +6,7 @@ import pandas as pd
 from pint._typing import UnitLike
 from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity
-from pydantic import Field, PrivateAttr, computed_field, model_validator
+from pydantic import Field, computed_field, model_validator
 from typing_extensions import Self
 
 from molop.unit import atom_ureg
@@ -449,8 +449,6 @@ class MoleculeOrbital(BaseDataClassWithUnit):
 
 
 class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
-    _index_: int = PrivateAttr(default=0)
-
     default_units: ClassVar[dict[str, UnitLike]] = {
         "alpha_energies": atom_ureg.hartree,
         "beta_energies": atom_ureg.hartree,
@@ -596,12 +594,6 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
     def __iter__(self) -> Iterator[MoleculeOrbital]:  # type: ignore[override]
         for i in range(len(self)):
             yield self[i]
-
-    def __next__(self) -> MoleculeOrbital:
-        if self._index_ >= len(self):
-            raise StopIteration
-        self._index_ += 1
-        return self[self._index_ - 1]
 
     @computed_field(description="beta HOMO energy")  # type: ignore[prop-decorator]
     @property
@@ -982,7 +974,6 @@ class Vibration(BaseDataClassWithUnit):
 
 
 class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
-    _index_: int = PrivateAttr(default=0)
     default_units: ClassVar[dict[str, UnitLike]] = {
         "frequency": atom_ureg.cm_1,
         "reduced_mass": atom_ureg.amu,
@@ -1021,12 +1012,6 @@ class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
     def __iter__(self) -> Iterator[Vibration]:  # type: ignore[override]
         for i in range(len(self)):
             yield self[i]
-
-    def __next__(self) -> Vibration:
-        if self._index_ >= len(self):
-            raise StopIteration
-        self._index_ += 1
-        return self[self._index_ - 1]
 
     @overload
     def __getitem__(self, frameID: int) -> Vibration: ...

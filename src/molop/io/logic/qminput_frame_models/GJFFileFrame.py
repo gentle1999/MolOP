@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 23:09:31
 LastEditors: TMJ
-LastEditTime: 2026-03-24 00:17:43
+LastEditTime: 2026-04-05 17:29:39
 Description: 请填写简介
 """
 
@@ -377,7 +377,97 @@ class GJFMoleculeSpecificationsFragment(BaseDataClassWithUnit):
         default_factory=list, description="Atom specifications"
     )
 
+    def _all_atoms_cartesian(self) -> bool:
+        return all(
+            (not atom_spec.coords_part.strip()) or atom_spec.is_cartesian_coords()
+            for atom_spec in self.atom_specifications
+        )
+
+    def _all_atoms_internal(self) -> bool:
+        return all(
+            (not atom_spec.coords_part.strip()) or atom_spec.is_internal_coords()
+            for atom_spec in self.atom_specifications
+        )
+
+    def _render_cartesian(self, **kwargs) -> str:
+        _ = kwargs
+        if self._all_atoms_cartesian():
+            return "".join([atom_spec._render(**kwargs) for atom_spec in self.atom_specifications])
+
+        if any(atom_spec.is_dummy or atom_spec.is_ghost for atom_spec in self.atom_specifications):
+            raise ValueError(
+                "coords_type='cartesian' cannot convert internal coordinates when dummy or ghost atoms are present"
+            )
+
+        coords = self.coords().to(atom_ureg.angstrom).magnitude
+        rendered_lines: list[str] = []
+        coord_idx = 0
+        for atom_spec in self.atom_specifications:
+            if not atom_spec.coords_part.strip():
+                rendered_lines.append(atom_spec._render(**kwargs))
+                continue
+            x, y, z = coords[coord_idx]
+            coord_idx += 1
+            rendered_atom = atom_spec.model_copy(update={"coords_part": f"{x:.6f} {y:.6f} {z:.6f}"})
+            rendered_lines.append(rendered_atom._render(**kwargs))
+        return "".join(rendered_lines)
+
+    def _render_internal(self, **kwargs) -> str:
+        _ = kwargs
+        if self._all_atoms_internal():
+            return "".join([atom_spec._render(**kwargs) for atom_spec in self.atom_specifications])
+
+        if any(atom_spec.is_dummy or atom_spec.is_ghost for atom_spec in self.atom_specifications):
+            raise ValueError(
+                "coords_type='internal' cannot convert cartesian coordinates when dummy or ghost atoms are present"
+            )
+
+        internal = self.to_internal_coords()
+        rendered_lines: list[str] = []
+        internal_idx = 0
+        for atom_spec in self.atom_specifications:
+            if not atom_spec.coords_part.strip():
+                rendered_lines.append(atom_spec._render(**kwargs))
+                continue
+
+            atom_internal = internal.atoms[internal_idx]
+            internal_idx += 1
+
+            tokens: list[str] = []
+            if internal_idx >= 2:
+                tokens.extend(
+                    [
+                        str(atom_internal.distance_to_index + 1),
+                        f"{atom_internal.distance.to(atom_ureg.angstrom).magnitude:.6f}",
+                    ]
+                )
+            if internal_idx >= 3:
+                tokens.extend(
+                    [
+                        str(atom_internal.angle_to_index + 1),
+                        f"{atom_internal.angle.to(atom_ureg.degree).magnitude:.6f}",
+                    ]
+                )
+            if internal_idx >= 4:
+                tokens.extend(
+                    [
+                        str(atom_internal.dihedral_to_index + 1),
+                        f"{atom_internal.dihedral.to(atom_ureg.degree).magnitude:.6f}",
+                    ]
+                )
+                if atom_internal.zmat_format in {0, 1}:
+                    tokens.append(str(atom_internal.zmat_format))
+
+            rendered_atom = atom_spec.model_copy(update={"coords_part": " ".join(tokens)})
+            rendered_lines.append(rendered_atom._render(**kwargs))
+        return "".join(rendered_lines)
+
     def _render(self, **kwargs) -> str:
+        coords_type = kwargs.get("coords_type", "auto")
+        if coords_type == "cartesian":
+            return self._render_cartesian(**kwargs)
+        if coords_type == "internal":
+            return self._render_internal(**kwargs)
         return "".join([atom_spec._render(**kwargs) for atom_spec in self.atom_specifications])
 
     def to_internal_coords(self) -> InternalCoords:
@@ -1323,6 +1413,185 @@ class GJFFileFrameMixin:
         add_gjf_connectivity: bool = False,
         **kwargs,
     ) -> str:
+        """
+        Render the current GJF frame as Gaussian input text.
+
+        The method assembles the output in standard Gaussian input order:
+        1. Link0 commands
+        2. Route section
+        3. Title card
+        4. Molecule specifications
+        5. Additional sections
+
+        Callers may temporarily override any of these parts for a single render
+        without mutating the instance first. Any argument left as ``None`` falls
+        back to the corresponding attribute on ``self``.
+
+        Parameters
+        ----------
+        link0_commands : str | GJFLink0Commands | dict[str, str | None] | None, optional
+            Link0 content, i.e. the resource and job-control directives at the
+            beginning of the file such as ``%mem``, ``%nprocshared``, and
+            ``%chk``.
+
+            Actual behavior:
+            - ``str``: parsed as Link0 syntax into ``GJFLink0Commands``;
+            - ``dict``: converted into a Link0 keyword list;
+            - ``GJFLink0Commands``: used directly;
+            - ``None``: falls back to ``self.link0_commands``.
+
+        route_section : str | GJFRouteSection | None, optional
+            Gaussian route section, i.e. the keyword line beginning with ``#``,
+            for example ``#p b3lyp/6-31g(d) opt freq``.
+
+            Actual behavior:
+            - ``str``: converted to ``GJFRouteSection`` and normalized there;
+            - ``GJFRouteSection``: used directly;
+            - ``None``: falls back to ``self.route_section``.
+
+        title_card : str | GJFTitleCard | None, optional
+            Gaussian title section.
+
+            Actual behavior:
+            - ``str``: converted to ``GJFTitleCard``;
+            - ``GJFTitleCard``: used directly;
+            - ``None``: falls back to ``self.title_card``;
+            - if the final title is empty, it falls back to ``self.pure_filename``
+              or, if unavailable, ``"title"``.
+
+        molecule_specifications : str | GJFMoleculeSpecifications | None, optional
+            Molecule specification block, i.e. the charge/multiplicity line plus
+            the coordinate block that follows it.
+
+            Actual behavior:
+            - ``str``: parsed as Gaussian molecule-block syntax into
+              ``GJFMoleculeSpecifications``;
+            - ``GJFMoleculeSpecifications``: used directly;
+            - ``None``: falls back to ``self.molecule_specifications``.
+
+        additional_sections : str | None, optional
+            Raw additional-section text appended after the main molecule block,
+            such as GIC, ModRedundant, NBO, or other Gaussian extra-input blocks.
+
+            Actual behavior:
+            - whenever this argument is explicitly provided, it has top priority;
+            - even an empty string overrides the structured additional-section
+              sources.
+
+        parsed_additional_sections : list[...] | None, optional
+            Structured additional sections. Each section is rendered via its own
+            ``_render()`` and then joined with blank lines.
+
+            Actual behavior:
+            - only used when ``additional_sections is None``;
+            - when provided, it takes priority over
+              ``self.parsed_additional_sections``;
+            - sections whose rendered text is blank are skipped.
+
+            Additional-section priority is:
+            1. ``additional_sections``
+            2. ``parsed_additional_sections``
+            3. ``self.parsed_additional_sections``
+            4. ``self.additional_sections``
+            5. empty string
+
+        chk : str | bool | None, optional
+            Whether to append an extra ``%chk`` Link0 keyword for this render.
+
+            Actual behavior:
+            - ``None`` / ``False``: do not append anything;
+            - ``True``: append ``%chk=<basename>.chk``;
+            - ``str``: append ``%chk=<given string>``.
+
+            ``<basename>`` is taken from ``self.pure_filename`` when available,
+            otherwise from the final title card. This is an append operation, not
+            a replacement, and existing ``%chk`` entries are not deduplicated.
+
+        old_chk : str | bool | None, optional
+            Whether to append an extra ``%oldchk`` Link0 keyword for this render,
+            typically to reference a previous checkpoint file.
+
+            Actual behavior matches ``chk``:
+            - ``None`` / ``False``: do not append anything;
+            - ``True``: append ``%oldchk=<basename>.chk``;
+            - ``str``: append ``%oldchk=<given string>``.
+
+            This is also an append operation and does not replace or deduplicate
+            existing ``%oldchk`` entries.
+
+        coords_type : {"cartesian", "internal", "auto"}, default "auto"
+            Controls the preferred output form of the coordinate block.
+
+            Actual behavior in the current implementation:
+            - ``"auto"``: preserve the stored representation. Each atom
+              specification renders itself according to the structure of its own
+              ``coords_part``: Cartesian coordinates, internal coordinates, or
+              raw text.
+            - ``"cartesian"``: require the molecule block to be rendered in
+              Cartesian coordinates.
+              - If all atoms in a fragment already store Cartesian coordinates,
+                they are rendered directly in their current order.
+              - If a fragment stores internal coordinates, the fragment is first
+                converted through ``frag.coords()`` and then reconstructed as
+                Cartesian atom lines.
+              - If the fragment contains dummy atoms or ghost atoms, the
+                conversion is rejected with ``ValueError`` because the current
+                ``coords()`` / ``to_XYZ_block()`` path only returns coordinates
+                for real atoms and cannot be aligned back to the original atom
+                list safely.
+            - ``"internal"``: require the molecule block to be rendered in
+              internal-coordinate form.
+              - If all atoms in a fragment already store internal coordinates,
+                they are rendered directly in their current order.
+              - If a fragment stores Cartesian coordinates, the fragment is
+                converted with ``InternalCoords.from_cartesian_coords()`` and
+                then reconstructed as Gaussian Z-matrix-style atom lines.
+              - If the fragment contains dummy atoms or ghost atoms, the
+                conversion is rejected with ``ValueError`` because the current
+                Cartesian -> internal conversion path operates on the real-atom
+                symbol/coordinate sequence returned by ``self.symbols()`` and
+                ``self.coords()``, so it cannot be mapped back to the original
+                mixed atom list safely.
+
+            In other words, ``coords_type`` is now an active rendering control,
+            but its supported scope is intentionally limited:
+            - internal -> Cartesian is supported;
+            - Cartesian -> internal is supported for ordinary real-atom
+              fragments;
+            - fragments containing dummy or ghost atoms are not converted
+              implicitly in either direction.
+
+        add_gjf_connectivity : bool, default False
+            Whether to append a Gaussian connectivity section after the molecule
+            coordinate block.
+
+            Actual behavior:
+            - ``False``: render only charge/multiplicity plus coordinates;
+            - ``True``: append the connectivity information generated by
+              ``self.connectivity()``.
+
+        **kwargs
+            Extra keyword arguments forwarded to downstream section, fragment,
+            and atom ``_render()`` methods. This method consumes only a small
+            subset directly; the rest are interpreted by child renderers if they
+            recognize them.
+
+        Returns
+        -------
+        str
+            Complete Gaussian input text. The returned string always ends with
+            two trailing newlines.
+
+        Notes
+        -----
+        - This is a render-time override interface: supplied arguments affect
+          only the current output and are not meant to be permanent field
+          updates.
+        - ``chk`` / ``old_chk`` append keywords to the ``link0_commands_to_use``
+          object used for this render. If that object is ``self.link0_commands``,
+          the appended entries may therefore be visible on the instance-backed
+          object as a side effect.
+        """
         if isinstance(link0_commands, str):
             link0_commands_to_use = GJFLink0Commands.from_str(link0_commands)
         elif isinstance(link0_commands, GJFLink0Commands):

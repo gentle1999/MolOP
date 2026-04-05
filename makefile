@@ -1,9 +1,9 @@
 # =============================================================================
-# 🛠️ MyRepositoryTemplate Makefile (Production Ready)
+# 🛠️ MolOP Makefile
 # =============================================================================
 
-# ⚠️ 模板使用者请修改这里：你的包名（对应 src/ 下的目录名）
-PACKAGE_NAME := myrepositorytemplate
+PACKAGE_NAME := molop
+REPOSITORY_URL := https://github.com/gentle1999/MolOP
 
 # --- 自动检测版本号 ---
 # 尝试通过 importlib 读取已安装包的版本，如果失败则显示 "dynamic"
@@ -17,13 +17,13 @@ else
 	OPEN_CMD := xdg-open
 endif
 
-.PHONY: help init install-uv install sync update tree format lint type-check pyright check-types check test test-cov clean distclean build release rename docker-build docker-up docker-down gen-typing-stubs check-typing-stubs gen-format-transform-stubs check-format-transform-stubs gen-cli-transform-stubs check-cli-transform-stubs docs-serve docs-build docs-build-strict
+.PHONY: help init install-uv install sync update tree format format-check lint lint-check type-check pyright check-types check test test-cov clean distclean build release docker-build docker-up docker-down gen-typing-stubs check-typing-stubs gen-format-transform-stubs check-format-transform-stubs gen-cli-transform-stubs check-cli-transform-stubs docs-serve docs-build docs-build-strict
 
 # =============================================================================
 # 📝 帮助文档
 # =============================================================================
 help:
-	@echo "📚 \033[1;34mPython Project Makefile Helper\033[0m"
+	@echo "📚 \033[1;34mMolOP Makefile Helper\033[0m"
 	@echo ""
 	@echo "📦 \033[1;33mDependency Management:\033[0m"
 	@echo "  make install-uv  ⬇️ Install uv (The package manager)"
@@ -32,8 +32,10 @@ help:
 	@echo "  make tree        🌳 Show dependency tree"
 	@echo ""
 	@echo "🎨 \033[1;33mCode Quality:\033[0m"
-	@echo "  make format      ✨ Format code (ruff)"
-	@echo "  make lint        🔍 Lint code (ruff check --fix)"
+	@echo "  make format      ✨ Format code (ruff format)"
+	@echo "  make format-check ✅ Check formatting without changing files"
+	@echo "  make lint        🔧 Lint code and apply safe fixes (ruff check --fix)"
+	@echo "  make lint-check  🔍 Lint code without changing files"
 	@echo "  make type-check  🦆 Static type check (mypy)"
 	@echo "  make gen-typing-stubs     🧩 Generate typing stubs (.pyi)"
 	@echo "  make check-typing-stubs   ✅ Verify typing stubs are up to date"
@@ -41,7 +43,7 @@ help:
 	@echo "  make check-format-transform-stubs   ✅ Verify format transform stubs are up to date"
 	@echo "  make gen-cli-transform-stubs        🧩 Generate CLI transform stubs"
 	@echo "  make check-cli-transform-stubs      ✅ Verify CLI transform stubs are up to date"
-	@echo "  make check       🛡️ Run all checks (format + lint + type-check)"
+	@echo "  make check       🛡️ Run non-mutating quality checks"
 	@echo ""
 	@echo "🧪 \033[1;33mTesting:\033[0m"
 	@echo "  make test        🌡️ Run unit tests"
@@ -89,9 +91,9 @@ init:
 	
 	@# 2. 交互式询问 Python 版本
 	@echo "🐍 \033[1;33mLet's configure your Python environment.\033[0m"
-	@read -p "👉 Enter Python version to use (default: 3.11): " py_ver; \
+	@read -p "👉 Enter Python version to use (default: 3.10): " py_ver; \
 	if [ -z "$$py_ver" ]; then \
-		py_ver="3.11"; \
+		py_ver="3.10"; \
 	fi; \
 	\
 	echo "📌 Pinning Python version to $$py_ver (.python-version)..."; \
@@ -102,7 +104,7 @@ init:
 
 	@# 3. 同步依赖
 	@echo "🚀 Installing dependencies..."
-	uv sync --all-extras --group dev --group docs
+	uv sync --all-groups
 	
 	@echo "✅ Environment ready! Activate with: source .venv/bin/activate"
 
@@ -130,9 +132,17 @@ format:
 	@echo "🎨 Running Ruff Formatter..."
 	uv run ruff format .
 
+format-check:
+	@echo "🎨 Checking Ruff formatting..."
+	uv run ruff format . --check
+
 lint:
-	@echo "🔍 Running Ruff Linter..."
+	@echo "🔧 Running Ruff Linter with fixes..."
 	uv run ruff check . --fix
+
+lint-check:
+	@echo "🔍 Running Ruff Linter..."
+	uv run ruff check .
 
 type-check:
 	@echo "🦆 Running Mypy Type Checker..."
@@ -144,7 +154,7 @@ pyright:
 
 check-types: type-check pyright
 
-check: format lint check-types check-typing-stubs check-format-transform-stubs check-cli-transform-stubs
+check: format-check lint-check check-types check-typing-stubs check-format-transform-stubs check-cli-transform-stubs
 
 # =============================================================================
 # 🧩 Typing stub generation
@@ -198,8 +208,7 @@ release:
 	@echo "Since you are using CI/CD driven releases:"
 	@echo "1. Commit all your changes."
 	@echo "2. Go to your repository release page:"
-	@echo "   🔗 GitHub: https://github.com/YourUser/$(PACKAGE_NAME)/releases/new"
-	@echo "   🔗 Gitea:  (Your Gitea URL)/$(PACKAGE_NAME)/releases/new"
+	@echo "   🔗 GitHub: $(REPOSITORY_URL)/releases/new"
 	@echo "3. Draft a new release and create a tag (e.g., v0.1.0)."
 	@echo "---------------------------------------------------"
 
@@ -219,44 +228,6 @@ distclean: clean
 	@echo "🗑️ Removing virtual environment (.venv)..."
 	rm -rf .venv .python-version
 	@echo "✨ Project is clean. Run 'make init' to restart."
-
-# =============================================================================
-# 🛠️ 模板实用工具
-# =============================================================================
-rename:
-	@read -p "Enter new package name (e.g., my_awesome_tool): " new_name; \
-	if [ -z "$$new_name" ]; then \
-		echo "❌ Name cannot be empty"; \
-		exit 1; \
-	fi; \
-	if [ -d "src/$$new_name" ]; then \
-		echo "❌ Directory src/$$new_name already exists"; \
-		exit 1; \
-	fi; \
-	\
-	echo "🔄 Renaming directory src/$(PACKAGE_NAME) -> src/$$new_name..."; \
-	mv src/$(PACKAGE_NAME) src/$$new_name; \
-	\
-	echo "🔄 Replacing '$(PACKAGE_NAME)' with '$$new_name' in ALL project files..."; \
-	find . -type f \
-		-not -path "./.git/*" \
-		-not -path "./.venv/*" \
-		-not -path "./.mypy_cache/*" \
-		-not -path "./.ruff_cache/*" \
-		-not -path "./.pytest_cache/*" \
-		-not -path "./__pycache__/*" \
-		-not -path "*/__pycache__/*" \
-		-not -path "./dist/*" \
-		-not -path "./build/*" \
-		-not -path "./uv.lock" \
-		-exec grep -Iq "$(PACKAGE_NAME)" {} \; -print0 | \
-		xargs -0 sed -i.bak "s/$(PACKAGE_NAME)/$$new_name/g"; \
-	\
-	echo "🧹 Cleaning up backup files..."; \
-	find . -name "*.bak" -type f -delete; \
-	\
-	echo "✅ Rename complete!"; \
-	echo "👉 Note: 'uv.lock' might be out of sync. Please run 'make init' or 'uv sync' to regenerate it."
 
 # =============================================================================
 # 🐳 Docker 常用命令

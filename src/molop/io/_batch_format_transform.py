@@ -16,7 +16,7 @@ from molop.config import moloplogger
 
 
 class _HasParallelExecute(Protocol):
-    def parallel_execute(self, func: Any, desc: str = "", n_jobs: int = 1) -> list[Any]: ...
+    def parallel_execute(self, func: Any, desc: str = "", n_jobs: int = 1) -> Any: ...
 
 
 class BatchFormatTransformMixin:
@@ -29,7 +29,6 @@ class BatchFormatTransformMixin:
         n_jobs: int = 1,
         **kwargs: Any,
     ) -> dict[str, str | list[str]]:
-
         if output_dir is not None:
             assert os.path.isdir(output_dir), f"{output_dir} is not a directory"
 

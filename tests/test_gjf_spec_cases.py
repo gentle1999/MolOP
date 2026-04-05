@@ -188,7 +188,6 @@ def test_free_format_delimiters_are_parsed_and_rendered_canonically() -> None:
     assert "0.9700" in atom_specs[2].coords_part
     assert "104.5000" in atom_specs[2].coords_part
 
-    rendered = frame._render()
     molecule_render = frame.molecule_specifications._render()
     assert "," not in molecule_render
     assert "\t" not in molecule_render

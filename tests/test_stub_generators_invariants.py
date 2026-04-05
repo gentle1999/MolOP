@@ -21,6 +21,16 @@ def _extract_overload_blocks(text: str, function_name: str) -> list[str]:
     return pattern.findall(text)
 
 
+def _extract_class_block(text: str, class_name: str) -> str:
+    pattern = re.compile(
+        rf"class\s+{class_name}:\n(?P<body>[\s\S]*?)(?=^class\s+|\Z)",
+        re.MULTILINE,
+    )
+    match = pattern.search(text)
+    assert match is not None, f"class block not found: {class_name}"
+    return match.group("body")
+
+
 def _extract_docstring(block: str) -> str:
     match = re.search(r'"""([\s\S]*?)"""', block)
     assert match is not None
@@ -29,12 +39,12 @@ def _extract_docstring(block: str) -> str:
 
 def _extract_args_names(docstring: str) -> list[str]:
     section = re.search(
-        r"\n\s*Args:\n(?P<body>[\s\S]*?)(?:\n\s*(?:Format-specific Args|Returns|Source):|\Z)",
+        r"\n\s*Parameters\n\s*-+\n(?P<body>[\s\S]*?)(?:\n\s*(?:Format behavior|Renderer docstring|Format-specific parameters|Returns|Source)\n\s*-+|\Z)",
         docstring,
     )
     if section is None:
         return []
-    return re.findall(r"^\s*([A-Za-z_][A-Za-z0-9_]*):", section.group("body"), re.MULTILINE)
+    return re.findall(r"^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:", section.group("body"), re.MULTILINE)
 
 
 def _assert_no_duplicate_doc_args(block: str) -> None:
@@ -51,12 +61,12 @@ def _assert_sorted_literal_overloads(blocks: list[str], arg_name: str) -> None:
     assert format_ids == sorted(format_ids)
 
 
-def test_io_stub_overloads_are_sorted_and_have_google_args() -> None:
-    for rel_path in (
-        "src/molop/io/base_models/_format_transform.pyi",
-        "src/molop/io/_batch_format_transform.pyi",
-    ):
-        blocks = _extract_overload_blocks(_read(rel_path), "format_transform")
+def test_io_stub_overloads_are_sorted_and_have_numpy_parameters() -> None:
+    base_model_text = _read("src/molop/io/base_models/_format_transform.pyi")
+    for class_name in ("FrameFormatTransformMixin", "FormatTransformMixin"):
+        blocks = _extract_overload_blocks(
+            _extract_class_block(base_model_text, class_name), "format_transform"
+        )
         assert blocks
         _assert_sorted_literal_overloads(blocks, "format")
 
@@ -64,11 +74,24 @@ def test_io_stub_overloads_are_sorted_and_have_google_args() -> None:
         assert literal_blocks
         for block in literal_blocks:
             doc = _extract_docstring(block)
-            assert "Args:" in doc
+            assert re.search(r"\n\s*Parameters\n\s*-+", doc)
             _assert_no_duplicate_doc_args(block)
 
+    batch_blocks = _extract_overload_blocks(
+        _read("src/molop/io/_batch_format_transform.pyi"), "format_transform"
+    )
+    assert batch_blocks
+    _assert_sorted_literal_overloads(batch_blocks, "format")
 
-def test_cli_stub_transform_overloads_include_literal_to_args_and_source() -> None:
+    batch_literal_blocks = [b for b in batch_blocks if 'format: Literal["' in b]
+    assert batch_literal_blocks
+    for block in batch_literal_blocks:
+        doc = _extract_docstring(block)
+        assert re.search(r"\n\s*Parameters\n\s*-+", doc)
+        _assert_no_duplicate_doc_args(block)
+
+
+def test_cli_stub_transform_overloads_include_literal_to_parameters_and_source() -> None:
     blocks = _extract_overload_blocks(_read("src/molop/cli/app.pyi"), "transform")
     assert blocks
     _assert_sorted_literal_overloads(blocks, "to")
@@ -78,8 +101,8 @@ def test_cli_stub_transform_overloads_include_literal_to_args_and_source() -> No
     for block in literal_blocks:
         assert 'to: Literal["' in block
         doc = _extract_docstring(block)
-        assert "Args:" in doc
-        assert "Source:" in doc
+        assert re.search(r"\n\s*Parameters\n\s*-+", doc)
+        assert re.search(r"\n\s*Source\n\s*-+", doc)
         _assert_no_duplicate_doc_args(block)
 
 
