@@ -28,7 +28,7 @@ class FrameFormatTransformMixin:
             "file_path should be a file path or None"
         )
         normalized_format = format.strip().lower()
-        graph_policy = kwargs.pop("graph_policy", "prefer")
+        graph_policy = kwargs.pop("graph_policy", None)
         rendered = self._render_frame_format(
             normalized_format,
             file_path=file_path,
@@ -46,7 +46,7 @@ class FrameFormatTransformMixin:
         format: str,
         *,
         file_path: os.PathLike | str | None = None,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         **kwargs: Any,
     ) -> str:
         rendered = codec_registry.write_frame(
@@ -97,7 +97,7 @@ class FormatTransformMixin:
         else:
             raise ValueError("frameID should be an integer, a sequence of integers, or 'all'")
 
-        graph_policy = kwargs.pop("graph_policy", "prefer")
+        graph_policy = kwargs.pop("graph_policy", None)
         write_kwargs = dict(kwargs)
         if file_path is not None:
             write_kwargs["file_path"] = os.fspath(file_path)

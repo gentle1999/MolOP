@@ -61,6 +61,7 @@ def register(registry: Registry) -> None:
         format_id="gjf",
         required_level=StructureLevel.COORDS,
         domain="file",
+        default_graph_policy="prefer",
         priority=priority,
     )
     def _factory() -> WriterCodec:
@@ -79,6 +80,7 @@ def register(registry: Registry) -> None:
         format_id="gjf",
         required_level=StructureLevel.COORDS,
         domain="frame",
+        default_graph_policy="prefer",
         priority=priority,
     )
     def _frame_factory() -> WriterCodec:

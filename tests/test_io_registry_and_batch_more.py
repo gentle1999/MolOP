@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import importlib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
@@ -7,11 +8,14 @@ from typing import Any, cast
 import pytest
 
 from molop.io.base_models._format_transform import FrameFormatTransformMixin
+from molop.io.codec_exceptions import ConversionError
 from molop.io.codec_exceptions import UnsupportedFormatError
 from molop.io.codec_registry import Registry
 from molop.io.codec_types import ParseResult, StructureLevel
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
 from molop.io.FileBatchParserDisk import FileBatchParserDisk
+
+filebatchparserdisk_module = importlib.import_module("molop.io.FileBatchParserDisk")
 
 
 @dataclass
@@ -56,6 +60,7 @@ class FakeDiskFile:
 
 class DummyFrameTransform(FrameFormatTransformMixin):
     def __init__(self) -> None:
+        self.frame_id = 0
         self.charge = 0
         self.multiplicity = 1
         self.rdmol = object()
@@ -70,6 +75,27 @@ class DummyFrameTransform(FrameFormatTransformMixin):
             "charge": self.charge,
             "multiplicity": self.multiplicity,
         }
+
+    def _render(self, **_kwargs: Any) -> str:
+        return "dummy-frame"
+
+
+class DummyStructuredFile:
+    def __init__(self) -> None:
+        self.frames = [object()]
+
+    def model_dump(self, **_kwargs: Any) -> dict[str, Any]:
+        return {"frames": 1}
+
+
+@dataclass
+class DummyWriter:
+    format_id: str
+    required_level: StructureLevel
+    priority: int = 100
+
+    def write(self, value: object, **_kwargs: Any) -> str:
+        return f"{self.format_id}:{type(value).__name__}"
 
 
 _MISSING = object()
@@ -102,6 +128,148 @@ def test_registry_normalizes_format_id_and_extensions_via_public_api() -> None:
     assert len(selected) == 1
     assert selected[0].format_id == "xyz"
     assert selected[0].extensions == frozenset({".xyz"})
+
+
+def test_registry_uses_writer_default_graph_policy_when_unspecified() -> None:
+    reg = Registry(autoload_defaults=False)
+
+    class GraphWriter:
+        format_id = "dual"
+        required_level = StructureLevel.GRAPH
+        priority = 100
+
+        def write(self, value: object, **_kwargs: Any) -> str:
+            return f"graph:{type(value).__name__}"
+
+    class CoordsWriter:
+        format_id = "dual"
+        required_level = StructureLevel.COORDS
+        priority = 10
+
+        def write(self, value: object, **_kwargs: Any) -> str:
+            return f"coords:{type(value).__name__}"
+
+    reg.register_writer_factory(
+        lambda: GraphWriter(),
+        format_id="dual",
+        required_level=StructureLevel.GRAPH,
+        domain="file",
+        default_graph_policy="prefer",
+        priority=100,
+    )
+    reg.register_writer_factory(
+        lambda: CoordsWriter(),
+        format_id="dual",
+        required_level=StructureLevel.COORDS,
+        domain="file",
+        default_graph_policy="coords",
+        priority=10,
+    )
+
+    rendered = reg.write("dual", DummyStructuredFile())
+
+    assert rendered == "graph:DummyStructuredFile"
+
+
+def test_registry_allows_manual_graph_policy_override() -> None:
+    reg = Registry(autoload_defaults=False)
+
+    class GraphWriter:
+        format_id = "dual"
+        required_level = StructureLevel.GRAPH
+        priority = 100
+
+        def write(self, value: object, **_kwargs: Any) -> str:
+            return f"graph:{type(value).__name__}"
+
+    class CoordsWriter:
+        format_id = "dual"
+        required_level = StructureLevel.COORDS
+        priority = 10
+
+        def write(self, value: object, **_kwargs: Any) -> str:
+            return f"coords:{type(value).__name__}"
+
+    reg.register_writer_factory(
+        lambda: GraphWriter(),
+        format_id="dual",
+        required_level=StructureLevel.GRAPH,
+        domain="frame",
+        default_graph_policy="prefer",
+        priority=100,
+    )
+    reg.register_writer_factory(
+        lambda: CoordsWriter(),
+        format_id="dual",
+        required_level=StructureLevel.COORDS,
+        domain="frame",
+        default_graph_policy="coords",
+        priority=10,
+    )
+
+    frame_value = DummyFrameTransform()
+
+    assert reg.write_frame("dual", frame_value) == "graph:DummyFrameTransform"
+    assert (
+        reg.write_frame("dual", frame_value, graph_policy="coords") == "coords:DummyFrameTransform"
+    )
+
+
+def test_registry_raises_when_coords_override_has_no_coords_writer() -> None:
+    reg = Registry(autoload_defaults=False)
+
+    class GraphWriter:
+        format_id = "sdf"
+        required_level = StructureLevel.GRAPH
+        priority = 100
+
+        def write(self, value: object, **_kwargs: Any) -> str:
+            return f"graph:{type(value).__name__}"
+
+    reg.register_writer_factory(
+        lambda: GraphWriter(),
+        format_id="sdf",
+        required_level=StructureLevel.GRAPH,
+        domain="file",
+        default_graph_policy="prefer",
+        priority=100,
+    )
+
+    with pytest.raises(ConversionError, match="No coords-level writers registered"):
+        reg.write("sdf", DummyStructuredFile(), graph_policy="coords")
+
+
+def test_registry_builtin_default_graph_policies_match_format_semantics() -> None:
+    reg = Registry(autoload_defaults=False)
+
+    reg.register_writer_factory(
+        lambda: DummyWriter("sdf", StructureLevel.GRAPH),
+        format_id="sdf",
+        required_level=StructureLevel.GRAPH,
+        domain="file",
+        default_graph_policy="strict",
+        priority=100,
+    )
+    reg.register_writer_factory(
+        lambda: DummyWriter("smi", StructureLevel.GRAPH),
+        format_id="smi",
+        required_level=StructureLevel.GRAPH,
+        domain="file",
+        default_graph_policy="strict",
+        priority=100,
+    )
+    reg.register_writer_factory(
+        lambda: DummyWriter("gjf", StructureLevel.COORDS),
+        format_id="gjf",
+        required_level=StructureLevel.COORDS,
+        domain="file",
+        default_graph_policy="prefer",
+        priority=100,
+    )
+
+    assert reg._writers_by_format["sdf"][0].default_graph_policy == "strict"
+    assert reg._writers_by_format["smi"][0].default_graph_policy == "strict"
+    assert reg._writers_by_format["gjf"][0].default_graph_policy == "prefer"
 
 
 def test_filebatch_filter_by_codec_id_missing_metadata_keep_drop_and_error() -> None:
@@ -204,7 +372,9 @@ def test_filter_custom_keeps_alignment_with_generator_results(
         ),
     )
 
-    def generator_parallel_execute(_func: Any, _desc: str = "", _n_jobs: int = 1) -> Any:
+    def generator_parallel_execute(
+        _func: Any, _desc: str = "", _n_jobs: int = 1, **_kwargs: Any
+    ) -> Any:
         return (keep for keep in [True, False, True])
 
     monkeypatch.setattr(batch, "parallel_execute", generator_parallel_execute)
@@ -248,17 +418,16 @@ def test_filebatchparser_parallel_generator_path_filters_results_safely(
     parser = FileBatchParserDisk(n_jobs=2)
     file_paths = ["/tmp/b.xyz", "/tmp/a.xyz", "/tmp/c.xyz"]
 
-    monkeypatch.setattr("molop.io.FileBatchParserDisk.os.path.isfile", lambda path: True)
+    monkeypatch.setattr(filebatchparserdisk_module.os.path, "isfile", lambda path: True)
+    monkeypatch.setattr(filebatchparserdisk_module.os.path, "abspath", lambda path: cast(str, path))
     monkeypatch.setattr(
-        "molop.io.FileBatchParserDisk.os.path.abspath",
-        lambda path: cast(str, path),
-    )
-    monkeypatch.setattr(
-        "molop.io.FileBatchParserDisk.os.path.getsize",
+        filebatchparserdisk_module.os.path,
+        "getsize",
         lambda path: {"/tmp/b.xyz": 30, "/tmp/a.xyz": 20, "/tmp/c.xyz": 10}[cast(str, path)],
     )
     monkeypatch.setattr(
-        "molop.io.FileBatchParserDisk.codec_registry.select_reader",
+        filebatchparserdisk_module.codec_registry,
+        "select_reader",
         lambda _path, hint_format=None: (DummyReader("xyz", frozenset({".xyz"}), 1),),
     )
 
@@ -269,13 +438,13 @@ def test_filebatchparser_parallel_generator_path_filters_results_safely(
     }
 
     monkeypatch.setattr(
-        "molop.io.FileBatchParserDisk.single_file_parser",
+        filebatchparserdisk_module,
+        "single_file_parser",
         lambda **task: parsed_by_path[task["file_path"]],
     )
 
     monkeypatch.setattr(
-        "molop.io.FileBatchParserDisk.delayed",
-        lambda func: lambda **task: lambda: func(**task),
+        filebatchparserdisk_module, "delayed", lambda func: lambda **task: lambda: func(**task)
     )
 
     class StubParallel:
@@ -285,7 +454,7 @@ def test_filebatchparser_parallel_generator_path_filters_results_safely(
         def __call__(self, iterable: Any) -> Any:
             return (callable_obj() for callable_obj in iterable)
 
-    monkeypatch.setattr("molop.io.FileBatchParserDisk.Parallel", StubParallel)
+    monkeypatch.setattr(filebatchparserdisk_module, "Parallel", StubParallel)
 
     batch = parser.parse(file_paths)
 
@@ -314,6 +483,28 @@ def test_frame_format_transform_routes_single_frame_through_codec_registry(
     assert captured["format_id"] == "xyz"
     assert captured["kwargs"]["graph_policy"] == "coords"
     assert captured["value"] is frame
+
+
+def test_frame_format_transform_defers_default_graph_policy_to_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = DummyFrameTransform()
+    captured: dict[str, Any] = {}
+
+    def fake_write(format_id: str, value: object, **kwargs: Any) -> str:
+        captured["format_id"] = format_id
+        captured["value"] = value
+        captured["kwargs"] = kwargs
+        return "rendered-block"
+
+    monkeypatch.setattr(
+        "molop.io.base_models._format_transform.codec_registry.write_frame", fake_write
+    )
+
+    rendered = frame.format_transform("xyz")
+
+    assert rendered == "rendered-block"
+    assert captured["kwargs"]["graph_policy"] is None
 
 
 def test_frame_format_transform_writes_requested_output_file(

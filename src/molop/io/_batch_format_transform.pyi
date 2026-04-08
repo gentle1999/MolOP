@@ -30,7 +30,7 @@ class BatchFormatTransformMixin:
         embed_in_one_file: bool = True,
         n_jobs: int = 1,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         engine: Literal["rdkit", "openbabel"] = ...,
         **kwargs: Any,
     ) -> dict[str, str | list[str]]:
@@ -83,7 +83,7 @@ class BatchFormatTransformMixin:
         embed_in_one_file: bool = True,
         n_jobs: int = 1,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         link0_commands: str | GJFLink0Commands | dict[str, str | None] | None = ...,
         route_section: str | GJFRouteSection | None = ...,
         title_card: str | GJFTitleCard | None = ...,
@@ -340,7 +340,7 @@ class BatchFormatTransformMixin:
         embed_in_one_file: bool = True,
         n_jobs: int = 1,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         keywords: str | None = ...,
         resources_raw: str | None = ...,
         nprocs: int | None = ...,
@@ -408,7 +408,7 @@ class BatchFormatTransformMixin:
         embed_in_one_file: bool = True,
         n_jobs: int = 1,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         engine: Literal["rdkit", "openbabel"] = ...,
         **kwargs: Any,
     ) -> dict[str, str | list[str]]:
@@ -467,7 +467,7 @@ class BatchFormatTransformMixin:
         embed_in_one_file: bool = True,
         n_jobs: int = 1,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         **kwargs: Any,
     ) -> dict[str, str | list[str]]:
         """Transform using the `smi` writer overload.
@@ -518,7 +518,7 @@ class BatchFormatTransformMixin:
         embed_in_one_file: bool = True,
         n_jobs: int = 1,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         **kwargs: Any,
     ) -> dict[str, str | list[str]]:
         """Transform using the `xyz` writer overload.
@@ -572,7 +572,7 @@ class BatchFormatTransformMixin:
         embed_in_one_file: bool = True,
         n_jobs: int = 1,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         **kwargs: Any,
     ) -> dict[str, str | list[str]]:
         """Transform using a format string and format-specific writer options.

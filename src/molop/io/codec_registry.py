@@ -53,6 +53,7 @@ class _WriterSpec:
     format_id: str
     required_level: StructureLevel
     domain: WriterDomain
+    default_graph_policy: GraphPolicy
     priority: int
     factory: WriterFactory
     order: int
@@ -138,6 +139,7 @@ class Registry:
             lambda: codec,
             format_id=codec.format_id,
             required_level=codec.required_level,
+            default_graph_policy=getattr(codec, "default_graph_policy", None),
             priority=codec.priority,
         )
 
@@ -148,6 +150,7 @@ class Registry:
         format_id: str,
         required_level: StructureLevel,
         domain: WriterDomain = "file",
+        default_graph_policy: GraphPolicy | None = None,
         priority: int = 0,
     ) -> None:
         normalized_format_id = _normalize_format_id(format_id)
@@ -155,6 +158,8 @@ class Registry:
             format_id=normalized_format_id,
             required_level=required_level,
             domain=domain,
+            default_graph_policy=default_graph_policy
+            or _default_graph_policy_for_level(required_level),
             priority=priority,
             factory=factory,
             order=next(self._registration_counter),
@@ -193,6 +198,7 @@ class Registry:
         format_id: str,
         required_level: StructureLevel,
         domain: WriterDomain = "file",
+        default_graph_policy: GraphPolicy | None = None,
         priority: int = 0,
     ):
         """Decorator that registers a writer factory into this registry."""
@@ -203,6 +209,7 @@ class Registry:
                 format_id=format_id,
                 required_level=required_level,
                 domain=domain,
+                default_graph_policy=default_graph_policy,
                 priority=priority,
             )
             return factory
@@ -265,7 +272,7 @@ class Registry:
         format_id: str,
         value: object,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         **kwargs: Any,
     ) -> object:
         """Write a value using registered writer codecs."""
@@ -286,7 +293,7 @@ class Registry:
             file_writer_specs,
             raw_value,
             structure_level=structure_level,
-            graph_policy=graph_policy,
+            graph_policy=_resolve_graph_policy(file_writer_specs, graph_policy),
             **kwargs,
         )
 
@@ -295,7 +302,7 @@ class Registry:
         format_id: str,
         value: object,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         **kwargs: Any,
     ) -> object:
         if self._autoload_defaults:
@@ -314,7 +321,7 @@ class Registry:
             frame_writer_specs,
             raw_value,
             structure_level=structure_level,
-            graph_policy=graph_policy,
+            graph_policy=_resolve_graph_policy(frame_writer_specs, graph_policy),
             **kwargs,
         )
 
@@ -357,6 +364,7 @@ def register_writer_factory(
     format_id: str,
     required_level: StructureLevel,
     domain: WriterDomain = "file",
+    default_graph_policy: GraphPolicy | None = None,
     priority: int = 0,
 ) -> None:
     default_registry.register_writer_factory(
@@ -364,6 +372,7 @@ def register_writer_factory(
         format_id=format_id,
         required_level=required_level,
         domain=domain,
+        default_graph_policy=default_graph_policy,
         priority=priority,
     )
 
@@ -392,12 +401,14 @@ def writer_factory(
     format_id: str,
     required_level: StructureLevel,
     domain: WriterDomain = "file",
+    default_graph_policy: GraphPolicy | None = None,
     priority: int = 0,
 ):
     return default_registry.writer_factory(
         format_id=format_id,
         required_level=required_level,
         domain=domain,
+        default_graph_policy=default_graph_policy,
         priority=priority,
     )
 
@@ -414,7 +425,7 @@ def write(
     format_id: str,
     value: object,
     *,
-    graph_policy: GraphPolicy = "prefer",
+    graph_policy: GraphPolicy | None = None,
     **kwargs: Any,
 ) -> object:
     return default_registry.write(format_id, value, graph_policy=graph_policy, **kwargs)
@@ -424,7 +435,7 @@ def write_frame(
     format_id: str,
     value: object,
     *,
-    graph_policy: GraphPolicy = "prefer",
+    graph_policy: GraphPolicy | None = None,
     **kwargs: Any,
 ) -> object:
     return default_registry.write_frame(format_id, value, graph_policy=graph_policy, **kwargs)
@@ -522,6 +533,20 @@ def _write_with_domain_specs(
     if graph_writers:
         raise ConversionError("Unable to upgrade value for graph writers.")
     raise UnsupportedFormatError("No compatible writers registered.")
+
+
+def _default_graph_policy_for_level(required_level: StructureLevel) -> GraphPolicy:
+    if required_level == StructureLevel.GRAPH:
+        return "prefer"
+    return "coords"
+
+
+def _resolve_graph_policy(
+    specs: Sequence[_WriterSpec], graph_policy: GraphPolicy | None
+) -> GraphPolicy:
+    if graph_policy is not None:
+        return graph_policy
+    return specs[0].default_graph_policy
 
 
 def _write_with_specs(

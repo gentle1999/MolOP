@@ -28,7 +28,7 @@ class FrameFormatTransformMixin:
         format: Literal["cml"],
         file_path: os.PathLike | str | None = None,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         engine: Literal["rdkit", "openbabel"] = ...,
         **kwargs: Any,
     ) -> str:
@@ -72,7 +72,7 @@ class FrameFormatTransformMixin:
         format: Literal["gjf"],
         file_path: os.PathLike | str | None = None,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         link0_commands: str | GJFLink0Commands | dict[str, str | None] | None = ...,
         route_section: str | GJFRouteSection | None = ...,
         title_card: str | GJFTitleCard | None = ...,
@@ -320,7 +320,7 @@ class FrameFormatTransformMixin:
         format: Literal["orcainp"],
         file_path: os.PathLike | str | None = None,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         keywords: str | None = ...,
         resources_raw: str | None = ...,
         nprocs: int | None = ...,
@@ -379,7 +379,7 @@ class FrameFormatTransformMixin:
         format: Literal["sdf"],
         file_path: os.PathLike | str | None = None,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         engine: Literal["rdkit", "openbabel"] = ...,
         **kwargs: Any,
     ) -> str:
@@ -429,7 +429,7 @@ class FrameFormatTransformMixin:
         format: Literal["smi"],
         file_path: os.PathLike | str | None = None,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         **kwargs: Any,
     ) -> str:
         """Transform using the `smi` writer overload.
@@ -471,7 +471,7 @@ class FrameFormatTransformMixin:
         format: Literal["xyz"],
         file_path: os.PathLike | str | None = None,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         **kwargs: Any,
     ) -> str:
         """Transform using the `xyz` writer overload.
@@ -516,7 +516,7 @@ class FrameFormatTransformMixin:
         format: str,
         file_path: os.PathLike | str | None = None,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         **kwargs: Any,
     ) -> str:
         """Transform using a format string and format-specific writer options.
@@ -619,7 +619,7 @@ class FormatTransformMixin:
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         engine: Literal["rdkit", "openbabel"] = ...,
         **kwargs: Any,
     ) -> str | list[str]:
@@ -669,7 +669,7 @@ class FormatTransformMixin:
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         link0_commands: str | GJFLink0Commands | dict[str, str | None] | None = ...,
         route_section: str | GJFRouteSection | None = ...,
         title_card: str | GJFTitleCard | None = ...,
@@ -923,7 +923,7 @@ class FormatTransformMixin:
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         keywords: str | None = ...,
         resources_raw: str | None = ...,
         nprocs: int | None = ...,
@@ -988,7 +988,7 @@ class FormatTransformMixin:
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         engine: Literal["rdkit", "openbabel"] = ...,
         **kwargs: Any,
     ) -> str | list[str]:
@@ -1044,7 +1044,7 @@ class FormatTransformMixin:
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         **kwargs: Any,
     ) -> str | list[str]:
         """Transform using the `smi` writer overload.
@@ -1092,7 +1092,7 @@ class FormatTransformMixin:
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         **kwargs: Any,
     ) -> str | list[str]:
         """Transform using the `xyz` writer overload.
@@ -1143,7 +1143,7 @@ class FormatTransformMixin:
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         *,
-        graph_policy: GraphPolicy = "prefer",
+        graph_policy: GraphPolicy | None = None,
         **kwargs: Any,
     ) -> str | list[str]:
         """Transform using a format string and format-specific writer options.

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2026-04-05 16:58:53
+LastEditTime: 2026-04-07 23:43:49
 Description: 请填写简介
 """
 
@@ -175,7 +175,7 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
                     return None
                 try:
                     self._rdmol = xyz_to_rdmol(
-                        self.format_transform("xyz"),
+                        self.to_XYZ(),
                         self.charge,
                         self.multiplicity,
                         backend=molopconfig.graph_reconstruction_backend,
@@ -594,3 +594,11 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
             Molecule: The new Molecule with internal coordinates.
         """
         return InternalCoords.from_cartesian_coords(self.atom_symbols, self.coords)
+
+    def to_XYZ(self) -> str:
+        return f"{len(self.atoms)}\n\n" + "\n".join(
+            [
+                f"{atom:10s}{x:18.10f}{y:18.10f}{z:18.10f}"
+                for atom, (x, y, z) in zip(self.atom_symbols, self.coords.m, strict=True)
+            ]
+        )

@@ -95,6 +95,7 @@ def register(registry: Registry) -> None:
         format_id="cml",
         required_level=StructureLevel.GRAPH,
         domain="file",
+        default_graph_policy="prefer",
         priority=priority,
     )
     def _factory() -> WriterCodec:
@@ -111,6 +112,7 @@ def register(registry: Registry) -> None:
         format_id="cml",
         required_level=StructureLevel.GRAPH,
         domain="frame",
+        default_graph_policy="prefer",
         priority=priority,
     )
     def _frame_factory() -> WriterCodec:
