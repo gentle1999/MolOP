@@ -701,14 +701,33 @@ def _render_module_stub(app_tree: ast.Module, specs: list[_RenderSpec]) -> str:
     return "\n".join(lines)
 
 
-def _format_with_ruff(text: str) -> str:
-    result = subprocess.run(
-        ["uv", "run", "ruff", "format", "-", "--stdin-filename", "src/molop/cli/app.pyi"],
+def _format_with_ruff(text: str, *, stdin_filename: str) -> str:
+    import_sorted = subprocess.run(
+        [
+            "uv",
+            "run",
+            "ruff",
+            "check",
+            "-",
+            "--select",
+            "I",
+            "--fix",
+            "--stdin-filename",
+            stdin_filename,
+        ],
         input=text,
         text=True,
         capture_output=True,
     )
-    return result.stdout if result.returncode == 0 else text
+    sorted_text = import_sorted.stdout if import_sorted.returncode == 0 else text
+    result = subprocess.run(
+        ["uv", "run", "ruff", "format", "-", "--stdin-filename", stdin_filename],
+        input=sorted_text,
+        text=True,
+        capture_output=True,
+    )
+    formatted = result.stdout if result.returncode == 0 else sorted_text
+    return formatted if formatted.endswith("\n") else f"{formatted}\n"
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -737,9 +756,11 @@ def main(argv: list[str] | None = None) -> int:
     app_tree = ast.parse(
         (repo_root / _APP_PATH).read_text(encoding="utf-8"), filename=str(_APP_PATH)
     )
-    output_text = _format_with_ruff(_render_module_stub(app_tree, render_specs))
-
     out_path = (repo_root / _APP_STUB_PATH).resolve()
+    output_text = _format_with_ruff(
+        _render_module_stub(app_tree, render_specs),
+        stdin_filename=out_path.as_posix(),
+    )
     existing = out_path.read_text(encoding="utf-8") if out_path.exists() else ""
     if existing == output_text:
         if args.check:

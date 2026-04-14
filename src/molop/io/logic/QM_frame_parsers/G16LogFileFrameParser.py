@@ -23,6 +23,14 @@ from molop.io.logic.QM_frame_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
     G16LogFileFrameMemory,
 )
+from molop.io.logic.QM_frame_models.G16V3Components import (
+    G16V3L601PopAnalComponent,
+    G16V3L716FreqComponent,
+    G16V3L9999ArchiveComponent,
+    _parse_orbital_line_values,
+    extract_coords,
+)
+from molop.io.logic.QM_parsers._g16log_archive_tail import parse_archive_tail
 from molop.io.patterns.G16Patterns import g16_log_patterns
 from molop.unit import atom_ureg
 from molop.utils.functions import fill_symmetric_matrix, merge_models
@@ -34,17 +42,11 @@ from molop.utils.functions import fill_symmetric_matrix, merge_models
 pt = Chem.GetPeriodicTable()
 
 
-def extract_coords(
-    coords_match: list[tuple[str | Any, ...]],
-) -> tuple[list[int], NumpyQuantity] | tuple[None, None]:
-    try:
-        raw_atoms, raw_x, raw_y, raw_z = zip(*coords_match, strict=True)
-        atoms = [int(a) if a.isdigit() else pt.GetAtomicNumber(a) for a in raw_atoms]
-        coords_array = np.array([raw_x, raw_y, raw_z], dtype=float).T
-        return atoms, coords_array * atom_ureg.angstrom
-    except (ValueError, IndexError) as e:
-        moloplogger.error(f"Error extracting coordinates: {e}")
-        return None, None
+def _summarize_parse_context(text: str, *, limit: int = 240) -> str:
+    compact = " ".join(text.split())
+    if len(compact) <= limit:
+        return compact
+    return f"{compact[:limit]}..."
 
 
 class G16LogFileFrameParserMixin:
@@ -72,9 +74,17 @@ class G16LogFileFrameParserMixin:
             infos["total_spin"] = total_spin
         if (polarizability := self._parse_polarizability()) is not None:
             infos["polarizability"] = polarizability
-        if pops := self._parse_populations():
+        pops, working_block = G16V3L601PopAnalComponent._extract_population_payload(
+            cast(_HasParseMethod, self)._block
+        )
+        cast(_HasParseMethod, self)._block = working_block
+        if pops:
             infos.update(pops)
-        if (vibrations := self._parse_vibrations()) is not None:
+        vibrations, working_block = G16V3L716FreqComponent._extract_vibration_payload(
+            cast(_HasParseMethod, self)._block
+        )
+        cast(_HasParseMethod, self)._block = working_block
+        if vibrations is not None:
             infos["vibrations"] = vibrations
         if (thermal_info := self._parse_thermal_infos()) is not None:
             infos["thermal_informations"] = thermal_info
@@ -91,30 +101,52 @@ class G16LogFileFrameParserMixin:
                 )
             else:
                 infos["polarizability"] = polarizability
-        if (tail := self._parse_tail()) is not None:
+        tail, working_block = G16V3L9999ArchiveComponent._extract_archive_metadata(
+            cast(_HasParseMethod, self)._block
+        )
+        cast(_HasParseMethod, self)._block = working_block
+        if tail:
             for key, value in tail.items():
                 if key not in infos:
                     infos[key] = value
-            if (tail_energies := self._parse_tail_energies()) is not None:
+            tail_energies, working_block = G16V3L9999ArchiveComponent._extract_archive_energies(
+                cast(_HasParseMethod, self)._block
+            )
+            cast(_HasParseMethod, self)._block = working_block
+            if tail_energies is not None:
                 if "energies" in infos:
                     infos["energies"] = merge_models(infos["energies"], tail_energies)
                 else:
                     infos["energies"] = tail_energies
-            if (tail_thermal_info := self._parse_tail_thermal_infos()) is not None:
+            tail_thermal_info, working_block = (
+                G16V3L9999ArchiveComponent._extract_archive_thermal_infos(
+                    cast(_HasParseMethod, self)._block
+                )
+            )
+            cast(_HasParseMethod, self)._block = working_block
+            if tail_thermal_info is not None:
                 if "thermal_informations" in infos:
                     infos["thermal_informations"] = merge_models(
                         infos["thermal_informations"], tail_thermal_info
                     )
                 else:
                     infos["thermal_informations"] = tail_thermal_info
-            if (tail_polarizability := self._parse_tail_polarizability()) is not None:
+            if (
+                tail_polarizability := G16V3L9999ArchiveComponent._extract_archive_polarizability(
+                    cast(_HasParseMethod, self)._block
+                )
+            ) is not None:
                 if "polarizability" in infos:
                     infos["polarizability"] = merge_models(
                         infos["polarizability"], tail_polarizability
                     )
                 else:
                     infos["polarizability"] = tail_polarizability
-            if (tail_hessian := self._parse_tail_hessian()) is not None and "hessian" not in infos:
+            tail_hessian, working_block = G16V3L9999ArchiveComponent._extract_archive_hessian(
+                cast(_HasParseMethod, self)._block
+            )
+            cast(_HasParseMethod, self)._block = working_block
+            if tail_hessian is not None and "hessian" not in infos:
                 infos["hessian"] = tail_hessian
         return infos
 
@@ -244,7 +276,7 @@ class G16LogFileFrameParserMixin:
                 temp_beta_orbitals = []
                 temp_beta_occupancies = []
                 for orbital_type, occ_stat, energies in matches:
-                    energies = [float(energies[j : j + 10]) for j in range(0, len(energies), 10)]
+                    energies = _parse_orbital_line_values(energies)
                     if occ_stat not in ["occ.", "virt."]:
                         raise ValueError(f"Invalid {orbital_type} occupancy status: {occ_stat}")
                     if orbital_type == "Alpha":
@@ -338,7 +370,11 @@ class G16LogFileFrameParserMixin:
             if polars:
                 infos["polarizability"] = Polarizability.model_validate(polars)
         except (ValueError, IndexError) as e:
-            moloplogger.warning(f"Error parsing populations: {e}, now block: {self._block}")
+            moloplogger.warning(
+                "Error parsing populations: %s | context=%s",
+                e,
+                _summarize_parse_context(self._block),
+            )
         except Exception as e:
             moloplogger.error(f"Unexpected error occurred while parsing populations: {e}")
         return infos
@@ -569,50 +605,10 @@ class G16LogFileFrameParserMixin:
         return None
 
     def _parse_tail(self) -> dict[str, Any]:
-        tail_dict: dict[str, Any] = {}
-        focus_content, _ = g16_log_patterns.ARCHIVE_TAIL.split_content(
-            cast(_HasParseMethod, self)._block
+        tail_dict, remaining_tail = parse_archive_tail(
+            cast(_HasParseMethod, self)._block, include_coords=True
         )
-        focus_content = focus_content.replace("\n ", "")
-
-        def parse_and_update(pattern: MolOPPattern, key: str):
-            nonlocal focus_content
-            try:
-                sub_focus_content, focus_content = pattern.split_content(focus_content)
-                moloplogger.debug(
-                    f"{key} focus content: \n{sub_focus_content}\n{key} focus content end"
-                )
-                if matches := pattern.get_matches(sub_focus_content):
-                    tail_dict[key] = matches[0][0]
-            except Exception as e:
-                moloplogger.error(f"Error in parsing {key}: {e}")
-
-        parse_and_update(g16_log_patterns.JOB_TYPE_IN_ARCHIVE_TAIL, "job_type")
-        parse_and_update(g16_log_patterns.FUNCTIONAL_IN_ARCHIVE_TAIL, "functional")
-        parse_and_update(g16_log_patterns.BASIS_SET_IN_ARCHIVE_TAIL, "basis_set")
-        parse_and_update(g16_log_patterns.KEYWORDS_IN_ARCHIVE_TAIL, "keywords")
-        parse_and_update(g16_log_patterns.TITLE_IN_ARCHIVE_TAIL, "title_card")
-
-        sub_focus_content, focus_content = (
-            g16_log_patterns.CHARGE_SPIN_MULTIPLICITY_IN_ARCHIVE_TAIL.split_content(focus_content)
-        )
-        if matches := g16_log_patterns.CHARGE_SPIN_MULTIPLICITY_IN_ARCHIVE_TAIL.get_matches(
-            sub_focus_content
-        ):
-            charge_multiplicity = matches[0]
-            tail_dict["charge"] = int(charge_multiplicity[0])
-            tail_dict["multiplicity"] = int(charge_multiplicity[1])
-        sub_focus_content, focus_content = g16_log_patterns.COORS_IN_ARCHIVE_TAIL.split_content(
-            focus_content
-        )
-        if matches := g16_log_patterns.COORS_IN_ARCHIVE_TAIL.get_matches(sub_focus_content):
-            tail_dict["atoms"] = [pt.GetAtomicNumber(match[0]) for match in matches]
-            tail_dict["coords"] = (
-                np.array([list(map(float, match[1:])) for match in matches]) * atom_ureg.angstrom
-            )
-
-        parse_and_update(g16_log_patterns.VERSION_IN_ARCHIVE_TAIL, "qm_software_version")
-        self._block = focus_content
+        self._block = remaining_tail
         return tail_dict
 
     def _parse_tail_energies(self) -> Energies | None:

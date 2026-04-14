@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-26 19:08:33
 LastEditors: TMJ
-LastEditTime: 2026-03-18 22:24:50
+LastEditTime: 2026-04-11 01:05:32
 Description: 请填写简介
 """
 
@@ -61,7 +61,8 @@ class BaseDataClassWithUnit(BaseModel):
     def __unit_transform__(self) -> Self:
         if self.set_default_units or molopconfig.force_unit_transform:
             self._transform_units(self.default_units)
-            moloplogger.debug(f"Data class {self.__class__.__name__} parsed.\n{self}")
+            if moloplogger.isEnabledFor(10):
+                moloplogger.debug(f"Data class {self.__class__.__name__} parsed.")
         return self
 
     def _transform_units(self, unit_dict: Mapping[str, UnitLike]) -> None:

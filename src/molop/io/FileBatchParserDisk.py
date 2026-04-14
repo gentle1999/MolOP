@@ -155,7 +155,7 @@ class FileBatchParserDisk:
             results = Parallel(
                 n_jobs=self.__n_jobs,
                 maxtasks_per_child=50,
-                return_as="generator",
+                return_as="generator_unordered",
                 max_nbytes=molopconfig.parallel_max_size,
             )(
                 delayed(single_file_parser)(**task)

@@ -11,7 +11,7 @@ from typing import ClassVar, cast
 import numpy as np
 from pint._typing import UnitLike
 from pint.facets.numpy.quantity import NumpyQuantity
-from pydantic import Field, model_validator
+from pydantic import Field, PrivateAttr, model_validator
 from typing_extensions import Self
 
 from molop.io.base_models.ChemFileFrame import BaseCalcFrame, _HasVibrations
@@ -20,9 +20,14 @@ from molop.io.logic.gaussian_route_models import (
     GaussianRouteSemantic,
     parse_gaussian_route_semantic,
 )
-from molop.io.patterns.G16Patterns import (
-    SEMI_EMPIRICAL_METHODS,
+from molop.io.logic.QM_frame_models.G16V3Components import (
+    G16V3ComponentTree,
+    G16V3ComponentTreeBuilder,
+    _has_meaningful_value,
+    _rawify_payload,
+    aggregate_g16log_v3_tree,
 )
+from molop.io.patterns.G16Patterns import SEMI_EMPIRICAL_METHODS
 from molop.unit import atom_ureg
 from molop.utils.functions import find_rigid_transform, invert_transform_coords, transform_coords
 
@@ -50,10 +55,56 @@ class G16LogFileFrameMixin:
         description="Atom coordinates with standard orientation, unit is `angstrom`",
         title="Atom coordinates with standard orientation",
     )
+    component_tree_input: G16V3ComponentTree | None = Field(default=None, exclude=True, repr=False)
+    _component_tree: G16V3ComponentTree | None = PrivateAttr(default=None)
+
+    @staticmethod
+    def _prepare_component_tree(tree: G16V3ComponentTree) -> G16V3ComponentTree:
+        G16V3ComponentTreeBuilder.expand_synthetic_children(tree)
+        if not tree.payloads_rawified:
+            for node in tree.iter_nodes():
+                if node.component is not None:
+                    node.component.payload = _rawify_payload(node.component.payload)
+            tree.payloads_rawified = True
+        return tree
+
+    def _get_private_component_tree(self) -> G16V3ComponentTree | None:
+        private_attrs = getattr(self, "__pydantic_private__", None)
+        if isinstance(private_attrs, dict):
+            tree = private_attrs.get("_component_tree")
+            return cast(G16V3ComponentTree | None, tree)
+        tree = getattr(self, "_component_tree", None)
+        return cast(G16V3ComponentTree | None, tree)
+
+    def _set_private_component_tree(self, tree: G16V3ComponentTree | None) -> None:
+        private_attrs = getattr(self, "__pydantic_private__", None)
+        if isinstance(private_attrs, dict):
+            private_attrs["_component_tree"] = tree
+        else:
+            object.__setattr__(self, "_component_tree", tree)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _aggregate_from_component_tree(cls, data: object) -> object:
+        if not isinstance(data, dict):
+            return data
+        tree = data.get("component_tree_input")
+        if tree is None:
+            return data
+
+        normalized = dict(data)
+        aggregated = aggregate_g16log_v3_tree(tree)
+        for key, value in aggregated.items():
+            if _has_meaningful_value(value):
+                normalized[key] = value
+        return normalized
 
     @model_validator(mode="after")
     def _post_processing(self) -> Self:
         typed_self = cast(_HasVibrations, self)
+        if self.component_tree_input is not None:
+            self._set_private_component_tree(self.component_tree_input)
+            self.component_tree_input = None
         semantic_route = self.semantic_route
         if self.standard_coords is not None and (
             len(typed_self.coords) == len(self.standard_coords)
@@ -136,6 +187,19 @@ class G16LogFileFrameMixin:
     def semantic_route(self) -> GaussianRouteSemantic:
         return parse_gaussian_route_semantic(self.keywords)
 
+    @property
+    def component_tree(self) -> G16V3ComponentTree | None:
+        tree = self._get_private_component_tree()
+        if tree is None:
+            tree = G16V3ComponentTreeBuilder.from_frame_data(self)
+        tree = self._prepare_component_tree(tree)
+        self._set_private_component_tree(tree)
+        return tree
+
+    def render_fakeg(self, **kwargs) -> str:
+        tree = G16V3ComponentTreeBuilder.from_frame_data(self)
+        return tree.render_fakeg(**kwargs)
+
 
 class G16LogFileFrameMemory(
     MemoryStorageMixin, G16LogFileFrameMixin, BaseCalcFrame["G16LogFileFrameMemory"]
@@ -145,3 +209,7 @@ class G16LogFileFrameMemory(
 class G16LogFileFrameDisk(
     DiskStorageMixin, G16LogFileFrameMixin, BaseCalcFrame["G16LogFileFrameDisk"]
 ): ...
+
+
+G16LogFileFrameMemory.model_rebuild()
+G16LogFileFrameDisk.model_rebuild()

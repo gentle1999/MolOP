@@ -381,14 +381,33 @@ def _collect_spec_imports(
     return tuple(sorted(imports))
 
 
-def _format_with_ruff(text: str) -> str:
-    res = subprocess.run(
-        ["uv", "run", "ruff", "format", "-", "--stdin-filename", "stub.pyi"],
+def _format_with_ruff(text: str, *, stdin_filename: str) -> str:
+    import_sorted = subprocess.run(
+        [
+            "uv",
+            "run",
+            "ruff",
+            "check",
+            "-",
+            "--select",
+            "I",
+            "--fix",
+            "--stdin-filename",
+            stdin_filename,
+        ],
         input=text,
         text=True,
         capture_output=True,
     )
-    return res.stdout if res.returncode == 0 else text
+    sorted_text = import_sorted.stdout if import_sorted.returncode == 0 else text
+    res = subprocess.run(
+        ["uv", "run", "ruff", "format", "-", "--stdin-filename", stdin_filename],
+        input=sorted_text,
+        text=True,
+        capture_output=True,
+    )
+    formatted = res.stdout if res.returncode == 0 else sorted_text
+    return formatted if formatted.endswith("\n") else f"{formatted}\n"
 
 
 def _escape_doc(text: str) -> str:
@@ -891,14 +910,17 @@ def main(argv: list[str] | None = None) -> int:
         for w in sorted(frame_specs_by_format.values(), key=lambda x: x.format_id)
     ]
 
-    outputs: dict[Path, str] = {
-        (io_root / "base_models" / "_format_transform.pyi").resolve(): _format_with_ruff(
-            _render_base_model_stub(file_render_specs, frame_render_specs)
-        ),
-        (io_root / "_batch_format_transform.pyi").resolve(): _format_with_ruff(
-            _render_batch_stub(file_render_specs)
-        ),
-    }
+    outputs: dict[Path, str] = {}
+    base_model_path = (io_root / "base_models" / "_format_transform.pyi").resolve()
+    outputs[base_model_path] = _format_with_ruff(
+        _render_base_model_stub(file_render_specs, frame_render_specs),
+        stdin_filename=base_model_path.as_posix(),
+    )
+    batch_model_path = (io_root / "_batch_format_transform.pyi").resolve()
+    outputs[batch_model_path] = _format_with_ruff(
+        _render_batch_stub(file_render_specs),
+        stdin_filename=batch_model_path.as_posix(),
+    )
 
     dirty: list[Path] = []
     for path, text in outputs.items():

@@ -9,6 +9,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Literal, overload
 
+import typer
+
 from molop.io.logic.qminput_frame_models.GJFFileFrame import (
     GJFGICSection,
     GJFLink0Commands,
@@ -18,8 +20,6 @@ from molop.io.logic.qminput_frame_models.GJFFileFrame import (
     GJFTitleCard,
     GJFUnknownSection,
 )
-
-import typer
 
 app: typer.Typer
 

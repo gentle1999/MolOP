@@ -427,6 +427,20 @@ class G16LogPatterns:
         content_pattern=r"^\s*Total(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)",
         description="The thermochemistry CV and S of the Gaussian calculation. link 716",
     )
+    MOLECULAR_MASS = MolOPPattern(
+        content_pattern=r"^\s*Molecular mass:\s*(\d+\.\d+)\s*amu\.",
+        description="The molecular mass in the thermochemistry section. link 716",
+    )
+    MOMENTS_OF_INERTIA = MolOPPattern(
+        start_pattern="Principal axes and moments of inertia in atomic units:",
+        start_regex=False,
+        content_pattern=r"^\s*Eigenvalues --\s*(.+)",
+        description="The principal moments of inertia in atomic units. link 716",
+    )
+    ROTATIONAL_SYMMETRY_NUMBER = MolOPPattern(
+        content_pattern=r"^\s*Rotational symmetry number\s+(\d+)\.",
+        description="The rotational symmetry number in the thermochemistry section. link 716",
+    )
     FORCES_IN_CARTESIAN = MolOPPattern(
         start_pattern="Center     Atomic                   Forces (Hartrees/Bohr)",
         start_regex=False,

@@ -18,6 +18,7 @@ from __future__ import annotations
 import argparse
 import ast
 import difflib
+import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -129,6 +130,35 @@ def _render_stub(file_exports: list[_Export], frame_exports: list[_Export]) -> s
     return "\n".join(lines)
 
 
+def _format_with_ruff(text: str, *, stdin_filename: str) -> str:
+    import_sorted = subprocess.run(
+        [
+            "uv",
+            "run",
+            "ruff",
+            "check",
+            "-",
+            "--select",
+            "I",
+            "--fix",
+            "--stdin-filename",
+            stdin_filename,
+        ],
+        input=text,
+        text=True,
+        capture_output=True,
+    )
+    sorted_text = import_sorted.stdout if import_sorted.returncode == 0 else text
+    res = subprocess.run(
+        ["uv", "run", "ruff", "format", "-", "--stdin-filename", stdin_filename],
+        input=sorted_text,
+        text=True,
+        capture_output=True,
+    )
+    formatted = res.stdout if res.returncode == 0 else sorted_text
+    return formatted if formatted.endswith("\n") else f"{formatted}\n"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -158,20 +188,11 @@ def main(argv: list[str] | None = None) -> int:
     ]
 
     file_exports, frame_exports = _discover_exports(src_root, search_dirs)
-    out = _render_stub(file_exports, frame_exports)
-
-    import subprocess
-
-    res = subprocess.run(
-        ["uv", "run", "ruff", "format", "-", "--stdin-filename", "stub.pyi"],
-        input=out,
-        text=True,
-        capture_output=True,
-    )
-    if res.returncode == 0:
-        out = res.stdout
-
     out_path = (repo_root / args.output).resolve()
+    out = _format_with_ruff(
+        _render_stub(file_exports, frame_exports),
+        stdin_filename=out_path.as_posix(),
+    )
 
     if args.check:
         existing = out_path.read_text(encoding="utf-8") if out_path.exists() else ""

@@ -31,6 +31,18 @@ def find_iter_no_regex(
         current_idx = match_start + pattern_len
 
 
+def find_no_regex(
+    pattern: str, content: str, start_idx: int = 0, end_idx: int | None = None
+) -> tuple[int, int] | None:
+    if end_idx is None:
+        end_idx = len(content)
+    match_start = content.find(pattern, start_idx, end_idx)
+    if match_start == -1:
+        return None
+    match_end = match_start + len(pattern)
+    return match_start, match_end
+
+
 class MolOPPattern(BaseModel):
     model_config = ConfigDict(arbitrary_types_allowed=True)
     start_pattern: str | None = Field(default=None, description="The start pattern of the pattern.")
@@ -198,3 +210,87 @@ class MolOPPattern(BaseModel):
             start_start, start_end, end_start, end_end = located_content_index
             return content[start_start:end_end], content[end_start:]
         return "", content
+
+
+class MolOPPatternV2(MolOPPattern):
+    @classmethod
+    def from_pattern(cls, pattern: MolOPPattern) -> "MolOPPatternV2":
+        return cls.model_validate(pattern.model_dump())
+
+    def _locate_nth_start(self, content: str, start_pos: int) -> tuple[int, int] | None:
+        if self.start_pattern_compiled:
+            current_pos = start_pos
+            start_index = start_end = current_pos
+            for _ in range(self.start_offset + 1):
+                match = self.start_pattern_compiled.search(content, pos=current_pos)
+                if match is None:
+                    return None
+                start_index, start_end = match.start(), match.end()
+                current_pos = match.end()
+            return start_index, start_end
+        if self.start_pattern:
+            current_pos = start_pos
+            start_index = start_end = current_pos
+            for _ in range(self.start_offset + 1):
+                match = find_no_regex(self.start_pattern, content, start_idx=current_pos)
+                if match is None:
+                    return None
+                start_index, start_end = match
+                current_pos = start_end
+            return start_index, start_end
+        return start_pos, start_pos
+
+    def _locate_nth_end(self, content: str, start_index: int) -> tuple[int, int] | None:
+        if self.end_pattern_compiled:
+            current_pos = start_index
+            end_index = end_end = current_pos
+            for _ in range(self.end_offset + 1):
+                match = self.end_pattern_compiled.search(content, pos=current_pos)
+                if match is None:
+                    return None
+                end_index, end_end = match.start(), match.end()
+                current_pos = match.end()
+            return end_index, end_end
+        if self.end_pattern:
+            current_pos = start_index
+            end_index = end_end = current_pos
+            for _ in range(self.end_offset + 1):
+                match = find_no_regex(self.end_pattern, content, start_idx=current_pos)
+                if match is None:
+                    return None
+                end_index, end_end = match
+                current_pos = end_end
+            return end_index, end_end
+        return start_index, len(content)
+
+    def locate_content_from(
+        self, content: str, start_pos: int = 0
+    ) -> tuple[int, int, int, int] | None:
+        if (start_match := self._locate_nth_start(content, start_pos)) is None:
+            return None
+        start_index, start_end = start_match
+        if (end_match := self._locate_nth_end(content, start_index)) is None:
+            return None
+        end_index, end_end = end_match
+        assert end_index >= start_index, (
+            f"end_index should be greater than or equal to start_index, but got {end_index} < {start_index}"
+        )
+        assert end_end >= start_end, (
+            f"end_pos should be greater than or equal to start_pos, but got {end_end} < {start_end}"
+        )
+        return start_index, start_end, end_index, end_end
+
+    def match_content_from(
+        self, content: str, start_pos: int = 0
+    ) -> None | list[tuple[str | Any, ...]]:
+        if located_content_index := self.locate_content_from(content, start_pos):
+            start_start, _start_end, _end_start, end_end = located_content_index
+            located_content = content[start_start:end_end]
+            return self.get_matches(located_content)
+        return None
+
+    def split_content_from(self, content: str, start_pos: int = 0) -> tuple[str, int]:
+        if located_content_index := self.locate_content_from(content, start_pos):
+            start_start, _start_end, end_start, end_end = located_content_index
+            return content[start_start:end_end], end_start
+        return "", start_pos
