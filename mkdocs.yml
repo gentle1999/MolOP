@@ -111,7 +111,6 @@ nav:
       - AutoParser: reference/api/autoparser.md
       - FileBatchModelDisk: reference/api/filebatchmodeldisk.md
       - Registry: reference/api/registry.md
-      - xyz_to_rdmol: reference/api/xyz_to_rdmol.md
     - 模块:
       - molop: reference/api/molop.md
       - molop.io: reference/api/io.md

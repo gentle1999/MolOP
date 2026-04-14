@@ -7,7 +7,6 @@ This section provides the auto-generated API reference for the MolOP library, ex
 - [AutoParser](api/autoparser.md)
 - [FileBatchModelDisk](api/filebatchmodeldisk.md)
 - [Registry](api/registry.md)
-- [xyz_to_rdmol](api/xyz_to_rdmol.md)
 
 ## Modules
 
