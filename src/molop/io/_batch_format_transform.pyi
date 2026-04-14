@@ -77,6 +77,57 @@ class BatchFormatTransformMixin:
     @overload
     def format_transform(
         self,
+        format: Literal["fakeg"],
+        output_dir: str | None = None,
+        frameID: int | Literal["all"] | Sequence[int] = -1,
+        embed_in_one_file: bool = True,
+        n_jobs: int = 1,
+        *,
+        graph_policy: GraphPolicy | None = None,
+        **kwargs: Any,
+    ) -> dict[str, str | list[str]]:
+        """Transform using the `fakeg` writer overload.
+
+        Parameters
+        ----------
+        format :
+            Target output format literal for this overload.
+        output_dir :
+            Output directory for generated files; defaults to batch behavior when omitted.
+        frameID :
+            Frame selector forwarded to per-file rendering.
+        embed_in_one_file :
+            Whether selected frames are embedded into one file when supported by the format.
+        n_jobs :
+            Parallelism used by batch transform.
+        graph_policy :
+            Molecular graph policy used before rendering (for example, `"prefer"`).
+        **kwargs :
+            Additional writer options accepted by the implementation.
+
+        Format behavior
+        ---------------
+            Render the selected structure as fakeg text.
+
+        Format-specific parameters
+        --------------------------
+            None.
+
+        Render the selected structure as fakeg text.
+
+        Returns
+        -------
+        dict[str, str | list[str]]
+            Mapping from source path to rendered text output(s).
+
+        Source
+        ------
+        src/molop/io/logic/QM_frame_models/G16LogFileFrame.py
+        """
+        ...
+    @overload
+    def format_transform(
+        self,
         format: Literal["gjf"],
         output_dir: str | None = None,
         frameID: int | Literal["all"] | Sequence[int] = -1,
@@ -598,6 +649,8 @@ class BatchFormatTransformMixin:
         -------------------------
         cml :
             Render the selected structure as CML text.
+        fakeg :
+            Render the selected structure as fakeg text.
         gjf :
             Render the current GJF frame as Gaussian input text.
         orcainp :
@@ -614,6 +667,8 @@ class BatchFormatTransformMixin:
         cml :
             engine : Literal['rdkit', 'openbabel']
                 Format-specific writer argument (optional).
+        fakeg :
+            None.
         gjf :
             link0_commands : str | GJFLink0Commands | dict[str, str | None] | None
                 Format-specific writer argument (optional).
@@ -664,6 +719,7 @@ class BatchFormatTransformMixin:
         Source
         ------
         cml : src/molop/io/codecs/cml_codec.py:47
+        fakeg : src/molop/io/logic/QM_frame_models/G16LogFileFrame.py
         gjf : src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1401
         orcainp : src/molop/io/logic/qminput_frame_models/ORCAInpFileFrame.py:25
         sdf : src/molop/io/logic/coords_frame_models/SDFFileFrame.py:18

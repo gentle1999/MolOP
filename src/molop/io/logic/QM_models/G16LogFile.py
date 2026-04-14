@@ -6,9 +6,11 @@ LastEditTime: 2026-02-05 19:54:13
 Description: 请填写简介
 """
 
+from __future__ import annotations
+
 import math
 from collections.abc import Sequence
-from typing import Literal, Protocol, cast
+from typing import TYPE_CHECKING, Literal, Protocol, cast
 
 import numpy as np
 from pydantic import Field, model_validator
@@ -27,6 +29,10 @@ from molop.io.logic.QM_frame_models.G16LogFileFrame import (
 from molop.io.patterns.G16Patterns import (
     SEMI_EMPIRICAL_METHODS,
 )
+
+
+if TYPE_CHECKING:
+    from molop.io.codec_registry import Registry
 
 
 class G16LogFileMixin:
@@ -112,7 +118,7 @@ class G16LogFileMixin:
 
     @staticmethod
     def _render_fakeg_symbolic_z_matrix(
-        frame: "G16LogFileFrameMemory | G16LogFileFrameDisk",
+        frame: G16LogFileFrameMemory | G16LogFileFrameDisk,
     ) -> list[str]:
         lines = [
             " Symbolic Z-matrix:",
@@ -254,7 +260,7 @@ class G16LogFileMixin:
     @classmethod
     def _render_fakeg_multiframe_file(
         cls,
-        frames: Sequence["G16LogFileFrameMemory | G16LogFileFrameDisk"],
+        frames: Sequence[G16LogFileFrameMemory | G16LogFileFrameDisk],
     ) -> str:
         optimization_frames = [
             frame
@@ -296,6 +302,27 @@ class G16LogFileMixin:
 
         return "\n\n".join(section for section in sections if section)
 
+    def _render_frames_in_one_file(self, frameID: Sequence[int], **kwargs) -> str:
+        typed_self = cast(_HasG16RenderedFrames, self)
+        selected_frames = [frame for frame in typed_self.frames if frame.frame_id in frameID]
+        if len(selected_frames) > 1:
+            body = self._render_fakeg_multiframe_file(selected_frames)
+        else:
+            body = "\n\n".join(frame.render_fakeg(**kwargs) for frame in selected_frames)
+        sections = [self._render_fakeg_header()]
+        if body:
+            sections.append(body)
+        footer = self._render_fakeg_footer()
+        if footer:
+            sections.append(footer)
+        return "\n\n".join(sections)
+
+    def _render_frames(self, frameID: Sequence[int], **kwargs) -> list[str]:
+        typed_self = cast(_HasG16RenderedFrames, self)
+        return [
+            frame.render_fakeg(**kwargs) for frame in typed_self.frames if frame.frame_id in frameID
+        ]
+
     def render_fakeg(
         self,
         frameID: Sequence[int] | int | Literal["all"] | slice = "all",
@@ -310,20 +337,10 @@ class G16LogFileMixin:
             selected = typed_self[frameID]
             selected_frames = selected if isinstance(selected, list) else [selected]
 
-        rendered_frames = [frame.render_fakeg(**kwargs) for frame in selected_frames]
         if embed_in_one_file:
-            if len(selected_frames) > 1:
-                body = self._render_fakeg_multiframe_file(selected_frames)
-            else:
-                body = "\n\n".join(frame for frame in rendered_frames if frame)
-            sections = [self._render_fakeg_header()]
-            if body:
-                sections.append(body)
-            footer = self._render_fakeg_footer()
-            if footer:
-                sections.append(footer)
-            return "\n\n".join(sections)
-        return rendered_frames
+            frame_ids = [frame.frame_id for frame in selected_frames]
+            return self._render_frames_in_one_file(frame_ids, **kwargs)
+        return self._render_frames([frame.frame_id for frame in selected_frames], **kwargs)
 
 
 class G16LogFileMemory(
@@ -332,6 +349,39 @@ class G16LogFileMemory(
 
 
 class G16LogFileDisk(DiskStorageMixin, G16LogFileMixin, BaseCalcFile[G16LogFileFrameDisk]): ...
+
+
+def register(registry: Registry) -> None:
+    """Register fakeG as a file-only writer codec."""
+
+    from typing import cast
+
+    from molop.io.codecs._shared.writer_helpers import (
+        FileRendererWriter,
+        StructureLevel,
+        WriterCodec,
+    )
+
+    priority = 100
+
+    @registry.writer_factory(
+        format_id="fakeg",
+        required_level=StructureLevel.COORDS,
+        domain="file",
+        default_graph_policy="coords",
+        priority=priority,
+    )
+    def _factory() -> WriterCodec:
+        return cast(
+            WriterCodec,
+            FileRendererWriter(
+                format_id="fakeg",
+                required_level=StructureLevel.COORDS,
+                file_cls=G16LogFileDisk,
+                frame_cls=G16LogFileFrameDisk,
+                priority=priority,
+            ),
+        )
 
 
 class _HasG16RenderedFrames(Protocol):

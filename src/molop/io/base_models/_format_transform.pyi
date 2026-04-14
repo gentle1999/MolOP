@@ -664,6 +664,54 @@ class FormatTransformMixin:
     @overload
     def format_transform(
         self,
+        format: Literal["fakeg"],
+        frameID: Sequence[int] | int | Literal["all"] | slice = -1,
+        file_path: os.PathLike | str | None = None,
+        embed_in_one_file: bool = True,
+        *,
+        graph_policy: GraphPolicy | None = None,
+        **kwargs: Any,
+    ) -> str | list[str]:
+        """Transform using the `fakeg` writer overload.
+
+        Parameters
+        ----------
+        format :
+            Target output format literal for this overload.
+        frameID :
+            Frame selector forwarded to rendering; accepts index, sequence, slice, or `"all"`.
+        file_path :
+            Optional output path. If omitted, a format-derived path is used.
+        embed_in_one_file :
+            Whether selected frames are embedded into one file when supported by the format.
+        graph_policy :
+            Molecular graph policy used before rendering (for example, `"prefer"`).
+        **kwargs :
+            Additional writer options accepted by the implementation.
+
+        Format behavior
+        ---------------
+            Render the selected structure as fakeg text.
+
+        Format-specific parameters
+        --------------------------
+            None.
+
+        Render the selected structure as fakeg text.
+
+        Returns
+        -------
+        str | list[str]
+            Rendered text for the selected frame set as a single string or a list of per-frame strings.
+
+        Source
+        ------
+        src/molop/io/logic/QM_frame_models/G16LogFileFrame.py
+        """
+        ...
+    @overload
+    def format_transform(
+        self,
         format: Literal["gjf"],
         frameID: Sequence[int] | int | Literal["all"] | slice = -1,
         file_path: os.PathLike | str | None = None,
@@ -1167,6 +1215,8 @@ class FormatTransformMixin:
         -------------------------
         cml :
             Render the selected structure as CML text.
+        fakeg :
+            Render the selected structure as fakeg text.
         gjf :
             Render the current GJF frame as Gaussian input text.
         orcainp :
@@ -1183,6 +1233,8 @@ class FormatTransformMixin:
         cml :
             engine : Literal['rdkit', 'openbabel']
                 Format-specific writer argument (optional).
+        fakeg :
+            None.
         gjf :
             link0_commands : str | GJFLink0Commands | dict[str, str | None] | None
                 Format-specific writer argument (optional).
@@ -1233,6 +1285,7 @@ class FormatTransformMixin:
         Source
         ------
         cml : src/molop/io/codecs/cml_codec.py:47
+        fakeg : src/molop/io/logic/QM_frame_models/G16LogFileFrame.py
         gjf : src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1401
         orcainp : src/molop/io/logic/qminput_frame_models/ORCAInpFileFrame.py:25
         sdf : src/molop/io/logic/coords_frame_models/SDFFileFrame.py:18

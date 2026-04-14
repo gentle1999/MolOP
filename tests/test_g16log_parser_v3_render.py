@@ -1,6 +1,9 @@
 from pathlib import Path
 from typing import cast
 
+import pytest
+
+from molop.io.codec_exceptions import UnsupportedFormatError
 from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
 
 
@@ -58,6 +61,18 @@ def test_g16log_file_model_can_render_fakeg_for_all_frames():
     assert rendered.count("Frequencies --") >= 1
     assert rendered.count("Normal termination of Gaussian") == 2
     assert "Job cpu time:" not in rendered
+
+
+def test_g16log_file_format_transform_registers_fakeg_file_renderer_only():
+    parsed = G16LogFileParserMemory().parse(FIXTURE.read_text())
+
+    rendered = cast(str, parsed.format_transform("fakeg"))
+
+    assert "symbolic z-matrix:" in rendered.lower()
+    assert "frequencies --" in rendered.lower()
+
+    with pytest.raises(UnsupportedFormatError, match="No frame writer codecs registered for fakeg"):
+        parsed[-1].format_transform("fakeg")
 
 
 def test_g16log_rendered_fakeg_can_be_reparsed_with_frequency_and_thermochemistry():

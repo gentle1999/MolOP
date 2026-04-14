@@ -99,6 +99,52 @@ def transform(
 @overload
 def transform(
     pattern: str,
+    to: Literal["fakeg"],
+    output_dir: Path,
+    frame: str = "-1",
+    embed: bool = True,
+    parser_detection: str = "auto",
+    n_jobs: int = -1,
+    **kwargs: Any,
+) -> None:
+    """Transform files using the `fakeg` writer.
+
+    Parameters
+    ----------
+    pattern :
+        File pattern to match.
+    to :
+        Target writer format.
+    output_dir :
+        Directory to save transformed files.
+    frame :
+        Frame selection (for example, `all`, `-1`, `1,2`).
+    embed :
+        Whether to embed multiple frames in one file.
+    parser_detection :
+        Parser detection mode.
+    n_jobs :
+        Number of parallel jobs.
+
+    Format behavior
+    ---------------
+        Render the selected structure as fakeg text.
+
+    Format-specific parameters
+    --------------------------
+    None.
+
+    Render the selected structure as fakeg text.
+
+    Source
+    ------
+    src/molop/io/logic/QM_frame_models/G16LogFileFrame.py
+    """
+    ...
+
+@overload
+def transform(
+    pattern: str,
     to: Literal["gjf"],
     output_dir: Path,
     frame: str = "-1",
@@ -597,6 +643,8 @@ def transform(
     -------------------------
     cml :
         Render the selected structure as CML text.
+    fakeg :
+        Render the selected structure as fakeg text.
     gjf :
         Render the current GJF frame as Gaussian input text.
     orcainp :
@@ -611,6 +659,8 @@ def transform(
     Format-specific parameters by format
     ------------------------------------
     cml :
+        None.
+    fakeg :
         None.
     gjf :
         link0_commands : str | GJFLink0Commands | dict[str, str | None] | None
@@ -657,6 +707,7 @@ def transform(
     Source
     ------
     cml : src/molop/io/codecs/cml_codec.py
+    fakeg : src/molop/io/logic/QM_frame_models/G16LogFileFrame.py
     gjf : src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1401
     orcainp : src/molop/io/logic/qminput_frame_models/ORCAInpFileFrame.py:25
     sdf : src/molop/io/logic/coords_frame_models/SDFFileFrame.py:18
