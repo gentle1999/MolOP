@@ -22,7 +22,7 @@ def extract_archive_tail_block(content: str) -> tuple[str | None, str]:
     return content[start_start:end_start], content[end_end:]
 
 
-def parse_archive_tail(content: str, *, include_coords: bool) -> tuple[dict[str, Any], str]:
+def parse_archive_tail(content: str, *, include_coords: bool = False) -> tuple[dict[str, Any], str]:
     raw_tail_text, remaining_content = extract_archive_tail_block(content)
     if raw_tail_text is None:
         return {}, content
@@ -61,7 +61,7 @@ def _parse_and_update_scalar(
 def parse_archive_tail_metadata(
     raw_tail_text: str,
     *,
-    include_coords: bool,
+    include_coords: bool = False,
 ) -> tuple[dict[str, Any], str]:
     tail_dict: dict[str, Any] = {}
     focus_content = raw_tail_text.replace("\n ", "")

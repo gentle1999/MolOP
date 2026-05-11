@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-08-20 22:55:18
 LastEditors: TMJ
-LastEditTime: 2026-04-01 01:55:58
+LastEditTime: 2026-05-02 18:24:16
 Description: 请填写简介
 """
 
@@ -73,6 +73,19 @@ def single_file_parser(
     return None
 
 
+def _safe_get_file_size(file_path: str) -> int | None:
+    try:
+        return os.path.getsize(file_path)
+    except OSError as exc:
+        moloplogger.warning(f"Could not get file size for {file_path}: {exc}")
+        return None
+
+
+def _task_should_parse(task: dict[str, Any]) -> bool:
+    size = task.pop("size", None)
+    return size is None or size > 0
+
+
 class FileBatchParserDisk:
     __n_jobs: int
 
@@ -106,16 +119,17 @@ class FileBatchParserDisk:
             parser_detection (str):
                 if "auto", use the file extension to detect the parser, else use the given format id.
         """
-        tasks: list[dict[str, Any]] = []
         hint_format = None if parser_detection == "auto" else parser_detection
-        for file_path in file_paths:
+        file_paths_list = list(file_paths)
+
+        def process_path(file_path: str | pathlib.Path):
             if isinstance(file_path, pathlib.Path):
                 file_path = file_path.as_posix()
             if not os.path.isfile(file_path):
                 moloplogger.warning(f"{file_path} is not a file.")
-                continue
+                return None
             if file_path.endswith("molop.log"):
-                continue
+                return None
             abs_path = os.path.abspath(file_path)
             try:
                 possible_readers = cast(
@@ -125,27 +139,38 @@ class FileBatchParserDisk:
             except codec_registry.UnsupportedFormatError:
                 if parser_detection == "auto":
                     moloplogger.warning(f"Unsupported input file format: {abs_path}")
-                    continue
+                    return None
                 moloplogger.error(f"Unsupported input file format: {abs_path}")
-                continue
-            tasks.append(
-                {
-                    "file_path": abs_path,
-                    "possible_readers": possible_readers,
-                    "total_charge": total_charge,
-                    "total_multiplicity": total_multiplicity,
-                    "only_extract_structure": only_extract_structure,
-                    "only_last_frame": only_last_frame,
-                    "release_file_content": release_file_content,
-                }
+                return None
+            return {
+                "file_path": abs_path,
+                "possible_readers": possible_readers,
+                "total_charge": total_charge,
+                "total_multiplicity": total_multiplicity,
+                "only_extract_structure": only_extract_structure,
+                "only_last_frame": only_last_frame,
+                "release_file_content": release_file_content,
+                "size": _safe_get_file_size(abs_path),
+            }
+
+        tasks = [
+            task
+            for task in (
+                process_path(file_path)
+                for file_path in AdaptiveProgress(
+                    file_paths_list,
+                    disable=not molopconfig.show_progress_bar,
+                    desc="MolOP preparing input files",
+                    total=len(file_paths_list),
+                )
             )
+            if task is not None
+        ]
+
         if len(tasks) == 0:
             moloplogger.error("No valid input files.")
             return FileBatchModelDisk()
-        try:
-            tasks.sort(key=lambda task: os.path.getsize(task["file_path"]), reverse=True)
-        except OSError as e:
-            moloplogger.warning(f"Could not get file size for sorting, proceeding without it: {e}")
+        tasks.sort(key=lambda task: task.get("size") or 0, reverse=True)
         total_tasks = tasks
         # Determine if parallel processing should be used
         use_parallel = self.__n_jobs > 1 and len(total_tasks) > self.__n_jobs
@@ -165,6 +190,7 @@ class FileBatchParserDisk:
                     desc=f"MolOP parsing with {self.__n_jobs} processes",
                     disable=not molopconfig.show_progress_bar,
                 )
+                if _task_should_parse(task)
             )
         else:
             results = (
@@ -175,6 +201,7 @@ class FileBatchParserDisk:
                     desc="MolOP parsing with single process",
                     disable=not molopconfig.show_progress_bar,
                 )
+                if _task_should_parse(task)
             )
         typed_results = cast(Iterable[FileDiskObj | None], results)
         return FileBatchModelDisk.new_batch(

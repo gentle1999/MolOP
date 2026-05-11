@@ -2,9 +2,11 @@
 Author: TMJ
 Date: 2025-07-28 12:19:07
 LastEditors: TMJ
-LastEditTime: 2026-03-22 15:43:40
+LastEditTime: 2026-04-18 23:48:18
 Description: 请填写简介
 """
+
+from functools import lru_cache
 
 from rdkit import Chem
 
@@ -68,16 +70,39 @@ def estimate_bond_length(
         raise ValueError(f"Unsupported bond type {bond_type}.")
 
 
-def canonical_smiles(smiles: str):
-    original_smi = smiles
-    viewed_smi = {original_smi: 1}
-    while original_smi != (canonical_smi := Chem.CanonSmiles(original_smi, useChiral=True)) and (
-        canonical_smi not in viewed_smi or viewed_smi[canonical_smi] < 2
-    ):
-        original_smi = canonical_smi
-        if original_smi not in viewed_smi:
-            viewed_smi[original_smi] = 1
-        else:
-            viewed_smi[original_smi] += 1
-    else:
-        return original_smi
+@lru_cache(maxsize=8192)
+def _canonical_smiles_once(smiles: str) -> str:
+    return Chem.CanonSmiles(smiles, useChiral=True)
+
+
+def canonical_smiles(smiles: str, *, stable: bool = False, max_rounds: int = 8) -> str:
+    """Return canonical SMILES with an optional fixed-point fallback.
+
+    Parameters
+    ----------
+    smiles
+        Input SMILES string.
+    stable
+        When ``False`` (default), use a single RDKit canonicalization pass for speed.
+        When ``True``, continue canonicalizing until a fixed point is reached, or stop
+        when a cycle is detected.
+    max_rounds
+        Maximum number of canonicalization rounds when ``stable`` is enabled.
+    """
+    if max_rounds < 1:
+        raise ValueError('max_rounds must be >= 1')
+
+    current = _canonical_smiles_once(smiles)
+    if not stable:
+        return current
+
+    seen = {smiles, current}
+    for _ in range(max_rounds - 1):
+        nxt = _canonical_smiles_once(current)
+        if nxt == current:
+            return current
+        if nxt in seen:
+            return current
+        seen.add(nxt)
+        current = nxt
+    return current

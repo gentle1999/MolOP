@@ -2,14 +2,14 @@
 Author: TMJ
 Date: 2025-07-29 22:14:37
 LastEditors: TMJ
-LastEditTime: 2026-03-23 19:06:15
+LastEditTime: 2026-05-11 14:36:16
 Description: 请填写简介
 """
 
 import os
 from abc import abstractmethod
 from collections.abc import Sequence
-from typing import Any, ClassVar, Generic, Protocol, TypeVar, cast
+from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, cast
 
 from pydantic import Field, PrivateAttr
 
@@ -68,40 +68,69 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         frame_parser = self._frame_parser()
         return cast(FrameT, frame_parser.parse(frame_content, additional_data=additional_data))
 
+    def _update_file_metadata_from_frames(
+        self,
+        chem_file: FileT,
+        metadata: dict[str, Any],
+    ) -> None:
+        """Finalize file-level metadata after frames have been parsed."""
+        if not chem_file:
+            return
+        if not chem_file.frames:
+            return
+        first_frame = chem_file.frames[0]
+        if metadata.get("charge") is None:
+            metadata["charge"] = first_frame.charge
+            chem_file.charge = first_frame.charge
+        if metadata.get("multiplicity") is None:
+            metadata["multiplicity"] = first_frame.multiplicity
+            chem_file.multiplicity = first_frame.multiplicity
+
     def _parse(
         self,
-        file_content: str,
+        source: str,
+        source_type: Literal["file_path", "string"] = "file_path",
+        *,
         total_charge: int | None = None,
         total_multiplicity: int | None = None,
     ) -> FileT:
         """Parse the file content."""
-        metadata: dict[str, Any] = {
-            "file_path": self._file_path,
-            "file_content": file_content,
-        }
+        metadata: dict[str, Any]
+        if source_type == "file_path":
+            self._file_path = source
+            with open(source) as f:
+                file_content = f.read()
+            metadata = {"file_path": source, "file_content": file_content}
+        elif source_type == "string":
+            self._file_path = None
+            file_content = source
+            metadata = {"file_content": file_content}
+        else:
+            raise ValueError(f"Invalid source_type: {source_type}")
         if mata := self._parse_metadata(file_content):
             metadata.update(mata)
         frame_contents = self._split_file(file_content)
+        if not frame_contents:
+            raise ValueError("The file content is empty to split into frames.")
         if self.only_last_frame:
             frame_contents = [frame_contents[-1]]
-        final_charge = total_charge or self.forced_charge
-        final_multiplicity = total_multiplicity or self.forced_multiplicity
-        if final_charge:
+        final_charge = total_charge if total_charge is not None else self.forced_charge
+        final_multiplicity = (
+            total_multiplicity if total_multiplicity is not None else self.forced_multiplicity
+        )
+        if final_charge is not None:
             metadata["charge"] = final_charge
-        if final_multiplicity:
+        if final_multiplicity is not None:
             metadata["multiplicity"] = final_multiplicity
         _chem_file = self._chem_file.model_validate(metadata)
         for frame_content in frame_contents:
             frame = self._parse_frame(frame_content, additional_data=metadata)
-            if final_charge:
+            if final_charge is not None:
                 frame.charge = final_charge
-            if final_multiplicity:
+            if final_multiplicity is not None:
                 frame.multiplicity = final_multiplicity
             _chem_file.append(frame)
-        if not final_charge and _chem_file:
-            metadata["charge"] = _chem_file.frames[0].charge
-        if not final_multiplicity and _chem_file:
-            metadata["multiplicity"] = _chem_file.frames[0].multiplicity
+        self._update_file_metadata_from_frames(_chem_file, metadata)
         return _chem_file
 
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
@@ -121,7 +150,12 @@ class BaseFileParserMemory(BaseFileParser[FileT, FrameT, FrameParserT]):
         total_multiplicity: int | None = None,
         release_file_content: bool = False,
     ) -> FileT:
-        _chem_file = self._parse(file_content, total_charge, total_multiplicity)
+        _chem_file = self._parse(
+            source=file_content,
+            source_type="string",
+            total_charge=total_charge,
+            total_multiplicity=total_multiplicity,
+        )
         if release_file_content:
             _chem_file.release_file_content()
         return _chem_file
@@ -162,10 +196,13 @@ class BaseFileParserDisk(BaseFileParser[FileT, FrameT, FrameParserT]):
         total_multiplicity: int | None = None,
         release_file_content: bool = False,
     ) -> FileT:
-        with open(file_path) as f:
-            file_content = f.read()
-        self._file_path = self._check_file_path(os.path.abspath(file_path))
-        _chem_file = self._parse(file_content, total_charge, total_multiplicity)
+        file_path = self._check_file_path(os.path.abspath(file_path))
+        _chem_file = self._parse(
+            source=file_path,
+            source_type="file_path",
+            total_charge=total_charge,
+            total_multiplicity=total_multiplicity,
+        )
         if release_file_content:
             _chem_file.release_file_content()
         return _chem_file

@@ -3,9 +3,22 @@ from __future__ import annotations
 import operator
 import os
 import random
+import shutil
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, Iterator, MutableMapping, Sequence
-from typing import TYPE_CHECKING, Any, Generic, Literal, TypeAlias, TypeVar, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Concatenate,
+    Generic,
+    Literal,
+    ParamSpec,
+    Protocol,
+    TypeAlias,
+    TypeVar,
+    cast,
+    overload,
+)
 
 import pandas as pd
 
@@ -47,8 +60,19 @@ def _looks_like_disk_file(obj: object) -> bool:
 
 
 R = TypeVar("R")
+P = ParamSpec("P")
 TFile = TypeVar("TFile")
 TFileDisk = TypeVar("TFileDisk", bound=FileDiskObj)
+
+
+class HasNumImaginary(Protocol):
+    @property
+    def num_imaginary(self) -> int: ...
+
+
+class HasVibrations(Protocol):
+    @property
+    def vibrations(self) -> HasNumImaginary: ...
 
 
 class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFileDisk]):
@@ -63,19 +87,32 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
 
     def parallel_execute(
         self,
-        func: Callable[[TFileDisk], R],
+        func: Callable[Concatenate[TFileDisk, P], R],
         desc: str = "",
         n_jobs: int = 1,
-        *,
-        return_as: Literal["list", "generator", "generator_unordered"] = "generator",
+        return_as: Literal["list", "generator", "generator_unordered"] = "list",
+        *args: P.args,  # do not use this parameter
+        **kwargs: P.kwargs,
     ) -> Iterable[R]:
         """
         Internal helper to execute a function over the batch in parallel or serial.
         Refactored to support Adaptive UI (Rich/Ipywidgets) and Type Hints.
+
+        Accepts extra keyword arguments to pass to the function.
+
+        Parameters:
+            func (Callable[Concatenate[TFileDisk, P], R]): The function to execute.
+            desc (str, optional): The description to show in the progress bar. Defaults to "".
+            n_jobs (int, optional): The number of jobs to use. Defaults to 1.
+            return_as (Literal["list", "generator", "generator_unordered"], optional): The return mode to use. Defaults to "list".
+            **kwargs: Additional keyword arguments to pass to the function.
+        Returns:
+            Iterable[R]: The results of the function execution.
         """
         diskfiles = self._snapshot_diskfiles()
+
         return parallel_map(
-            func,
+            lambda diskfile: func(diskfile, *args, **kwargs),
             diskfiles,
             n_jobs=molopconfig.set_n_jobs(n_jobs),
             desc=desc,
@@ -129,14 +166,9 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             return key in self.__diskfiles.values()
 
     @overload
-    def __getitem__(self, key: int) -> TFileDisk: ...
+    def __getitem__(self, key: int | str) -> TFileDisk: ...
     @overload
-    def __getitem__(self, key: str) -> TFileDisk: ...
-    @overload
-    def __getitem__(self, key: slice) -> FileBatchModelDisk[TFileDisk]: ...
-    @overload
-    def __getitem__(self, key: Sequence[int]) -> FileBatchModelDisk[TFileDisk]: ...
-
+    def __getitem__(self, key: slice | Sequence[int | str]) -> FileBatchModelDisk[TFileDisk]: ...
     def __getitem__(
         self,
         key: int | str | slice | Sequence[int | str],
@@ -297,7 +329,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
 
     def filter_state(
         self,
-        state: Literal["ts", "error", "opt", "normal"],
+        state: Literal["ts", "error", "opt", "normal", "thermal", "no-img"],
         negate: bool = False,
         n_jobs: int = 1,
     ) -> FileBatchModelDisk[TFileDisk]:
@@ -305,7 +337,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         Filter the files based on their state using the new execution engine.
 
         Parameters:
-            state (Literal["ts", "error", "opt", "normal"]): The state to filter.
+            state (Literal["ts", "error", "opt", "normal", "thermal", "no-img"]): The state to filter.
             negate (bool): Whether to negate the filter.
             n_jobs (int): Number of parallel jobs to filter.
 
@@ -313,12 +345,24 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             FileBatchModelDisk: The filtered batch.
         """
 
+        def has_frequency_data(vibrations: Any) -> bool:
+            try:
+                return len(vibrations) > 0
+            except TypeError:
+                frequencies = getattr(vibrations, "frequencies", None)
+                if frequencies is None:
+                    return True
+                try:
+                    return len(frequencies) > 0
+                except TypeError:
+                    return True
+
         def judge_func(diskfile: TFileDisk) -> bool:
-            last_frame = diskfile[-1]
+            res: bool = False
             if state == "ts":
-                return last_frame.is_TS is not None and last_frame.is_TS != negate
+                res = any(getattr(frame, "is_TS", None) for frame in diskfile)
             elif state == "error":
-                return last_frame.is_error is not None and last_frame.is_error != negate
+                res = any(getattr(frame, "is_error", None) for frame in diskfile)
             elif state == "opt":
                 if (
                     any(
@@ -328,16 +372,32 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
                     and (opt_frame := getattr(diskfile, "closest_optimized_frame", None))
                     is not None
                 ):
-                    return (
-                        last_frame.is_normal is not None
-                        and last_frame.is_normal != negate
-                        and opt_frame.is_optimized != negate
+                    res = (
+                        all(getattr(frame, "is_normal", None) for frame in diskfile)
+                        and opt_frame.is_optimized
                     )
-                return False
+                else:
+                    res = False
             elif state == "normal":
-                return last_frame.is_normal is not None and last_frame.is_normal != negate
+                res = all(getattr(frame, "is_normal", None) for frame in diskfile)
+            elif state == "thermal":
+                res = any(
+                    getattr(frame, "thermal_informations", None) is not None for frame in diskfile
+                )
+            elif state == "no-img":
+                vibration_frames: list[HasVibrations] = [
+                    cast(HasVibrations, frame)
+                    for frame in diskfile
+                    if (vibrations := getattr(frame, "vibrations", None)) is not None
+                    and has_frequency_data(vibrations)
+                ]
+                res = bool(vibration_frames) and all(
+                    frame.vibrations.num_imaginary == 0
+                    for frame in vibration_frames
+                )
             else:
                 raise ValueError(f"Invalid state: {state}")
+            return res != negate
 
         desc = f"Filtering {state} files{' negated' if negate else ''} with {molopconfig.set_n_jobs(n_jobs)} jobs"
         diskfiles = self._snapshot_diskfiles()
@@ -430,12 +490,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         """
         desc = f"Grouping files with {molopconfig.set_n_jobs(n_jobs)} jobs"
         diskfiles = self._snapshot_diskfiles()
-        keys = self.parallel_execute(
-            key_func,
-            desc,
-            n_jobs,
-            return_as="generator",
-        )
+        keys = self.parallel_execute(key_func, desc, n_jobs, return_as="generator")
         temp_groups: dict[str, list[TFileDisk]] = {}
         for diskfile, key in zip(diskfiles, keys, strict=True):
             if key not in temp_groups:
@@ -531,7 +586,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         series_list: list[pd.Series] = [s for sublist in nested_results for s in sublist]
         if not series_list:
             return pd.DataFrame()
-        df = pd.concat(series_list, axis=1).T
+        df: pd.DataFrame = pd.concat(series_list, axis=1).T
         top_level_order = df.columns.get_level_values(0).unique()
         return pd.DataFrame(df[top_level_order])
 
@@ -615,3 +670,37 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         n = min(n, len(self))
         sampled_files = random.sample(list(self.__diskfiles.values()), n)
         return self.new_batch(sampled_files)
+
+    def copy_to(self, output_dir: str, n_jobs: int = 1):
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+
+        def copy(diskfile: TFileDisk):
+            """
+            Copy a file to the output directory.
+            """
+            try:
+                shutil.copy(diskfile.file_path, output_dir)
+            except Exception as e:
+                return e
+            return f"successfully copied {diskfile.file_path} to {output_dir}"
+
+        desc = f"Copying files to {output_dir} with {molopconfig.set_n_jobs(n_jobs)} jobs"
+        return self.parallel_execute(copy, desc, n_jobs, return_as="list")
+
+    def move_to(self, output_dir: str, n_jobs: int = 1):
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir, exist_ok=True)
+
+        def move(diskfile: TFileDisk):
+            """
+            Move a file to the output directory.
+            """
+            try:
+                shutil.move(diskfile.file_path, output_dir)
+            except Exception as e:
+                return e
+            return f"successfully moved {diskfile.file_path} to {output_dir}"
+
+        desc = f"Moving files to {output_dir} with {molopconfig.set_n_jobs(n_jobs)} jobs"
+        return self.parallel_execute(move, desc, n_jobs, return_as="list")

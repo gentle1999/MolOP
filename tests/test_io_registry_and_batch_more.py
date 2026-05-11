@@ -8,12 +8,13 @@ from typing import Any, cast
 import pytest
 
 from molop.io.base_models._format_transform import FrameFormatTransformMixin
-from molop.io.codec_exceptions import ConversionError
-from molop.io.codec_exceptions import UnsupportedFormatError
+from molop.io.codec_exceptions import ConversionError, UnsupportedFormatError
 from molop.io.codec_registry import Registry
 from molop.io.codec_types import ParseResult, StructureLevel
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
 from molop.io.FileBatchParserDisk import FileBatchParserDisk
+from molop.unit import atom_ureg
+
 
 filebatchparserdisk_module = importlib.import_module("molop.io.FileBatchParserDisk")
 
@@ -56,6 +57,34 @@ class FakeDiskFile:
 
     def release_file_content(self) -> None:
         return None
+
+
+class FakeFrame:
+    def __init__(self, num_imaginary: int | None = None, num_frequencies: int = 1) -> None:
+        self.vibrations = (
+            None
+            if num_imaginary is None
+            else type(
+                "FakeVibrations",
+                (),
+                {"num_imaginary": num_imaginary, "__len__": lambda _self: num_frequencies},
+            )()
+        )
+
+
+class FakeStateDiskFile(FakeDiskFile):
+    def __init__(self, file_path: str, frames: list[FakeFrame]) -> None:
+        super().__init__(file_path, "log", "g16log")
+        self.frames = frames
+
+    def __len__(self) -> int:
+        return len(self.frames)
+
+    def __iter__(self) -> object:
+        return iter(self.frames)
+
+    def __getitem__(self, idx: int) -> FakeFrame:
+        return self.frames[idx]
 
 
 class DummyFrameTransform(FrameFormatTransformMixin):
@@ -412,6 +441,27 @@ def test_groupby_uses_generator_results_without_index_skew(monkeypatch: pytest.M
     assert grouped["log"].file_paths == ["/tmp/b.log"]
 
 
+def test_filter_state_no_img_requires_frequency_frames() -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(
+            cast(
+                Any,
+                [
+                    FakeStateDiskFile("/tmp/no-freq.log", [FakeFrame(None)]),
+                    FakeStateDiskFile("/tmp/no-img.log", [FakeFrame(None), FakeFrame(0)]),
+                    FakeStateDiskFile("/tmp/empty-freq.log", [FakeFrame(0, num_frequencies=0)]),
+                    FakeStateDiskFile("/tmp/imaginary.log", [FakeFrame(1)]),
+                ],
+            )
+        ),
+    )
+
+    filtered = batch.filter_state("no-img")
+
+    assert filtered.file_paths == ["/tmp/no-img.log"]
+
+
 def test_filebatchparser_parallel_generator_path_filters_results_safely(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -459,6 +509,107 @@ def test_filebatchparser_parallel_generator_path_filters_results_safely(
     batch = parser.parse(file_paths)
 
     assert batch.file_paths == ["/tmp/b.xyz", "/tmp/c.xyz"]
+
+
+def test_filebatchparser_parses_unstatable_files_without_aborting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parser = FileBatchParserDisk(n_jobs=1)
+    file_paths = ["/tmp/good.xyz", "/tmp/unstatable.xyz"]
+
+    monkeypatch.setattr(filebatchparserdisk_module.os.path, "isfile", lambda path: True)
+    monkeypatch.setattr(filebatchparserdisk_module.os.path, "abspath", lambda path: cast(str, path))
+
+    def fake_getsize(path: str) -> int:
+        if path == "/tmp/unstatable.xyz":
+            raise OSError("permission denied")
+        return 10
+
+    monkeypatch.setattr(filebatchparserdisk_module.os.path, "getsize", fake_getsize)
+    monkeypatch.setattr(
+        filebatchparserdisk_module.codec_registry,
+        "select_reader",
+        lambda _path, hint_format=None: (DummyReader("xyz", frozenset({".xyz"}), 1),),
+    )
+
+    monkeypatch.setattr(
+        filebatchparserdisk_module,
+        "single_file_parser",
+        lambda **task: FakeDiskFile(task["file_path"], "xyz", "xyz"),
+    )
+
+    batch = parser.parse(file_paths)
+
+    assert batch.file_paths == ["/tmp/good.xyz", "/tmp/unstatable.xyz"]
+
+
+def test_base_file_parser_finalizes_file_charge_and_multiplicity_from_first_frame() -> None:
+    from molop.io.logic.coords_parsers.XYZFileParser import XYZFileParserMemory
+
+    parsed = XYZFileParserMemory().parse(
+        "\n".join(
+            [
+                "1",
+                "charge 1 multiplicity 2",
+                "H 0.0 0.0 0.0",
+            ]
+        )
+    )
+
+    assert parsed.charge == 1
+    assert parsed.multiplicity == 2
+
+
+def test_g16_file_parser_finalizes_temperature_from_later_frame() -> None:
+    from molop.io.logic.QM_frame_models.G16LogFileFrame import G16LogFileFrameMemory
+    from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
+
+    parser = G16LogFileParserMemory()
+    frame_data = {
+        "atoms": [1],
+        "coords": [[0.0, 0.0, 0.0]] * atom_ureg.angstrom,
+        "charge": 0,
+        "multiplicity": 1,
+    }
+    first = G16LogFileFrameMemory.model_validate(frame_data)
+    second = G16LogFileFrameMemory.model_validate(frame_data | {"temperature": 350 * atom_ureg.K})
+    parsed = parser._chem_file.model_validate({"qm_software": "Gaussian"})
+    parsed.append(first)
+    parsed.append(second)
+
+    parser._update_file_metadata_from_frames(parsed, {})
+
+    assert parsed.temperature is not None
+    assert parsed.temperature.to("K").m == 350
+
+
+def test_g16_file_parser_finalizes_status_from_last_frame() -> None:
+    from molop.io.base_models.DataClasses import Status
+    from molop.io.logic.QM_frame_models.G16LogFileFrame import G16LogFileFrameMemory
+    from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
+
+    parser = G16LogFileParserMemory()
+    frame_data = {
+        "atoms": [1],
+        "coords": [[0.0, 0.0, 0.0]] * atom_ureg.angstrom,
+        "charge": 0,
+        "multiplicity": 1,
+    }
+    first = G16LogFileFrameMemory.model_validate(
+        frame_data | {"status": Status(normal_terminated=True)}
+    )
+    second = G16LogFileFrameMemory.model_validate(
+        frame_data | {"status": Status(normal_terminated=False)}
+    )
+    parsed = parser._chem_file.model_validate(
+        {"qm_software": "Gaussian", "status": Status(normal_terminated=True)}
+    )
+    parsed.append(first)
+    parsed.append(second)
+
+    parser._update_file_metadata_from_frames(parsed, {"status": Status(normal_terminated=True)})
+
+    assert parsed.status.normal_terminated is False
 
 
 def test_frame_format_transform_routes_single_frame_through_codec_registry(

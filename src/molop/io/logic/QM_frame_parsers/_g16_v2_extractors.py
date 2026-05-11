@@ -31,6 +31,8 @@ from molop.io.logic.QM_frame_parsers._g16_v2_shared import (
     STANDARD_COORDS_V2,
     THERMOCHEMISTRY_IN_ARCHIVE_TAIL_V2,
     THERMOCHEMISTRY_PART_V2,
+    _extract_float_tokens,
+    _extract_labeled_float_tokens,
     _extract_molecular_orbital_payload_from_text,
     _summarize_parse_context,
     _trim_molecular_orbital_symmetries,
@@ -188,10 +190,14 @@ def extract_populations_from_state(state: ParseState) -> dict[str, Any]:
             sub_focus_content, focus_content = pattern.split_content(focus_content)
             if matches := pattern.get_matches(sub_focus_content):
                 polars[key] = np.array([float(match[0]) for match in matches]) * unit
-        if matches := g16_log_patterns.EXACT_POLARIZABILITY.get_matches(remainder_content):
-            polars["polarizability_tensor"] = (
-                np.array([float(match) for match in matches[0]]) * atom_ureg.bohr**3
-            )
+        if exact_polarizability := _extract_labeled_float_tokens(
+            remainder_content, "Exact polarizability:", expected_count=6, decimal_places=3
+        ):
+            polars["polarizability_tensor"] = np.array(exact_polarizability) * atom_ureg.bohr**3
+        elif approx_polarizability := _extract_labeled_float_tokens(
+            remainder_content, "Approx polarizability:", expected_count=6, decimal_places=3
+        ):
+            polars["polarizability_tensor"] = np.array(approx_polarizability) * atom_ureg.bohr**3
         sub_focus_content, _ignored = g16_log_patterns.HIRSHFELD_POPULATION.split_content(
             remainder_content
         )
@@ -199,19 +205,20 @@ def extract_populations_from_state(state: ParseState) -> dict[str, Any]:
             pops["hirshfeld_charges"] = [float(match[0]) for match in matches]
             pops["hirshfeld_spins"] = [float(match[1]) for match in matches]
             pops["hirshfeld_q_cm5"] = [float(match[5]) for match in matches]
-        if matches := g16_log_patterns.DIPOLE_BEFORE_FORCE.match_content(remainder_content):
+        if dipole_before_force := _extract_labeled_float_tokens(
+            remainder_content, "Dipole        =", expected_count=3, decimal_places=8
+        ):
             polars["dipole"] = (
-                np.array([float(match[0].replace("D", "E")) for match in matches])
+                np.array(dipole_before_force)
                 * atom_ureg.atomic_unit_of_current
                 * atom_ureg.atomic_unit_of_time
                 * atom_ureg.bohr
             )
-        if matches := g16_log_patterns.POLARIZIABILITIES_BEFORE_FORCE.match_content(
-            remainder_content
+        if polarizability_before_force := _extract_labeled_float_tokens(
+            remainder_content, "Polarizability=", expected_count=6, decimal_places=8
         ):
             polars["polarizability_tensor"] = (
-                np.array([float(match[0].replace("D", "E")) for match in matches])
-                * atom_ureg.bohr**3
+                np.array(polarizability_before_force) * atom_ureg.bohr**3
             )
         if mo:
             mo = _trim_molecular_orbital_symmetries(mo)
@@ -250,29 +257,29 @@ def extract_vibrations_from_state(state: ParseState) -> dict[str, Any] | None:
     length = 0
     if matches := g16_log_patterns.FREQUENCIES.get_matches(focus_content):
         vib_dict["frequencies"] = (
-            np.array(list(map(float, (freq for match in matches for freq in match[0].split()))))
+            np.array([value for match in matches for value in _extract_float_tokens(match[0])])
             * atom_ureg.cm_1
         )
         length = len(vib_dict["frequencies"])
     if matches := g16_log_patterns.FREQUENCIES_REDUCED_MASS.get_matches(focus_content):
         vib_dict["reduced_masses"] = (
-            np.array(list(map(float, (freq for match in matches for freq in match[0].split()))))
+            np.array([value for match in matches for value in _extract_float_tokens(match[0])])
             * atom_ureg.amu
         )
     if matches := g16_log_patterns.FREQUENCIES_FORCE_CONSTANTS.get_matches(focus_content):
         vib_dict["force_constants"] = (
-            np.array(list(map(float, (freq for match in matches for freq in match[0].split()))))
+            np.array([value for match in matches for value in _extract_float_tokens(match[0])])
             * atom_ureg.mdyne
             / atom_ureg.angstrom
         )
     if matches := g16_log_patterns.FREQUENCIES_IR_INTENSITIES.get_matches(focus_content):
         vib_dict["IR_intensities"] = (
-            np.array(list(map(float, (freq for match in matches for freq in match[0].split()))))
+            np.array([value for match in matches for value in _extract_float_tokens(match[0])])
             * atom_ureg.km
             / atom_ureg.mol
         )
     if matches := g16_log_patterns.FREQUENCIES_MODE.get_matches(focus_content):
-        v = np.array([float(freq) for match in matches for freq in match[0].split()]).reshape(-1, 3)
+        v = np.array([value for match in matches for value in _extract_float_tokens(match[0])]).reshape(-1, 3)
         L = len(v) // length
         v1, v2, v3 = v[0::3], v[1::3], v[2::3]
         vib_dict["vibration_modes"] = [

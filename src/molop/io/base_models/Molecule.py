@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2024-06-17 20:42:47
 LastEditors: TMJ
-LastEditTime: 2026-04-07 23:43:49
+LastEditTime: 2026-05-05 19:33:30
 Description: 请填写简介
 """
 
@@ -92,6 +92,8 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         description="Number of radical electrons of each atom",
     )
     _rdmol: RdMol | None = PrivateAttr(default=None)
+    _smiles_cache: str | None = PrivateAttr(default=None)
+    _canonical_smiles_cache: str | None = PrivateAttr(default=None)
 
     @property
     def atom_symbols(self) -> list[str]:
@@ -219,9 +221,12 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         Returns:
             str: The SMILES.
         """
+        if self._smiles_cache is not None:
+            return self._smiles_cache
         if self.rdmol is None:
             return ""
         if smi := Chem.MolToSmiles(self.rdmol):
+            self._smiles_cache = smi
             return smi
         moloplogger.error("SMILES building failed.")
         return ""
@@ -233,8 +238,14 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         Returns:
             str: The standard SMILES.
         """
+        if self._canonical_smiles_cache is not None:
+            return self._canonical_smiles_cache
         smi = self.to_SMILES()
-        return canonical_smiles(smi) if smi else ""
+        if not smi:
+            return ""
+        canonical = canonical_smiles(smi)
+        self._canonical_smiles_cache = canonical
+        return canonical
 
     def to_InChI(self) -> str:
         """
@@ -400,6 +411,28 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
                 "formal_charges": get_formal_charges(rdmol),
                 "formal_num_radicals": get_formal_num_radicals(rdmol),
             }
+        )
+
+    @staticmethod
+    def from_coords(
+        atom_symbols: Sequence[str | int],
+        coords: np.ndarray,
+        charge: int = 0,
+        multiplicity: int = 1,
+        bonds: list[tuple[int, int, int]] | None = None,
+        formal_charges: list[int] | None = None,
+        formal_num_radicals: list[int] | None = None,
+    ) -> "Molecule":
+        return Molecule.model_validate(
+            {
+                "atoms": [Chem.Atom(atom).GetAtomicNum() for atom in atom_symbols],
+                "coords": coords * atom_ureg.angstrom,
+                "charge": charge,
+                "multiplicity": multiplicity,
+            }
+            | ({"bonds": bonds} if bonds else {})
+            | ({"formal_charges": formal_charges} if formal_charges else {})
+            | ({"formal_num_radicals": formal_num_radicals} if formal_num_radicals else {})
         )
 
     def replace_substituent(
@@ -569,7 +602,7 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         standard_orient(mol, anchor_list)
         return self.from_rdmol(mol)
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, brief: bool = True, **kwargs) -> dict[tuple[str, str], Any]:
         return {
             ("General", "Charge"): self.charge,
             ("General", "Multiplicity"): self.multiplicity,

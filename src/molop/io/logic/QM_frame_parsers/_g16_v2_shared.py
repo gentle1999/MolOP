@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import numpy as np
@@ -43,6 +44,35 @@ def extract_coords(
     return atoms, np.array(coords) * atom_ureg.angstrom
 
 
+def _extract_float_tokens(text: str, *, decimal_places: int | None = None) -> list[float]:
+    pattern = r"[-+]?\d+\.\d+(?:[DEde][-+]?\d+)?"
+    if decimal_places is not None:
+        pattern = rf"[-+]?\d+\.\d{{{decimal_places}}}(?:[DEde][-+]?\d+)?"
+    return [float(value.replace("D", "E").replace("d", "E")) for value in re.findall(pattern, text)]
+
+
+def _extract_labeled_float_tokens(
+    text: str,
+    label: str,
+    *,
+    expected_count: int | None = None,
+    decimal_places: int | None = None,
+) -> list[float]:
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped.startswith(label):
+            continue
+        body = stripped.removeprefix(label)
+        values = _extract_float_tokens(body)
+        if expected_count is None or len(values) >= expected_count:
+            return values if expected_count is None else values[:expected_count]
+        if decimal_places is not None:
+            precise_values = _extract_float_tokens(body, decimal_places=decimal_places)
+            if expected_count is None or len(precise_values) >= expected_count:
+                return precise_values if expected_count is None else precise_values[:expected_count]
+    return []
+
+
 def _extract_molecular_orbital_payload_from_text(focus_content: str) -> dict[str, Any]:
     mo: dict[str, Any] = {}
     temp_alpha_orbitals: list[float] = []
@@ -60,12 +90,12 @@ def _extract_molecular_orbital_payload_from_text(focus_content: str) -> dict[str
         if "eigenvalues --" not in stripped:
             continue
 
-        if stripped.startswith("Alpha "):
+        if stripped.startswith("Alpha"):
             orbital_type = "Alpha"
-            remainder = stripped.removeprefix("Alpha ")
-        elif stripped.startswith("Beta "):
+            remainder = stripped.removeprefix("Alpha").lstrip()
+        elif stripped.startswith("Beta"):
             orbital_type = "Beta"
-            remainder = stripped.removeprefix("Beta ")
+            remainder = stripped.removeprefix("Beta").lstrip()
         else:
             continue
 
@@ -78,7 +108,7 @@ def _extract_molecular_orbital_payload_from_text(focus_content: str) -> dict[str
         else:
             continue
 
-        values = [float(value.replace("D", "E").replace("d", "E")) for value in energies.split()]
+        values = _extract_float_tokens(energies, decimal_places=5)
         if orbital_type == "Alpha":
             temp_alpha_orbitals.extend(values)
             temp_alpha_occupancies.extend([occ_stat == "occ."] * len(values))

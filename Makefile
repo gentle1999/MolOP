@@ -138,11 +138,11 @@ format-check:
 
 lint:
 	@echo "🔧 Running Ruff Linter with fixes..."
-	uv run ruff check . --fix
+	uv run ruff check src --fix
 
 lint-check:
 	@echo "🔍 Running Ruff Linter..."
-	uv run ruff check .
+	uv run ruff check src
 
 type-check:
 	@echo "🦆 Running Mypy Type Checker..."

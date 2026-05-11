@@ -27,9 +27,11 @@ from molop.io.logic.QM_frame_models.G16V3Components import (
     G16V3L601PopAnalComponent,
     G16V3L716FreqComponent,
     G16V3L9999ArchiveComponent,
+    _parse_frequency_line_values,
     _parse_orbital_line_values,
     extract_coords,
 )
+from molop.io.logic.QM_frame_parsers._g16_v2_shared import _extract_labeled_float_tokens
 from molop.io.logic.QM_parsers._g16log_archive_tail import parse_archive_tail
 from molop.io.patterns.G16Patterns import g16_log_patterns
 from molop.unit import atom_ureg
@@ -337,9 +339,15 @@ class G16LogFileFrameParserMixin:
                 if matches := pattern.get_matches(sub_focus_content):
                     polars[key] = np.array([float(match[0]) for match in matches]) * unit
 
-            if matches := g16_log_patterns.EXACT_POLARIZABILITY.get_matches(self._block):
+            if exact_polarizability := _extract_labeled_float_tokens(
+                self._block, "Exact polarizability:", expected_count=6, decimal_places=3
+            ):
+                polars["polarizability_tensor"] = np.array(exact_polarizability) * atom_ureg.bohr**3
+            elif approx_polarizability := _extract_labeled_float_tokens(
+                self._block, "Approx polarizability:", expected_count=6, decimal_places=3
+            ):
                 polars["polarizability_tensor"] = (
-                    np.array([float(match) for match in matches[0]]) * atom_ureg.bohr**3
+                    np.array(approx_polarizability) * atom_ureg.bohr**3
                 )
 
             sub_focus_content, self._block = g16_log_patterns.HIRSHFELD_POPULATION.split_content(
@@ -349,19 +357,20 @@ class G16LogFileFrameParserMixin:
                 pops["hirshfeld_charges"] = [float(match[0]) for match in matches]
                 pops["hirshfeld_spins"] = [float(match[1]) for match in matches]
                 pops["hirshfeld_q_cm5"] = [float(match[5]) for match in matches]
-            if matches := g16_log_patterns.DIPOLE_BEFORE_FORCE.match_content(self._block):
+            if dipole_before_force := _extract_labeled_float_tokens(
+                self._block, "Dipole        =", expected_count=3, decimal_places=8
+            ):
                 polars["dipole"] = (
-                    np.array([float(match[0].replace("D", "E")) for match in matches])
+                    np.array(dipole_before_force)
                     * atom_ureg.atomic_unit_of_current
                     * atom_ureg.atomic_unit_of_time
                     * atom_ureg.bohr
                 )
-            if matches := g16_log_patterns.POLARIZIABILITIES_BEFORE_FORCE.match_content(
-                self._block
+            if polarizability_before_force := _extract_labeled_float_tokens(
+                self._block, "Polarizability=", expected_count=6, decimal_places=8
             ):
                 polars["polarizability_tensor"] = (
-                    np.array([float(match[0].replace("D", "E")) for match in matches])
-                    * atom_ureg.bohr**3
+                    np.array(polarizability_before_force) * atom_ureg.bohr**3
                 )
             if mo:
                 infos["molecular_orbitals"] = MolecularOrbitals.model_validate(mo)
@@ -401,7 +410,11 @@ class G16LogFileFrameParserMixin:
                     list(
                         map(
                             float,
-                            (freq for match in matches for freq in match[0].split()),
+                            (
+                                value
+                                for match in matches
+                                for value in _parse_frequency_line_values(match[0])
+                            ),
                         )
                     )
                 )
@@ -414,7 +427,11 @@ class G16LogFileFrameParserMixin:
                     list(
                         map(
                             float,
-                            (freq for match in matches for freq in match[0].split()),
+                            (
+                                value
+                                for match in matches
+                                for value in _parse_frequency_line_values(match[0])
+                            ),
                         )
                     )
                 )
@@ -426,7 +443,11 @@ class G16LogFileFrameParserMixin:
                     list(
                         map(
                             float,
-                            (freq for match in matches for freq in match[0].split()),
+                            (
+                                value
+                                for match in matches
+                                for value in _parse_frequency_line_values(match[0])
+                            ),
                         )
                     )
                 )
@@ -439,7 +460,11 @@ class G16LogFileFrameParserMixin:
                     list(
                         map(
                             float,
-                            (freq for match in matches for freq in match[0].split()),
+                            (
+                                value
+                                for match in matches
+                                for value in _parse_frequency_line_values(match[0])
+                            ),
                         )
                     )
                 )
@@ -447,9 +472,9 @@ class G16LogFileFrameParserMixin:
                 / atom_ureg.mol
             )
         if matches := g16_log_patterns.FREQUENCIES_MODE.get_matches(focus_content):
-            v = np.array([float(freq) for match in matches for freq in match[0].split()]).reshape(
-                -1, 3
-            )
+            v = np.array(
+                [value for match in matches for value in _parse_frequency_line_values(match[0])]
+            ).reshape(-1, 3)
             L = len(v) // length
             v1, v2, v3 = v[0::3], v[1::3], v[2::3]
             vib_dict["vibration_modes"] = [

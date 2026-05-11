@@ -2,25 +2,26 @@
 Author: TMJ
 Date: 2025-07-28 18:43:45
 LastEditors: TMJ
-LastEditTime: 2026-04-01 01:39:48
+LastEditTime: 2026-05-05 19:27:03
 Description: 请填写简介
 """
 
 import os
+from collections.abc import Sequence
 from io import StringIO
 from typing import Any, ClassVar, Generic, Protocol, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
-from molgr.interface import xyz_to_rdmol
 from pint._typing import UnitLike
 from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity
-from pydantic import Field, PrivateAttr, computed_field
+from pydantic import Field, PrivateAttr, computed_field, model_validator
 from rdkit import Chem
 from scipy.sparse import coo_matrix
+from typing_extensions import Self
 
-from molop.config import molopconfig, moloplogger
+from molop.config import moloplogger
 from molop.io.base_models.DataClasses import (
     BondOrders,
     ChargeSpinPopulations,
@@ -103,7 +104,9 @@ def _process_bond_helper(
     if bond_1 is None:
         rwmol.AddBond(start_atom_idx, end_atom_idx, Chem.BondType.ZERO)
     elif bond_2 is None or bond_type != bond_2.GetBondType():
-        rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).SetBondType(Chem.BondType.ZERO)
+        rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).SetBondType(
+            Chem.BondType.ZERO
+        )
 
 
 ChemFileFrame = TypeVar("ChemFileFrame", bound="BaseChemFileFrame")
@@ -147,12 +150,19 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
         Check if the molecule is optimized.
         """
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {**super().to_summary_dict(), ("General", "FrameID"): self.frame_id}
+    def to_summary_dict(
+        self, brief: bool = True, **kwargs
+    ) -> dict[tuple[str, str], Any]:
+        return {
+            **super().to_summary_dict(brief=brief, **kwargs),
+            ("General", "FrameID"): self.frame_id,
+        }
 
     def log_with_file_info(self, content: str, level: str = "info"):
         if file_name := getattr(self, "filename", None):
-            getattr(moloplogger, level)(f"{file_name} - Frame {self.frame_id}: {content}")
+            getattr(moloplogger, level)(
+                f"{file_name} - Frame {self.frame_id}: {content}"
+            )
 
     def release_frame_content(self) -> None:
         self.frame_content = ""
@@ -277,8 +287,12 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         "In Gaussian, the extracted polarization-related data are all calculated using the "
         "input coordinates as a reference.",
     )
-    bond_orders: BondOrders | None = Field(default=None, description="Bond orders of the molecule")
-    total_spin: TotalSpin | None = Field(default=None, description="Total spin of the molecule")
+    bond_orders: BondOrders | None = Field(
+        default=None, description="Bond orders of the molecule"
+    )
+    total_spin: TotalSpin | None = Field(
+        default=None, description="Total spin of the molecule"
+    )
     single_point_properties: SinglePointProperties | None = Field(
         default=None,
         description="Single point properties of the molecule",
@@ -317,8 +331,8 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             return None
         rwmol = Chem.RWMol(self.rdmol)
         if embed_populations and self.charge_spin_populations is not None:
-            populations: dict[str, list[float]] = self.charge_spin_populations.model_dump(
-                exclude_defaults=True
+            populations: dict[str, list[float]] = (
+                self.charge_spin_populations.model_dump(exclude_defaults=True)
             )
             for population, pop_list in populations.items():
                 for atom_idx, pop in enumerate(pop_list):
@@ -329,8 +343,8 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                     rwmol, f"{population}_by_{self.qm_software}".upper()
                 )
         if embed_bond_orders and self.bond_orders is not None:
-            bond_orders: dict[str, npt.NDArray[np.floating]] = self.bond_orders.model_dump(
-                exclude_defaults=True
+            bond_orders: dict[str, npt.NDArray[np.floating]] = (
+                self.bond_orders.model_dump(exclude_defaults=True)
             )
             for bond_order, bond_order_matrix in bond_orders.items():
                 coo = coo_matrix(bond_order_matrix)
@@ -387,7 +401,11 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             embed_bond_orders (bool): If True, embed the bond order properties. Defaults to True.
         """
         with open(filepath, "w") as f:
-            f.write(self.to_population_embedded_SDF_block(embed_populations, embed_bond_orders))
+            f.write(
+                self.to_population_embedded_SDF_block(
+                    embed_populations, embed_bond_orders
+                )
+            )
 
     def vibrate(
         self,
@@ -395,8 +413,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         vibration: Vibration | None = None,
         *,
         ratio: float = 1.75,
-        steps: int = 15,
-        ignore_dative=True,
+        steps: int = 7,
     ) -> list[Molecule]:
         """
         Generate a list of base block parsers for vibration calculations.
@@ -410,8 +427,6 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 The ratio to force the geometry to vibrate.
             steps (int):
                 The number of steps to generate.
-            ignore_dative (bool):
-                Whether to ignore dative bonds.
 
         Returns:
             List[BaseMolFrameParser]: A list of base block parsers for vibration calculations.
@@ -422,54 +437,64 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 vibration_id = 0
             if self.vibrations is None:
                 raise ValueError("No vibrations found in this frame")
-            assert len(self.vibrations) > vibration_id, f"Invalid vibration id {vibration_id}"
+            assert (
+                len(self.vibrations) > vibration_id
+            ), f"Invalid vibration id {vibration_id}"
             vibration = self.vibrations[vibration_id]
-        assert vibration.vibration_mode.m.shape == self.coords.m.shape, "Invalid vibration mode"
+        assert (
+            vibration.vibration_mode.m.shape == self.coords.m.shape
+        ), "Invalid vibration mode"
 
         temp_moleculues = []  # Initialize a list of base block parsers
 
         # Iterate over a list of ratios
         for r in np.linspace(-ratio, ratio, num=steps, endpoint=True):
             # Calculate extreme coordinates based on current ratio
-            extreme_coords = cast(np.ndarray, self.coords.m - vibration.vibration_mode.m * r)
+            extreme_coords = cast(
+                np.ndarray, self.coords.m - vibration.vibration_mode.m * r
+            )
 
-            try:
-                # Convert extreme coordinates to rdkit molecule object
-                rdmol = xyz_to_rdmol(
-                    f"{len(self.atoms)}\n"
-                    + f"charge {self.charge} multiplicity {self.multiplicity}\n"
-                    + "\n".join(
-                        [
-                            f"{Chem.Atom(atom).GetSymbol():10s}{x:10.5f}{y:10.5f}{z:10.5f}"
-                            for atom, x, y, z in zip(
-                                self.atoms,
-                                *zip(*extreme_coords, strict=True),
-                                strict=True,
-                            )
-                        ]
-                    ),
-                    total_charge=self.charge,
-                    spin_multiplicity=self.multiplicity,
-                    backend=molopconfig.graph_reconstruction_backend,
-                    make_dative_bonds=not ignore_dative and molopconfig.make_dative_bonds,
+            # Convert extreme coordinates to rdkit molecule object
+            rdmol = Chem.MolFromXYZBlock(
+                f"{len(self.atoms)}\n"
+                + f"charge {self.charge} multiplicity {self.multiplicity}\n"
+                + "\n".join(
+                    [
+                        f"{Chem.Atom(atom).GetSymbol():10s}{x:10.5f}{y:10.5f}{z:10.5f}"
+                        for atom, x, y, z in zip(
+                            self.atoms,
+                            *zip(*extreme_coords, strict=True),
+                            strict=True,
+                        )
+                    ]
                 )
-                # Rebuild using the rdkit molecule object
-                if rdmol is None:
-                    continue
-                if not check_crowding(rdmol):
-                    continue
-                Chem.SanitizeMol(rdmol)
-                molecule = Molecule.from_rdmol(rdmol)
-            except Exception as e:
-                moloplogger.warning(f"Failed to rebuild for {self.to_SMILES()} with error {e}")
+            )
+            # Rebuild using the rdkit molecule object
+            if rdmol is None:
                 continue
+            if not check_crowding(rdmol):
+                continue
+            molecule = Molecule.from_coords(
+                atom_symbols=self.atom_symbols,
+                coords=extreme_coords,
+                charge=self.charge,
+                multiplicity=self.multiplicity,
+            )
             # Check if the molecule satisfies crowding conditions and append it to the list
             temp_moleculues.append(molecule)
         return temp_moleculues
 
-    def ts_vibration(
-        self, ratio: float = 1.75, steps: int = 15, ignore_dative=True
-    ) -> list[Molecule]:
+    def get_QRC(self, ratio: float = 1.75, vibration_id: int = 0) -> list[Molecule]:
+        assert (
+            self.vibrations is not None and self.vibrations[vibration_id].is_imaginary
+        ), "Must be an imaginary vibration"
+        res = []
+        for r in (-ratio, ratio):
+            temp_moleculues = self.vibrate(vibration_id=vibration_id, ratio=r, steps=1)
+            res.extend(temp_moleculues)
+        return res
+
+    def ts_vibration(self, ratio: float = 1.75, steps: int = 7) -> list[Molecule]:
         """
         Generate a list of base block parsers for transition state vibration calculations.
 
@@ -478,28 +503,21 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 The ratio to force the geometry to vibrate.
             steps (int):
                 The number of steps to generate.
-            ignore_dative (bool):
-                Whether to ignore dative bonds.
 
         Returns:
             List[BaseMolFrameParser]: A list of base block parsers for transition state vibration calculations.
         """
         assert self.is_TS, "Must be a TS frame"
 
-        return self.vibrate(
-            vibration_id=0,
-            ratio=ratio,
-            steps=steps,
-            ignore_dative=ignore_dative,
-        )
+        return self.vibrate(vibration_id=0, ratio=ratio, steps=steps)
 
     def possible_pre_post_ts(
         self,
         show_3D: bool = False,
         *,
         ratio: float = 1.75,
-        steps: int = 15,
-        ignore_dative=True,
+        steps: int = 7,
+        ratio_attempts: Sequence[float] | None = None,
     ) -> tuple[Chem.rdchem.Mol, Chem.rdchem.Mol]:
         """
         This method returns the possible pre- and post-transition state molecules.
@@ -510,28 +528,37 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             ratio (float):
                 The ratio to force the geometry to vibrate. Defaults to 1.75.
             steps (int):
-                The number of steps to generate. Defaults to 15.
-            ignore_dative (bool):
-                Whether to ignore dative bonds. Defaults to True.
+                The number of steps to generate. Defaults to 7.
 
         Returns:
             Tuple[Chem.rdchem.Mol, Chem.rdchem.Mol]: A tuple containing the possible pre- and post-transition state molecules.
         """
-        temp_moleculues = self.ts_vibration(ratio=ratio, steps=steps, ignore_dative=ignore_dative)
-        assert len(temp_moleculues) > 0, "Failed to generate TS vibrations"
-        assert temp_moleculues[0].rdmol and temp_moleculues[-1].rdmol, (
-            "Failed to generate TS vibrations"
-        )
-        reactant_rdmol, product_rdmol = (
-            temp_moleculues[0].rdmol,
-            temp_moleculues[-1].rdmol,
-        )
+        if ratio_attempts is None:
+            ratio_attempts = [ratio]
+        for r in ratio_attempts:
+            temp_moleculues = self.ts_vibration(ratio=r, steps=steps)
+            mols: list[Chem.rdchem.Mol] = []
+            for mol in temp_moleculues:
+                if mol.rdmol is not None:
+                    mols.append(mol.rdmol)
+                    break
+            for mol in temp_moleculues[::-1]:
+                if mol.rdmol is not None:
+                    mols.append(mol.rdmol)
+                    break
+            if len(mols) > 1:
+                mols = sorted(mols, key=lambda x: len(Chem.GetMolFrags(x)), reverse=True)
+                break
+        else:
+            raise ValueError("Failed to generate TS vibrations")
+
+        reactant_rdmol, product_rdmol = mols[0], mols[-1]
         if not show_3D:
-            reactant_rdmol.RemoveAllConformers()
-            product_rdmol.RemoveAllConformers()
+            reactant_rdmol.RemoveAllConformers() if reactant_rdmol is not None else None
+            product_rdmol.RemoveAllConformers() if product_rdmol is not None else None
         return reactant_rdmol, product_rdmol
 
-    def to_diff_rdmol(self, *, ratio: float = 1.75, steps: int = 15) -> RdMol | None:
+    def to_diff_rdmol(self, *, ratio: float = 1.75, steps: int = 7) -> RdMol | None:
         """
         Generate a rdkit molecule object for the transition state with bond-breaking.
 
@@ -539,7 +566,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             ratio (float):
                 The ratio to force the geometry to vibrate. Defaults to 1.75.
             steps (int):
-                The number of steps to generate. Defaults to 15.
+                The number of steps to generate. Defaults to 7.
 
         Returns:
             Optional[RdMol]: The rdkit molecule object for the transition state with bond-breaking.
@@ -553,9 +580,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             assert not (
                 reactant_rdmol.HasSubstructMatch(product_rdmol)
                 or product_rdmol.HasSubstructMatch(reactant_rdmol)
-            ), (
-                "The inferred reactant and product rdmol objects are consistent, thus it is not a bond-breaking transition state."
-            )
+            ), "The inferred reactant and product rdmol objects are consistent, thus it is not a bond-breaking transition state."
 
             rwmol = Chem.RWMol(reactant_rdmol)
 
@@ -642,24 +667,42 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             return False
         return self.geometry_optimization_status.geometry_optimized
 
-    def to_summary_dict(self, brief: bool = True, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(
+        self, brief: bool = True, **kwargs
+    ) -> dict[tuple[str, str], Any]:
         try:
-            brief_dict = super().to_summary_dict(**kwargs) | {
+            brief_dict = super().to_summary_dict(brief=brief, **kwargs) | {
                 ("Calc Parameter", "Software"): self.qm_software,
                 ("Calc Parameter", "Version"): self.qm_software_version,
                 ("Calc Parameter", "Method"): self.method,
                 ("Calc Parameter", "BasisSet"): self.basis_set,
                 ("Calc Parameter", "Functional"): self.functional,
                 ("Calc Parameter", "Keywords"): self.keywords,
-                ("Environment", "SolventModel"): self.solvent.solvent_model
-                if self.solvent
-                else None,
-                ("Environment", "Solvent"): self.solvent.solvent if self.solvent else None,
+                ("Environment", "SolventModel"): (
+                    self.solvent.solvent_model if self.solvent else None
+                ),
+                ("Environment", "Solvent"): (
+                    self.solvent.solvent if self.solvent else None
+                ),
                 ("Status", "IsError"): self.is_error,
                 ("Status", "IsNormal"): self.is_normal,
                 ("Status", "IsTS"): self.is_TS,
                 ("Status", "IsOptimized"): self.is_optimized,
             }
+            if self.is_TS:
+                try:
+                    pre, post = self.possible_pre_post_ts(
+                        ratio_attempts=[0.75, 1.0, 1.25, 1.5]
+                    )
+                    pre_smiles = Chem.CanonSmiles(Chem.MolToSmiles(pre))
+                    post_smiles = Chem.CanonSmiles(Chem.MolToSmiles(post))
+                except Exception as e:
+                    moloplogger.error(f"Error in possible_pre_post_ts: {e}")
+                    pre_smiles, post_smiles = "", ""
+                brief_dict |= {
+                    ("General", "PreCanonicalSMILES"): pre_smiles,
+                    ("General", "PostCanonicalSMILES"): post_smiles,
+                }
             if self.temperature:
                 brief_dict = brief_dict | {
                     (
@@ -675,20 +718,37 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             if not brief:
                 brief_dict |= self.energies.to_summary_dict() if self.energies else {}
                 brief_dict |= (
-                    self.thermal_informations.to_summary_dict() if self.thermal_informations else {}
+                    self.thermal_informations.to_summary_dict()
+                    if self.thermal_informations
+                    else {}
                 )
                 brief_dict |= (
                     self.geometry_optimization_status.to_summary_dict()
                     if self.geometry_optimization_status
                     else {}
                 )
-                brief_dict |= self.vibrations.to_summary_dict() if self.vibrations else {}
+                brief_dict |= (
+                    self.vibrations.to_summary_dict() if self.vibrations else {}
+                )
 
             return brief_dict
 
         except Exception as e:
             moloplogger.error(f"Error in to_summary_dict: {e}")
             return {}
+
+    @model_validator(mode="after")
+    def physical_check(self) -> Self:
+        num_atoms = len(self.atoms)
+        if self.vibrations and len(self.vibrations) not in (
+            num_atoms * 3 - 6,
+            num_atoms * 3 - 5,
+            num_atoms * 3 - 3,
+        ):
+            raise ValueError(
+                f"Invalid vibrationa mode count: {len(self.vibrations)} for {num_atoms} atoms"
+            )
+        return self
 
 
 calc_frame = TypeVar("calc_frame", bound="BaseCalcFrame")

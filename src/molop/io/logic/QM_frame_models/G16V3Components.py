@@ -33,6 +33,7 @@ from molop.io.logic.QM_frame_parsers._g16_v2_shared import (
     INPUT_COORDS_V2,
     POPULATION_ANALYSIS_V2,
     STANDARD_COORDS_V2,
+    _extract_labeled_float_tokens,
     _summarize_parse_context,
     extract_coords,
 )
@@ -59,6 +60,7 @@ def _register_raw_model(model_cls: type[BaseDataClassWithUnit]) -> type[BaseData
 
 
 def _format_float(value: Any, digits: int = 6) -> str:
+    value = _restore_raw_payload(value)
     if hasattr(value, "m"):
         value = value.m
     if isinstance(value, np.ndarray):
@@ -527,6 +529,12 @@ def _parse_grouped_float_matches(matches: list[tuple[str, ...]]) -> np.ndarray:
 
 
 def _parse_orbital_line_values(energies: str) -> list[float]:
+    precise_values = [
+        float(value.replace("D", "E").replace("d", "E"))
+        for value in re.findall(r"[-+]?\d+\.\d{5}(?:[DEde][-+]?\d+)?", energies)
+    ]
+    if precise_values:
+        return precise_values
     return [
         float(value.replace("D", "E").replace("d", "E"))
         for value in re.findall(r"[-+]?\d+\.\d+(?:[DEde][-+]?\d+)?", energies)
@@ -536,7 +544,7 @@ def _parse_orbital_line_values(energies: str) -> list[float]:
 def _parse_frequency_line_values(line: str) -> list[float]:
     if "--" in line:
         line = line.split("--", 1)[1]
-    return [float(value.replace("D", "E").replace("d", "E")) for value in line.split()]
+    return _parse_orbital_line_values(line)
 
 
 def _parse_version_payload_impl(block: str) -> str | None:
@@ -1566,12 +1574,17 @@ class G16V3L601PopAnalComponent(G16V3BaseComponent):
                 sub_focus_content, focus_content = pattern.split_content(focus_content)
                 if matches := pattern.get_matches(sub_focus_content):
                     polars[key] = np.array([float(match[0]) for match in matches]) * unit
-            if _contains_any_marker(
-                remaining_block,
-                G16V3L601PopAnalComponent._REMAINING_BLOCK_MARKERS["exact_polarizability"],
-            ) and (matches := g16_log_patterns.EXACT_POLARIZABILITY.get_matches(remaining_block)):
+            if exact_polarizability := _extract_labeled_float_tokens(
+                remaining_block, "Exact polarizability:", expected_count=6, decimal_places=3
+            ):
                 polars["polarizability_tensor"] = (
-                    np.array([float(match) for match in matches[0]]) * atom_ureg.bohr**3
+                    np.array(exact_polarizability) * atom_ureg.bohr**3
+                )
+            elif approx_polarizability := _extract_labeled_float_tokens(
+                remaining_block, "Approx polarizability:", expected_count=6, decimal_places=3
+            ):
+                polars["polarizability_tensor"] = (
+                    np.array(approx_polarizability) * atom_ureg.bohr**3
                 )
             if _contains_any_marker(
                 remaining_block, G16V3L601PopAnalComponent._REMAINING_BLOCK_MARKERS["hirshfeld"]
@@ -1585,27 +1598,20 @@ class G16V3L601PopAnalComponent(G16V3BaseComponent):
                 pops["hirshfeld_charges"] = [float(match[0]) for match in matches]
                 pops["hirshfeld_spins"] = [float(match[1]) for match in matches]
                 pops["hirshfeld_q_cm5"] = [float(match[5]) for match in matches]
-            if _contains_any_marker(
-                remaining_block,
-                G16V3L601PopAnalComponent._REMAINING_BLOCK_MARKERS["dipole_before_force"],
-            ) and (matches := g16_log_patterns.DIPOLE_BEFORE_FORCE.match_content(remaining_block)):
+            if dipole_before_force := _extract_labeled_float_tokens(
+                remaining_block, "Dipole        =", expected_count=3, decimal_places=8
+            ):
                 polars["dipole"] = (
-                    np.array([float(match[0].replace("D", "E")) for match in matches])
+                    np.array(dipole_before_force)
                     * atom_ureg.atomic_unit_of_current
                     * atom_ureg.atomic_unit_of_time
                     * atom_ureg.bohr
                 )
-            if _contains_any_marker(
-                remaining_block,
-                G16V3L601PopAnalComponent._REMAINING_BLOCK_MARKERS["polarizability_before_force"],
-            ) and (
-                matches := g16_log_patterns.POLARIZIABILITIES_BEFORE_FORCE.match_content(
-                    remaining_block
-                )
+            if polarizability_before_force := _extract_labeled_float_tokens(
+                remaining_block, "Polarizability=", expected_count=6, decimal_places=3
             ):
                 polars["polarizability_tensor"] = (
-                    np.array([float(match[0].replace("D", "E")) for match in matches])
-                    * atom_ureg.bohr**3
+                    np.array(polarizability_before_force) * atom_ureg.bohr**3
                 )
             if mo:
                 infos["molecular_orbitals"] = MolecularOrbitals.model_validate(mo)
@@ -2019,14 +2025,14 @@ class G16V3L716ThermochemistryComponent(G16V3BaseComponent):
                     "hartree/particle"
                 )
         if matches := g16_log_patterns.THERMOCHEMISTRY_SUM.get_matches(focus_content):
-            mapping = {
+            summary_mapping = {
                 "zero-point Energies": "U_0",
                 "thermal Energies": "U_T",
                 "thermal Enthalpies": "H_T",
                 "thermal Free Energies": "G_T",
             }
             for match in matches:
-                thermal_dict[mapping[match[0]]] = float(match[1]) * atom_ureg.Unit(
+                thermal_dict[summary_mapping[match[0]]] = float(match[1]) * atom_ureg.Unit(
                     "hartree/particle"
                 )
         if matches := g16_log_patterns.THERMOCHEMISTRY_CV_S.get_matches(focus_content):
@@ -2231,6 +2237,8 @@ class G16V3L716ThermochemistryComponent(G16V3BaseComponent):
 
     def aggregate_into(self, infos: dict[str, Any], payload: Mapping[str, Any]) -> None:
         _merge_if_present(infos, "thermal_informations", payload.get("thermal_informations"))
+        _merge_if_present(infos, "temperature", payload.get("temperature"))
+        _merge_if_present(infos, "pressure", payload.get("pressure"))
 
     @classmethod
     def build_payload_from_frame(cls, frame: Any) -> dict[str, Any]:
