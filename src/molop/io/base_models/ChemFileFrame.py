@@ -104,9 +104,7 @@ def _process_bond_helper(
     if bond_1 is None:
         rwmol.AddBond(start_atom_idx, end_atom_idx, Chem.BondType.ZERO)
     elif bond_2 is None or bond_type != bond_2.GetBondType():
-        rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).SetBondType(
-            Chem.BondType.ZERO
-        )
+        rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).SetBondType(Chem.BondType.ZERO)
 
 
 ChemFileFrame = TypeVar("ChemFileFrame", bound="BaseChemFileFrame")
@@ -150,9 +148,7 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
         Check if the molecule is optimized.
         """
 
-    def to_summary_dict(
-        self, brief: bool = True, **kwargs
-    ) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, brief: bool = True, **kwargs) -> dict[tuple[str, str], Any]:
         return {
             **super().to_summary_dict(brief=brief, **kwargs),
             ("General", "FrameID"): self.frame_id,
@@ -160,9 +156,7 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
 
     def log_with_file_info(self, content: str, level: str = "info"):
         if file_name := getattr(self, "filename", None):
-            getattr(moloplogger, level)(
-                f"{file_name} - Frame {self.frame_id}: {content}"
-            )
+            getattr(moloplogger, level)(f"{file_name} - Frame {self.frame_id}: {content}")
 
     def release_frame_content(self) -> None:
         self.frame_content = ""
@@ -287,12 +281,8 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         "In Gaussian, the extracted polarization-related data are all calculated using the "
         "input coordinates as a reference.",
     )
-    bond_orders: BondOrders | None = Field(
-        default=None, description="Bond orders of the molecule"
-    )
-    total_spin: TotalSpin | None = Field(
-        default=None, description="Total spin of the molecule"
-    )
+    bond_orders: BondOrders | None = Field(default=None, description="Bond orders of the molecule")
+    total_spin: TotalSpin | None = Field(default=None, description="Total spin of the molecule")
     single_point_properties: SinglePointProperties | None = Field(
         default=None,
         description="Single point properties of the molecule",
@@ -331,8 +321,8 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             return None
         rwmol = Chem.RWMol(self.rdmol)
         if embed_populations and self.charge_spin_populations is not None:
-            populations: dict[str, list[float]] = (
-                self.charge_spin_populations.model_dump(exclude_defaults=True)
+            populations: dict[str, list[float]] = self.charge_spin_populations.model_dump(
+                exclude_defaults=True
             )
             for population, pop_list in populations.items():
                 for atom_idx, pop in enumerate(pop_list):
@@ -343,8 +333,8 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                     rwmol, f"{population}_by_{self.qm_software}".upper()
                 )
         if embed_bond_orders and self.bond_orders is not None:
-            bond_orders: dict[str, npt.NDArray[np.floating]] = (
-                self.bond_orders.model_dump(exclude_defaults=True)
+            bond_orders: dict[str, npt.NDArray[np.floating]] = self.bond_orders.model_dump(
+                exclude_defaults=True
             )
             for bond_order, bond_order_matrix in bond_orders.items():
                 coo = coo_matrix(bond_order_matrix)
@@ -401,11 +391,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             embed_bond_orders (bool): If True, embed the bond order properties. Defaults to True.
         """
         with open(filepath, "w") as f:
-            f.write(
-                self.to_population_embedded_SDF_block(
-                    embed_populations, embed_bond_orders
-                )
-            )
+            f.write(self.to_population_embedded_SDF_block(embed_populations, embed_bond_orders))
 
     def vibrate(
         self,
@@ -437,22 +423,16 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 vibration_id = 0
             if self.vibrations is None:
                 raise ValueError("No vibrations found in this frame")
-            assert (
-                len(self.vibrations) > vibration_id
-            ), f"Invalid vibration id {vibration_id}"
+            assert len(self.vibrations) > vibration_id, f"Invalid vibration id {vibration_id}"
             vibration = self.vibrations[vibration_id]
-        assert (
-            vibration.vibration_mode.m.shape == self.coords.m.shape
-        ), "Invalid vibration mode"
+        assert vibration.vibration_mode.m.shape == self.coords.m.shape, "Invalid vibration mode"
 
         temp_moleculues = []  # Initialize a list of base block parsers
 
         # Iterate over a list of ratios
         for r in np.linspace(-ratio, ratio, num=steps, endpoint=True):
             # Calculate extreme coordinates based on current ratio
-            extreme_coords = cast(
-                np.ndarray, self.coords.m - vibration.vibration_mode.m * r
-            )
+            extreme_coords = cast(np.ndarray, self.coords.m - vibration.vibration_mode.m * r)
 
             # Convert extreme coordinates to rdkit molecule object
             rdmol = Chem.MolFromXYZBlock(
@@ -485,9 +465,9 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         return temp_moleculues
 
     def get_QRC(self, ratio: float = 1.75, vibration_id: int = 0) -> list[Molecule]:
-        assert (
-            self.vibrations is not None and self.vibrations[vibration_id].is_imaginary
-        ), "Must be an imaginary vibration"
+        assert self.vibrations is not None and self.vibrations[vibration_id].is_imaginary, (
+            "Must be an imaginary vibration"
+        )
         res = []
         for r in (-ratio, ratio):
             temp_moleculues = self.vibrate(vibration_id=vibration_id, ratio=r, steps=1)
@@ -580,7 +560,9 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             assert not (
                 reactant_rdmol.HasSubstructMatch(product_rdmol)
                 or product_rdmol.HasSubstructMatch(reactant_rdmol)
-            ), "The inferred reactant and product rdmol objects are consistent, thus it is not a bond-breaking transition state."
+            ), (
+                "The inferred reactant and product rdmol objects are consistent, thus it is not a bond-breaking transition state."
+            )
 
             rwmol = Chem.RWMol(reactant_rdmol)
 
@@ -667,9 +649,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             return False
         return self.geometry_optimization_status.geometry_optimized
 
-    def to_summary_dict(
-        self, brief: bool = True, **kwargs
-    ) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, brief: bool = True, **kwargs) -> dict[tuple[str, str], Any]:
         try:
             brief_dict = super().to_summary_dict(brief=brief, **kwargs) | {
                 ("Calc Parameter", "Software"): self.qm_software,
@@ -681,9 +661,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 ("Environment", "SolventModel"): (
                     self.solvent.solvent_model if self.solvent else None
                 ),
-                ("Environment", "Solvent"): (
-                    self.solvent.solvent if self.solvent else None
-                ),
+                ("Environment", "Solvent"): (self.solvent.solvent if self.solvent else None),
                 ("Status", "IsError"): self.is_error,
                 ("Status", "IsNormal"): self.is_normal,
                 ("Status", "IsTS"): self.is_TS,
@@ -691,9 +669,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             }
             if self.is_TS:
                 try:
-                    pre, post = self.possible_pre_post_ts(
-                        ratio_attempts=[0.75, 1.0, 1.25, 1.5]
-                    )
+                    pre, post = self.possible_pre_post_ts(ratio_attempts=[0.75, 1.0, 1.25, 1.5])
                     pre_smiles = Chem.CanonSmiles(Chem.MolToSmiles(pre))
                     post_smiles = Chem.CanonSmiles(Chem.MolToSmiles(post))
                 except Exception as e:
@@ -718,18 +694,14 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             if not brief:
                 brief_dict |= self.energies.to_summary_dict() if self.energies else {}
                 brief_dict |= (
-                    self.thermal_informations.to_summary_dict()
-                    if self.thermal_informations
-                    else {}
+                    self.thermal_informations.to_summary_dict() if self.thermal_informations else {}
                 )
                 brief_dict |= (
                     self.geometry_optimization_status.to_summary_dict()
                     if self.geometry_optimization_status
                     else {}
                 )
-                brief_dict |= (
-                    self.vibrations.to_summary_dict() if self.vibrations else {}
-                )
+                brief_dict |= self.vibrations.to_summary_dict() if self.vibrations else {}
 
             return brief_dict
 

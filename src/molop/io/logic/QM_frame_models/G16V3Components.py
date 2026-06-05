@@ -1577,9 +1577,7 @@ class G16V3L601PopAnalComponent(G16V3BaseComponent):
             if exact_polarizability := _extract_labeled_float_tokens(
                 remaining_block, "Exact polarizability:", expected_count=6, decimal_places=3
             ):
-                polars["polarizability_tensor"] = (
-                    np.array(exact_polarizability) * atom_ureg.bohr**3
-                )
+                polars["polarizability_tensor"] = np.array(exact_polarizability) * atom_ureg.bohr**3
             elif approx_polarizability := _extract_labeled_float_tokens(
                 remaining_block, "Approx polarizability:", expected_count=6, decimal_places=3
             ):

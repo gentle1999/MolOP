@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: http://10.72.201.58:13000/actions/checkout@v4
+        uses: http://nas.asymcatml.net:13000/actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -55,7 +55,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: http://10.72.201.58:13000/actions/checkout@v4
+        uses: http://nas.asymcatml.net:13000/actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -88,7 +88,7 @@ jobs:
         env:
           UV_PUBLISH_USERNAME: ${{ secrets.OWNER }}
           UV_PUBLISH_PASSWORD: ${{ secrets.PASSWORD }}
-          GITEA_HOST: "http://10.72.201.58:13000"
+          GITEA_HOST: "http://nas.asymcatml.net:13000"
         run: |
           PUBLISH_URL="${GITEA_HOST}/api/packages/${{ github.repository_owner }}/pypi"
           uv publish -u "$UV_PUBLISH_USERNAME" -p "$UV_PUBLISH_PASSWORD" --publish-url "$PUBLISH_URL"

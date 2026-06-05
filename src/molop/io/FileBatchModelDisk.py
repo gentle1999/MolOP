@@ -392,8 +392,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
                     and has_frequency_data(vibrations)
                 ]
                 res = bool(vibration_frames) and all(
-                    frame.vibrations.num_imaginary == 0
-                    for frame in vibration_frames
+                    frame.vibrations.num_imaginary == 0 for frame in vibration_frames
                 )
             else:
                 raise ValueError(f"Invalid state: {state}")

@@ -213,9 +213,7 @@ class G16LogFileParserMixin:
         typed_self = cast(_HasParseMethod, self)
         final_charge = total_charge if total_charge is not None else typed_self.forced_charge
         final_multiplicity = (
-            total_multiplicity
-            if total_multiplicity is not None
-            else typed_self.forced_multiplicity
+            total_multiplicity if total_multiplicity is not None else typed_self.forced_multiplicity
         )
         if final_charge is not None:
             metadata_base["charge"] = final_charge
@@ -235,9 +233,7 @@ class G16LogFileParserMixin:
                 last_frame_content = frame_contents[-1]
             else:
                 raise ValueError("No frame found in the section.")
-            frame = typed_self._parse_frame(
-                last_frame_content, additional_data=file_metadata
-            )
+            frame = typed_self._parse_frame(last_frame_content, additional_data=file_metadata)
             if final_charge is not None:
                 frame.charge = final_charge
             if final_multiplicity is not None:
@@ -256,15 +252,11 @@ class G16LogFileParserMixin:
             ]
             if running_times:
                 file_metadata["running_time"] = sum(running_times[1:], running_times[0])
-            _chem_file = typed_self._chem_file.model_validate(
-                file_metadata
-            )
+            _chem_file = typed_self._chem_file.model_validate(file_metadata)
             for metadata, section in zip(metadata_list, sections, strict=True):
                 section_metadata = metadata | metadata_base
                 for frame_content in self._split_section_frames(section):
-                    frame = typed_self._parse_frame(
-                        frame_content, additional_data=section_metadata
-                    )
+                    frame = typed_self._parse_frame(frame_content, additional_data=section_metadata)
                     if final_charge is not None:
                         frame.charge = final_charge
                     if final_multiplicity is not None:
@@ -403,6 +395,7 @@ class G16LogFileParserMixin:
             return Status.model_validate(status_dict)
         return None
 
+
 class G16LogFileParserMemory(
     G16LogFileParserMixin,
     BaseFileParserMemory[G16LogFileMemory, G16LogFileFrameMemory, G16LogFileFrameParserMemory],
@@ -418,7 +411,6 @@ class G16LogFileParserDisk(
     allowed_formats = (".log", ".g16", ".gal", ".out", ".irc", "gau")
     _chem_file = G16LogFileDisk
     _frame_parser = G16LogFileFrameParserDisk
-
 
 
 class G16LogFileParserV2Memory(

@@ -379,7 +379,7 @@ class BatchFormatTransformMixin:
 
         Source
         ------
-        src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1401
+        src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1413
         """
         ...
     @overload
@@ -720,7 +720,7 @@ class BatchFormatTransformMixin:
         ------
         cml : src/molop/io/codecs/cml_codec.py:47
         fakeg : src/molop/io/logic/QM_frame_models/G16LogFileFrame.py
-        gjf : src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1401
+        gjf : src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1413
         orcainp : src/molop/io/logic/qminput_frame_models/ORCAInpFileFrame.py:25
         sdf : src/molop/io/logic/coords_frame_models/SDFFileFrame.py:18
         smi : src/molop/io/logic/coords_frame_models/SMIFileFrame.py:16

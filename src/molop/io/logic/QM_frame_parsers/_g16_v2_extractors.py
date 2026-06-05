@@ -279,7 +279,9 @@ def extract_vibrations_from_state(state: ParseState) -> dict[str, Any] | None:
             / atom_ureg.mol
         )
     if matches := g16_log_patterns.FREQUENCIES_MODE.get_matches(focus_content):
-        v = np.array([value for match in matches for value in _extract_float_tokens(match[0])]).reshape(-1, 3)
+        v = np.array(
+            [value for match in matches for value in _extract_float_tokens(match[0])]
+        ).reshape(-1, 3)
         L = len(v) // length
         v1, v2, v3 = v[0::3], v[1::3], v[2::3]
         vib_dict["vibration_modes"] = [
@@ -295,25 +297,27 @@ def extract_thermal_infos_from_state(state: ParseState) -> dict[str, Any] | None
     state.advance_to(next_cursor)
     thermal_dict: dict[str, Any] = {}
     if matches := g16_log_patterns.THERMOCHEMISTRY_CORRECTION.get_matches(focus_content):
-        mapping = {
+        correction_mapping: dict[tuple[str, str], str] = {
             ("Zero-point", ""): "ZPVE",
             ("Thermal", " to Energy"): "TCE",
             ("Thermal", " to Enthalpy"): "TCH",
             ("Thermal", " to Gibbs Free Energy"): "TCG",
         }
         for match in matches:
-            thermal_dict[mapping[(match[0], match[1])]] = float(match[2]) * atom_ureg.Unit(
-                "hartree/particle"
-            )
+            thermal_dict[correction_mapping[(match[0], match[1])]] = float(
+                match[2]
+            ) * atom_ureg.Unit("hartree/particle")
     if matches := g16_log_patterns.THERMOCHEMISTRY_SUM.get_matches(focus_content):
-        mapping = {
+        summary_mapping: dict[str, str] = {
             "zero-point Energies": "U_0",
             "thermal Energies": "U_T",
             "thermal Enthalpies": "H_T",
             "thermal Free Energies": "G_T",
         }
         for match in matches:
-            thermal_dict[mapping[match[0]]] = float(match[1]) * atom_ureg.Unit("hartree/particle")
+            thermal_dict[summary_mapping[match[0]]] = float(match[1]) * atom_ureg.Unit(
+                "hartree/particle"
+            )
     if matches := g16_log_patterns.THERMOCHEMISTRY_CV_S.get_matches(focus_content):
         thermal_dict["S"], thermal_dict["C_V"] = (
             float(matches[0][1]) * atom_ureg.Unit("cal/mol/K"),

@@ -8,7 +8,9 @@ from molop.io.logic.QM_frame_parsers._g16_v2_shared import _extract_labeled_floa
 from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
 
 
-MERGED_FREQUENCY_FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "3-m-Py_anion_Opt.log"
+MERGED_FREQUENCY_FIXTURE = (
+    Path(__file__).resolve().parent / "test_files" / "g16log" / "3-m-Py_anion_Opt.log"
+)
 
 
 def test_default_g16log_parser_handles_concatenated_frequency_values() -> None:

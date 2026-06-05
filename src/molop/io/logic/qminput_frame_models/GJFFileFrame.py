@@ -48,12 +48,14 @@ class GJFLink0(BaseDataClassWithUnit):
                 return atom_ureg.Quantity(self.value)
             if self.value and self.value.endswith("W"):
                 return atom_ureg.Quantity(self.value.replace("W", "B")) * 8
+        return None
 
     def cpu_request(self) -> int | None:
         if self.key.lower() == "cpu" and self.value:
             return len(self.value.split(","))
         if (self.key.lower() == "nproc" or self.key.lower() == "nprocshared") and self.value:
             return int(self.value)
+        return None
 
 
 class GJFLink0Commands(BaseDataClassWithUnit):
@@ -300,31 +302,37 @@ class GJFAtomSpecification(BaseDataClassWithUnit):
         values = (
             raw_values[:-1] if format_flag in {0, 1} and len(raw_values) % 2 == 1 else raw_values
         )
-        res = []
+        indices: list[int] = []
         for i in (0, 2, 4):
             try:
-                res.append(int(values[i]))
+                indices.append(int(values[i]))
             except Exception:
-                res.append(0)
+                indices.append(0)
+        distance: PlainQuantity
+        angle: PlainQuantity
+        dihedral: PlainQuantity
         try:
-            res.append(float(values[1]) * atom_ureg.angstrom)
+            distance = cast(PlainQuantity, float(values[1]) * atom_ureg.angstrom)
         except Exception:
-            res.append(0 * atom_ureg.angstrom)
-        for i in (3, 5):
-            try:
-                res.append(float(values[i]) * atom_ureg.degree)
-            except Exception:
-                res.append(0 * atom_ureg.degree)
+            distance = cast(PlainQuantity, 0 * atom_ureg.angstrom)
+        try:
+            angle = cast(PlainQuantity, float(values[3]) * atom_ureg.degree)
+        except Exception:
+            angle = cast(PlainQuantity, 0 * atom_ureg.degree)
+        try:
+            dihedral = cast(PlainQuantity, float(values[5]) * atom_ureg.degree)
+        except Exception:
+            dihedral = cast(PlainQuantity, 0 * atom_ureg.degree)
 
         pair_count = len(values) // 2
 
-        if res[3].to(atom_ureg.angstrom).m <= 0:
+        if distance.to(atom_ureg.angstrom).m <= 0:
             raise ValueError("Z-matrix bond length must be positive")
-        if pair_count >= 2 and not 0 < res[4].to(atom_ureg.degree).m < 180:
+        if pair_count >= 2 and not 0 < angle.to(atom_ureg.degree).m < 180:
             raise ValueError("Z-matrix bond angle must be between 0 and 180 degrees")
-        if pair_count >= 3 and format_flag == 1 and not 0 < res[5].to(atom_ureg.degree).m < 180:
+        if pair_count >= 3 and format_flag == 1 and not 0 < dihedral.to(atom_ureg.degree).m < 180:
             raise ValueError("Alternate Z-matrix second angle must be between 0 and 180 degrees")
-        return tuple(res)
+        return indices[0], indices[1], indices[2], distance, angle, dihedral
 
     @property
     def is_dummy(self) -> bool:
@@ -792,7 +800,11 @@ class GJFMoleculeSpecifications(BaseDataClassWithUnit):
 
     @property
     def rdmol_fragments(self) -> list[Chem.rdchem.Mol]:
-        return [frag.fragment_molecule() for frag in self.molecule_fragments]
+        return [
+            rdmol
+            for frag in self.molecule_fragments
+            if (rdmol := frag.fragment_molecule()) is not None
+        ]
 
     @property
     def rdmol(self) -> Chem.rdchem.Mol:

@@ -72,9 +72,9 @@ class G16LogFileFrameMixin:
         private_attrs = getattr(self, "__pydantic_private__", None)
         if isinstance(private_attrs, dict):
             tree = private_attrs.get("_component_tree")
-            return cast(G16V3ComponentTree | None, tree)
+            return tree
         tree = getattr(self, "_component_tree", None)
-        return cast(G16V3ComponentTree | None, tree)
+        return tree
 
     def _set_private_component_tree(self, tree: G16V3ComponentTree | None) -> None:
         private_attrs = getattr(self, "__pydantic_private__", None)

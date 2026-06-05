@@ -90,7 +90,7 @@ def canonical_smiles(smiles: str, *, stable: bool = False, max_rounds: int = 8) 
         Maximum number of canonicalization rounds when ``stable`` is enabled.
     """
     if max_rounds < 1:
-        raise ValueError('max_rounds must be >= 1')
+        raise ValueError("max_rounds must be >= 1")
 
     current = _canonical_smiles_once(smiles)
     if not stable:

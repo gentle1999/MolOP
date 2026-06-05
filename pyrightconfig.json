@@ -2,6 +2,8 @@
   "typeCheckingMode": "standard",
   "include": ["src"],
   "exclude": [
+    "**/node_modules",
+    "**/.*",
     "tests",
     "scripts",
     "build",

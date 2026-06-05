@@ -8,6 +8,7 @@ Description: 请填写简介
 
 import glob
 import os
+from collections.abc import Iterable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -78,6 +79,7 @@ def AutoParser(
     parser = AutoParser("/path/to/files/*.log")  # return FileBatchParserDisk
     ```
     """
+    files: Iterable[str] | Iterable[Path]
     if os.path.isfile(file_path) and os.path.exists(file_path):
         files = [file_path]
     else:
