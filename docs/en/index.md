@@ -7,7 +7,7 @@ MolOP is a Python 3.10+ library and CLI designed to streamline computational che
 - **Unified Parser**: A single interface (`AutoParser`) to read Gaussian logs, GJF, XYZ, SDF, and more.
 - **Structure Recovery**: Advanced algorithms to reconstruct molecular graphs (bonds) from coordinates, with superior support for radicals and metal complexes.
 - **Data Modeling**: Pydantic-based models providing type-safe access to energies, vibrations, orbitals, and population analysis.
-- **Batch Processor**: Parallelized processing of thousands of files with built-in filtering and transformation capabilities.
+- **Batch Processor**: Parallelized processing of thousands of files with built-in filtering, chaining, grouping, copying, moving, and transformation capabilities.
 
 ## When to use
 

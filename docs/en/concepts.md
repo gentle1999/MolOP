@@ -23,9 +23,15 @@ All data models in MolOP are built on **Pydantic**, bringing several advantages 
 
 MolOP features a highly extensible plugin-based architecture:
 
-- **Lazy Registration**: Codecs (read/write logic) are registered only when `AutoParser` is first called or explicitly triggered, ensuring fast library import times.
-- **Decoupled Design**: New IO formats can be integrated by adding a `register` function in specific directories without modifying core code.
+- **Lazy Registration**: Codecs (read/write logic) are registered only when parsing,
+  transforming, or querying writer metadata first needs them.
+- **Deterministic Selection**: Readers and writers are selected by normalized format
+  IDs, extensions, priority, and registration order.
+- **Decoupled Design**: New IO formats can be integrated by adding a `register`
+  function in the scanned builtin packages or by exposing a `molop.codecs` entry point.
 - **Third-party Support**: Supports registering external codecs via Python entry points.
+- **Writer Metadata**: Writer signatures and docstrings are used to expose dynamic
+  CLI completion for `format-transform` options.
 
 ## 4. Batch Processing
 
@@ -33,7 +39,14 @@ For large-scale computational tasks, MolOP provides robust batch processing supp
 
 - **FileBatchModelDisk**: A dictionary-like container for managing hundreds or thousands of file models.
 - **Parallel Acceleration**: Built-in multi-processing support (`n_jobs` parameter) leverages multi-core CPUs to boost parsing efficiency.
-- **Chained Operations**: Supports direct filtering (`filter_state`), transformation (`format_transform`), and summarization (`summary`) on batch objects.
+- **Chained Operations**: Supports direct filtering (`filter_state`,
+  `filter_value`, `filter_by_codec_id`), sampling (`sample`), transformation
+  (`format_transform`), grouping (`groupby`), copying/moving files, and summary
+  generation (`to_summary_df`) on batch objects.
+- **CLI State Machine**: `molop parse` initializes the batch state, then runs
+  chain operations. Operations returning `FileBatchModelDisk` can continue the
+  chain; terminal operations such as `to-summary-df`, `groupby`, `copy-to`, and
+  file-writing transforms must be last.
 
 ## 5. Parsing Dataflow
 
@@ -42,7 +55,7 @@ The following diagram illustrates the dataflow of the MolOP parsing pipeline, fr
 ```mermaid
 graph TD
     subgraph CLI [CLI Layer]
-        MolOPCLI["Typer CLI (app.py)"]
+        MolOPCLI["Click CLI (app.py)"]
     end
 
     subgraph Entry [Entry Point]

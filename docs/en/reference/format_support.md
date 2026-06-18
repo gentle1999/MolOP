@@ -11,6 +11,9 @@ MolOP supports a variety of chemical file formats for reading and writing. The f
 | `gjf`     | `.gjf`, `.gif`, `.com`, `.gau`, `.gjc` | Yes  | Yes   | Gaussian input files.          |
 | `orcainp` | `.inp`                                 | Yes  | Yes   | ORCA input files.              |
 | `cml`     | `.cml`                                 | No   | Yes   | Chemical Markup Language.      |
+| `fakeg`   | `.fakeg`                               | No   | Yes   | Gaussian-like rendered output from parsed Gaussian data. |
 
 !!! note
-This format support checklist will be updated over time as new formats are added.
+Writer formats are registered lazily. Use `molop parse PATTERN format-transform
+--format <TAB>` after installing shell completion to inspect the formats
+available in the current environment.

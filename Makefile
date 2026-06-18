@@ -17,7 +17,7 @@ else
 	OPEN_CMD := xdg-open
 endif
 
-.PHONY: help init install-uv install sync update tree format format-check lint lint-check type-check pyright check-types check test test-cov clean distclean build release docker-build docker-up docker-down gen-typing-stubs check-typing-stubs gen-format-transform-stubs check-format-transform-stubs gen-cli-transform-stubs check-cli-transform-stubs docs-serve docs-build docs-build-strict
+.PHONY: help init install-uv install sync update tree format format-check lint lint-check type-check pyright check-types check test test-cov clean distclean build release docker-build docker-up docker-down gen-typing-stubs check-typing-stubs gen-format-transform-stubs check-format-transform-stubs docs-serve docs-build docs-build-strict
 
 # =============================================================================
 # 📝 帮助文档
@@ -41,8 +41,6 @@ help:
 	@echo "  make check-typing-stubs   ✅ Verify typing stubs are up to date"
 	@echo "  make gen-format-transform-stubs     🧩 Generate format transform stubs"
 	@echo "  make check-format-transform-stubs   ✅ Verify format transform stubs are up to date"
-	@echo "  make gen-cli-transform-stubs        🧩 Generate CLI transform stubs"
-	@echo "  make check-cli-transform-stubs      ✅ Verify CLI transform stubs are up to date"
 	@echo "  make check       🛡️ Run non-mutating quality checks"
 	@echo ""
 	@echo "🧪 \033[1;33mTesting:\033[0m"
@@ -154,7 +152,7 @@ pyright:
 
 check-types: type-check pyright
 
-check: format-check lint-check check-types check-typing-stubs check-format-transform-stubs check-cli-transform-stubs
+check: format-check lint-check check-types check-typing-stubs check-format-transform-stubs
 
 # =============================================================================
 # 🧩 Typing stub generation
@@ -171,12 +169,6 @@ gen-format-transform-stubs:
 
 check-format-transform-stubs:
 	uv run python scripts/generate_chemfile_format_transform_stubs.py --check
-
-gen-cli-transform-stubs:
-	uv run python scripts/generate_cli_transform_stubs.py
-
-check-cli-transform-stubs:
-	uv run python scripts/generate_cli_transform_stubs.py --check
 
 # =============================================================================
 # 🧪 测试与覆盖率
@@ -250,12 +242,12 @@ docker-down:
 # =============================================================================
 docs-serve:
 	@echo "🌐 Serving documentation..."
-	uv run mkdocs serve -f mkdocs.dev.yml -a 127.0.0.1:8000
+	NO_MKDOCS_2_WARNING=1 uv run mkdocs serve -f mkdocs.dev.yml -a 127.0.0.1:8000
 
 docs-build:
 	@echo "🏗️ Building documentation..."
-	uv run mkdocs build
+	NO_MKDOCS_2_WARNING=1 uv run mkdocs build
 
 docs-build-strict:
 	@echo "✅ Building documentation (strict mode)..."
-	uv run mkdocs build --strict
+	NO_MKDOCS_2_WARNING=1 uv run mkdocs build --strict

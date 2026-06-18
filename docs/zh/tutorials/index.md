@@ -1,6 +1,6 @@
 # 教程
 
-本节提供 MolOP 的使用路径导航与要点说明。
+本节提供 MolOP 的使用路径导航与要点说明。`docs/zh/examples/` 下的 Notebook 是完整示例，但文档构建时不会执行。精确行为以当前 API 参考、CLI help 和测试为准。
 
 推荐阅读顺序：
 
@@ -61,7 +61,7 @@ print(f"成功解析 {len(opt_batch)} 个优化结构")
 from molop.io import AutoParser
 batch = AutoParser("molecule.xyz")
 # 自动触发结构恢复算法
-rdmol = batch[0][0].to_rdmol
+rdmol = batch[0][0].rdmol
 ```
 
 ### 预期输出
@@ -97,10 +97,15 @@ batch.format_transform(format="sdf", output_dir="./output", frameID=-1)
 
 ```bash
 # 生成摘要 CSV
-uv run molop -q summary "tests/test_files/g16log/2-TS1-Opt.log" --out tutorial_ts_summary.csv --format csv --mode frame --frame -1 --n-jobs 1
+uv run molop -q parse "tests/test_files/g16log/2-TS1-Opt.log" \
+  --n-jobs 1 \
+  to-summary-df --out tutorial_ts_summary.csv --format csv --mode frame --frame -1
 
 # 将分子文件转换为另一种格式
-uv run molop -q transform "tests/test_files/orca/h2_grad_orca.inp" --to sdf --output-dir ./tutorial_transform_out --frame -1 --embed --parser-detection orcainp --n-jobs 1
+uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
+  --parser-detection orcainp \
+  --n-jobs 1 \
+  format-transform --format sdf --output-dir ./tutorial_transform_out --frame -1 --embed
 ```
 
 ## 6. 插件与编解码器扩展 (Plugin/Codec Extension)

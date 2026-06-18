@@ -4,7 +4,9 @@
 
 Get a quick, reproducible tour of MolOP's core workflow: parse -> summarize.
 
-This page is an entry-level guide; the canonical baseline (behavior/output/API) is the notebook `examples/01-gaussian-parse-and-inspect.ipynb`. If there is any conflict, the notebook wins.
+This page is an entry-level guide. The current source code, API reference, and
+tests are the source of truth for behavior; notebooks are examples and are not
+executed during documentation builds.
 
 ## Prerequisites
 
@@ -48,7 +50,7 @@ df_brief
 
 ### 2. Get a richer summary
 
-The notebook demonstrates a more complete summary via `brief=False`:
+Use `brief=False` for a more complete file-level summary:
 
 ```python
 df_full = parsed_file.to_summary_df(brief=False)

@@ -1,380 +1,116 @@
 # 命令行接口
 
-MolOP 提供了一个基于 [Typer](https://typer.tiangolo.com/) 构建的现代命令行接口。主要入口是 `molop
-<命令>`，它为与分子数据的交互提供了一种结构化且用户友好的方式。
+MolOP 只暴露一个业务命令：`molop parse`。
 
-为保证仓库内可复现，本文示例统一使用 `uv run molop ...`。如果你已在环境中安装 MolOP，可直接使用 `molop ...`。
+该命令先把文件解析成 `FileBatchModelDisk` 批状态，然后执行经过检查的操作链。返回值仍是
+`FileBatchModelDisk` 的操作可以继续链接；返回其他结果的操作必须放在最后一步，且这一关系会在实际解析文件前检查。
+
+为保证仓库内可复现，本文示例统一使用 `uv run molop ...`。如果已安装 MolOP，可直接使用
+`molop ...`。
 
 ## 全局选项
 
-MolOP 支持几个可用于任何命令的全局选项：
-
-- `-v`, `--verbose`: 启用详细输出以进行详细日志记录。
-- `-q`, `--quiet`: 启用安静模式。强烈建议在脚本或文档中使用此模式以获得稳定、干净的输出。
+- `-v`, `--verbose`: 启用详细输出。
+- `-q`, `--quiet`: 启用安静模式。
 - `--version`: 显示版本并退出。
 
-## 发现命令
-
-你可以通过运行以下命令查看所有可用的命令和全局选项：
+## 查看命令
 
 ```bash
 uv run molop --help
+uv run molop parse --help
 ```
 
-```text
+## Shell 补全
 
- Usage: molop [OPTIONS] COMMAND [ARGS]...
-
- MolOP: Molecule OPerator CLI
-
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --verbose             -v        Enable verbose output.                       │
-│ --quiet               -q        Enable quiet mode.                           │
-│ --version                       Show the version and exit.                   │
-│ --install-completion            Install completion for the current shell.    │
-│ --show-completion               Show completion for the current shell, to    │
-│                                 copy it or customize the installation.       │
-│ --help                -h        Show this message and exit.                  │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Commands ───────────────────────────────────────────────────────────────────╮
-│ summary           Generate a summary of the molecules in the given files.    │
-│ visualize         Visualize molecules in a grid image.                       │
-│ transform         Transform molecular files to another format.               │
-│ filter-by-codec   Filter files by their detected codec ID.                   │
-│ sample            Randomly sample N files from the matched files.            │
-│ stats             Show statistics of the molecules in the given files.       │
-│ groupby           Group files by a key and output the groups.                │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
-
-## Typer 命令
-
-### `summary`
-
-生成给定文件中分子的摘要，通常输出为 CSV 或 JSON 文件。
-
-**何时使用：** 当你需要将一批文件中的关键属性（如能量、SMILES 等）提取到结构化表格中时，请使用此命令。
+为当前 shell 安装补全：
 
 ```bash
-uv run molop summary --help
+molop completion install
 ```
 
-```text
+可通过 `--shell bash`、`--shell zsh` 或 `--shell fish` 指定 shell。
+安装后需要重启 shell，或手动 source 更新后的 rc 文件。
 
- Usage: molop summary [OPTIONS] PATTERN
-
- Generate a summary of the molecules in the given files.
-
-╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    pattern      TEXT  File pattern to match. [required]                    │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --out               -o      PATH     Output file path.                       │
-│ --format            -f      TEXT     Output format (csv or json).            │
-│                                      [default: csv]                          │
-│ --mode              -m      TEXT     Summary mode (file or frame).           │
-│                                      [default: frame]                        │
-│ --frame                     TEXT     Frame selection (e.g., 'all', '-1',     │
-│                                      '1,2').                                 │
-│                                      [default: -1]                           │
-│ --parser-detection          TEXT     Parser detection mode. [default: auto]  │
-│ --n-jobs            -j      INTEGER  Number of parallel jobs. [default: -1]  │
-│ --help              -h               Show this message and exit.             │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
-
-**示例：**
+只查看生成的补全脚本、不安装：
 
 ```bash
-uv run molop -q summary "tests/test_files/g16log/2-TS1-Opt.log" --out .sisyphus/tmp/doc_summary.csv --format csv --mode frame --frame -1 --n-jobs 1
+molop completion show --shell bash
 ```
 
-```text
-Summary written to .sisyphus/tmp/doc_summary.csv
-```
+## 解析并链接操作
 
-### `transform`
-
-将分子文件从一种格式转换为另一种格式（例如，将 Gaussian log 转换为 SDF）。
-
-**何时使用：** 用于批量格式转换。
+按检测到的 codec 过滤并输出路径：
 
 ```bash
-uv run molop transform --help
+uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
+  --parser-detection orcainp \
+  --n-jobs 1 \
+  --output-format json \
+  filter-by-codec --codec-id orcainp
 ```
 
-```text
-
- Usage: molop transform [OPTIONS] PATTERN
-
- Transform molecular files to another format.
-
-╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    pattern      TEXT  File pattern to match. [required]                    │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ *  --to                                  TEXT     Target format (xyz, sdf,   │
-│                                                   cml, gjf, smi, orcainp).   │
-│                                                   [required]                 │
-│ *  --output-dir                          PATH     Directory to save          │
-│                                                   transformed files.         │
-│                                                   [required]                 │
-│    --frame                               TEXT     Frame selection (e.g.,     │
-│                                                   'all', '-1', '1,2').       │
-│                                                   [default: -1]              │
-│    --embed                 --no-embed             Whether to embed multiple  │
-│                                                   frames in one file.        │
-│                                                   [default: embed]           │
-│    --parser-detection                    TEXT     Parser detection mode.     │
-│                                                   [default: auto]            │
-│    --n-jobs            -j                INTEGER  Number of parallel jobs.   │
-│                                                   [default: -1]              │
-│    --help              -h                         Show this message and      │
-│                                                   exit.                      │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
-
-#### 示例
+转换为其他格式：
 
 ```bash
-uv run molop -q transform "tests/test_files/orca/h2_grad_orca.inp" --to sdf
---output-dir .sisyphus/tmp/doc_transform_out --frame -1 --embed
---parser-detection orcainp --n-jobs 1
+uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
+  --parser-detection orcainp \
+  --n-jobs 1 \
+  format-transform --format xyz --output-dir .tmp/molop_xyz
 ```
 
-```text
-Transformation completed. Files saved to .sisyphus/tmp/doc_transform_out
-```
+当 `format-transform` 通过 `--output-dir` 写入文件时，CLI 不会把渲染后的文件内容打印到
+stdout；生成的文件就是该操作的结果。
 
-### `visualize`
-
-在网格图像（PNG 或 SVG）中可视化分子。
-
-**何时使用：** 用于快速直观地检查一批分子的结构。
+生成摘要表：
 
 ```bash
-uv run molop visualize --help
+uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
+  --parser-detection orcainp \
+  --n-jobs 1 \
+  to-summary-df --out .tmp/molop_summary.csv
 ```
 
-```text
+## 操作参考
 
- Usage: molop visualize [OPTIONS] PATTERN
+可继续链接的操作：
 
- Visualize molecules in a grid image.
+| 操作 | 说明 |
+| --- | --- |
+| `filter-state` | 按计算状态过滤。 |
+| `filter-value` | 按 charge、multiplicity 或文件格式过滤。 |
+| `filter-by-codec` | 按检测到的 reader codec id 过滤。 |
+| `sample` | 从当前 batch 中随机抽样。 |
 
-╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    pattern      TEXT  File pattern to match. [required]                    │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ *  --out                       PATH     Output file path (e.g., grid.png or  │
-│                                         grid.svg).                           │
-│                                         [required]                           │
-│    --max-mols                  INTEGER  Maximum number of molecules to       │
-│                                         visualize.                           │
-│                                         [default: 16]                        │
-│    --mols-per-row              INTEGER  Number of molecules per row.         │
-│                                         [default: 4]                         │
-│    --sub-img-width             INTEGER  Width of each sub-image.             │
-│                                         [default: 200]                       │
-│    --sub-img-height            INTEGER  Height of each sub-image.            │
-│                                         [default: 200]                       │
-│    --n-jobs            -j      INTEGER  Number of parallel jobs.             │
-│                                         [default: -1]                        │
-│    --parser-detection          TEXT     Parser detection mode.               │
-│                                         [default: auto]                      │
-│    --help              -h               Show this message and exit.          │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
+终止操作：
 
-**示例：**
+| 操作 | 说明 |
+| --- | --- |
+| `format-transform` | 转换文件格式。设置 `--output-dir` 时写入文件且不打印文件内容。 |
+| `to-summary-df` | 生成摘要表。 |
+| `draw-grid-image` | 渲染分子网格图。 |
+| `groupby` | 分组并输出路径。 |
+| `copy-to` | 将当前 batch 文件复制到目录。 |
+| `move-to` | 将当前 batch 文件移动到目录。 |
+
+终止操作必须是操作链的最后一步。
+
+## 格式相关动态参数
+
+`format-transform` 在常规参数之后还可以接收 writer 特定参数：
 
 ```bash
-uv run molop -q visualize "tests/test_files/g16log/2-TS1-Opt.log" --out .sisyphus/tmp/doc_grid.svg --max-mols 4 --mols-per-row 2 --sub-img-width 200 --sub-img-height 200 --n-jobs 1 --parser-detection auto
+uv run molop parse "input.log" \
+  format-transform --format gjf --output-dir out \
+  --route-section "#p B3LYP/6-31G(d) opt" \
+  --link0-commands "%nprocshared=8"
 ```
 
-```text
-Visualization saved to .sisyphus/tmp/doc_grid.svg
-```
+这些动态参数来自已注册 writer 的元数据。安装 shell completion 后，补全可以根据当前
+`--format` 给出可用参数名，并显示参数的简短含义。
 
-### `filter-by-codec`
-
-根据检测到的编解码器 ID（例如 `g16log`, `xyz`）过滤文件。
-
-**何时使用：** 用于分离不同格式的文件，或确保仅处理特定格式。
+静态参数面可通过 help 查看：
 
 ```bash
-uv run molop filter-by-codec --help
+uv run molop parse PATTERN format-transform --help
 ```
-
-```text
-
- Usage: molop filter-by-codec [OPTIONS] PATTERN
-
- Filter files by their detected codec ID.
-
-╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    pattern      TEXT  File pattern to match. [required]                    │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ *  --codec-id                  TEXT     Codec ID to filter by. [required]    │
-│    --negate                             Negate the filter.                   │
-│    --on-missing                TEXT     Behavior on missing codec ID (keep,  │
-│                                         drop, error).                        │
-│                                         [default: drop]                      │
-│    --format            -f      TEXT     Output format (text or json).        │
-│                                         [default: text]                      │
-│    --parser-detection          TEXT     Parser detection mode.               │
-│                                         [default: auto]                      │
-│    --n-jobs            -j      INTEGER  Number of parallel jobs.             │
-│                                         [default: -1]                        │
-│    --help              -h               Show this message and exit.          │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
-
-**示例：**
-
-```bash
-uv run molop -q filter-by-codec "tests/test_files/g16log/2-TS1-Opt.log" --codec-id g16log --format text --n-jobs 1
-```
-
-```text
-/Users/tmj/Documents/proj/MolOP/tests/test_files/g16log/2-TS1-Opt.log
-```
-
-### `sample`
-
-从匹配的文件中随机抽取 N 个文件。
-
-**何时使用：** 用于选取具有代表性的文件子集进行测试或快速检查。
-
-```bash
-uv run molop sample --help
-```
-
-```text
-
- Usage: molop sample [OPTIONS] PATTERN
-
- Randomly sample N files from the matched files.
-
-╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    pattern      TEXT  File pattern to match. [required]                    │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ *  --n                         INTEGER  Number of files to sample.           │
-│                                         [required]                           │
-│    --seed                      INTEGER  Random seed.                         │
-│    --format            -f      TEXT     Output format (text or json).        │
-│                                         [default: text]                      │
-│    --parser-detection          TEXT     Parser detection mode.               │
-│                                         [default: auto]                      │
-│    --n-jobs            -j      INTEGER  Number of parallel jobs.             │
-│                                         [default: -1]                        │
-│    --help              -h               Show this message and exit.          │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
-
-**示例：**
-
-```bash
-uv run molop -q sample "tests/test_files/mix_format/*.gjf" --n 2 --seed 1 --format text --n-jobs 1
-```
-
-```text
-/Users/tmj/Documents/proj/MolOP/tests/test_files/mix_format/S_Ph_Ni_TS.gjf
-/Users/tmj/Documents/proj/MolOP/tests/test_files/mix_format/TS_Zy0fwX_ll_ad_14-19_15-16_optts_g16.gjf
-```
-
-### `stats`
-
-显示给定文件中分子的统计信息。
-
-**何时使用：** 用于获取数据集的高层概览（例如格式分布、计算状态）。
-
-```bash
-uv run molop stats --help
-```
-
-```text
-
- Usage: molop stats [OPTIONS] PATTERN
-
- Show statistics of the molecules in the given files.
-
-╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    pattern      TEXT  File pattern to match. [required]                    │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --format            -f      TEXT     Output format (text or json).           │
-│                                      [default: text]                         │
-│ --parser-detection          TEXT     Parser detection mode. [default: auto]  │
-│ --n-jobs            -j      INTEGER  Number of parallel jobs. [default: -1]  │
-│ --help              -h               Show this message and exit.             │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
-
-**示例：**
-
-```bash
-uv run molop -q stats "tests/test_files/g16log/2-TS1-Opt.log"
-```
-
-```text
-Total files: 1
-
-By format:
-  g16log: 1
-
-By state (last frame):
-  normal: 1
-```
-
-### `groupby`
-
-按键（例如 `detected_format_id`, `state`）对文件进行分组并输出分组结果。
-
-**何时使用：** 用于将文件组织成类别以进行进一步处理。
-
-```bash
-uv run molop groupby --help
-```
-
-```text
-
- Usage: molop groupby [OPTIONS] PATTERN
-
- Group files by a key and output the groups.
-
-╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    pattern      TEXT  File pattern to match. [required]                    │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --key                       TEXT     Key to group by (detected_format_id,    │
-│                                      file_format, state).                    │
-│                                      [default: detected_format_id]           │
-│ --format            -f      TEXT     Output format (text or json).           │
-│                                      [default: json]                         │
-│ --parser-detection          TEXT     Parser detection mode. [default: auto]  │
-│ --n-jobs            -j      INTEGER  Number of parallel jobs. [default: -1]  │
-│ --help              -h               Show this message and exit.             │
-╰──────────────────────────────────────────────────────────────────────────────╯
-```
-
-**示例：**
-
-```bash
-uv run molop -q groupby "tests/test_files/mix_format/*.gjf" --key detected_format_id --format json --n-jobs 1
-```
-
-```text
-{
-  "gjf": [
-    "/Users/tmj/Documents/proj/MolOP/tests/test_files/mix_format/S_Ph_Ni_TS.gjf",
-    "/Users/tmj/Documents/proj/MolOP/tests/test_files/mix_format/TS_Zy0fwX_ll_ad_14-19_15-16_optts_g16.gjf",
-    "/Users/tmj/Documents/proj/MolOP/tests/test_files/mix_format/dsgdb9nsd_000007-6.gjf",
-    "/Users/tmj/Documents/proj/MolOP/tests/test_files/mix_format/irc.gjf",
-    "/Users/tmj/Documents/proj/MolOP/tests/test_files/mix_format/opt_point_charge_xtb.gjf"
-  ]
-}
-```
-

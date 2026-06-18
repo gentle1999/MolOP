@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2026-03-18 14:03:30
+LastEditTime: 2026-06-18 19:45:06
 Description: 请填写简介
 """
 
@@ -14,13 +14,6 @@ from typing import Literal
 from openbabel import pybel
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from rdkit import RDLogger
-from rdkit.Chem.rdFingerprintGenerator import (
-    FingerprintGenerator64,
-    GetAtomPairGenerator,
-    GetMorganGenerator,
-    GetRDKitFPGenerator,
-    GetTopologicalTorsionGenerator,
-)
 from rdkit_dof import dofconfig
 
 
@@ -51,24 +44,6 @@ class MolOPConfig(BaseModel):
     # --- General Settings ---
     show_progress_bar: bool = Field(default=True, description="Whether to display the progress bar")
     max_jobs: int = Field(default=16, description="Maximum number of parallel jobs")
-
-    # --- Fingerprint Generator Settings ---
-    morgan_fpgen: FingerprintGenerator64 = Field(
-        default=GetMorganGenerator(radius=3, fpSize=1024, includeChirality=True),
-        description="Morgan fingerprint generator",
-    )
-    atompair_fpgen: FingerprintGenerator64 = Field(
-        default=GetAtomPairGenerator(fpSize=1024, includeChirality=True),
-        description="AtomPair fingerprint generator",
-    )
-    rdkit_fpgen: FingerprintGenerator64 = Field(
-        default=GetRDKitFPGenerator(fpSize=1024),
-        description="RDKit fingerprint generator",
-    )
-    topological_torsion_fpgen: FingerprintGenerator64 = Field(
-        default=GetTopologicalTorsionGenerator(fpSize=1024),
-        description="TopologicalTorsion fingerprint generator",
-    )
 
     # --- Advanced Settings ---
     strict_structure_recovery: bool = Field(

@@ -35,4 +35,6 @@ jobs:
           uv pip sync --no-config --prefix .venv --default-index https://pypi.org/simple /tmp/requirements-docs.txt
 
       - name: Build docs
+        env:
+          NO_MKDOCS_2_WARNING: "1"
         run: .venv/bin/mkdocs build -f mkdocs.yml

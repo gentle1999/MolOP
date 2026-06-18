@@ -563,7 +563,7 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
             rdmol = reset_atom_index(self.rdmol, mapping)
             return self.from_rdmol(rdmol)
         elif mapping_indice is not None:
-            assert max(mapping_indice) < len(self.rdmol.GetAtoms()), "Invalid mapping index"
+            assert max(mapping_indice) < self.rdmol.GetNumAtoms(), "Invalid mapping index"
             rdmol = reset_atom_index(self.rdmol, mapping_indice)
             return self.from_rdmol(rdmol)
         return None

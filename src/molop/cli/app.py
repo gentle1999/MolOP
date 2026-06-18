@@ -1,51 +1,362 @@
+from __future__ import annotations
+
+import os
+import shlex
 from pathlib import Path
-from typing import Annotated
+from typing import Literal, cast
 
-import typer
+import click
+from click.shell_completion import CompletionItem
 
-
-app = typer.Typer(
-    name="molop",
-    help="MolOP: Molecule OPerator CLI",
-    add_completion=True,
-    no_args_is_help=True,
-    context_settings={"help_option_names": ["-h", "--help"]},
+from molop.cli.state_machine import (
+    OPERATION_REGISTRY,
+    BatchInputConfig,
+    CliRuntimeError,
+    CliUsageError,
+    CopyToParams,
+    DrawGridImageParams,
+    FilterByCodecParams,
+    FilterStateParams,
+    FilterValueParams,
+    FormatTransformParams,
+    GroupByParams,
+    MoveToParams,
+    OperationCall,
+    OperationParams,
+    SampleParams,
+    ToSummaryDfParams,
+    build_plan,
+    execute_plan,
+    parse_dynamic_options,
+    render_result,
 )
+from molop.io.codec_registry import get_supported_writer_formats, get_writer_option_specs
 
 
-def version_callback(value: bool):
-    if value:
-        import importlib.metadata
+def _version() -> str:
+    import importlib.metadata
 
-        try:
-            version = importlib.metadata.version("molop")
-        except importlib.metadata.PackageNotFoundError:
-            version = "unknown"
-        typer.echo(f"molop version: {version}")
-        raise typer.Exit()
+    try:
+        return importlib.metadata.version("molop")
+    except importlib.metadata.PackageNotFoundError:
+        return "unknown"
 
 
-@app.callback()
-def main(
-    verbose: Annotated[
-        bool, typer.Option("--verbose", "-v", help="Enable verbose output.")
-    ] = False,
-    quiet: Annotated[bool, typer.Option("--quiet", "-q", help="Enable quiet mode.")] = False,
-    _version: Annotated[
-        bool | None,
-        typer.Option(
-            "--version",
-            callback=version_callback,
-            is_eager=True,
-            help="Show the version and exit.",
-        ),
-    ] = None,
-):
-    """
-    MolOP: Molecule OPerator CLI
-    """
+CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
+PARSE_VALUE_OPTIONS = {"--parser-detection", "--n-jobs", "-j", "--output-format"}
+PARSE_FLAG_OPTIONS = {"--help", "-h"}
+FORMAT_TRANSFORM_STATIC_OPTIONS = {
+    "--format",
+    "--output-dir",
+    "--frame",
+    "--embed",
+    "--no-embed",
+    "--n-jobs",
+    "-h",
+    "--help",
+}
+FORMAT_TRANSFORM_VALUE_OPTIONS = {"--format", "--output-dir", "--frame", "--n-jobs"}
+COMPLETION_SHELLS = ("bash", "zsh", "fish")
+COMPLETION_MARKER_START = "# >>> molop completion >>>"
+COMPLETION_MARKER_END = "# <<< molop completion <<<"
+FORMAT_VALUE_COMPLETION_HELP = {
+    "graph_policy": {
+        "prefer": "Use molecular graph data when available; fall back to coordinates.",
+        "strict": "Require molecular graph data before rendering.",
+        "coords": "Render from coordinate data only.",
+    },
+    "engine": {
+        "rdkit": "Use RDKit for rendering.",
+        "openbabel": "Use Open Babel for rendering.",
+    },
+    "coords_type": {
+        "auto": "Preserve the stored Gaussian coordinate representation.",
+        "cartesian": "Render Gaussian coordinates in Cartesian form.",
+        "internal": "Render Gaussian coordinates in internal-coordinate form.",
+    },
+}
+
+
+class DynamicFormatOptionsArgument(click.Argument):
+    def shell_complete(
+        self,
+        ctx: click.Context,
+        incomplete: str,
+    ) -> list[CompletionItem]:
+        target_format = _current_format_transform_format(ctx)
+        if not target_format:
+            return []
+
+        option_specs = get_writer_option_specs(target_format)
+        tokens = _format_transform_tokens(ctx)
+        if _completing_dynamic_option_value(ctx):
+            option_name = _last_dynamic_option_name(tokens)
+            if option_name is None:
+                return []
+            return [
+                CompletionItem(value, help=_dynamic_value_help(spec.name, value))
+                for spec in option_specs
+                if spec.option == option_name
+                for value in spec.value_candidates
+                if value.startswith(incomplete)
+            ]
+
+        used_options = _used_dynamic_options(tokens)
+        completions: list[CompletionItem] = []
+        for spec in option_specs:
+            if spec.option not in used_options and spec.option.startswith(incomplete):
+                completions.append(CompletionItem(spec.option, help=spec.help))
+            no_option = _no_option_name(spec.option)
+            if (
+                spec.supports_no
+                and no_option not in used_options
+                and no_option.startswith(incomplete)
+            ):
+                completions.append(CompletionItem(no_option, help=spec.help))
+        return completions
+
+
+class FormatTransformCommand(click.Command):
+    def shell_complete(
+        self,
+        ctx: click.Context,
+        incomplete: str,
+    ) -> list[CompletionItem]:
+        completions = super().shell_complete(ctx, incomplete)
+        if incomplete and not incomplete[0].isalnum():
+            dynamic_arg = next(
+                (
+                    param
+                    for param in self.get_params(ctx)
+                    if isinstance(param, DynamicFormatOptionsArgument)
+                ),
+                None,
+            )
+            if dynamic_arg is not None:
+                completions.extend(dynamic_arg.shell_complete(ctx, incomplete))
+        return _dedupe_completions(completions)
+
+
+class ParseChainGroup(click.Group):
+    def parse_args(self, ctx: click.Context, args: list[str]) -> list[str]:
+        return super().parse_args(ctx, self._normalize_parse_options(args))
+
+    def _normalize_parse_options(self, args: list[str]) -> list[str]:
+        prefix: list[str] = []
+        index = 0
+        while index < len(args):
+            consumed = _consume_parse_option(args, index)
+            if consumed is None:
+                break
+            values, index = consumed
+            prefix.extend(values)
+
+        if index >= len(args) or args[index].startswith("-"):
+            return args
+
+        pattern = args[index]
+        index += 1
+        while index < len(args) and args[index] not in self.commands:
+            consumed = _consume_parse_option(args, index)
+            if consumed is None:
+                break
+            values, index = consumed
+            prefix.extend(values)
+
+        return [*prefix, pattern, *args[index:]]
+
+
+def _consume_parse_option(args: list[str], index: int) -> tuple[list[str], int] | None:
+    token = args[index]
+    if token in PARSE_FLAG_OPTIONS:
+        return [token], index + 1
+    if token in PARSE_VALUE_OPTIONS:
+        if index + 1 >= len(args):
+            return [token], index + 1
+        return [token, args[index + 1]], index + 2
+    if any(
+        token.startswith(f"{option}=") for option in PARSE_VALUE_OPTIONS if option.startswith("--")
+    ):
+        return [token], index + 1
+    return None
+
+
+def _writer_format_complete(
+    ctx: click.Context,
+    param: click.Parameter,
+    incomplete: str,
+) -> list[CompletionItem]:
+    _ = (ctx, param)
+    return [
+        CompletionItem(format_id)
+        for format_id in get_supported_writer_formats()
+        if format_id.startswith(incomplete)
+    ]
+
+
+def _dedupe_completions(completions: list[CompletionItem]) -> list[CompletionItem]:
+    seen: set[str] = set()
+    deduped: list[CompletionItem] = []
+    for item in completions:
+        if item.value in seen:
+            continue
+        seen.add(item.value)
+        deduped.append(item)
+    return deduped
+
+
+def _current_format_transform_format(ctx: click.Context) -> str | None:
+    value = ctx.params.get("target_format")
+    if isinstance(value, str) and value:
+        return value
+
+    args = _format_transform_tokens(ctx)
+    for index, token in enumerate(args):
+        if token == "--format" and index + 1 < len(args):
+            return args[index + 1]
+        if token.startswith("--format="):
+            return token.split("=", 1)[1]
+    return None
+
+
+def _format_transform_tokens(ctx: click.Context) -> list[str]:
+    extra_args = ctx.params.get("extra_args")
+    if isinstance(extra_args, tuple):
+        return list(extra_args)
+    if isinstance(extra_args, list):
+        return list(extra_args)
+    return list(ctx.args)
+
+
+def _completing_dynamic_option_value(ctx: click.Context) -> bool:
+    args = _format_transform_tokens(ctx)
+    option_name = _last_dynamic_option_name(args)
+    if option_name is None:
+        return False
+    if not args or args[-1] != option_name:
+        return False
+    return option_name not in _boolean_dynamic_options(_current_format_from_args(args))
+
+
+def _last_dynamic_option_name(args: list[str]) -> str | None:
+    if not args:
+        return None
+    token = args[-1]
+    if token.startswith("--") and token not in FORMAT_TRANSFORM_STATIC_OPTIONS and "=" not in token:
+        return token
+    return None
+
+
+def _used_dynamic_options(args: list[str]) -> set[str]:
+    used: set[str] = set()
+    for token in args:
+        if (
+            token.startswith("--")
+            and token not in FORMAT_TRANSFORM_STATIC_OPTIONS
+            and "=" not in token
+        ):
+            used.add(token)
+    return used
+
+
+def _current_format_from_args(args: list[str]) -> str | None:
+    for index, token in enumerate(args):
+        if token == "--format" and index + 1 < len(args):
+            return args[index + 1]
+        if token.startswith("--format="):
+            return token.split("=", 1)[1]
+    return None
+
+
+def _boolean_dynamic_options(format_id: str | None) -> set[str]:
+    if not format_id:
+        return set()
+    return {spec.option for spec in get_writer_option_specs(format_id) if not spec.takes_value}
+
+
+def _no_option_name(option: str) -> str:
+    return f"--no-{option[2:]}" if option.startswith("--") else f"no-{option}"
+
+
+def _dynamic_value_help(option_name: str, value: str) -> str | None:
+    return FORMAT_VALUE_COMPLETION_HELP.get(option_name, {}).get(value)
+
+
+def _resolve_completion_shell(shell: str) -> str:
+    if shell == "auto":
+        shell = Path(os.environ.get("SHELL", "")).name
+    if shell not in COMPLETION_SHELLS:
+        raise click.ClickException(f"Unsupported shell: {shell}")
+    return shell
+
+
+def _completion_source(shell: str) -> str:
+    from click.shell_completion import get_completion_class
+
+    comp_cls = get_completion_class(shell)
+    if comp_cls is None:
+        raise click.ClickException(f"Unsupported shell: {shell}")
+    return comp_cls(app, {}, "molop", "_MOLOP_COMPLETE").source()
+
+
+def _completion_source_path(shell: str) -> Path:
+    return Path.home() / ".config" / "molop" / "completions" / shell / f"molop.{shell}"
+
+
+def _completion_rc_path(shell: str) -> Path:
+    if shell == "bash":
+        return Path.home() / ".bashrc"
+    if shell == "zsh":
+        return Path.home() / ".zshrc"
+    raise click.ClickException(f"No rc file is managed for shell: {shell}")
+
+
+def _install_completion_script(shell: str) -> Path:
+    source = _completion_source(shell)
+    if shell == "fish":
+        target = Path.home() / ".config" / "fish" / "completions" / "molop.fish"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(source, encoding="utf-8")
+        return target
+
+    target = _completion_source_path(shell)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(source, encoding="utf-8")
+
+    rc_path = _completion_rc_path(shell)
+    rc_path.parent.mkdir(parents=True, exist_ok=True)
+    source_line = f"source {shlex.quote(str(target))}"
+    block = f"{COMPLETION_MARKER_START}\n{source_line}\n{COMPLETION_MARKER_END}\n"
+    existing = rc_path.read_text(encoding="utf-8") if rc_path.exists() else ""
+    updated = _replace_completion_block(existing, block)
+    rc_path.write_text(updated, encoding="utf-8")
+    return target
+
+
+def _replace_completion_block(existing: str, block: str) -> str:
+    start = existing.find(COMPLETION_MARKER_START)
+    end = existing.find(COMPLETION_MARKER_END)
+    if start != -1 and end != -1 and end >= start:
+        end += len(COMPLETION_MARKER_END)
+        if end < len(existing) and existing[end] == "\n":
+            end += 1
+        prefix = existing[:start].rstrip("\n")
+        suffix = existing[end:].lstrip("\n")
+        pieces = [piece for piece in (prefix, block.rstrip("\n"), suffix) if piece]
+        return "\n".join(pieces) + "\n"
+
+    if existing and not existing.endswith("\n"):
+        existing += "\n"
+    return existing + block
+
+
+@click.group(context_settings=CONTEXT_SETTINGS, no_args_is_help=True)
+@click.option("--verbose", "-v", is_flag=True, help="Enable verbose output.")
+@click.option("--quiet", "-q", is_flag=True, help="Enable quiet mode.")
+@click.version_option(version=_version(), prog_name="molop")
+def _app_callback(verbose: bool = False, quiet: bool = False) -> None:
+    """MolOP: Molecule OPerator CLI."""
     if verbose and quiet:
-        # If both are set, quiet takes precedence.
         verbose = False
 
     if verbose or quiet:
@@ -57,475 +368,374 @@ def main(
             molopconfig.verbose()
 
 
-@app.command(help="Generate a summary of the molecules in the given files.")
-def summary(
-    pattern: Annotated[str, typer.Argument(help="File pattern to match.")],
-    out: Annotated[Path | None, typer.Option("--out", "-o", help="Output file path.")] = None,
-    format: Annotated[
-        str, typer.Option("--format", "-f", help="Output format (csv or json).")
-    ] = "csv",
-    mode: Annotated[
-        str, typer.Option("--mode", "-m", help="Summary mode (file or frame).")
-    ] = "frame",
-    frame: Annotated[
-        str, typer.Option("--frame", help="Frame selection (e.g., 'all', '-1', '1,2').")
-    ] = "-1",
-    parser_detection: Annotated[
-        str, typer.Option("--parser-detection", help="Parser detection mode.")
-    ] = "auto",
-    n_jobs: Annotated[int, typer.Option("--n-jobs", "-j", help="Number of parallel jobs.")] = -1,
-):
-    """
-    Generate a summary of the molecules in the given files.
-    """
-    import json
-    from collections.abc import Sequence
-    from typing import Literal, cast
+app: click.Group = cast(click.Group, _app_callback)
 
-    import pandas as pd
 
-    from molop.cli.shared.frames import parse_frame_selection
-    from molop.io import AutoParser
+@app.group("completion", context_settings=CONTEXT_SETTINGS)
+def _completion_callback() -> None:
+    """Manage shell completion."""
 
-    if format not in ["csv", "json"]:
-        typer.echo(f"Error: Invalid format '{format}'. Supported formats: csv, json", err=True)
-        raise typer.Exit(1)
 
-    if mode not in ["file", "frame"]:
-        typer.echo(f"Error: Invalid mode '{mode}'. Supported modes: file, frame", err=True)
-        raise typer.Exit(1)
+completion: click.Group = cast(click.Group, _completion_callback)
 
-    output_path = out if out is not None else Path(f"summary.{format}")
 
+@completion.command("show")
+@click.option(
+    "--shell",
+    type=click.Choice(list(COMPLETION_SHELLS) + ["auto"]),
+    default="auto",
+    show_default=True,
+    help="Shell completion script to print.",
+)
+def completion_show(shell: Literal["auto", "bash", "zsh", "fish"] = "auto") -> None:
+    shell_name = _resolve_completion_shell(shell)
+    click.echo(_completion_source(shell_name))
+
+
+@completion.command("install")
+@click.option(
+    "--shell",
+    type=click.Choice(list(COMPLETION_SHELLS) + ["auto"]),
+    default="auto",
+    show_default=True,
+    help="Shell to install completion for.",
+)
+def completion_install(shell: Literal["auto", "bash", "zsh", "fish"] = "auto") -> None:
+    shell_name = _resolve_completion_shell(shell)
+    target = _install_completion_script(shell_name)
+    click.echo(str(target), err=True)
+
+
+@click.group(
+    name="parse",
+    cls=ParseChainGroup,
+    chain=True,
+    invoke_without_command=True,
+    no_args_is_help=True,
+    context_settings=CONTEXT_SETTINGS,
+)
+@click.argument("pattern")
+@click.option(
+    "--parser-detection", default="auto", show_default=True, help="Parser detection mode."
+)
+@click.option("--n-jobs", "-j", default=-1, show_default=True, help="Number of parallel jobs.")
+@click.option(
+    "--output-format",
+    type=click.Choice(["text", "json"]),
+    default="text",
+    show_default=True,
+    help="Default terminal output format.",
+)
+def _parse_callback(
+    pattern: str,
+    parser_detection: str = "auto",
+    n_jobs: int = -1,
+    output_format: Literal["text", "json"] = "text",
+) -> None:
+    """Parse files into a FileBatchModelDisk state, then run operation commands."""
+
+
+parse: ParseChainGroup = cast(ParseChainGroup, _parse_callback)
+
+
+@parse.result_callback()
+def execute_parse_chain(
+    operations: list[OperationCall],
+    pattern: str,
+    parser_detection: str = "auto",
+    n_jobs: int = -1,
+    output_format: Literal["text", "json"] = "text",
+) -> None:
     try:
-        frame_selection = parse_frame_selection(frame)
-    except ValueError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1) from e
-
-    batch = AutoParser(pattern, n_jobs=n_jobs, parser_detection=parser_detection)
-
-    if not batch:
-        typer.echo(f"No files found matching pattern: {pattern}", err=True)
-        raise typer.Exit(0)
-
-    frame_ids: int | Sequence[int] | Literal["all"] = -1
-    if mode == "frame" and frame_selection == "all":
-        max_frames = max(len(f) for f in batch.values())
-        frame_ids = list(range(max_frames))
-    else:
-        frame_ids = -1 if frame_selection == "all" else frame_selection
-
-    df = batch.to_summary_df(
-        mode=cast(Literal["file", "frame"], mode),
-        frameIDs=cast(int | Sequence[int], frame_ids),
-        n_jobs=n_jobs,
-    )
-
-    if df.empty:
-        typer.echo("Summary is empty.", err=True)
-        raise typer.Exit(0)
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if format == "csv":
-        df.to_csv(output_path, index=False)
-    elif format == "json":
-        if isinstance(df.columns, pd.MultiIndex):
-            df.columns = [
-                "/".join(str(level) for level in col if level).strip("/")
-                for col in df.columns.values
-            ]
-
-        def serialize_val(val):
-            if hasattr(val, "magnitude"):
-                val = val.magnitude
-            if hasattr(val, "tolist"):
-                return val.tolist()
-            return val
-
-        # Use applymap for older pandas compatibility if needed,
-        # but map is preferred in 2.1+.
-        # We use a helper to ensure compatibility.
-        def safe_map(df, func):
-            if hasattr(df, "map"):
-                return df.map(func)
-            return df.applymap(func)
-
-        data = safe_map(df, serialize_val).to_dict(orient="records")
-
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=True, indent=2)
-
-    typer.echo(f"Summary written to {output_path}", err=True)
-
-
-@app.command(help="Visualize molecules in a grid image.")
-def visualize(
-    pattern: Annotated[str, typer.Argument(help="File pattern to match.")],
-    out: Annotated[
-        Path, typer.Option("--out", help="Output file path (e.g., grid.png or grid.svg).")
-    ],
-    max_mols: Annotated[
-        int, typer.Option("--max-mols", help="Maximum number of molecules to visualize.")
-    ] = 16,
-    mols_per_row: Annotated[
-        int, typer.Option("--mols-per-row", help="Number of molecules per row.")
-    ] = 4,
-    sub_img_width: Annotated[
-        int, typer.Option("--sub-img-width", help="Width of each sub-image.")
-    ] = 200,
-    sub_img_height: Annotated[
-        int, typer.Option("--sub-img-height", help="Height of each sub-image.")
-    ] = 200,
-    n_jobs: Annotated[int, typer.Option("--n-jobs", "-j", help="Number of parallel jobs.")] = -1,
-    parser_detection: Annotated[
-        str, typer.Option("--parser-detection", help="Parser detection mode.")
-    ] = "auto",
-):
-    """
-    Visualize molecules in a grid image.
-    """
-    from molop.io import AutoParser
-
-    use_svg = out.suffix.lower() == ".svg"
-
-    batch = AutoParser(pattern, n_jobs=n_jobs, parser_detection=parser_detection)
-
-    if not batch:
-        typer.echo(f"No files found matching pattern: {pattern}", err=True)
-        raise typer.Exit(0)
-
-    img = batch.draw_grid_image(
-        molsPerRow=mols_per_row,
-        subImgSize=(sub_img_width, sub_img_height),
-        maxMols=max_mols,
-        useSVG=use_svg,
-        n_jobs=n_jobs,
-    )
-
-    if img is None:
-        raise typer.Exit(0)
-
-    out.parent.mkdir(parents=True, exist_ok=True)
-
-    if use_svg:
-        content = img.data if hasattr(img, "data") else img
-        with open(out, "w", encoding="utf-8") as f:
-            f.write(content)
-    else:
-        if hasattr(img, "save"):
-            img.save(out)
-        elif hasattr(img, "data"):
-            with open(out, "wb") as f:
-                f.write(img.data)
-        else:
-            typer.echo("Error: Unsupported image object returned by RDKit.", err=True)
-            raise typer.Exit(1)
-
-    typer.echo(f"Visualization saved to {out}", err=True)
-
-
-@app.command(help="")
-def transform(
-    pattern: Annotated[str, typer.Argument(help="File pattern to match.")],
-    to: Annotated[
-        str, typer.Option("--to", help="Target format (xyz, sdf, cml, gjf, smi, orcainp).")
-    ],
-    output_dir: Annotated[
-        Path, typer.Option("--output-dir", help="Directory to save transformed files.")
-    ],
-    frame: Annotated[
-        str, typer.Option("--frame", help="Frame selection (e.g., 'all', '-1', '1,2').")
-    ] = "-1",
-    embed: Annotated[
-        bool,
-        typer.Option("--embed/--no-embed", help="Whether to embed multiple frames in one file."),
-    ] = True,
-    parser_detection: Annotated[
-        str, typer.Option("--parser-detection", help="Parser detection mode.")
-    ] = "auto",
-    n_jobs: Annotated[int, typer.Option("--n-jobs", "-j", help="Number of parallel jobs.")] = -1,
-):
-    from typing import Any, cast
-
-    from molop.cli.shared.frames import parse_frame_selection
-    from molop.io import AutoParser, codec_registry
-
-    valid_formats = codec_registry.get_supported_writer_formats()
-    if to not in valid_formats:
-        typer.echo(
-            f"Error: Invalid format '{to}'. Supported formats: {', '.join(valid_formats)}",
-            err=True,
+        plan = build_plan(
+            BatchInputConfig(
+                pattern=pattern,
+                parser_detection=parser_detection,
+                n_jobs=n_jobs,
+                output_format=output_format,
+            ),
+            operations,
         )
-        raise typer.Exit(1)
+        render_result(execute_plan(plan), plan)
+    except (CliUsageError, CliRuntimeError) as exc:
+        raise click.ClickException(str(exc)) from exc
 
-    try:
-        frame_selection = parse_frame_selection(frame)
-    except ValueError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(1) from e
 
-    output_dir.mkdir(parents=True, exist_ok=True)
+def _operation_call(name: str, params: object) -> OperationCall:
+    return OperationCall(spec=OPERATION_REGISTRY[name], params=cast("OperationParams", params))
 
-    batch = AutoParser(pattern, n_jobs=n_jobs, parser_detection=parser_detection)
 
-    if not batch:
-        typer.echo(f"No files found matching pattern: {pattern}", err=True)
-        raise typer.Exit(0)
-
-    batch.format_transform(
-        format=cast(Any, to),
-        output_dir=str(output_dir),
-        frameID=frame_selection,
-        embed_in_one_file=embed,
-        n_jobs=n_jobs,
+@parse.command("filter-state")
+@click.option(
+    "--state",
+    required=True,
+    type=click.Choice(["ts", "error", "opt", "normal", "thermal", "no-img"]),
+    help="Calculation state to keep.",
+)
+@click.option("--negate", is_flag=True, help="Invert the filter.")
+@click.option(
+    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
+)
+def filter_state(
+    state: Literal["ts", "error", "opt", "normal", "thermal", "no-img"],
+    negate: bool = False,
+    n_jobs: int | None = None,
+) -> OperationCall:
+    """Filter the current batch by calculation state."""
+    return _operation_call(
+        "filter-state", FilterStateParams(state=state, negate=negate, n_jobs=n_jobs)
     )
 
-    typer.echo(f"Transformation completed. Files saved to {output_dir}", err=True)
+
+@parse.command("filter-value")
+@click.option(
+    "--target",
+    required=True,
+    type=click.Choice(["charge", "multiplicity", "format"]),
+    help="File value target.",
+)
+@click.option("--value", required=True, help="Value to compare.")
+@click.option(
+    "--compare",
+    type=click.Choice(["==", "!=", ">", "<", ">=", "<="]),
+    default="==",
+    show_default=True,
+    help="Comparison operator.",
+)
+@click.option(
+    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
+)
+def filter_value(
+    target: Literal["charge", "multiplicity", "format"],
+    value: str,
+    compare: Literal["==", "!=", ">", "<", ">=", "<="] = "==",
+    n_jobs: int | None = None,
+) -> OperationCall:
+    """Filter the current batch by charge, multiplicity, or file format."""
+    return _operation_call(
+        "filter-value",
+        FilterValueParams(target=target, value=value, compare=compare, n_jobs=n_jobs),
+    )
 
 
-@app.command(help="Filter files by their detected codec ID.")
+@parse.command("filter-by-codec")
+@click.option("--codec-id", required=True, help="Detected reader codec id to keep.")
+@click.option("--negate", is_flag=True, help="Invert the filter.")
+@click.option(
+    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
+)
+@click.option(
+    "--on-missing",
+    type=click.Choice(["keep", "drop", "error"]),
+    default="drop",
+    show_default=True,
+    help="Behavior when detected codec id is missing.",
+)
 def filter_by_codec(
-    pattern: Annotated[str, typer.Argument(help="File pattern to match.")],
-    codec_id: Annotated[str, typer.Option("--codec-id", help="Codec ID to filter by.")],
-    negate: Annotated[bool, typer.Option("--negate", help="Negate the filter.")] = False,
-    on_missing: Annotated[
-        str, typer.Option("--on-missing", help="Behavior on missing codec ID (keep, drop, error).")
-    ] = "drop",
-    out_format: Annotated[
-        str, typer.Option("--format", "-f", help="Output format (text or json).")
-    ] = "text",
-    parser_detection: Annotated[
-        str, typer.Option("--parser-detection", help="Parser detection mode.")
-    ] = "auto",
-    n_jobs: Annotated[int, typer.Option("--n-jobs", "-j", help="Number of parallel jobs.")] = -1,
-):
-    """
-    Filter files by their detected codec ID.
-    """
-    import json
-    from typing import Literal, cast
-
-    from molop.io import AutoParser
-
-    if out_format not in ["text", "json"]:
-        typer.echo(f"Error: Invalid format '{out_format}'. Supported formats: text, json", err=True)
-        raise typer.Exit(1)
-
-    if on_missing not in ["keep", "drop", "error"]:
-        typer.echo(
-            f"Error: Invalid on-missing behavior '{on_missing}'. Supported: keep, drop, error",
-            err=True,
-        )
-        raise typer.Exit(1)
-
-    batch = AutoParser(pattern, n_jobs=n_jobs, parser_detection=parser_detection)
-
-    if not batch:
-        if out_format == "json":
-            typer.echo("[]")
-        return
-
-    filtered_batch = batch.filter_by_codec_id(
-        codec_id=codec_id,
-        negate=negate,
-        n_jobs=n_jobs,
-        on_missing=cast(Literal["keep", "drop", "error"], on_missing),
+    codec_id: str,
+    negate: bool = False,
+    n_jobs: int | None = None,
+    on_missing: Literal["keep", "drop", "error"] = "drop",
+) -> OperationCall:
+    """Filter the current batch by detected reader codec id."""
+    return _operation_call(
+        "filter-by-codec",
+        FilterByCodecParams(
+            codec_id=codec_id,
+            negate=negate,
+            n_jobs=n_jobs,
+            on_missing=on_missing,
+        ),
     )
 
-    paths = filtered_batch.file_paths
 
-    if out_format == "json":
-        typer.echo(json.dumps(paths))
-    else:
-        for path in paths:
-            typer.echo(path)
-
-
-@app.command(help="Randomly sample N files from the matched files.")
-def sample(
-    pattern: Annotated[str, typer.Argument(help="File pattern to match.")],
-    n: Annotated[int, typer.Option("--n", help="Number of files to sample.")],
-    seed: Annotated[int | None, typer.Option("--seed", help="Random seed.")] = None,
-    out_format: Annotated[
-        str, typer.Option("--format", "-f", help="Output format (text or json).")
-    ] = "text",
-    parser_detection: Annotated[
-        str, typer.Option("--parser-detection", help="Parser detection mode.")
-    ] = "auto",
-    n_jobs: Annotated[int, typer.Option("--n-jobs", "-j", help="Number of parallel jobs.")] = -1,
-):
-    """
-    Randomly sample N files from the matched files.
-    """
-    import json
-
-    from molop.io import AutoParser
-
-    if out_format not in ["text", "json"]:
-        typer.echo(f"Error: Invalid format '{out_format}'. Supported formats: text, json", err=True)
-        raise typer.Exit(1)
-
-    batch = AutoParser(pattern, n_jobs=n_jobs, parser_detection=parser_detection)
-
-    if not batch:
-        if out_format == "json":
-            typer.echo("[]")
-        return
-
-    sampled_batch = batch.sample(n=n, seed=seed)
-    paths = sampled_batch.file_paths
-
-    if out_format == "json":
-        typer.echo(json.dumps(paths))
-    else:
-        for path in paths:
-            typer.echo(path)
+@parse.command("sample")
+@click.option("--n", default=10, show_default=True, help="Number of files to sample.")
+@click.option("--seed", type=int, default=None, help="Random seed.")
+def sample(n: int = 10, seed: int | None = None) -> OperationCall:
+    """Randomly sample files from the current batch."""
+    return _operation_call("sample", SampleParams(n=n, seed=seed))
 
 
-@app.command(help="Show statistics of the molecules in the given files.")
-def stats(
-    pattern: Annotated[str, typer.Argument(help="File pattern to match.")],
-    format: Annotated[
-        str, typer.Option("--format", "-f", help="Output format (text or json).")
-    ] = "text",
-    parser_detection: Annotated[
-        str, typer.Option("--parser-detection", help="Parser detection mode.")
-    ] = "auto",
-    n_jobs: Annotated[int, typer.Option("--n-jobs", "-j", help="Number of parallel jobs.")] = -1,
-):
-    """
-    Show statistics of the molecules in the given files.
-    """
-    import json
-    from collections import Counter
-
-    from molop.io import AutoParser
-
-    if format not in ["text", "json"]:
-        typer.echo(f"Error: Invalid format '{format}'. Supported formats: text, json", err=True)
-        raise typer.Exit(1)
-
-    batch = AutoParser(pattern, n_jobs=n_jobs, parser_detection=parser_detection)
-
-    if not batch:
-        typer.echo(f"No files found matching pattern: {pattern}", err=True)
-        raise typer.Exit(0)
-
-    total = len(batch)
-    format_counts: Counter[str] = Counter()
-    state_counts: Counter[str] = Counter()
-
-    for diskfile in batch.values():
-        fmt = getattr(diskfile, "detected_format_id", "unknown")
-        if fmt is None:
-            fmt = "unknown"
-        format_counts[fmt] += 1
-
-        if not diskfile:
-            state_counts["unknown"] += 1
-            continue
-
-        last_frame = diskfile[-1]
-        if getattr(last_frame, "is_TS", False):
-            state_counts["ts"] += 1
-        elif getattr(last_frame, "is_error", False):
-            state_counts["error"] += 1
-        elif getattr(last_frame, "is_normal", False):
-            state_counts["normal"] += 1
-        else:
-            state_counts["unknown"] += 1
-
-    if format == "json":
-        output = {
-            "total": total,
-            "by_detected_format_id": dict(sorted(format_counts.items())),
-            "by_state": dict(sorted(state_counts.items())),
-        }
-        typer.echo(json.dumps(output, indent=2, sort_keys=True))
-    else:
-        typer.echo(f"Total files: {total}")
-        typer.echo("\nBy format:")
-        for fmt, count in sorted(format_counts.items()):
-            typer.echo(f"  {fmt}: {count}")
-        typer.echo("\nBy state (last frame):")
-        for state, count in sorted(state_counts.items()):
-            typer.echo(f"  {state}: {count}")
-
-
-@app.command(help="Group files by a key and output the groups.")
-def groupby(
-    pattern: Annotated[str, typer.Argument(help="File pattern to match.")],
-    key: Annotated[
-        str,
-        typer.Option(
-            "--key",
-            help="Key to group by (detected_format_id, file_format, state).",
+@parse.command(
+    "format-transform",
+    cls=FormatTransformCommand,
+    context_settings={
+        **CONTEXT_SETTINGS,
+        "allow_extra_args": True,
+        "ignore_unknown_options": True,
+    },
+)
+@click.option(
+    "--format",
+    "target_format",
+    required=True,
+    help="Target writer format id.",
+    shell_complete=_writer_format_complete,
+)
+@click.option(
+    "--output-dir",
+    type=click.Path(path_type=Path, file_okay=False, dir_okay=True),
+    default=None,
+    help="Directory for generated files.",
+)
+@click.option(
+    "--frame", default="-1", show_default=True, help="Frame selection: all, int, or csv ints."
+)
+@click.option(
+    "--embed/--no-embed", default=True, show_default=True, help="Embed selected frames in one file."
+)
+@click.option(
+    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
+)
+@click.argument("extra_args", nargs=-1, type=click.UNPROCESSED, cls=DynamicFormatOptionsArgument)
+def format_transform(
+    target_format: str,
+    output_dir: Path | None = None,
+    frame: str = "-1",
+    embed: bool = True,
+    n_jobs: int | None = None,
+    extra_args: tuple[str, ...] = (),
+) -> OperationCall:
+    """Transform the current batch to another file format."""
+    return _operation_call(
+        "format-transform",
+        FormatTransformParams(
+            format=target_format,
+            output_dir=output_dir,
+            frame=frame,
+            embed=embed,
+            n_jobs=n_jobs,
+            format_options=parse_dynamic_options(extra_args),
         ),
-    ] = "detected_format_id",
-    format: Annotated[
-        str, typer.Option("--format", "-f", help="Output format (text or json).")
-    ] = "json",
-    parser_detection: Annotated[
-        str, typer.Option("--parser-detection", help="Parser detection mode.")
-    ] = "auto",
-    n_jobs: Annotated[int, typer.Option("--n-jobs", "-j", help="Number of parallel jobs.")] = -1,
-):
-    """
-    Group files by a key and output the groups.
-    """
+    )
 
-    from molop.io import AutoParser
 
-    if format not in ["text", "json"]:
-        typer.echo(f"Error: Invalid format '{format}'. Supported formats: text, json", err=True)
-        raise typer.Exit(1)
+@parse.command("to-summary-df")
+@click.option(
+    "--mode",
+    type=click.Choice(["file", "frame"]),
+    default="frame",
+    show_default=True,
+    help="Summary mode.",
+)
+@click.option(
+    "--frame", default="-1", show_default=True, help="Frame selection: all, int, or csv ints."
+)
+@click.option(
+    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
+)
+@click.option(
+    "--out", type=click.Path(path_type=Path, dir_okay=False), default=None, help="Output file."
+)
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["csv", "json"]),
+    default="csv",
+    show_default=True,
+    help="Output file format.",
+)
+def to_summary_df(
+    mode: Literal["file", "frame"] = "frame",
+    frame: str = "-1",
+    n_jobs: int | None = None,
+    out: Path | None = None,
+    output_format: Literal["csv", "json"] = "csv",
+) -> OperationCall:
+    """Build a summary DataFrame from the current batch."""
+    return _operation_call(
+        "to-summary-df",
+        ToSummaryDfParams(mode=mode, frame=frame, n_jobs=n_jobs, out=out, format=output_format),
+    )
 
-    if key not in ["detected_format_id", "file_format", "state"]:
-        typer.echo(
-            f"Error: Invalid key '{key}'. Supported keys: detected_format_id, file_format, state",
-            err=True,
-        )
-        raise typer.Exit(1)
 
-    batch = AutoParser(pattern, n_jobs=n_jobs, parser_detection=parser_detection)
+@parse.command("draw-grid-image")
+@click.option(
+    "--out", type=click.Path(path_type=Path, dir_okay=False), required=True, help="Image path."
+)
+@click.option("--mols-per-row", default=4, show_default=True, help="Molecules per row.")
+@click.option("--sub-img-width", default=200, show_default=True, help="Sub-image width.")
+@click.option("--sub-img-height", default=200, show_default=True, help="Sub-image height.")
+@click.option("--max-mols", default=16, show_default=True, help="Maximum molecules to render.")
+@click.option("--use-svg/--no-use-svg", default=None, help="Force SVG output mode.")
+@click.option(
+    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
+)
+def draw_grid_image(
+    out: Path,
+    mols_per_row: int = 4,
+    sub_img_width: int = 200,
+    sub_img_height: int = 200,
+    max_mols: int = 16,
+    use_svg: bool | None = None,
+    n_jobs: int | None = None,
+) -> OperationCall:
+    """Render a molecule grid image from the current batch."""
+    return _operation_call(
+        "draw-grid-image",
+        DrawGridImageParams(
+            out=out,
+            mols_per_row=mols_per_row,
+            sub_img_width=sub_img_width,
+            sub_img_height=sub_img_height,
+            max_mols=max_mols,
+            use_svg=use_svg,
+            n_jobs=n_jobs,
+        ),
+    )
 
-    if not batch:
-        if format == "json":
-            typer.echo("{}")
-        return
 
-    def key_func(diskfile) -> str:
-        if key == "detected_format_id":
-            fmt = getattr(diskfile, "detected_format_id", "unknown")
-            return fmt if fmt is not None else "unknown"
-        if key == "file_format":
-            return diskfile.file_format
-        if key == "state":
-            if not diskfile:
-                return "unknown"
-            last_frame = diskfile[-1]
-            if getattr(last_frame, "is_TS", False):
-                return "ts"
-            if getattr(last_frame, "is_error", False):
-                return "error"
-            if getattr(last_frame, "is_normal", False):
-                return "normal"
-            return "unknown"
-        return "unknown"
+@parse.command("groupby")
+@click.option(
+    "--key",
+    type=click.Choice(["detected_format_id", "file_format", "state"]),
+    default="detected_format_id",
+    show_default=True,
+    help="Grouping key.",
+)
+@click.option(
+    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
+)
+def groupby(
+    key: Literal["detected_format_id", "file_format", "state"] = "detected_format_id",
+    n_jobs: int | None = None,
+) -> OperationCall:
+    """Group current batch files and print grouped paths."""
+    return _operation_call("groupby", GroupByParams(key=key, n_jobs=n_jobs))
 
-    groups = batch.groupby(key_func=key_func, n_jobs=n_jobs)
 
-    import json
+@parse.command("copy-to")
+@click.option(
+    "--output-dir",
+    type=click.Path(path_type=Path, file_okay=False, dir_okay=True),
+    required=True,
+    help="Destination directory.",
+)
+@click.option(
+    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
+)
+def copy_to(output_dir: Path, n_jobs: int | None = None) -> OperationCall:
+    """Copy current batch files to a directory."""
+    return _operation_call("copy-to", CopyToParams(output_dir=output_dir, n_jobs=n_jobs))
 
-    if format == "json":
-        output = {k: v.file_paths for k, v in groups.items()}
-        typer.echo(json.dumps(output, indent=2, sort_keys=True))
-    else:
-        for k, v in sorted(groups.items()):
-            for path in v.file_paths:
-                typer.echo(f"{k}\t{path}")
+
+@parse.command("move-to")
+@click.option(
+    "--output-dir",
+    type=click.Path(path_type=Path, file_okay=False, dir_okay=True),
+    required=True,
+    help="Destination directory.",
+)
+@click.option(
+    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
+)
+def move_to(output_dir: Path, n_jobs: int | None = None) -> OperationCall:
+    """Move current batch files to a directory."""
+    return _operation_call("move-to", MoveToParams(output_dir=output_dir, n_jobs=n_jobs))
+
+
+app.add_command(parse)
 
 
 if __name__ == "__main__":

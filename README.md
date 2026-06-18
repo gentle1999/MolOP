@@ -73,15 +73,22 @@ print(df)
 
 ### Command Line Interface (CLI)
 
-MolOP provides a modern Typer CLI:
+MolOP provides a Click CLI centered on chained batch operations:
 
 ```bash
-# Generate a summary CSV
-molop summary "path/to/*.log" -o summary.csv
+# Generate a summary CSV from a parsed batch
+molop parse "path/to/*.log" to-summary-df --out summary.csv
 
-# Transform molecular files to another format
-molop transform "path/to/*.log" --to sdf --output-dir ./output --frame -1 --embed
+# Transform filtered molecular files to another format
+molop parse "path/to/*.log" \
+  filter-state --state normal \
+  format-transform --format sdf --output-dir ./output
 ```
+
+`molop parse` is the only business CLI entry point. It builds a
+`FileBatchModelDisk` state first, then validates and executes the operation
+chain. Format-specific transform options are provided dynamically from the
+registered writer metadata.
 
 ## Documentation & Tutorials
 

@@ -73,15 +73,19 @@ print(df)
 
 ### 命令行界面 (CLI)
 
-MolOP 提供现代化的 Typer CLI：
+MolOP 提供以批处理链式操作为核心的 Click CLI：
 
 ```bash
-# 生成摘要 CSV
-molop summary "path/to/*.log" -o summary.csv
+# 从解析后的 batch 生成摘要 CSV
+molop parse "path/to/*.log" to-summary-df --out summary.csv
 
-# 将分子文件转换为另一种格式
-molop transform "path/to/*.log" --to sdf --output-dir ./output --frame -1 --embed
+# 过滤后将分子文件转换为另一种格式
+molop parse "path/to/*.log" \
+  filter-state --state normal \
+  format-transform --format sdf --output-dir ./output
 ```
+
+`molop parse` 是唯一的业务 CLI 入口。它先构造 `FileBatchModelDisk` 状态，再校验并执行操作链。格式转换的目标格式参数会根据已注册 writer 的元数据动态提供。
 
 ## 文档与教程
 

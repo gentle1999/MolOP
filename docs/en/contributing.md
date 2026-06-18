@@ -357,18 +357,16 @@ Not every format should support both file and frame transforms.
 
 ### Generated surfaces you must keep in sync
 
-Registration changes affect generated stubs and CLI typing. If you add or change readers/writers, regenerate or check the generated artifacts in the same work session:
+Registration changes affect generated typing stubs. If you add or change readers/writers, regenerate or check the generated artifacts in the same work session:
 
 - `uv run python scripts/generate_io_typing_catalog.py`
 - `uv run python scripts/generate_chemfile_format_transform_stubs.py`
-- `uv run python scripts/generate_cli_transform_stubs.py`
 
 Useful verification commands:
 
 - `uv run pytest <targeted-test>`
 - `uv run python scripts/generate_io_typing_catalog.py --check`
 - `uv run python scripts/generate_chemfile_format_transform_stubs.py --check`
-- `uv run python scripts/generate_cli_transform_stubs.py --check`
 
 ### Practical checklist for plugin authors
 

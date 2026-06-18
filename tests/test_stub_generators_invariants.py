@@ -91,21 +91,6 @@ def test_io_stub_overloads_are_sorted_and_have_numpy_parameters() -> None:
         _assert_no_duplicate_doc_args(block)
 
 
-def test_cli_stub_transform_overloads_include_literal_to_parameters_and_source() -> None:
-    blocks = _extract_overload_blocks(_read("src/molop/cli/app.pyi"), "transform")
-    assert blocks
-    _assert_sorted_literal_overloads(blocks, "to")
-
-    literal_blocks = [b for b in blocks if 'to: Literal["' in b]
-    assert literal_blocks
-    for block in literal_blocks:
-        assert 'to: Literal["' in block
-        doc = _extract_docstring(block)
-        assert re.search(r"\n\s*Parameters\n\s*-+", doc)
-        assert re.search(r"\n\s*Source\n\s*-+", doc)
-        _assert_no_duplicate_doc_args(block)
-
-
 def test_stub_generators_check_mode_is_deterministic() -> None:
     commands = [
         [
@@ -114,14 +99,7 @@ def test_stub_generators_check_mode_is_deterministic() -> None:
             "python",
             "scripts/generate_chemfile_format_transform_stubs.py",
             "--check",
-        ],
-        [
-            "uv",
-            "run",
-            "python",
-            "scripts/generate_cli_transform_stubs.py",
-            "--check",
-        ],
+        ]
     ]
     for command in commands:
         subprocess.run(command, cwd=ROOT, check=True)

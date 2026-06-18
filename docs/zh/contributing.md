@@ -358,18 +358,16 @@ sequenceDiagram
 
 ### 需要同步的生成面
 
-reader / writer 注册变化会影响生成的 typing 和 CLI surface，因此在同一工作会话里要同步检查或生成：
+reader / writer 注册变化会影响生成的 typing，因此在同一工作会话里要同步检查或生成：
 
 - `uv run python scripts/generate_io_typing_catalog.py`
 - `uv run python scripts/generate_chemfile_format_transform_stubs.py`
-- `uv run python scripts/generate_cli_transform_stubs.py`
 
 推荐验证命令：
 
 - `uv run pytest <targeted-test>`
 - `uv run python scripts/generate_io_typing_catalog.py --check`
 - `uv run python scripts/generate_chemfile_format_transform_stubs.py --check`
-- `uv run python scripts/generate_cli_transform_stubs.py --check`
 
 ### 给插件作者的实用检查清单
 

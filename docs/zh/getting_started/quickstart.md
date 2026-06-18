@@ -4,7 +4,7 @@
 
 通过一个可复现的小例子，快速了解 MolOP 的核心工作流：解析 -> 摘要。
 
-本页的具体行为与输出以 Notebook `examples/01-gaussian-parse-and-inspect.ipynb` 为绝对基准；如果本页与 Notebook 有冲突，以 Notebook 为准。
+本页是入门示例。当前源码、API 参考和测试是行为事实来源；Notebook 只是示例资产，文档构建时不会执行。
 
 ## 前置条件
 
@@ -48,7 +48,7 @@ df_brief
 
 ### 2. 获取更丰富的摘要
 
-Notebook 中展示了 `brief=False` 的更完整摘要：
+使用 `brief=False` 可以得到更完整的文件级摘要：
 
 ```python
 df_full = parsed_file.to_summary_df(brief=False)

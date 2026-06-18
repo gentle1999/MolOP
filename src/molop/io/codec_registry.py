@@ -8,11 +8,14 @@ Design goals:
 
 from __future__ import annotations
 
+import inspect
+import re
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from itertools import count
 from pathlib import Path
-from typing import Any, cast
+from types import UnionType
+from typing import Any, Literal, Union, cast, get_args, get_origin, get_type_hints
 
 from molgr.interface import xyz_to_rdmol
 
@@ -37,6 +40,28 @@ WriterFactory = Callable[[], WriterCodec]
 
 MAX_FALLBACK_READERS = 3
 _OPENBABEL_FALLBACK_FORMAT_ID = "openbabel"
+_PARAMETER_DOC_RE = re.compile(r"^([A-Za-z_]\w*)\s*(?:\([^)]*\))?\s*:\s*(.*)$")
+_NUMPY_PARAMETER_DOC_RE = re.compile(r"^([A-Za-z_]\w*)\s*:\s*(.*)$")
+_DEFAULT_SENTENCE_RE = re.compile(r"\s*Defaults? to .*$", re.IGNORECASE)
+_OPTION_HELP_OVERRIDES = {
+    "add_gjf_connectivity": "Append Gaussian connectivity data after the coordinate block.",
+    "additional_sections": "Raw Gaussian extra-input sections appended after the molecule block.",
+    "blocks": "Additional ORCA block syntax appended to the input preamble.",
+    "chk": "Append a Gaussian %chk Link0 directive for this render.",
+    "coords_type": "Preferred Gaussian coordinate representation.",
+    "engine": "Rendering backend used to generate the target format.",
+    "keywords": "Input keywords used in the generated quantum-chemistry input.",
+    "link0_commands": "Gaussian Link0 resource and job-control directives.",
+    "maxcore": "ORCA per-core memory limit in MB.",
+    "molecule_specifications": "Gaussian charge, multiplicity, and coordinate block override.",
+    "nprocs": "Number of CPU cores requested in the generated input.",
+    "old_chk": "Append a Gaussian %oldchk Link0 directive for this render.",
+    "parsed_additional_sections": "Structured Gaussian extra-input sections to render.",
+    "resources_raw": "Raw ORCA resource/control block appended to the input preamble.",
+    "route_section": "Gaussian route section keyword line.",
+    "title_card": "Gaussian title section override.",
+    "use_raw_geometry": "Preserve the original ORCA geometry block when possible.",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,6 +82,16 @@ class _WriterSpec:
     priority: int
     factory: WriterFactory
     order: int
+
+
+@dataclass(frozen=True, slots=True)
+class WriterOptionSpec:
+    name: str
+    option: str
+    value_candidates: tuple[str, ...] = ()
+    takes_value: bool = True
+    supports_no: bool = False
+    help: str = ""
 
 
 @dataclass(slots=True)
@@ -221,6 +256,20 @@ class Registry:
         if self._autoload_defaults:
             self.ensure_default_codecs_registered()
         return sorted(self._writers_by_format.keys())
+
+    def get_writer_option_specs(self, format_id: str) -> list[WriterOptionSpec]:
+        """Return completion metadata for writer-specific format options."""
+        if self._autoload_defaults:
+            self.ensure_default_codecs_registered()
+        normalized_format_id = _normalize_format_id(format_id)
+        writer_specs = self._writers_by_format.get(normalized_format_id, [])
+        result: dict[str, WriterOptionSpec] = {}
+
+        for spec in writer_specs:
+            for option_spec in _writer_option_specs_from_factory(spec.factory):
+                result.setdefault(option_spec.name, option_spec)
+
+        return sorted(result.values(), key=lambda item: item.option)
 
     def select_reader(
         self, path: str | Path, hint_format: str | None = None
@@ -415,6 +464,10 @@ def writer_factory(
 
 def get_supported_writer_formats() -> list[str]:
     return default_registry.get_supported_writer_formats()
+
+
+def get_writer_option_specs(format_id: str) -> list[WriterOptionSpec]:
+    return default_registry.get_writer_option_specs(format_id)
 
 
 def select_reader(path: str | Path, hint_format: str | None = None) -> tuple[ReaderCodec, ...]:
@@ -622,6 +675,169 @@ def _extend_unique(target: list[_ReaderSpec], specs: Sequence[_ReaderSpec], seen
         target.append(spec)
 
 
+def _writer_option_specs_from_factory(factory: WriterFactory) -> list[WriterOptionSpec]:
+    try:
+        writer = factory()
+    except MissingOptionalDependencyError:
+        return []
+
+    specs: dict[str, WriterOptionSpec] = {
+        "graph_policy": WriterOptionSpec(
+            name="graph_policy",
+            option="--graph-policy",
+            value_candidates=("prefer", "strict", "coords"),
+            help="Molecular graph policy used before rendering.",
+        )
+    }
+    _collect_signature_options(specs, getattr(writer, "write", None))
+
+    for attr_name in ("file_cls", "frame_cls"):
+        cls = getattr(writer, attr_name, None)
+        if cls is None:
+            continue
+        _collect_signature_options(specs, getattr(cls, "_render", None))
+
+    return list(specs.values())
+
+
+def _collect_signature_options(
+    target: dict[str, WriterOptionSpec],
+    callable_obj: Callable[..., object] | None,
+) -> None:
+    if callable_obj is None:
+        return
+    try:
+        signature = inspect.signature(callable_obj)
+    except (TypeError, ValueError):
+        return
+    try:
+        type_hints = get_type_hints(callable_obj)
+    except (NameError, TypeError):
+        type_hints = {}
+
+    parameter_docs = _extract_parameter_docs(callable_obj)
+    for parameter in signature.parameters.values():
+        if parameter.name in {
+            "self",
+            "value",
+            "kwargs",
+            "file_path",
+            "frameID",
+            "embed_in_one_file",
+        }:
+            continue
+        if parameter.kind in {
+            inspect.Parameter.VAR_KEYWORD,
+            inspect.Parameter.VAR_POSITIONAL,
+            inspect.Parameter.POSITIONAL_ONLY,
+        }:
+            continue
+        annotation = type_hints.get(parameter.name, parameter.annotation)
+        option = f"--{parameter.name.replace('_', '-')}"
+        target.setdefault(
+            parameter.name,
+            WriterOptionSpec(
+                name=parameter.name,
+                option=option,
+                value_candidates=_literal_value_candidates(annotation),
+                takes_value=not _annotation_is_bool_only(annotation),
+                supports_no=_annotation_accepts_bool(annotation),
+                help=_writer_option_help(parameter, parameter_docs.get(parameter.name, "")),
+            ),
+        )
+
+
+def _literal_value_candidates(annotation: object) -> tuple[str, ...]:
+    origin = get_origin(annotation)
+    if origin is Literal:
+        return tuple(str(value) for value in get_args(annotation) if value is not None)
+    if origin in {UnionType, Union}:
+        values: list[str] = []
+        for arg in get_args(annotation):
+            values.extend(_literal_value_candidates(arg))
+        return tuple(dict.fromkeys(values))
+    return ()
+
+
+def _annotation_is_bool_only(annotation: object) -> bool:
+    if annotation is bool:
+        return True
+    origin = get_origin(annotation)
+    if origin is Literal:
+        return set(get_args(annotation)) <= {True, False}
+    if origin in {UnionType, Union}:
+        return set(get_args(annotation)) <= {bool, type(None)}
+    return False
+
+
+def _annotation_accepts_bool(annotation: object) -> bool:
+    if annotation is bool:
+        return True
+    origin = get_origin(annotation)
+    if origin is Literal:
+        return bool(set(get_args(annotation)) & {True, False})
+    if origin in {UnionType, Union}:
+        return bool in get_args(annotation)
+    return False
+
+
+def _extract_parameter_docs(callable_obj: Callable[..., object]) -> dict[str, str]:
+    doc = inspect.getdoc(callable_obj)
+    if not doc:
+        return {}
+
+    docs: dict[str, str] = {}
+    lines = doc.splitlines()
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        match = _PARAMETER_DOC_RE.match(stripped) or _NUMPY_PARAMETER_DOC_RE.match(stripped)
+        if match is None:
+            continue
+        name = match.group(1)
+        description_parts = [match.group(2).strip()]
+        for follow_line in lines[index + 1 :]:
+            follow_stripped = follow_line.strip()
+            if not follow_stripped:
+                if any(description_parts):
+                    break
+                continue
+            if (
+                _PARAMETER_DOC_RE.match(follow_stripped)
+                or _NUMPY_PARAMETER_DOC_RE.match(follow_stripped)
+            ):
+                break
+            if follow_line.startswith((" ", "\t")):
+                description_parts.append(follow_stripped)
+                continue
+            break
+        description = _clean_option_help(" ".join(part for part in description_parts if part))
+        if description:
+            docs[name] = description
+    return docs
+
+
+def _writer_option_help(parameter: inspect.Parameter, doc_help: str = "") -> str:
+    description = _OPTION_HELP_OVERRIDES.get(parameter.name, doc_help)
+    default_help = _writer_option_default_help(parameter)
+    if description and default_help:
+        return f"{description} {default_help}"
+    return description or default_help
+
+
+def _writer_option_default_help(parameter: inspect.Parameter) -> str:
+    if parameter.default is inspect.Parameter.empty:
+        return ""
+    return f"Default: {parameter.default!r}."
+
+
+def _clean_option_help(value: str) -> str:
+    compact = " ".join(value.split())
+    compact = _DEFAULT_SENTENCE_RE.sub("", compact).strip()
+    if not compact:
+        return ""
+    return compact[0].upper() + compact[1:]
+
+
 def _normalize_format_id(format_id: str) -> str:
     normalized = format_id.strip().lower()
     if not normalized:
@@ -649,6 +865,7 @@ __all__ = [
     "default_registry",
     "ensure_default_codecs_registered",
     "get_supported_writer_formats",
+    "get_writer_option_specs",
     "reader_factory",
     "register_openbabel_fallback",
     "register_reader",
@@ -660,4 +877,5 @@ __all__ = [
     "write",
     "write_frame",
     "writer_factory",
+    "WriterOptionSpec",
 ]

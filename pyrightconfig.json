@@ -14,6 +14,7 @@
     "**/__pycache__"
   ],
   "reportMissingImports": "none",
+  "reportMissingModuleSource": "none",
   "reportMissingTypeStubs": "none",
   "pythonVersion": "3.10"
 }

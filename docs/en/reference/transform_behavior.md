@@ -8,12 +8,17 @@
 
 # Transform Behaviors
 
-The `format_transform` method (available on `FileBatchModelDisk` and individual file objects) allows converting between different chemical file formats.
+The `format_transform` method is available on both `FileBatchModelDisk` and
+individual file objects. It converts between chemical file formats while
+preserving as much structure-level information as the target format allows.
 
 ## Key Behaviors
 
-- **Frame Selection**: By default, only the last frame (`frameID=-1`) is transformed. You can specify `frameID="all"` to transform all frames in a file.
+- **Frame Selection**: By default, only the last frame (`frameID=-1`) is transformed. You can specify `frameID="all"` or a sequence of frame IDs to transform more frames.
 - **Embedding**: If `embed_in_one_file=True` (default), multiple frames are combined into a single output file if the format supports it (e.g., SDF or multi-frame XYZ).
+- **File Output**: When `file_path` or the CLI `--output-dir` path is used, the
+  rendered content is written to disk and the transform still returns the rendered
+  string or list of strings to Python callers.
 - **Structure Level**:
   - **COORDS (Coordinate Level)**: Formats like `xyz`, `gjf`, and `orcainp` primarily preserve atomic coordinates and elements.
   - **GRAPH (Graph Level)**: Formats like `sdf`, `smi`, and `cml` preserve bonding information (molecular graph). If the source file only has coordinates (e.g., a `.log` file), MolOP will automatically attempt to reconstruct the molecular graph using its built-in algorithms.

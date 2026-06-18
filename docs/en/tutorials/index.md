@@ -1,6 +1,9 @@
 # Tutorials
 
-This section provides navigation and key takeaways for using MolOP. **The notebooks under `docs/en/examples/` are the canonical baseline**: if any Markdown page conflicts with the notebook behavior/API/output, the notebook wins.
+This section provides navigation and key takeaways for using MolOP. Notebooks
+under `docs/en/examples/` are worked examples; they are not executed during
+documentation builds. For exact behavior, prefer the current API reference,
+CLI help, and tests.
 
 MkDocs is configured with `mkdocs-jupyter.execute: false`, so notebooks are not executed during docs builds; notebooks in the repository should include reproducible outputs.
 
@@ -67,7 +70,7 @@ print(f"Parsed {len(opt_batch)} optimized structures")
 from molop.io import AutoParser
 batch = AutoParser("molecule.xyz")
 # Automatically triggers the reconstruction algorithm
-rdmol = batch[0][0].to_rdmol()
+rdmol = batch[0][0].rdmol
 ```
 
 ### Expected Output
@@ -103,10 +106,15 @@ batch.format_transform(format="sdf", output_dir="./output", frameID=-1)
 
 ```bash
 # Generate a summary CSV
-uv run molop -q summary "tests/test_files/g16log/2-TS1-Opt.log" --out tutorial_ts_summary.csv --format csv --mode frame --frame -1 --n-jobs 1
+uv run molop -q parse "tests/test_files/g16log/2-TS1-Opt.log" \
+  --n-jobs 1 \
+  to-summary-df --out tutorial_ts_summary.csv --format csv --mode frame --frame -1
 
 # Transform molecular files to another format
-uv run molop -q transform "tests/test_files/orca/h2_grad_orca.inp" --to sdf --output-dir ./tutorial_transform_out --frame -1 --embed --parser-detection orcainp --n-jobs 1
+uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
+  --parser-detection orcainp \
+  --n-jobs 1 \
+  format-transform --format sdf --output-dir ./tutorial_transform_out --frame -1 --embed
 ```
 
 ## 6. Plugin/Codec Extension
