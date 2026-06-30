@@ -1,0 +1,21 @@
+! STEOM-DLPNO-CCSD def2-TZVP def2-TZVP/C def2/J TightSCF
+
+%mdci
+  NRoots 6
+  DoRootWise true
+  OThresh 0.005
+  VThresh 0.005
+  TCutPNOSingles 1e-11
+  NDAV 400
+  DoStoreSTEOM true
+  DoSimpleDens false
+  AddL2Term True
+  DTol 1e-5
+end
+
+* xyz 0 1
+  C     0.016227   -0.000000    0.000000
+  O     1.236847    0.000000   -0.000000
+  H    -0.576537    0.951580   -0.000000
+  H    -0.576537   -0.951580   -0.000000
+*

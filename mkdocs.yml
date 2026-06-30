@@ -79,7 +79,15 @@ plugins:
             molop.unit: molop.unit
             molop.utils: molop.utils
             参考: Reference
-            格式支持清单: Format Support Checklist
+            格式支持清单: Format Support
+            格式概览: Overview
+            Gaussian 输入: Gaussian Input
+            Gaussian 输出: Gaussian Output
+            ORCA 输入: ORCA Input
+            ORCA 输出: ORCA Output
+            CML writer: CML Writer
+            Gaussian-like renderer: Gaussian-Like Renderer
+            OpenBabel fallback: OpenBabel Fallback
             转换行为: Transform Behaviors
             模型字段: Model Field Map
             贡献指南: Contributing
@@ -102,9 +110,23 @@ nav:
       - 02-批量汇总、过滤与选择: examples/02-batch-summary-filter-select.ipynb
       - 03-转换与导出: examples/03-transform-and-export.ipynb
   - 参考:
-    - 格式支持清单: reference/format_support.md
+    - 格式支持清单:
+      - 格式概览: reference/format_support.md
+      - XYZ: reference/formats/xyz.md
+      - SDF/MOL: reference/formats/sdf.md
+      - SMILES: reference/formats/smi.md
+      - Gaussian 输入: reference/formats/gjf.md
+      - Gaussian 输出: reference/formats/g16log.md
+      - ORCA 输入: reference/formats/orcainp.md
+      - ORCA 输出: reference/formats/orcaout.md
+      - CML writer: reference/formats/cml.md
+      - Gaussian-like renderer: reference/formats/fakeg.md
+      - OpenBabel fallback: reference/formats/openbabel-fallback.md
     - 转换行为: reference/transform_behavior.md
     - 模型字段: reference/model_fields.md
+  - 设计稿:
+    - QM 公共数据模型: design/qm_data_model.md
+    - ORCA 输入文件模型: design/orca_input_model.md
   - 贡献指南: contributing.md
   - 更新日志: changelog.md
   - API 参考:

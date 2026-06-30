@@ -1,0 +1,14 @@
+!def2-svp nofrozencore PAtom
+%casscf nel  6
+        norb 6
+        mult 1
+        PTMethod SC_NEVPT2  # SC_NEVPT2   for strongly contracted NEVPT2
+                            # FIC_NEVPT2  for the fully internally contracted NEVPT2
+                            # DLPNO_NEVPT2 for the FIC-NEVPT2 with DLPNO
+                            # DLPNO requires: trafostep RI and an aux basis
+end
+
+* xyz 0 1
+N	0.0	0.0	0.0
+N	0.0	0.0	1.09768
+*

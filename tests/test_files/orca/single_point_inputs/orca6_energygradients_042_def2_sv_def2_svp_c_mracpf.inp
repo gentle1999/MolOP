@@ -1,0 +1,15 @@
+! def2-SV def2-SVP/C MRACPF
+%casscf nel    2
+        norb   2
+        nroots 1
+        mult   1
+        end
+%mrci   tsel    1e-10
+        tpre    1e-10
+        end
+%paras  R= 3.0,1.3,35
+        end
+* xyz 0 1
+F 0 0 0
+F 0 0 {R}
+*

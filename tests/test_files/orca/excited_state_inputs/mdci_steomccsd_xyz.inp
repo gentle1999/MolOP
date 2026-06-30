@@ -1,0 +1,13 @@
+! STEOM-CCSD cc-pVDZ TightSCF
+
+%mdci
+  NRoots 9        # Number of excited states 
+  DoDbfilter true # Remove doubly excited states
+end
+
+*xyz 0 1
+  C     0.016227   -0.000000    0.000000
+  O     1.236847    0.000000   -0.000000
+  H    -0.576537    0.951580   -0.000000
+  H    -0.576537   -0.951580   -0.000000
+*

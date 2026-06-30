@@ -1,0 +1,16 @@
+! cc-pvtz TightSCF Def2/JK PModel NoIter
+! AVAS(Valence-D)
+
+%maxcore 3000
+
+%paras
+ cucl  = 2.291
+end
+
+* int -1 1
+Cu  0  0  0   0.0     0.0     0.0
+Cl   1  0  0   {cucl}  0.0      0.0
+Cl   1  2  0   {cucl}  90.0     0.0
+Cl   1  3  2   {cucl}  90.0   180.
+Cl   1  4  3   {cucl}  90.0   180.
+*

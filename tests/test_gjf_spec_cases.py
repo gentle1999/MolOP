@@ -194,6 +194,17 @@ def test_free_format_delimiters_are_parsed_and_rendered_canonically() -> None:
     assert "/" not in molecule_render
 
 
+def test_integer_cartesian_coordinates_are_not_misparsed_as_zmatrix() -> None:
+    frame = _parse_first_frame("spec_integer_cartesian_coords.gjf")
+    atom_specs = frame.molecule_specifications.molecule_fragments[0].atom_specifications
+    assert atom_specs[0].coords_part == "0 0 0"
+    assert atom_specs[0].is_cartesian_coords() is True
+    assert atom_specs[0].is_internal_coords() is False
+
+    rendered = frame._render()
+    assert "H            0.000000       0.000000       0.000000" in rendered
+
+
 def test_mixed_gic_and_modredundant_section_falls_back_to_unknown_with_diagnostic() -> None:
     frame = _parse_first_frame("spec_mixed_gic_modredundant_invalid.gjf")
     assert frame.parsed_additional_sections

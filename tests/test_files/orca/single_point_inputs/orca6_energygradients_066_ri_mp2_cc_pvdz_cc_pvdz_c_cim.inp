@@ -1,0 +1,9 @@
+#
+# CIM-RI-MP2 calculation
+#
+! RI-MP2 cc-pVDZ cc-pVDZ/C CIM
+%CIM
+  CIMTHRESH 0.0005  # Default value is 0.001
+end
+
+* xyzfile 0 1 CIM.xyz

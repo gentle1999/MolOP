@@ -46,21 +46,17 @@ _DEFAULT_SENTENCE_RE = re.compile(r"\s*Defaults? to .*$", re.IGNORECASE)
 _OPTION_HELP_OVERRIDES = {
     "add_gjf_connectivity": "Append Gaussian connectivity data after the coordinate block.",
     "additional_sections": "Raw Gaussian extra-input sections appended after the molecule block.",
-    "blocks": "Additional ORCA block syntax appended to the input preamble.",
     "chk": "Append a Gaussian %chk Link0 directive for this render.",
     "coords_type": "Preferred Gaussian coordinate representation.",
     "engine": "Rendering backend used to generate the target format.",
     "keywords": "Input keywords used in the generated quantum-chemistry input.",
     "link0_commands": "Gaussian Link0 resource and job-control directives.",
-    "maxcore": "ORCA per-core memory limit in MB.",
     "molecule_specifications": "Gaussian charge, multiplicity, and coordinate block override.",
     "nprocs": "Number of CPU cores requested in the generated input.",
     "old_chk": "Append a Gaussian %oldchk Link0 directive for this render.",
     "parsed_additional_sections": "Structured Gaussian extra-input sections to render.",
-    "resources_raw": "Raw ORCA resource/control block appended to the input preamble.",
     "route_section": "Gaussian route section keyword line.",
     "title_card": "Gaussian title section override.",
-    "use_raw_geometry": "Preserve the original ORCA geometry block when possible.",
 }
 
 

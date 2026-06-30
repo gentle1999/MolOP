@@ -1,0 +1,33 @@
+! ROHF def2-SVP def2-TZVPP/C VeryTightSCF NoPop
+%basis
+     NewAuxCGTO Ne "AutoAux" end
+end
+* xyz 0 3
+H  0 0 0
+Ne 0 0 2.0
+H  0 0 4.0
+*
+%method frozencore fc_ewin
+end
+
+%mrci  EWin       -3,1000
+       CIType     MRACPF2a
+       IntMode    FullTrafo
+       Solver     DIIS
+       UseIVOs    true
+       TSel       0
+       TPre       1e-10
+       ETol       1e-09
+       RTol       1e-09
+       DoDDCIMP2  true
+       NewBlock 1 *
+          NRoots 1
+          Excitations CISD
+          refs CAS(10,6) end
+          end
+       NewBlock 3 *
+          NRoots 1
+          Excitations CISD
+          refs CAS(10,6) end
+          end
+       end

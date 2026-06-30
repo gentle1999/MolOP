@@ -1,19 +1,36 @@
-# Supported Formats
+# Format Support
 
-MolOP supports a variety of chemical file formats for reading and writing. The following table summarizes the built-in support:
+<!-- format-support-overview -->
 
-| Format ID | Typical Extensions                     | Read | Write | Notes                          |
-| --------- | -------------------------------------- | ---- | ----- | ------------------------------ |
-| `g16log`  | `.log`, `.out`, `.g16`, `.gal`, `.irc` | Yes  | No    | Gaussian 16 output files.      |
-| `xyz`     | `.xyz`                                 | Yes  | Yes   | Standard XYZ coordinate files. |
-| `sdf`     | `.sdf`, `.sd`, `.mol`                  | Yes  | Yes   | MDL Structure-Data File.       |
-| `smi`     | `.smi`, `.txt`                         | Yes  | Yes   | SMILES strings.                |
-| `gjf`     | `.gjf`, `.gif`, `.com`, `.gau`, `.gjc` | Yes  | Yes   | Gaussian input files.          |
-| `orcainp` | `.inp`                                 | Yes  | Yes   | ORCA input files.              |
-| `cml`     | `.cml`                                 | No   | Yes   | Chemical Markup Language.      |
-| `fakeg`   | `.fakeg`                               | No   | Yes   | Gaussian-like rendered output from parsed Gaussian data. |
+This page is the overview of MolOP's built-in format support. Detailed support
+scope is documented on each format page. The machine-checkable source of truth is
+`tests/format_feature_coverage/support_matrix.py`, and
+`tests/format_feature_coverage/test_support_matrix.py` verifies that the matrix
+matches the registered codecs, declares support scope and limits, and points to
+real tests.
+
+| Group | Formats | Summary |
+| ----- | ------- | ------- |
+| Structure formats | [`xyz`](formats/xyz.md), [`sdf`](formats/sdf.md), [`smi`](formats/smi.md), [`cml`](formats/cml.md) | Coordinate/graph structure IO and rendering. |
+| QM input formats | [`gjf`](formats/gjf.md), [`orcainp`](formats/orcainp.md) | Gaussian and ORCA input parsing, with Gaussian input rendering currently available. |
+| QM output formats | [`g16log`](formats/g16log.md), [`orcaout`](formats/orcaout.md), [`fakeg`](formats/fakeg.md) | Gaussian/ORCA output parsing plus Gaussian-like rendering from parsed Gaussian output. |
+| Special readers | [OpenBabel fallback](formats/openbabel-fallback.md) | Unknown-extension fallback through OpenBabel-compatible readers. |
+
+| Format ID | Typical Extensions | Read | Write | Support Page |
+| --------- | ------------------ | ---- | ----- | ------------ |
+| `xyz` | `.xyz` | Yes | Yes | [XYZ](formats/xyz.md) |
+| `sdf` | `.sdf`, `.sd`, `.mol` | Yes | Yes | [SDF/MOL](formats/sdf.md) |
+| `smi` | `.smi`, `.txt` | Yes | Yes | [SMILES](formats/smi.md) |
+| `gjf` | `.gjf`, `.gif`, `.com`, `.gau`, `.gjc` | Yes | Yes | [Gaussian input](formats/gjf.md) |
+| `g16log` | `.log`, `.out`, `.g16`, `.gal`, `.irc`, `.gau` | Yes | No | [Gaussian output](formats/g16log.md) |
+| `orcainp` | `.inp` | Yes | No | [ORCA input](formats/orcainp.md) |
+| `orcaout` | `.out`, `.log`, `.orcaout` | Yes | No | [ORCA output](formats/orcaout.md) |
+| `cml` | `.cml` | No | Yes | [CML writer](formats/cml.md) |
+| `fakeg` | `.fakeg` | No | Yes | [Gaussian-like renderer](formats/fakeg.md) |
+| OpenBabel fallback | Unknown or OpenBabel-supported extensions | Yes | No | [OpenBabel fallback](formats/openbabel-fallback.md) |
 
 !!! note
-Writer formats are registered lazily. Use `molop parse PATTERN format-transform
---format <TAB>` after installing shell completion to inspect the formats
-available in the current environment.
+    Suffixes are not always unique. For example `.out` and `.log` can be ORCA
+    or Gaussian output, and `.gau` can be Gaussian input or output. Reader
+    selection uses extension candidates plus content checks; non-matching readers
+    must raise `FormatMismatchError` so that the next candidate can be tried.

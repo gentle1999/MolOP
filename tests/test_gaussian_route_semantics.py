@@ -59,7 +59,18 @@ def test_gjf_route_section_stores_explicit_semantic_field() -> None:
     semantic = parse_gaussian_route_semantic("#p hf/3-21g sp")
     route = GJFRouteSection.model_validate({"route": "#p hf/3-21g sp", "semantic_route": semantic})
     assert route.semantic_route.model_chemistry.method_token == "hf"
+    assert route.semantic_route.model_chemistry.method_family == "HF"
+    assert route.semantic_route.model_chemistry.functional is None
     assert route.semantic_route.job_types == ["sp"]
+
+
+def test_hf_route_does_not_populate_functional() -> None:
+    semantic = parse_gaussian_route_semantic("#p hf/3-21g sp")
+
+    assert semantic.model_chemistry.method_token == "hf"
+    assert semantic.model_chemistry.method_family == "HF"
+    assert semantic.model_chemistry.functional is None
+    assert semantic.model_chemistry.basis_set == "3-21g"
 
 
 def test_gjf_frame_populates_qm_metadata_from_shared_semantic_route() -> None:
@@ -68,8 +79,15 @@ def test_gjf_frame_populates_qm_metadata_from_shared_semantic_route() -> None:
     frame = cast(Any, batch[0][0])
     assert frame.method == "DFT"
     assert frame.basis_set.lower() == "def2svp"
-    assert frame.functional.lower() == "b3lyp"
+    assert frame.functional == "b3lyp-GD3BJ"
     assert frame.route_section.semantic_route.model_chemistry.basis_set == "def2svp"
+    assert frame.model_chemistry.method_family == "DFT"
+    assert frame.model_chemistry.functional == "b3lyp-GD3BJ"
+    assert frame.model_chemistry.dispersion_correction == "GD3BJ"
+    assert frame.model_chemistry.basis_set == "def2svp"
+    assert {"opt", "freq", "population_analysis"} <= {
+        task.task_type for task in frame.task_requests
+    }
 
 
 def test_g16log_frame_exposes_shared_semantic_route() -> None:
@@ -109,6 +127,10 @@ def test_shared_semantic_route_exposes_structured_dispersion_and_solvation() -> 
     assert semantic.empirical_dispersion == "gd3bj"
     assert semantic.option_maps["scrf"].params["solvent"] == "nitromethane"
     assert frame.functional.endswith("-GD3BJ")
+    assert frame.model_chemistry.dispersion_correction == "GD3BJ"
+    assert frame.model_chemistry.functional.endswith("-GD3BJ")
+    assert frame.model_chemistry.solvation_model == "smd"
+    assert frame.model_chemistry.solvent == "nitromethane"
 
 
 def test_semantic_route_captures_geom_and_external_options() -> None:

@@ -1,0 +1,14 @@
+! L-OptH
+%mm
+  ORCAFFFILENAME "CHMH.ORCAFF.prms"
+end
+*pdbfile 0 1 CHMH.pdb
+%geom
+ Frags
+  2 {8168:8614} end     # First the fragments need to be defined
+  3 {8615:8699} end     #  Note that all other atoms belong to
+  4 {8700:8772} end     #  fragment 1 by default
+  5 {8773:8791} end     #
+ RelaxFrags {2} end     # Fragment 2 is fully relaxed
+ RigidFrags {3 4 5} end # Fragments 3, 4 and 5 are treated as rigid bodies each.
+end

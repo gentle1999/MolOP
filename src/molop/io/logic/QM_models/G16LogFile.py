@@ -18,6 +18,10 @@ from typing_extensions import Self
 
 from molop.io.base_models.ChemFile import BaseCalcFile
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
+from molop.io.logic.gaussian_common import (
+    as_common_qm_input_target,
+    populate_common_gaussian_qm_containers,
+)
 from molop.io.logic.gaussian_route_models import (
     GaussianRouteSemantic,
     parse_gaussian_route_semantic,
@@ -88,6 +92,9 @@ class G16LogFileMixin:
                 self.method = "DFT"
         if semantic_route.empirical_dispersion:
             self.functional = f"{self.functional}-{semantic_route.empirical_dispersion.upper()}"
+        populate_common_gaussian_qm_containers(
+            as_common_qm_input_target(self), semantic_route
+        )
         return self
 
     @property

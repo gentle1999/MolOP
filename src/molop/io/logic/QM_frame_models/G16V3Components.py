@@ -1325,7 +1325,7 @@ class G16V3L502CycleComponent(G16V3BaseComponent):
                 block,
             )
         if matches := g16_log_patterns.SCF_ENERGY_AND_FUNCTIONAL.get_matches(focus_content):
-            scf_energies_dict["scf_energy"] = float(matches[0][1]) * atom_ureg.hartree
+            scf_energies_dict["reference_energy"] = float(matches[0][1]) * atom_ureg.hartree
         if matches := g16_log_patterns.SPIN_SPIN_SQUERE.get_matches(focus_content):
             total_spin_dict["spin_square"] = float(matches[0][0])
             total_spin_dict["spin_quantum_number"] = float(matches[0][1])
@@ -1374,9 +1374,9 @@ class G16V3L502CycleComponent(G16V3BaseComponent):
     def _render_fakeg(self, **kwargs) -> str:
         lines: list[str] = []
         energies = self.payload.get("energies")
-        if energies is not None and getattr(energies, "scf_energy", None) is not None:
+        if energies is not None and getattr(energies, "reference_energy", None) is not None:
             lines.append(
-                f" SCF Done:  E(SCF) =  {_format_float(energies.scf_energy, 9)} A.U. after   1 cycles"
+                f" SCF Done:  E(SCF) =  {_format_float(energies.reference_energy, 9)} A.U. after   1 cycles"
             )
         total_spin = self.payload.get("total_spin")
         if total_spin is not None and getattr(total_spin, "spin_square", None) is not None:
@@ -2836,7 +2836,7 @@ class G16V3L9999ArchiveComponent(G16V3BaseComponent):
                 e = match[0]
                 energies_value = float(match[1]) * atom_ureg.hartree
                 if "HF" in e:
-                    energy_dict["scf_energy"] = energies_value
+                    energy_dict["reference_energy"] = energies_value
                 if "MP2" in e:
                     energy_dict["mp2_energy"] = energies_value
                 if "MP3" in e:

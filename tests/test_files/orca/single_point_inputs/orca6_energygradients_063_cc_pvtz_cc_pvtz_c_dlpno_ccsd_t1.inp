@@ -1,0 +1,14 @@
+# DLPNO-CCSD(T1) calculation using the iterative triples correction
+! cc-pVTZ cc-pVTZ/C DLPNO-CCSD(T1)
+
+%mdci
+      TNOSCALES    10.0 #TNO truncation scale for strong triples, TNOSCALES*TCutTNO.
+                         Default setting is 10.0
+      TNOSCALEW   100.0 #TNO truncation scale for weak triples, TNOSCALEW*TCutTNO
+                         Default setting is 100.0
+      TriTolE      1e-4 #(T) energy convergence tolerance
+                         Default setting is 1e-4
+%end
+* xyz 0 1
+... (coordinates)
+*

@@ -20,8 +20,8 @@ preserving as much structure-level information as the target format allows.
   rendered content is written to disk and the transform still returns the rendered
   string or list of strings to Python callers.
 - **Structure Level**:
-  - **COORDS (Coordinate Level)**: Formats like `xyz`, `gjf`, and `orcainp` primarily preserve atomic coordinates and elements.
+  - **COORDS (Coordinate Level)**: Formats like `xyz` and `gjf` primarily preserve atomic coordinates and elements. `orcainp` is currently a structured reader only.
   - **GRAPH (Graph Level)**: Formats like `sdf`, `smi`, and `cml` preserve bonding information (molecular graph). If the source file only has coordinates (e.g., a `.log` file), MolOP will automatically attempt to reconstruct the molecular graph using its built-in algorithms.
 - **Metadata Preservation**:
-  - QM input formats (`gjf`, `orcainp`) attempt to preserve raw directives and keywords.
+  - The `gjf` writer preserves structured Gaussian directives and keywords. The `orcainp` reader parses ORCA keywords, blocks, and geometry into frame fields, but no ORCA writer is currently registered.
   - Computational properties (energies, frequencies) are generally **NOT** preserved when transforming to simple coordinate formats like XYZ, although some formats like SDF can store them as properties.

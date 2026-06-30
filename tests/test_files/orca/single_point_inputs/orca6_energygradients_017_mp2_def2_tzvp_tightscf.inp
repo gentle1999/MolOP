@@ -1,0 +1,13 @@
+! MP2 def2-TZVP TightSCF
+%amp2 MaxCore
+      end
+%paras  rCO = 1.20
+        ACOH = 120
+        rCH  = 1.08
+        end
+* int 0 1
+C 0 0 0 0.00 0.0 0.00
+O 1 0 0 {rCO} 0.0 0.00
+H 1 2 0 {rCH} {ACOH} 0.00
+H 1 2 3 {rCH} {ACOH} 180.00
+*

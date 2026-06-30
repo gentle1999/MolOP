@@ -1,0 +1,12 @@
+! B3LYP DEF2-SVP 
+
+%TDDFT NROOTS    10
+       TRIPLETS  TRUE
+END
+
+* int 0 1
+    C  0 0 0 0.00 0.0     0.00
+    O  1 0 0 1.20 0.0     0.00
+    H  1 2 0 1.08 120     0.00
+    H  1 2 3 1.08 120   180.00
+*

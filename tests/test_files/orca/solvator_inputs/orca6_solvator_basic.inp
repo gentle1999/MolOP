@@ -1,0 +1,15 @@
+! B3LYP def2-SVP CPCM(Water)
+%cpcm
+  smd true
+  solvent "water"
+end
+%solvator
+  nsolv 12
+  clustermode sphere
+  droplet true
+  radius 8.0
+  fixsolute true
+end
+* xyz 0 1
+  H 0.000000 0.000000 0.000000
+*

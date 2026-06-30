@@ -8,7 +8,8 @@ The following table maps common chemical data to their locations in MolOP's data
 | **Bonds** | `frame.bonds` | `list` |
 | **SMILES** | `frame.to_SMILES()` | `str` |
 | **Total Energy** | `frame.energies.total_energy` | `PlainQuantity` |
-| **SCF Energy** | `frame.energies.scf_energy` | `PlainQuantity` |
+| **Reference Energy** | `frame.energies.reference_energy` | `PlainQuantity` |
+| **Electronic Energy** | `frame.energies.electronic_energy` | `PlainQuantity` |
 | **Frequencies** | `frame.vibrations.frequencies` | `NumpyQuantity` |
 | **Imaginary Freqs** | `frame.vibrations.num_imaginary` | `int` |
 | **Orbitals** | `frame.molecular_orbitals` | `MolecularOrbitals` |

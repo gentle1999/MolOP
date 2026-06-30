@@ -1,0 +1,14 @@
+! ano-pVDZ TightSCF SORCI
+
+%casscf
+ nel     7
+ norb    6
+ nroots  3
+ mult    2
+end
+
+* int 1 2
+ O     0   0   0   0.000000     0.000     0.000
+ H     1   0   0   1.012277     0.000     0.000
+ H     1   2   0   1.012177   109.288     0.000
+*

@@ -1,0 +1,7 @@
+! TZVPP CCSD(T)
+%paras R= 1.05,1.13,8
+       end
+* xyz 0 1
+N 0 0 0
+N 0 0 {R}
+*

@@ -1,0 +1,7 @@
+! TZVPP TightSCF
+%casscf nel  2
+        norb 4
+        end
+* xyz 0 1
+Be 0 0 0
+*

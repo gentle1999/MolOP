@@ -22,6 +22,7 @@ from molop.io.base_models.Bases import BaseDataClassWithUnit
 from molop.io.base_models.ChemFileFrame import BaseQMInputFrame
 from molop.io.base_models.DataClasses import AtomInInternalCoords, InternalCoords
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
+from molop.io.logic.gaussian_common import populate_common_gaussian_qm_containers
 from molop.io.logic.gaussian_route_models import (
     GaussianRouteSemantic,
     parse_gaussian_route_semantic,
@@ -273,6 +274,8 @@ class GJFAtomSpecification(BaseDataClassWithUnit):
         values = self.coords_part.split()
         if len(values) < 2:
             return False
+        if len(values) == 3:
+            return False
         if len(values) % 2 == 0:
             return True
         if len(values) >= 3 and values[-1] in {"0", "1"}:
@@ -480,7 +483,7 @@ class GJFMoleculeSpecificationsFragment(BaseDataClassWithUnit):
 
     def to_internal_coords(self) -> InternalCoords:
         return InternalCoords(
-            atoms=[
+            items=[
                 atom_spec.to_atom_in_internal_coordinates_coords()
                 for atom_spec in self.atom_specifications
             ]
@@ -625,7 +628,9 @@ class GJFMoleculeSpecifications(BaseDataClassWithUnit):
         cls, atom_specifications: list[GJFAtomSpecification]
     ) -> None:
         for atom_index, atom_spec in enumerate(atom_specifications, start=1):
-            if not atom_spec.coords_part.strip() or not atom_spec.is_internal_coords():
+            if not atom_spec.coords_part.strip() or atom_spec.is_cartesian_coords():
+                continue
+            if not atom_spec.is_internal_coords():
                 continue
 
             values = atom_spec.coords_part.split()
@@ -1709,6 +1714,7 @@ class GJFFileFrameMixin:
         typed_self.multiplicity = self.molecule_specifications.spin_multiplicity
         typed_self.atoms = self.molecule_specifications.atomic_numbers()
         typed_self.coords = self.molecule_specifications.coords()
+        populate_common_gaussian_qm_containers(typed_self, semantic_route)
         return self
 
     @model_validator(mode="after")

@@ -12,6 +12,7 @@ from typing import Any, cast
 from rdkit import Chem
 
 from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
+from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.coords_frame_models.SDFFileFrame import SDFFileFrameDisk, SDFFileFrameMemory
 from molop.structure.StructureTransformation import (
     get_bond_pairs,
@@ -27,6 +28,8 @@ class SDFFileFrameParserMixin:
         suppl = Chem.SDMolSupplier()
         suppl.SetData(typed_self._block, removeHs=False, sanitize=False)
         fake_mol: Chem.Mol = next(suppl)
+        if fake_mol is None:
+            raise FormatMismatchError("Not an SDF/MOL frame: invalid mol block.")
         formal_charges = get_formal_charges(fake_mol)
         formal_num_radicals = get_formal_num_radicals(fake_mol)
         return {

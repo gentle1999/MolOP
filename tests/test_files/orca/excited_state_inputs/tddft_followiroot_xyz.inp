@@ -1,0 +1,12 @@
+! wB97X OPT
+%TDDFT
+  NROOTS        5
+  IROOT         3
+  FOLLOWIROOT   TRUE
+END
+* xyz 0 1
+N 0.0  0.0  0.0
+H 0.0  0.0  1.0
+H 0.0 -0.9  0.5
+H 0.0  0.9  0.5
+*

@@ -1,0 +1,33 @@
+! ano-pVQZ RI-AO cc-pVQZ/JK VeryTightSCF NoPop Conv UseSym RI-MP2 PModel
+%mp2 density relaxed natorbs true end
+%base "O2"
+* xyz 0 3
+O  0 0 0
+O  0 0 1.2
+*
+
+$new_job
+! ano-pVQZ RI-AO cc-pVQZ/JK VeryTightSCF NoPop Conv UseSym KDIIS
+! moread
+%moinp "O2.mp2nat"
+%casscf nel     8
+        norb    6
+        irrep   1,0,1
+        nroots  1,2,1
+        mult    3,1,1
+        trafostep    ri
+        switchstep   nr
+        end
+
+%mrci   citype mrci
+        tsel 1e-7
+        tpre 1e-5
+        newblock 3 1 nroots 1 refs cas(8,6) end end
+        newblock 1 0 nroots 2 refs cas(8,6) end end
+        newblock 1 1 nroots 1 refs cas(8,6) end end
+        end
+
+* xyz 0 3
+O  0 0 0
+O  0 0 1.2
+*

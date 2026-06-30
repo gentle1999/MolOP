@@ -1,0 +1,16 @@
+# Tight settings for increased accuracy, e.g. when investigating
+# weak interactions or conformational equilibria
+! cc-pVTZ cc-pVTZ/C DLPNO-CCSD(T) TightPNO TightSCF
+
+# OR: Default settings (no need to give NormalPNO explicitly)
+# Useful for general thermochemistry
+! cc-pVTZ cc-pVTZ/C DLPNO-CCSD(T) NormalPNO TightSCF
+
+# OR: Loose settings for rapid estimates
+! cc-pVTZ cc-pVTZ/C DLPNO-CCSD(T) LoosePNO TightSCF
+
+%maxcore 2000
+
+* xyz 0 1
+... (coordinates)
+*

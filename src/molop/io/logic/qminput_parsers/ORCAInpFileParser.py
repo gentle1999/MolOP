@@ -8,10 +8,12 @@ Description: ORCA input file parsers
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from molop.io.base_models.FileParser import BaseFileParserDisk, BaseFileParserMemory
+from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.qminput_frame_models.ORCAInpFileFrame import (
     ORCAInpFileFrameDisk,
     ORCAInpFileFrameMemory,
@@ -28,6 +30,23 @@ if TYPE_CHECKING:
 
 
 _CARTESIAN_TYPES = {"xyz", "cart", "cartesian", "int", "internal", "gzmt", "xyzfile", "gzmtfile"}
+_ORCA_PROBE_CHARS = 20000
+_ORCA_COORD_RE = re.compile(
+    r"^\s*\*\s*(?:xyz|cart|cartesian|int|internal|gzmt|xyzfile|gzmtfile|pdbfile)\b",
+    re.IGNORECASE | re.MULTILINE,
+)
+
+
+def _ensure_orca_input_content(file_content: str) -> None:
+    text = file_content[:_ORCA_PROBE_CHARS]
+    lowered = text.lower()
+    has_simple_input = any(line.lstrip().startswith("!") for line in text.splitlines())
+    has_orca_block = any(line.lstrip().startswith("%") for line in text.splitlines())
+    has_geometry = _ORCA_COORD_RE.search(text) is not None or "%coords" in lowered
+    if not (has_simple_input or has_orca_block):
+        raise FormatMismatchError("Not an ORCA input file: missing ORCA command or block.")
+    if not has_geometry:
+        raise FormatMismatchError("Not an ORCA input file: missing coordinate section.")
 
 
 def _is_coords_open_line(line: str) -> bool:
@@ -41,6 +60,10 @@ def _is_new_job_delimiter(line: str) -> bool:
 
 
 class ORCAInpFileParserMixin:
+    @classmethod
+    def _quick_check_file_format(cls, file_content: str) -> None:
+        _ensure_orca_input_content(file_content)
+
     def _parse_metadata(self, file_content: str) -> dict[str, Any] | None:
         _ = file_content
         return None

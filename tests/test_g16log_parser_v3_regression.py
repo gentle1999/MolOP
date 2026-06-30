@@ -36,10 +36,10 @@ def test_g16log_v3_matches_v1_on_representative_fixtures():
         assert v3_frame.standard_coords is not None or v1_frame.standard_coords is None
         assert v3_frame.energies is not None
         assert v1_frame.energies is not None
-        assert v3_frame.energies.scf_energy is not None
-        assert v1_frame.energies.scf_energy is not None
-        assert v3_frame.energies.scf_energy.to("hartree").m == pytest.approx(
-            v1_frame.energies.scf_energy.to("hartree").m
+        assert v3_frame.energies.reference_energy is not None
+        assert v1_frame.energies.reference_energy is not None
+        assert v3_frame.energies.reference_energy.to("hartree").m == pytest.approx(
+            v1_frame.energies.reference_energy.to("hartree").m
         )
         assert bool(v3_frame.vibrations) == bool(v1_frame.vibrations)
         assert bool(v3_frame.molecular_orbitals) == bool(v1_frame.molecular_orbitals)
@@ -67,17 +67,17 @@ def test_g16log_v3_does_not_invent_archive_energies_on_terminal_frame():
     assert v3_frame.pressure is None
 
 
-def test_g16log_v3_preserves_live_scf_energy_over_archive_value():
+def test_g16log_v3_preserves_live_reference_energy_over_archive_value():
     block = _last_frame_block(CCSD_FIXTURE)
     v1_frame = G16LogFileFrameParserMemory().parse(block)
     v3_frame = G16LogFileFrameParserV3Memory().parse(block)
 
     assert v1_frame.energies is not None
     assert v3_frame.energies is not None
-    assert v1_frame.energies.scf_energy is not None
-    assert v3_frame.energies.scf_energy is not None
-    assert v3_frame.energies.scf_energy.to("hartree").m == pytest.approx(
-        v1_frame.energies.scf_energy.to("hartree").m
+    assert v1_frame.energies.reference_energy is not None
+    assert v3_frame.energies.reference_energy is not None
+    assert v3_frame.energies.reference_energy.to("hartree").m == pytest.approx(
+        v1_frame.energies.reference_energy.to("hartree").m
     )
 
 

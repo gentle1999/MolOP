@@ -1,0 +1,23 @@
+*xyz 0 1
+  H 0.0 0.0 0.0
+  F 0.0 0.0 0.9
+*
+%compound
+  Variable EwB97MV, EwB97M2; # Output variables
+  # Step 1: wB97M-V calculation to obtain the orbitals
+  New_Step
+    ! wB97M-V SCNL def2-TZVP
+  Step_End
+  # Step 2: single iteration with the wB97M(2) functional
+  #         + MP2 correlation to get the final energy
+  ReadMOs(1);
+  New_Step
+    ! wB97M(2) SCNL NoFrozenCore def2-TZVP def2-TZVP/C
+    %scf
+      MaxIter    1
+      IgnoreConv 1 # prevent the "not converged" error
+    end
+  Step_End
+  Read EwB97MV = DFT_Total_En[1];     # wB97M-V energy
+  Read EwB97M2 = MP2_Total_Energy[2]; # wB97M(2) energy
+End

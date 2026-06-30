@@ -1,0 +1,15 @@
+!B3LYP DEF2-SVP CI-OPT
+%TDDFT IROOT 2
+       JROOT 1
+       #IROOTMULT TRIPLET would search in the triplet PES
+       #SF TRUE would search for the S0-S1 CI from a T1 reference, using SF-TD-DFT
+       # (but remember to set the multiplicity as 3 instead of 1)
+END
+* xyz 0 1
+C        0.595560237     -0.010483480     -0.000284187
+C       -0.831313750      0.167231832      0.001482505
+H       -1.381857976      0.227877089      0.963419721
+H        1.265119434      0.874806815      0.006897459
+H       -1.382258208      0.243775568     -0.959090898
+H        1.027489724     -1.032962768     -0.008829646
+*

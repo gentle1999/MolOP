@@ -25,11 +25,18 @@ from molop.config import moloplogger
 from molop.io.base_models.DataClasses import (
     BondOrders,
     ChargeSpinPopulations,
+    ElectronicStates,
     Energies,
+    ExcitedStateRequest,
     GeometryOptimizationStatus,
     ImplicitSolvation,
     MolecularOrbitals,
+    MultireferenceRequest,
+    MultireferenceResult,
     Polarizability,
+    QMModelChemistry,
+    QMResourceRequest,
+    QMTaskRequest,
     SinglePointProperties,
     Status,
     ThermalInformations,
@@ -75,6 +82,106 @@ class _HasKeywords(_HasCoords):
 
 class _HasVibrations(_HasKeywords):
     vibrations: Vibrations | None
+
+
+def _legacy_method_from_model_chemistry(model: QMModelChemistry) -> str:
+    if model.method_family:
+        if model.method:
+            if model.method.lower() == model.method_family.lower():
+                return model.method_family
+            if model.method_family.upper() == "DFT":
+                return "DFT"
+            return model.method
+        return model.method_family
+    if model.functional:
+        return "DFT"
+    if model.method:
+        return model.method
+    return ""
+
+
+def _method_family_allows_functional(method_family: str | None) -> bool:
+    if method_family is None:
+        return False
+    normalized = method_family.upper().replace("_", "-").replace(" ", "-")
+    return normalized in {"DFT", "DOUBLE-HYBRID", "DOUBLE-HYBRID-DFT"}
+
+
+def _legacy_functional_can_backfill(
+    model: QMModelChemistry,
+    legacy_method: str,
+) -> bool:
+    if _method_family_allows_functional(model.method_family):
+        return True
+    if model.method_family is not None:
+        return False
+    return _method_family_allows_functional(legacy_method)
+
+
+def _backfill_common_qm_containers_from_legacy(target: Any) -> None:
+    model = target.model_chemistry
+    legacy_method = getattr(target, "method", "")
+    legacy_functional = getattr(target, "functional", "")
+    legacy_basis_set = getattr(target, "basis_set", "")
+    legacy_keywords = getattr(target, "keywords", "")
+
+    if legacy_method:
+        if model.method is None:
+            model.method = legacy_method
+        if model.method_family is None and legacy_method.upper() in {
+            "DFT",
+            "HF",
+            "MP2",
+            "CCSD",
+        }:
+            model.method_family = legacy_method.upper()
+    if (
+        legacy_functional
+        and model.functional is None
+        and _legacy_functional_can_backfill(model, legacy_method)
+    ):
+        model.functional = legacy_functional
+    if legacy_basis_set and model.basis_set is None:
+        model.basis_set = legacy_basis_set
+    if legacy_keywords and not model.raw_keywords:
+        model.raw_keywords = legacy_keywords
+
+    auxiliary_basis_set = getattr(target, "auxiliary_basis_set", "")
+    if auxiliary_basis_set and model.auxiliary_basis_set is None:
+        model.auxiliary_basis_set = auxiliary_basis_set
+
+    dispersion_correction = getattr(target, "dispersion_correction", "")
+    if dispersion_correction and model.dispersion_correction is None:
+        model.dispersion_correction = dispersion_correction
+
+    resource = target.resource_request
+    if getattr(target, "request_num_cpu", None) is not None and resource.num_cpu is None:
+        resource.num_cpu = target.request_num_cpu
+    if getattr(target, "request_memory", None) is not None and resource.memory is None:
+        resource.memory = target.request_memory
+    resources_raw = getattr(target, "resources_raw", "")
+    if resources_raw and not resource.raw:
+        resource.raw = resources_raw
+
+
+def _project_common_qm_fields(target: Any) -> None:
+    model = target.model_chemistry
+    if model.raw_keywords:
+        target.keywords = model.raw_keywords
+    target.method = _legacy_method_from_model_chemistry(model)
+    target.functional = model.functional or ""
+    target.basis_set = model.basis_set or ""
+
+    if hasattr(target, "auxiliary_basis_set"):
+        target.auxiliary_basis_set = model.auxiliary_basis_set or ""
+    if hasattr(target, "dispersion_correction"):
+        target.dispersion_correction = model.dispersion_correction or ""
+
+    resource = target.resource_request
+    target.request_num_cpu = resource.num_cpu
+    target.request_memory = resource.memory
+    if resource.raw:
+        target.resources_raw = resource.raw
 
 
 def _process_bond_helper(
@@ -201,6 +308,22 @@ class BaseQMInputFrame(BaseCoordsFrame[ChemFileFrame]):
         default="",
         description="Functional (best-effort, may be empty for raw-only inputs)",
     )
+    model_chemistry: QMModelChemistry = Field(
+        default_factory=QMModelChemistry,
+        description="Structured model chemistry information",
+    )
+    task_requests: list[QMTaskRequest] = Field(
+        default_factory=list,
+        description="Structured calculation task requests",
+    )
+    excited_state_requests: list[ExcitedStateRequest] = Field(
+        default_factory=list,
+        description="Structured excited-state task requests",
+    )
+    multireference_requests: list[MultireferenceRequest] = Field(
+        default_factory=list,
+        description="Structured multi-reference task requests",
+    )
 
     # Resources
     resources_raw: str = Field(
@@ -215,6 +338,21 @@ class BaseQMInputFrame(BaseCoordsFrame[ChemFileFrame]):
         default=None,
         description="Memory used for the QM calculation",
     )
+    resource_request: QMResourceRequest = Field(
+        default_factory=QMResourceRequest,
+        description="Structured resource request",
+    )
+
+    def backfill_common_qm_containers_from_legacy(self) -> None:
+        """Fill structured QM containers from legacy flat fields when they are empty."""
+        _backfill_common_qm_containers_from_legacy(self)
+
+    def project_common_qm_fields(self) -> None:
+        """Project authoritative structured QM containers onto legacy flat fields."""
+        _project_common_qm_fields(self)
+
+    def refresh_common_qm_containers(self) -> None:
+        self.backfill_common_qm_containers_from_legacy()
 
 
 class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
@@ -286,6 +424,14 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
     single_point_properties: SinglePointProperties | None = Field(
         default=None,
         description="Single point properties of the molecule",
+    )
+    electronic_states: ElectronicStates | None = Field(
+        default=None,
+        description="Electronic-state resolved properties",
+    )
+    multireference_result: MultireferenceResult | None = Field(
+        default=None,
+        description="Multi-reference calculation results",
     )
     status: Status | None = Field(default=None, description="Status of the frame")
     geometry_optimization_status: GeometryOptimizationStatus | None = Field(

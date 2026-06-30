@@ -1,0 +1,15 @@
+!def2-tzvp extremescf
+
+!moread
+%moinp "RHF.gbw"
+
+%maxcore 2000
+
+%casscf
+  DoFCI true # sets NEL 4 and NORB 20 in this example.
+end
+
+*xyz  0 1
+  Li 0 0 0
+  H  0 0 1.597
+*

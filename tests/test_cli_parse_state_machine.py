@@ -84,7 +84,7 @@ def test_format_transform_completes_dynamic_options_for_target_format() -> None:
     assert completions[0].help == "Rendering backend used to generate the target format. Default: 'rdkit'."
 
 
-def test_format_transform_completes_no_option_for_bool_like_dynamic_option() -> None:
+def test_format_transform_has_no_orcainp_writer_dynamic_options() -> None:
     command = app.commands["parse"].commands["format-transform"]
     extra_arg = next(param for param in command.params if param.name == "extra_args")
     ctx = click.Context(command)
@@ -93,7 +93,7 @@ def test_format_transform_completes_no_option_for_bool_like_dynamic_option() -> 
 
     completions = extra_arg.shell_complete(ctx, "--no-use")
 
-    assert [item.value for item in completions] == ["--no-use-raw-geometry"]
+    assert completions == []
 
 
 def test_format_transform_completes_dynamic_option_values() -> None:
@@ -227,7 +227,7 @@ def test_terminal_operation_cannot_be_followed_by_batch_operation(
 
     with pytest.raises(CliUsageError, match="must be the last operation"):
         build_plan(
-            BatchInputConfig(pattern="tests/test_files/orca/h2_grad_orca.inp"),
+            BatchInputConfig(pattern="tests/test_files/orca/single_point_inputs/h2_grad_orca.inp"),
             [
                 OperationCall(
                     spec=OPERATION_REGISTRY["to-summary-df"],
@@ -249,7 +249,7 @@ def test_parse_filter_sample_outputs_batch_paths_json() -> None:
         [
             "-q",
             "parse",
-            "tests/test_files/orca/h2_grad_orca.inp",
+            "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp",
             "--parser-detection",
             "orcainp",
             "--n-jobs",
@@ -280,7 +280,7 @@ def test_parse_format_transform_writes_output(tmp_path: Path) -> None:
         [
             "-q",
             "parse",
-            "tests/test_files/orca/h2_grad_orca.inp",
+            "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp",
             "--parser-detection",
             "orcainp",
             "--n-jobs",
@@ -307,7 +307,7 @@ def test_parse_summary_terminal_writes_csv(tmp_path: Path) -> None:
         [
             "-q",
             "parse",
-            "tests/test_files/orca/h2_grad_orca.inp",
+            "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp",
             "--parser-detection",
             "orcainp",
             "--n-jobs",
@@ -324,7 +324,7 @@ def test_parse_summary_terminal_writes_csv(tmp_path: Path) -> None:
 
 
 def test_old_flat_command_is_removed() -> None:
-    result = runner.invoke(app, ["summary", "tests/test_files/orca/h2_grad_orca.inp"])
+    result = runner.invoke(app, ["summary", "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp"])
 
     assert result.exit_code != 0
     assert "No such command" in result.output

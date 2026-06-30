@@ -1,0 +1,7 @@
+! DLPNO-B2PLYP D3 NormalPNO def2-TZVP def2-TZVP/C Opt
+%MaxCore 1000
+*xyz 0 1
+O   0.000   0.000   0.000
+H   0.000   0.000   1.000
+H   0.000   1.000   0.000
+*

@@ -1,0 +1,10 @@
+! IP-EOM-CCSD cc-pVDZ 
+%mdci
+DoAlpha true
+NRoots 7
+end
+
+*xyz 0 3
+  O      0.0 0.0 0.0
+  O      0.0 0.0 1.207
+*

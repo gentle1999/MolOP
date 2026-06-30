@@ -1,0 +1,12 @@
+! DLPNO-MP2 def2-SVP def2-SVP/C TightSCF EnGrad
+%MaxCore 512
+# With 'EnGrad', specifying 'density relaxed' is unnecessary.
+# However, it is needed when calculating properties without the gradient.
+%MP2 Density Relaxed
+     NatOrbs True
+     End
+*xyz 0 1
+C   0.000   0.000   0.000
+O   0.000   0.000   1.162
+O   0.000   0.000  -1.162
+*

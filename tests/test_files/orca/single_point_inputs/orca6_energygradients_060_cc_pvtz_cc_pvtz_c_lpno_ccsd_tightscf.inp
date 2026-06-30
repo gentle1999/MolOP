@@ -1,0 +1,18 @@
+# Local Pair Natural Orbital Test
+! cc-pVTZ cc-pVTZ/C LPNO-CCSD TightSCF
+# or
+! cc-pVTZ cc-pVTZ/C DLPNO-CCSD TightSCF
+%maxcore 2000
+
+# these are the default values - they need not to be touched!
+%mdci  TCutPNO   3.33e-7   # cutoff for PNO occupation numbers. This
+                             is the main truncation parameter
+       TCutPairs 1e-4  # cut-off for estimated pair correlation energies.
+                         This exploits the locality in the internal space
+       TCutMKN   1e-3  # this is a technical parameter here that controls the domain
+                         size for the local fit to the PNOs. It is conservative.
+       end
+
+* xyz 0 1
+... (coordinates)
+*

@@ -1,0 +1,10 @@
+! RI-MP2 def2-SVP def2-SVP/C TightSCF SOMF(1X) NoFrozenCore
+%eprnmr gtensor  1
+        ori     CenterOfElCharge
+end
+%mp2 density relaxed end
+* int 1 2
+O 0 0 0 0      0      0
+H 1 0 0 1.1056 0      0
+H 1 2 0 1.1056 109.62 0
+*

@@ -97,7 +97,7 @@ def extract_energies_and_total_spin_from_state(
         return None, None
     state.advance_to(next_cursor)
     if matches := g16_log_patterns.SCF_ENERGY_AND_FUNCTIONAL.get_matches(focus_content):
-        scf_energies_dict["scf_energy"] = float(matches[0][1]) * atom_ureg.hartree
+        scf_energies_dict["reference_energy"] = float(matches[0][1]) * atom_ureg.hartree
     if matches := g16_log_patterns.SPIN_SPIN_SQUERE.get_matches(focus_content):
         total_spin_dict["spin_square"] = float(matches[0][0])
         total_spin_dict["spin_quantum_number"] = float(matches[0][1])
@@ -446,7 +446,7 @@ def extract_tail_energies_from_state(state: ParseState) -> dict[str, Any] | None
             e = match[0]
             energies_value = float(match[1]) * atom_ureg.hartree
             if "HF" in e:
-                energy_dict["scf_energy"] = energies_value
+                energy_dict["reference_energy"] = energies_value
             if "MP2" in e:
                 energy_dict["mp2_energy"] = energies_value
             if "MP3" in e:

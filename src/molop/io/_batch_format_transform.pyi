@@ -385,74 +385,6 @@ class BatchFormatTransformMixin:
     @overload
     def format_transform(
         self,
-        format: Literal["orcainp"],
-        output_dir: str | None = None,
-        frameID: int | Literal["all"] | Sequence[int] = -1,
-        embed_in_one_file: bool = True,
-        n_jobs: int = 1,
-        *,
-        graph_policy: GraphPolicy | None = None,
-        keywords: str | None = ...,
-        resources_raw: str | None = ...,
-        nprocs: int | None = ...,
-        maxcore: int | None = ...,
-        blocks: str | None = ...,
-        use_raw_geometry: bool = ...,
-        **kwargs: Any,
-    ) -> dict[str, str | list[str]]:
-        """Transform using the `orcainp` writer overload.
-
-        Parameters
-        ----------
-        format :
-            Target output format literal for this overload.
-        output_dir :
-            Output directory for generated files; defaults to batch behavior when omitted.
-        frameID :
-            Frame selector forwarded to per-file rendering.
-        embed_in_one_file :
-            Whether selected frames are embedded into one file when supported by the format.
-        n_jobs :
-            Parallelism used by batch transform.
-        graph_policy :
-            Molecular graph policy used before rendering (for example, `"prefer"`).
-        **kwargs :
-            Additional writer options accepted by the implementation.
-
-        Format behavior
-        ---------------
-            Render the selected structure as an ORCA input deck.
-
-        Format-specific parameters
-        --------------------------
-            keywords : str | None
-                Format-specific writer argument (optional).
-            resources_raw : str | None
-                Format-specific writer argument (optional).
-            nprocs : int | None
-                Format-specific writer argument (optional).
-            maxcore : int | None
-                Format-specific writer argument (optional).
-            blocks : str | None
-                Format-specific writer argument (optional).
-            use_raw_geometry : bool
-                Format-specific writer argument (optional).
-
-        Render the selected structure as an ORCA input deck.
-
-        Returns
-        -------
-        dict[str, str | list[str]]
-            Mapping from source path to rendered text output(s).
-
-        Source
-        ------
-        src/molop/io/logic/qminput_frame_models/ORCAInpFileFrame.py:25
-        """
-        ...
-    @overload
-    def format_transform(
-        self,
         format: Literal["sdf"],
         output_dir: str | None = None,
         frameID: int | Literal["all"] | Sequence[int] = -1,
@@ -570,6 +502,7 @@ class BatchFormatTransformMixin:
         n_jobs: int = 1,
         *,
         graph_policy: GraphPolicy | None = None,
+        comment: str | None = ...,
         **kwargs: Any,
     ) -> dict[str, str | list[str]]:
         """Transform using the `xyz` writer overload.
@@ -597,9 +530,13 @@ class BatchFormatTransformMixin:
 
         Format-specific parameters
         --------------------------
-            None.
+            comment : str | None
+                Format-specific writer argument (optional).
 
         Render the XYZ file frame as a string.
+
+        Args:
+            comment (str | None): The comment to use. Defaults to None.
 
         Returns:
             str: The rendered XYZ file frame.
@@ -653,8 +590,6 @@ class BatchFormatTransformMixin:
             Render the selected structure as fakeg text.
         gjf :
             Render the current GJF frame as Gaussian input text.
-        orcainp :
-            Render the selected structure as an ORCA input deck.
         sdf :
             Render the SDFFileFrame as a string.
         smi :
@@ -690,26 +625,14 @@ class BatchFormatTransformMixin:
                 Format-specific writer argument (optional).
             add_gjf_connectivity : bool
                 Format-specific writer argument (optional).
-        orcainp :
-            keywords : str | None
-                Format-specific writer argument (optional).
-            resources_raw : str | None
-                Format-specific writer argument (optional).
-            nprocs : int | None
-                Format-specific writer argument (optional).
-            maxcore : int | None
-                Format-specific writer argument (optional).
-            blocks : str | None
-                Format-specific writer argument (optional).
-            use_raw_geometry : bool
-                Format-specific writer argument (optional).
         sdf :
             engine : Literal['rdkit', 'openbabel']
                 Format-specific writer argument (optional).
         smi :
             None.
         xyz :
-            None.
+            comment : str | None
+                Format-specific writer argument (optional).
 
         Returns
         -------
@@ -721,7 +644,6 @@ class BatchFormatTransformMixin:
         cml : src/molop/io/codecs/cml_codec.py:47
         fakeg : src/molop/io/logic/QM_frame_models/G16LogFileFrame.py
         gjf : src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1413
-        orcainp : src/molop/io/logic/qminput_frame_models/ORCAInpFileFrame.py:25
         sdf : src/molop/io/logic/coords_frame_models/SDFFileFrame.py:18
         smi : src/molop/io/logic/coords_frame_models/SMIFileFrame.py:16
         xyz : src/molop/io/logic/coords_frame_models/XYZFileFrame.py:20

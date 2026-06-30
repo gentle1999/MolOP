@@ -113,7 +113,7 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         Returns:
             int: The total electrons.
         """
-        return sum(Chem.Atom(atom).GetAtomicNum() for atom in self.atoms) + self.charge
+        return sum(Chem.Atom(atom).GetAtomicNum() for atom in self.atoms) - self.charge
 
     @property
     def elements(self) -> list[str]:

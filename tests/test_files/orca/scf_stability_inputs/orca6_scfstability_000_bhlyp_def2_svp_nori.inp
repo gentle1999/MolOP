@@ -1,0 +1,11 @@
+! BHLYP def2-SVP NORI
+
+%scf
+ guess hcore
+ HFTyp UHF
+ STABPerform true
+end
+* xyz 0 1
+h 0.0 0.0 0.0
+h 0.0 0.0 1.4
+*

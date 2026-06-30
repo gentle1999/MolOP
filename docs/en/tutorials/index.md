@@ -111,7 +111,7 @@ uv run molop -q parse "tests/test_files/g16log/2-TS1-Opt.log" \
   to-summary-df --out tutorial_ts_summary.csv --format csv --mode frame --frame -1
 
 # Transform molecular files to another format
-uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
+uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
   --parser-detection orcainp \
   --n-jobs 1 \
   format-transform --format sdf --output-dir ./tutorial_transform_out --frame -1 --embed

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 23:05:56
 LastEditors: TMJ
-LastEditTime: 2026-02-04 11:49:07
+LastEditTime: 2026-06-19 00:57:34
 Description: 请填写简介
 """
 
@@ -17,20 +17,24 @@ from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
 class XYZFileFrameMixin:
     comment: str = Field(default="", description="comment")
 
-    def _render(self, **kwargs) -> str:
+    def _render(self, comment: str | None = None, **kwargs) -> str:
         """Render the XYZ file frame as a string.
+
+        Args:
+            comment (str | None): The comment to use. Defaults to None.
 
         Returns:
             str: The rendered XYZ file frame.
         """
         typed_self = cast(_HasCoords, self)
+        comment_to_use = (
+            comment
+            or self.comment
+            or f"charge {typed_self.charge} multiplicity {typed_self.multiplicity}\n"
+        )
         return (
             f"{len(typed_self.atoms)}\n"
-            + (
-                f"{self.comment}\n"
-                if self.comment
-                else f"charge {typed_self.charge} multiplicity {typed_self.multiplicity}\n"
-            )
+            + f"comment {comment_to_use.strip()}\n"
             + "\n".join(
                 [
                     f"{atom:10s}{x:18.10f}{y:18.10f}{z:18.10f}"

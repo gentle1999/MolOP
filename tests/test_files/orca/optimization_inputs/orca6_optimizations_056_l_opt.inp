@@ -1,0 +1,5 @@
+! L-Opt
+%geom
+  maxIter 500 # default 200
+ end
+*pdbfile 0 1 CHMH.pdb

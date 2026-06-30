@@ -1,0 +1,27 @@
+* int 0 1
+C 0 0 0 0 0 0
+O 1 0 0 1.3 0 0
+H 1 2 0 1.1 110 0
+H 1 2 3 1.1 110 180
+*
+
+%compound
+# Step 1: semiempirical calculation of the Hessian
+New_Step
+! AM1 NumFreq
+Step_End
+
+# Step 2: optimization starting from previous Hessian
+New_Step
+!B3LYP def2-svp def2/J Opt
+%geom
+InHess
+ Read
+InHessName "two_step_opt_Compound_1.hess"
+# this file must be either a .hess file from a
+# frequency run or, a .opt/.carthess file left over from a
+# previous geometry optimization
+end
+Step_End
+
+End

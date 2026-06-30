@@ -14,6 +14,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 from molop.io.base_models.FileParser import BaseFileParserDisk, BaseFileParserMemory
+from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.qminput_frame_models.GJFFileFrame import GJFFileFrameDisk, GJFFileFrameMemory
 from molop.io.logic.qminput_frame_parsers.GJFFileFrameParser import (
     GJFFileFrameParserDisk,
@@ -26,7 +27,27 @@ if TYPE_CHECKING:
     from molop.io.codec_registry import Registry
 
 
+_GJF_PROBE_CHARS = 20000
+_GJF_CHARGE_MULTIPLICITY_RE = re.compile(r"^[+-]?\d+(?:[\s,/]+[+-]?\d+)+\s*$")
+
+
+def _ensure_gjf_content(file_content: str) -> None:
+    stripped_lines = [line.strip() for line in file_content[:_GJF_PROBE_CHARS].splitlines()]
+    if not stripped_lines:
+        raise FormatMismatchError("Not a Gaussian input file: empty file.")
+    if any(line.startswith("@") and len(line) > 1 for line in stripped_lines):
+        return
+    if not any(line.startswith("#") for line in stripped_lines):
+        raise FormatMismatchError("Not a Gaussian input file: missing route section.")
+    if not any(_GJF_CHARGE_MULTIPLICITY_RE.match(line) for line in stripped_lines):
+        raise FormatMismatchError("Not a Gaussian input file: missing charge/multiplicity line.")
+
+
 class GJFFileParserMixin:
+    @classmethod
+    def _quick_check_file_format(cls, file_content: str) -> None:
+        _ensure_gjf_content(file_content)
+
     def _expand_at_includes(self, file_content: str) -> str:
         normalized_content = file_content.replace("\r\n", "\n").replace("\r", "\n")
 

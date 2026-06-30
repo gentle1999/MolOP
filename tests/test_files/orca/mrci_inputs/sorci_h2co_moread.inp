@@ -1,0 +1,40 @@
+! moread
+%moinp "Test-SYM-MRCI-H2CO.gbw"
+
+%casscf nel 4
+        norb 3
+        irrep  0,1,1
+        mult   1,1,3
+        nroots 1,1,1
+        end
+
+%mrci CIType          SORCI
+      tsel             1e-6
+      tpre             1e-4
+      tnat             1e-5
+      AllSingles       true
+      doNatOrbs        true
+      IntMode          FullTrafo
+      NewBlock 1 0
+        NRoots 1
+        Excitations cisd
+        Refs CAS(4,3) end
+        End
+      NewBlock 1 1
+        NRoots 1
+        Excitations cisd
+        Refs CAS(4,3) end
+        End
+      NewBlock 3 1
+        NRoots 1
+        Excitations cisd
+        Refs CAS(4,3) end
+        End
+end
+
+* int 0 1
+ C     0   0   0   0.000000     0.000     0.000
+ O     1   0   0   1.200371     0.000     0.000
+ H     1   2   0   1.107372   121.941     0.000
+ H     1   2   3   1.107372   121.941   180.000
+*

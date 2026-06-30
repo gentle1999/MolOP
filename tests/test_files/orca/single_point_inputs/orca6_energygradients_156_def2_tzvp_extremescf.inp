@@ -1,0 +1,16 @@
+!def2-tzvp extremescf
+
+!moread
+%moinp "RHF.gbw"
+
+%maxcore 2000
+
+%ice
+  Nel 4
+  Norb 20
+end
+
+*xyz  0 1
+  Li 0 0 0
+  H  0 0 1.597
+*

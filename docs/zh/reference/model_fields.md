@@ -29,10 +29,11 @@
 
 - **`energies`: `Energies`** - 能量信息
   - `electronic_energy`: (PlainQuantity) 电子能量, 单位 `hartree`。
-  - `scf_energy`: (PlainQuantity) SCF 能量, 单位 `hartree`。
+  - `reference_energy`: (PlainQuantity) 参考电子能量，例如 HF 或 Kohn-Sham 能量, 单位 `hartree`。
   - `mp2_energy`: (PlainQuantity) MP2 能量, 单位 `hartree`。
   - `mp3_energy`: (PlainQuantity) MP3 能量, 单位 `hartree`。
   - `mp4_energy`: (PlainQuantity) MP4 能量, 单位 `hartree`。
+  - `mp5_energy`: (PlainQuantity) MP5 能量, 单位 `hartree`。
   - `ccsd_energy`: (PlainQuantity) CCSD 能量, 单位 `hartree`。
   - `total_energy`: (PlainQuantity) 根据精度自动选择的总能量, 单位 `hartree`。
 - **`thermal_informations`: `ThermalInformations`** - 热力学信息

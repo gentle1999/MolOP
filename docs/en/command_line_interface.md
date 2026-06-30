@@ -46,7 +46,7 @@ molop completion show --shell bash
 List parsed files after filtering by detected codec:
 
 ```bash
-uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
+uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
   --parser-detection orcainp \
   --n-jobs 1 \
   --output-format json \
@@ -56,7 +56,7 @@ uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
 Convert parsed files to another format:
 
 ```bash
-uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
+uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
   --parser-detection orcainp \
   --n-jobs 1 \
   format-transform --format xyz --output-dir .tmp/molop_xyz
@@ -69,7 +69,7 @@ result.
 Generate a summary table:
 
 ```bash
-uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
+uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
   --parser-detection orcainp \
   --n-jobs 1 \
   to-summary-df --out .tmp/molop_summary.csv

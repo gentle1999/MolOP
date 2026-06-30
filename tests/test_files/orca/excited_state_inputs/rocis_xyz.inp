@@ -1,0 +1,13 @@
+! SVP TightSCF 
+
+%rocis NRoots 2
+MaxDim 5 #Davidson expansion space = MaxDim * NRoots
+       end
+
+* xyz -2 2
+Cu  0.00    0.00    0.00
+Cl  2.25    0.00    0.00
+Cl -2.25    0.00    0.00
+Cl  0.00    2.25    0.00
+Cl  0.00   -2.25    0.00
+*

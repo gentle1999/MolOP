@@ -61,6 +61,12 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         """Parse the metadata of the file. Return a dictionary as additional information in chem file frame."""
         raise NotImplementedError
 
+    @classmethod
+    @abstractmethod
+    def _quick_check_file_format(cls, file_content: str) -> None:
+        """Run a cheap format fingerprint check after reading content and before full parsing."""
+        raise NotImplementedError
+
     def _parse_frame(
         self, frame_content: str, *, additional_data: dict[str, Any] | None = None
     ) -> FrameT:
@@ -107,6 +113,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
             metadata = {"file_content": file_content}
         else:
             raise ValueError(f"Invalid source_type: {source_type}")
+        self._quick_check_file_format(file_content)
         if mata := self._parse_metadata(file_content):
             metadata.update(mata)
         frame_contents = self._split_file(file_content)

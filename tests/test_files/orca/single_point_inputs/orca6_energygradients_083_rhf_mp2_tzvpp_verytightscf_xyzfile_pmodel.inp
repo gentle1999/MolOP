@@ -1,0 +1,90 @@
+#
+# BSSE test
+#
+
+# --------------------------------------------
+# First the monomer. It is a waste of course
+# to run the monomer twice ...
+# --------------------------------------------
+! RHF MP2 TZVPP VeryTightSCF XYZFile PModel
+%id "monomer"
+* xyz 0 1
+ O     7.405639     6.725069     7.710504
+ H     7.029206     6.234628     8.442160
+ H     8.247948     6.296600     7.554030
+*
+
+$new_job
+! RHF MP2 TZVPP VeryTightSCF XYZFile PModel
+%id "monomer"
+* xyz 0 1
+ O     7.405639     6.725069     7.710504
+ H     7.029206     6.234628     8.442160
+ H     8.247948     6.296600     7.554030
+*
+
+# --------------------------------------------
+# now the dimer
+# --------------------------------------------
+$new_job
+! RHF MP2 TZVPP VeryTightSCF XYZFile PModel
+%id "dimer"
+* xyz 0 1
+O   7.439917   6.726792   7.762120
+O   5.752050   6.489306   5.407671
+H   7.025510   6.226170   8.467436
+H   8.274883   6.280259   7.609894
+H   6.313507   6.644667   6.176902
+H   5.522285   7.367132   5.103852
+*
+
+# --------------------------------------------
+# Now the calculations of the monomer at the
+# dimer geometry
+# --------------------------------------------
+$new_job
+! RHF MP2 TZVPP VeryTightSCF XYZFile PModel
+%id "monomer_1"
+
+* xyz 0 1
+O   7.439917   6.726792   7.762120
+H   7.025510   6.226170   8.467436
+H   8.274883   6.280259   7.609894
+*
+
+$new_job
+! RHF MP2 TZVPP VeryTightSCF XYZFile PModel
+%id "monomer_1"
+* xyz 0 1
+O   5.752050   6.489306   5.407671
+H   6.313507   6.644667   6.176902
+H   5.522285   7.367132   5.103852
+*
+
+# --------------------------------------------
+# Now the calculation of the monomer at the
+# dimer geometry but with the dimer basis set
+# --------------------------------------------
+$new_job
+! RHF MP2 TZVPP VeryTightSCF XYZFile PModel
+%id "monomer_2"
+* xyz 0 1
+O   7.439917   6.726792   7.762120
+O : 5.752050   6.489306   5.407671
+H   7.025510   6.226170   8.467436
+H   8.274883   6.280259   7.609894
+H : 6.313507   6.644667   6.176902
+H : 5.522285   7.367132   5.103852
+*
+
+$new_job
+! RHF MP2 TZVPP VeryTightSCF XYZFile PModel
+%id "monomer_2"
+* xyz 0 1
+O : 7.439917   6.726792   7.762120
+O   5.752050   6.489306   5.407671
+H : 7.025510   6.226170   8.467436
+H : 8.274883   6.280259   7.609894
+H   6.313507   6.644667   6.176902
+H   5.522285   7.367132   5.103852
+*

@@ -1,0 +1,9 @@
+# DLPNO-CCSD(T) calculation using the 2013 implementation
+! cc-pVTZ cc-pVTZ/C DLPNO2013-CCSD(T)
+
+# DLPNO-CCSD(T) calculation using the linear-scaling implementation
+! cc-pVTZ cc-pVTZ/C DLPNO-CCSD(T)
+
+* xyz 0 1
+... (coordinates)
+*

@@ -1,0 +1,5 @@
+#
+# CIM-DLPNO-CCSD calculation
+#
+! DLPNO-CCSD(T) cc-pVDZ  cc-pVDZ/C CIM
+* xyzfile 0 1 CIM.xyz

@@ -1,0 +1,17 @@
+! def2-TZVP DCD-CAS(2)
+!moread
+
+%moinp "casorbs.gbw" # guess with active orbitals in place
+
+%casscf
+  nel 2
+  norb 2
+  mult 1
+  nroots 2
+  actorbs locorbs
+end
+
+*xyz 0 1
+Li 0.0 0.0 0.0
+F 0.0 0.0 5.5
+*

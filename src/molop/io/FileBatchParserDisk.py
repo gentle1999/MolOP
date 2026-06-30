@@ -17,6 +17,7 @@ from typing import Any, Protocol, cast
 from joblib import Parallel, delayed
 
 from molop.config import molopconfig, moloplogger
+from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.codec_types import ParseResult
 from molop.io.FileBatchModelDisk import FileBatchModelDisk, FileDiskObj, _looks_like_disk_file
 from molop.utils.progressbar import AdaptiveProgress
@@ -60,7 +61,7 @@ def single_file_parser(
                     f"unexpected value type: {type(value)}"
                 )
             return cast(FileDiskObj, value)
-        except Exception as e:
+        except FormatMismatchError as e:
             reader_name = getattr(reader, "format_id", reader.__class__.__name__)
             if idx == len(possible_readers) - 1:
                 moloplogger.error(f"Failed to parse file {file_path} with {reader_name}. {e}")
@@ -70,6 +71,10 @@ def single_file_parser(
                 f"trying {getattr(possible_readers[idx + 1], 'format_id', possible_readers[idx + 1].__class__.__name__)} "
                 "instead"
             )
+        except Exception as e:
+            reader_name = getattr(reader, "format_id", reader.__class__.__name__)
+            moloplogger.error(f"Failed to parse file {file_path} with {reader_name}. {e}")
+            return None
     return None
 
 

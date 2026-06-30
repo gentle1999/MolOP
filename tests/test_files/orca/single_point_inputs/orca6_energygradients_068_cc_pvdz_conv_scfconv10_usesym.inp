@@ -1,0 +1,13 @@
+#
+# Test the MRCC code of Mihael Kallay
+#
+! cc-pVDZ Conv SCFConv10 UseSym
+
+%mrcc method   "CCSDT"
+      ETol     9
+      end
+
+* xyz 0 1
+F 0 0 0
+H 0 0 0.95
+*

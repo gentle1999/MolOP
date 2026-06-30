@@ -1,0 +1,19 @@
+! ano-pVDZ VeryTightSCF NoPop Conv MRCI+Q
+
+%paras  R = 0.85,1.1,7
+        end
+
+%casscf nel     8
+        norb    5
+        nroots  1  mult    1
+        shiftup 2.5 shiftdn 2.5 switchstep nr gtol    1e-5
+        end
+
+%mrci   tsel 1e-8
+        tpre 1e-5
+        end
+
+* xyz 0 1
+F  0 0 0
+H  0 0 {R}
+*

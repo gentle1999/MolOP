@@ -1,0 +1,8 @@
+!B3LYP TZVP Opt SurfCrossOpt SlowConv
+%mecp
+  Mult 4
+ end
+* xyz +1 6
+Fe 0.000000     0.000000     0.000000
+O  0.000000     0.000000     1.670000
+*

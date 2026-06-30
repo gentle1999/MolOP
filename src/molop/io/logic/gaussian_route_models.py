@@ -23,7 +23,7 @@ class GaussianRouteToken(BaseDataClassWithUnit):
 class GaussianModelChemistry(BaseDataClassWithUnit):
     method_token: str | None = Field(default=None, description="Raw method token")
     method_family: str | None = Field(default=None, description="Method family")
-    functional: str | None = Field(default=None, description="DFT functional or method name")
+    functional: str | None = Field(default=None, description="DFT or double-hybrid functional")
     basis_set: str | None = Field(default=None, description="Basis-set token")
     auxiliary_basis_set: str | None = Field(default=None, description="Auxiliary fitting basis")
     spin_qualifier: str | None = Field(default=None, description="Restricted/unrestricted prefix")
@@ -512,6 +512,19 @@ def _normalize_spin_and_method(token: str) -> tuple[str, str | None, str | None]
     return token, spin_qualifier, None
 
 
+def _method_family_allows_functional(method_family: str | None) -> bool:
+    if method_family is None:
+        return False
+    normalized = method_family.upper().replace("_", "-").replace(" ", "-")
+    return normalized in {"DFT", "DOUBLE-HYBRID", "DOUBLE-HYBRID-DFT"}
+
+
+def _functional_from_method_token(method_token: str, method_family: str | None) -> str | None:
+    if _method_family_allows_functional(method_family):
+        return method_token
+    return None
+
+
 def _dedupe(items: list[str]) -> list[str]:
     return list(dict.fromkeys(items))
 
@@ -524,7 +537,7 @@ def _build_model_chemistry(
         method_token=method_token_norm,
         spin_qualifier=spin_qualifier,
         method_family=method_family,
-        functional=method_token_norm if method_family in {"DFT", "HF", "FC"} else None,
+        functional=_functional_from_method_token(method_token_norm, method_family),
         basis_set=basis_token,
         auxiliary_basis_set=auxiliary_basis,
         basis_family=_classify_basis_family(basis_token),
@@ -957,8 +970,8 @@ def parse_gaussian_route_semantic(route: str) -> GaussianRouteSemantic:
                 model_chemistry.method_token = method_token
                 model_chemistry.spin_qualifier = spin_qualifier
                 model_chemistry.method_family = method_family
-                model_chemistry.functional = (
-                    method_token if method_family in {"DFT", "HF", "FC"} else None
+                model_chemistry.functional = _functional_from_method_token(
+                    method_token, method_family
                 )
                 token_kind = "method"
             elif model_chemistry.basis_set is None and _is_basis_like(normalized):

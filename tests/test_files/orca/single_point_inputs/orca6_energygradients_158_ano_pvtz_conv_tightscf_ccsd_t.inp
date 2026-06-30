@@ -1,0 +1,8 @@
+! ano-pVTZ Conv TightSCF CCSD(T)
+%maxcore 2000
+* int 0 1
+C  0 0 0    0   0   0
+O  1 0 0  1.2   0   0
+H  1 2 0  1.1 120   0
+H  1 2 3  1.1 120 180
+*

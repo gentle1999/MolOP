@@ -21,6 +21,7 @@ from molop.io.base_models.FileParser import (
     BaseFileParserMemory,
     _HasFileParseMethod,
 )
+from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.QM_frame_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
     G16LogFileFrameMemory,
@@ -54,6 +55,18 @@ LINK1_SECTION_PATTERN = re.compile(
     r"^\s*(?:Link1:\s+Proceeding to internal job step number\s+\d+\.|Entering Link 1 = .*?)\s*$",
     re.MULTILINE,
 )
+_GAUSSIAN_PROBE_BYTES = 20000
+_GAUSSIAN_FINGERPRINTS = (
+    "Entering Gaussian System",
+    "Gaussian 16:",
+    "This is part of the Gaussian(R)",
+    "Gaussian, Inc.",
+)
+
+
+def _ensure_gaussian_output(file_content: str) -> None:
+    if not any(fingerprint in file_content for fingerprint in _GAUSSIAN_FINGERPRINTS):
+        raise FormatMismatchError("Not a Gaussian output file.")
 
 
 class _HasParseMethod(Protocol):
@@ -78,6 +91,10 @@ class _HasMetadataFinalizeMethod(Protocol):
 
 
 class G16LogFileParserMixin:
+    @classmethod
+    def _quick_check_file_format(cls, file_content: str) -> None:
+        _ensure_gaussian_output(file_content[:_GAUSSIAN_PROBE_BYTES])
+
     def _parse_metadata(self, file_content: str) -> dict[str, Any]:
         metadata: dict[str, Any] = {"qm_software": "Gaussian"}
         raw_file_content = file_content
@@ -209,6 +226,7 @@ class G16LogFileParserMixin:
             metadata_base = {"file_content": file_content}
         else:
             raise ValueError(f"Invalid source_type: {source_type}")
+        self._quick_check_file_format(file_content)
 
         typed_self = cast(_HasParseMethod, self)
         final_charge = total_charge if total_charge is not None else typed_self.forced_charge

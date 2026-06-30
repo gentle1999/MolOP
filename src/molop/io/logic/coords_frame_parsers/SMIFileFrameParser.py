@@ -13,6 +13,7 @@ from rdkit import Chem
 from rdkit.Chem.rdDepictor import Compute2DCoords
 
 from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
+from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.coords_frame_models.SMIFileFrame import SMIFileFrameDisk, SMIFileFrameMemory
 from molop.structure.StructureTransformation import (
     get_bond_pairs,
@@ -25,7 +26,10 @@ from molop.unit import atom_ureg
 class SMIFileFrameParserMixin:
     def _parse_frame(self) -> Mapping[str, Any]:
         typed_self = cast(_HasParseMethod, self)
-        rdmol = Chem.MolFromSmiles(typed_self._block)
+        smiles = typed_self._block.strip().split()[0] if typed_self._block.strip() else ""
+        rdmol = Chem.MolFromSmiles(smiles)
+        if rdmol is None:
+            raise FormatMismatchError("Not a SMILES frame: invalid SMILES token.")
         Compute2DCoords(rdmol)
         coords = rdmol.GetConformer().GetPositions()
         formal_charges = get_formal_charges(rdmol)

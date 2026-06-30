@@ -1,0 +1,6 @@
+! L-Opt
+! MM
+%mm
+  ORCAFFFILENAME "CHMH.ORCAFF.prms"
+end
+*pdbfile 0 1 CHMH.pdb

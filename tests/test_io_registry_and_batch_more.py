@@ -8,7 +8,7 @@ from typing import Any, cast
 import pytest
 
 from molop.io.base_models._format_transform import FrameFormatTransformMixin
-from molop.io.codec_exceptions import ConversionError, UnsupportedFormatError
+from molop.io.codec_exceptions import ConversionError, FormatMismatchError, UnsupportedFormatError
 from molop.io.codec_registry import Registry
 from molop.io.codec_types import ParseResult, StructureLevel
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
@@ -28,6 +28,27 @@ class DummyReader:
     def read(self, path: str | Path, **_kwargs: Any) -> ParseResult[object]:
         return ParseResult(
             value={"path": str(path)},
+            level=StructureLevel.COORDS,
+            detected_format=self.format_id,
+        )
+
+
+@dataclass
+class FailingReader:
+    format_id: str
+    error: Exception
+
+    def read(self, path: str | Path, **_kwargs: Any) -> ParseResult[object]:
+        raise self.error
+
+
+@dataclass
+class FakeDiskFileReader:
+    format_id: str
+
+    def read(self, path: str | Path, **_kwargs: Any) -> ParseResult[object]:
+        return ParseResult(
+            value=FakeDiskFile(str(path), Path(path).suffix.lstrip("."), self.format_id),
             level=StructureLevel.COORDS,
             detected_format=self.format_id,
         )
@@ -439,6 +460,52 @@ def test_groupby_uses_generator_results_without_index_skew(monkeypatch: pytest.M
 
     assert grouped["xyz"].file_paths == ["/tmp/a.xyz", "/tmp/c.xyz"]
     assert grouped["log"].file_paths == ["/tmp/b.log"]
+
+
+def test_single_file_parser_falls_back_only_on_format_mismatch() -> None:
+    parsed = filebatchparserdisk_module.single_file_parser(
+        file_path="/tmp/sample.out",
+        possible_readers=(
+            FailingReader("orcaout", FormatMismatchError("not ORCA")),
+            FakeDiskFileReader("g16log"),
+        ),
+    )
+
+    assert parsed is not None
+    assert parsed.detected_format_id == "g16log"
+
+
+def test_single_file_parser_does_not_fall_back_on_parse_error() -> None:
+    parsed = filebatchparserdisk_module.single_file_parser(
+        file_path="/tmp/sample.out",
+        possible_readers=(
+            FailingReader("orcaout", RuntimeError("parser bug")),
+            FakeDiskFileReader("g16log"),
+        ),
+    )
+
+    assert parsed is None
+
+
+def test_auto_detection_falls_back_from_orca_to_gaussian_for_shared_out_suffix() -> None:
+    batch = FileBatchParserDisk(n_jobs=1).parse(
+        [Path("tests/test_files/g16irc/irc.out")],
+        parser_detection="auto",
+        only_last_frame=True,
+    )
+
+    assert len(batch) == 1
+    assert batch[0].detected_format_id == "g16log"
+    assert batch[0].qm_software == "Gaussian"
+
+
+def test_simple_coordinate_readers_defer_mismatch_to_parse_phase() -> None:
+    from molop.io.logic.coords_parsers.SDFFileParser import SDFFileParserDisk
+    from molop.io.logic.coords_parsers.SMIFileParser import SMIFileParserDisk
+    from molop.io.logic.coords_parsers.XYZFileParser import XYZFileParserDisk
+
+    for parser_cls in (XYZFileParserDisk, SMIFileParserDisk, SDFFileParserDisk):
+        parser_cls._quick_check_file_format("/tmp/not-treated-as-a-path")
 
 
 def test_filter_state_no_img_requires_frequency_frames() -> None:

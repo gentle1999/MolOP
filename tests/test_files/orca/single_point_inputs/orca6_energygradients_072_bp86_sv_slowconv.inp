@@ -1,0 +1,23 @@
+! BP86 SV SlowConv
+%base "temp"
+* xyz -2 2
+  Cu  0     0     0
+  Cl  2.25  0     0
+  Cl -2.25  0     0
+  Cl  0     2.25  0
+  Cl  0    -2.25  0
+*
+
+$new_job
+
+! B3LYP NoRI TZVP TightSCF MORead
+%moinp "temp.gbw"
+%scf GuessMode CMatrix
+     end
+* xyz -2 2
+  Cu  0     0     0
+  Cl  2.25  0     0
+  Cl -2.25  0     0
+  Cl  0     2.25  0
+  Cl  0    -2.25  0
+*

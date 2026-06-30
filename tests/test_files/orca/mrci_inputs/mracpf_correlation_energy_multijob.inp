@@ -1,0 +1,38 @@
+#
+# Here we calculate the CO ground state correlation energy with several methods
+#
+! Def2-SVP Def2-SV/C RI-MP2 CCSD(T)
+%base "1"
+
+%mp2  density relaxed
+      donatorbs  true
+      end
+
+* int 0 1
+ C     0   0   0   0.000000     0.000     0.000
+ O     1   0   0   1.128        0.000     0.000
+*
+
+$new_job
+
+! aug-SVP MRACPF
+! moread
+%moinp "1.mp2nat"
+# the CASSCF is done with MP2 natural orbitals which is a good idea and
+# secondly we use a large level shift in order to help convergence
+%casscf nel     10
+        norb     8
+        mult     1
+        nroots   1
+        shiftup  2
+        shiftdn  2
+        end
+
+%mrci   tsel 1e-8
+        tpre 1e-6
+        end
+
+* int 0 1
+ C     0   0   0   0.000  0.000  0.000
+ O     1   0   0   1.128  0.000  0.000
+*

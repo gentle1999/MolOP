@@ -1,0 +1,16 @@
+! MP2 TZVPP VeryTightSCF XYZFile PModel
+* xyz 0 1
+O   7.439917   6.726792   7.762120
+O   5.752050   6.489306   5.407671
+H   7.025510   6.226170   8.467436
+H   8.274883   6.280259   7.609894
+H   6.313507   6.644667   6.176902
+H   5.522285   7.367132   5.103852
+*
+%geom
+  GhostFrags {1} end # space-separated list and X:Y ranges accepted
+  fragments
+    1 {0 2 3} end
+    2 {1 4 5} end
+  end
+end

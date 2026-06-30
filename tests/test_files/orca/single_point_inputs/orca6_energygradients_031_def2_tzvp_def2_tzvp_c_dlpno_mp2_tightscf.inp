@@ -1,0 +1,13 @@
+# DLPNO-MP2 calculation with standard settings
+# sufficient for most purposes
+! def2-TZVP def2-TZVP/C DLPNO-MP2 TightSCF
+
+# OR: DLPNO-MP2 with tighter thresholds
+# May be interesting for weak interactions, calculations with diffuse basis sets etc.
+! def2-TZVP def2-TZVP/C DLPNO-MP2 TightPNO TightSCF
+
+%maxcore 2000
+
+*xyz 0 1
+... (coordinates)
+*

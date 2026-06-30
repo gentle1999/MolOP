@@ -13,6 +13,7 @@ import numpy as np
 from rdkit import Chem
 
 from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
+from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.coords_frame_models.XYZFileFrame import XYZFileFrameDisk, XYZFileFrameMemory
 from molop.io.patterns.XYZPatterns import xyz_patterns
 from molop.unit import atom_ureg
@@ -27,13 +28,19 @@ class XYZFileFrameParserMixin:
         charge = 0
         multiplicity = 1
         lines = typed_self._block.splitlines()
-        atom_num = int(lines[0].strip())
+        if len(lines) < 3:
+            raise FormatMismatchError("Not an XYZ frame: missing header or coordinate lines.")
+        try:
+            atom_num = int(lines[0].strip())
+        except ValueError as exc:
+            raise FormatMismatchError("Not an XYZ frame: first line is not an atom count.") from exc
         comment = lines[1].strip()
         if matches := xyz_patterns.CHARGE_MULTIPLICITY.match_content(comment):
             charge = int(matches[0][0])
             multiplicity = int(matches[0][1])
         if matches := xyz_patterns.ATOMS.match_content(typed_self._block):
-            assert len(matches) == atom_num, "Atom number does not match."
+            if len(matches) != atom_num:
+                raise FormatMismatchError("Not an XYZ frame: atom number does not match.")
             atoms = [pt.GetAtomicNumber(row[0]) for row in matches]
             coords = np.array(
                 [(float(row[1]), float(row[2]), float(row[3])) for row in matches],
@@ -46,7 +53,7 @@ class XYZFileFrameParserMixin:
                 "charge": charge,
                 "multiplicity": multiplicity,
             }
-        raise ValueError("No valid atom coordinates found.")
+        raise FormatMismatchError("Not an XYZ frame: no valid atom coordinates found.")
 
 
 class XYZFileFrameParserMemory(XYZFileFrameParserMixin, BaseFrameParser[XYZFileFrameMemory]):

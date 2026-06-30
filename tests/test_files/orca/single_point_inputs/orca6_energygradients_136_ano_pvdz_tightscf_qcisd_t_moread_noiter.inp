@@ -1,0 +1,9 @@
+! ano-pVDZ TightSCF QCISD(T) MOREAD NoIter
+
+%moinp "H2O+.b0_s0.nat"
+
+* int 1 2
+ O     0   0   0   0.000000     0.000     0.000
+ H     1   0   0   1.012277     0.000     0.000
+ H     1   2   0   1.012177   109.288     0.000
+*

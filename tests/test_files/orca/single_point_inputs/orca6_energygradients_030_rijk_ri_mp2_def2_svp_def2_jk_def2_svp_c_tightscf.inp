@@ -1,0 +1,9 @@
+! RIJK RI-MP2 def2-SVP def2/JK def2-SVP/C TightSCF NMR NoFrozenCore
+%mp2
+  density relaxed # required
+end
+* int 0 1
+O 0 0 0 0      0      0
+H 1 0 0 1.1056 0      0
+H 1 2 0 1.1056 109.62 0
+*

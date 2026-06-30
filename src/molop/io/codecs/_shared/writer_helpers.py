@@ -33,11 +33,6 @@ def clone_file_and_frames(
                 frame_payload["file_path"] = maybe_frame_file_path
         cloned_frame = frame_cls.model_validate(frame_payload)
 
-        source_private = getattr(typed_frame, "__pydantic_private__", None)
-        if isinstance(source_private, dict):
-            for key, value in source_private.items():
-                if isinstance(key, str) and key.startswith("_orca_") and hasattr(cloned_frame, key):
-                    setattr(cloned_frame, key, value)
         cloned_file.append(cast(Any, cloned_frame))
     return cloned_file
 
@@ -54,11 +49,6 @@ def clone_frame(
         frame_payload["file_path"] = file_path
     cloned_frame = frame_cls.model_validate(frame_payload)
 
-    source_private = getattr(source_frame, "__pydantic_private__", None)
-    if isinstance(source_private, dict):
-        for key, value in source_private.items():
-            if isinstance(key, str) and key.startswith("_orca_") and hasattr(cloned_frame, key):
-                setattr(cloned_frame, key, value)
     return cloned_frame
 
 

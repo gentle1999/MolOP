@@ -1,0 +1,18 @@
+! B3LYP SV(P) TightSCF SlowConv OptTS
+# performs a TS optimization with the EF-algorithm
+# Transition state: H-atom abstraction from CH4 to OH-radical
+
+%geom
+   Calc_Hess true  # calculation of the exact Hessian
+                   #  before the first optimization step
+end
+
+* int 0 2
+    C  0 0 0 0.000000   0.000   0.000
+    H  1 0 0 1.285714   0.000   0.000
+    H  1 2 0 1.100174 107.375   0.000
+    H  1 2 3 1.100975 103.353 119.612
+    H  1 2 3 1.100756 105.481 238.889
+    O  2 1 3 1.244156 169.257  17.024
+    H  6 2 1 0.980342 100.836  10.515
+*

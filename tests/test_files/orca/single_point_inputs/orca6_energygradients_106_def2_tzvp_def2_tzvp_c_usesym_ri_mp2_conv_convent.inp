@@ -1,0 +1,13 @@
+! def2-TZVP def2-TZVP/C UseSym RI-MP2 conv # conventional is faster for small molecules
+%mp2
+density unrelaxed
+natorbs true
+end
+* int 0 1
+C 0 0 0  0 0 0
+C 1 0 0  1.35 0 0
+H 1 2 0  1.1 120 0
+H 1 2 3  1.1 120 180
+H 2 1 3  1.1 120 0
+H 2 1 3  1.1 120 180
+*

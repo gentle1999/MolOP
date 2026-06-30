@@ -33,6 +33,39 @@ def test_cml_writer_renders_selected_frames_in_one_file(monkeypatch: pytest.Monk
     assert rendered == "cml:a\ncml:b"
 
 
+def test_cml_writer_supports_negative_frame_id(monkeypatch: pytest.MonkeyPatch) -> None:
+    writer = CMLWriter(format_id="cml", required_level=StructureLevel.GRAPH, priority=100)
+    monkeypatch.setattr("molop.io.codecs.cml_codec.Chem.MolToMrvBlock", lambda mol: f"cml:{mol}")
+
+    rendered = writer.write(
+        DummyFile([DummyFrame(0, rdmol="a"), DummyFrame(1, rdmol="b")]),
+        frameID=-1,
+    )
+
+    assert rendered == "cml:b"
+
+
+def test_cml_writer_can_return_selected_frames_as_separate_blocks(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    writer = CMLWriter(format_id="cml", required_level=StructureLevel.GRAPH, priority=100)
+    monkeypatch.setattr("molop.io.codecs.cml_codec.Chem.MolToMrvBlock", lambda mol: f"cml:{mol}")
+
+    rendered = writer.write(
+        DummyFile(
+            [
+                DummyFrame(0, rdmol="a"),
+                DummyFrame(1, rdmol="b"),
+                DummyFrame(2, rdmol="c"),
+            ]
+        ),
+        frameID=[0, 2],
+        embed_in_one_file=False,
+    )
+
+    assert rendered == ["cml:a", "cml:c"]
+
+
 def test_cml_writer_supports_openbabel_engine() -> None:
     writer = CMLWriter(format_id="cml", required_level=StructureLevel.GRAPH, priority=100)
     omol = type("DummyOMol", (), {"write": lambda self, fmt: "<cml />" if fmt == "cml" else None})()
@@ -61,3 +94,10 @@ def test_cml_frame_writer_renders_single_frame(monkeypatch: pytest.MonkeyPatch) 
     rendered = writer.write(DummyFrame(0, rdmol="frame"), engine="rdkit")
 
     assert rendered == "cml:frame"
+
+
+def test_cml_frame_writer_rejects_unknown_engine() -> None:
+    writer = CMLFrameWriter(format_id="cml", required_level=StructureLevel.GRAPH, priority=100)
+
+    with pytest.raises(ValueError, match="Unsupported engine"):
+        writer.write(DummyFrame(0, rdmol="frame"), engine="not-a-real-engine")

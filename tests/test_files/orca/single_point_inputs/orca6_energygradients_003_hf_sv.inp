@@ -1,0 +1,12 @@
+! HF SV
+%basis  newGTO Cl "Dunning-DZP" end
+        end
+%scf    rotate {48, 49, 90, 1, 1} end
+        end
+* xyz -2 2
+  Cu  0     0     0   newGTO "TZVPP" end
+  Cl  2.25  0     0
+  Cl -2.25  0     0
+  Cl  0     2.25  0
+  Cl  0    -2.25  0
+*

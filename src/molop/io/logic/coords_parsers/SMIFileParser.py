@@ -12,6 +12,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any
 
 from molop.io.base_models.FileParser import BaseFileParserDisk, BaseFileParserMemory
+from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.coords_frame_models.SMIFileFrame import SMIFileFrameDisk, SMIFileFrameMemory
 from molop.io.logic.coords_frame_parsers.SMIFileFrameParser import (
     SMIFileFrameParserDisk,
@@ -25,10 +26,17 @@ if TYPE_CHECKING:
 
 
 class SMIFileParserMixin:
+    @classmethod
+    def _quick_check_file_format(cls, file_content: str) -> None:
+        _ = file_content
+
     def _parse_metadata(self, file_content: str) -> dict[str, Any] | None: ...
 
     def _split_file(self, file_content: str) -> Sequence[str]:
-        return file_content.splitlines()
+        lines = [line for line in file_content.splitlines() if line.strip()]
+        if not lines:
+            raise FormatMismatchError("Not a SMILES file: empty file.")
+        return lines
 
 
 class SMIFileParserMemory(

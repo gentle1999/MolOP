@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 from rdkit import Chem
 
 from molop.io.base_models.FileParser import BaseFileParserDisk, BaseFileParserMemory
+from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.coords_frame_models.SDFFileFrame import SDFFileFrameDisk, SDFFileFrameMemory
 from molop.io.logic.coords_frame_parsers.SDFFileFrameParser import (
     SDFFileFrameParserDisk,
@@ -27,12 +28,19 @@ if TYPE_CHECKING:
 
 
 class SDFFileParserMixin:
+    @classmethod
+    def _quick_check_file_format(cls, file_content: str) -> None:
+        _ = file_content
+
     def _parse_metadata(self, file_content: str) -> dict[str, Any] | None: ...
 
     def _split_file(self, file_content: str) -> Sequence[str]:
         suppl = Chem.SDMolSupplier()
         suppl.SetData(file_content, removeHs=False, sanitize=False)
-        return [Chem.MolToMolBlock(mol) for mol in suppl]
+        frames = [Chem.MolToMolBlock(mol) for mol in suppl if mol is not None]
+        if not frames:
+            raise FormatMismatchError("Not an SDF/MOL file: no valid mol block found.")
+        return frames
 
 
 class SDFFileParserMemory(

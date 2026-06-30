@@ -74,6 +74,7 @@ docs/_build/
 
 # MkDocs output
 public/
+.omm/
 
 # Temporary local venvs
 .tmpdocsvenv/

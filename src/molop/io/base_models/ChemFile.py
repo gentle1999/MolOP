@@ -9,7 +9,7 @@ Description: 请填写简介
 import importlib
 from collections.abc import Iterator, Sequence
 from sys import getsizeof
-from typing import Any, ClassVar, Generic, TypeVar, cast, overload
+from typing import Any, ClassVar, Generic, Protocol, TypeVar, cast, overload
 
 import pandas as pd
 from pint._typing import UnitLike
@@ -24,10 +24,19 @@ from molop.io.base_models.ChemFileFrame import (
     BaseChemFileFrame,
     BaseCoordsFrame,
     BaseQMInputFrame,
+    _backfill_common_qm_containers_from_legacy,
+    _project_common_qm_fields,
 )
 from molop.io.base_models.DataClasses import (
+    ElectronicStates,
+    ExcitedStateRequest,
     GeometryOptimizationStatus,
     ImplicitSolvation,
+    MultireferenceRequest,
+    MultireferenceResult,
+    QMModelChemistry,
+    QMResourceRequest,
+    QMTaskRequest,
     Status,
 )
 from molop.unit import atom_ureg
@@ -37,6 +46,10 @@ FrameT = TypeVar("FrameT", bound=BaseChemFileFrame)
 CoordsFrameT = TypeVar("CoordsFrameT", bound=BaseCoordsFrame)
 CalcFrameT = TypeVar("CalcFrameT", bound=BaseCalcFrame)
 QMInputFrameT = TypeVar("QMInputFrameT", bound=BaseQMInputFrame)
+
+
+class _ProjectableQMFields(Protocol):
+    def project_common_qm_fields(self) -> None: ...
 
 
 class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT], Generic[FrameT]):
@@ -106,6 +119,31 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
             self._frames_[frame.frame_id - 1]._next_frame = frame
             frame._prev_frame = self._frames_[frame.frame_id - 1]
         self._frames_.append(frame)
+        self._sync_file_metadata_from_frame(frame)
+
+    def _sync_file_metadata_from_frame(self, frame: FrameT) -> None:
+        for field in (
+            "qm_software",
+            "qm_software_version",
+            "keywords",
+            "method",
+            "basis_set",
+            "functional",
+            "model_chemistry",
+            "task_requests",
+            "excited_state_requests",
+            "multireference_requests",
+            "resources_raw",
+            "request_num_cpu",
+            "request_memory",
+            "resource_request",
+            "electronic_states",
+            "multireference_result",
+        ):
+            if hasattr(self, field) and hasattr(frame, field):
+                setattr(self, field, getattr(frame, field))
+        if hasattr(self, "project_common_qm_fields"):
+            cast(_ProjectableQMFields, self).project_common_qm_fields()
 
     @property
     def frames(
@@ -187,6 +225,22 @@ class BaseQMInputFile(BaseCoordsFile[QMInputFrameT], Generic[QMInputFrameT]):
         default="",
         description="Functional (best-effort, may be empty for raw-only inputs)",
     )
+    model_chemistry: QMModelChemistry = Field(
+        default_factory=QMModelChemistry,
+        description="Structured model chemistry information",
+    )
+    task_requests: list[QMTaskRequest] = Field(
+        default_factory=list,
+        description="Structured calculation task requests",
+    )
+    excited_state_requests: list[ExcitedStateRequest] = Field(
+        default_factory=list,
+        description="Structured excited-state task requests",
+    )
+    multireference_requests: list[MultireferenceRequest] = Field(
+        default_factory=list,
+        description="Structured multi-reference task requests",
+    )
 
     # Resources
     resources_raw: str = Field(
@@ -201,6 +255,21 @@ class BaseQMInputFile(BaseCoordsFile[QMInputFrameT], Generic[QMInputFrameT]):
         default=None,
         description="Memory used for the QM calculation, unit is `megabyte`",
     )
+    resource_request: QMResourceRequest = Field(
+        default_factory=QMResourceRequest,
+        description="Structured resource request",
+    )
+
+    def backfill_common_qm_containers_from_legacy(self) -> None:
+        """Fill structured QM containers from legacy flat fields when they are empty."""
+        _backfill_common_qm_containers_from_legacy(self)
+
+    def project_common_qm_fields(self) -> None:
+        """Project authoritative structured QM containers onto legacy flat fields."""
+        _project_common_qm_fields(self)
+
+    def refresh_common_qm_containers(self) -> None:
+        self.backfill_common_qm_containers_from_legacy()
 
 
 class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):
@@ -228,6 +297,14 @@ class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):
     running_time: PlainQuantity | None = Field(
         default=None,
         description="Running time of the QM calculation, unit is `second`",
+    )
+    electronic_states: ElectronicStates | None = Field(
+        default=None,
+        description="Electronic-state resolved properties",
+    )
+    multireference_result: MultireferenceResult | None = Field(
+        default=None,
+        description="Multi-reference calculation results",
     )
 
     status: Status = Field(default=Status(), description="Status of the last frame")

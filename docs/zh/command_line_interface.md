@@ -43,7 +43,7 @@ molop completion show --shell bash
 按检测到的 codec 过滤并输出路径：
 
 ```bash
-uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
+uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
   --parser-detection orcainp \
   --n-jobs 1 \
   --output-format json \
@@ -53,7 +53,7 @@ uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
 转换为其他格式：
 
 ```bash
-uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
+uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
   --parser-detection orcainp \
   --n-jobs 1 \
   format-transform --format xyz --output-dir .tmp/molop_xyz
@@ -65,7 +65,7 @@ stdout；生成的文件就是该操作的结果。
 生成摘要表：
 
 ```bash
-uv run molop -q parse "tests/test_files/orca/h2_grad_orca.inp" \
+uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
   --parser-detection orcainp \
   --n-jobs 1 \
   to-summary-df --out .tmp/molop_summary.csv

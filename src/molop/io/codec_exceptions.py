@@ -5,6 +5,10 @@ class UnsupportedFormatError(ValueError):
     """Raised when no codec supports the requested format."""
 
 
+class FormatMismatchError(ValueError):
+    """Raised when a reader's fast format fingerprint does not match the input."""
+
+
 class ParseError(ValueError):
     """Raised when a reader codec cannot parse input data."""
 

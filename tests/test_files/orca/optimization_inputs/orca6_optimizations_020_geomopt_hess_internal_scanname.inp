@@ -1,0 +1,16 @@
+! Opt
+%geom
+  Hess_Internal
+    {B 1 0 C}
+    XYZ1 "scanName.003.xyz"
+    XYZ2 "ScanName.005.xyz"
+    GBW1 "ScanName.003.gbw"
+    GBW2 "ScanName.005.xyz"
+  end
+  Update BFGS
+  ProjectTR false
+end
+* xyz 0 1
+H 0 0 0
+F 0 0 0.9
+*

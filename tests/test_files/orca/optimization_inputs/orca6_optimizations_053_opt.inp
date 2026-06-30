@@ -1,0 +1,10 @@
+! opt
+%geom inhess read
+      inhessname "h2o.hess"
+      PrintInternalHess true
+end
+*xyz 0 1
+  O      0.000000    0.000000    0.000000
+  H      0.968700    0.000000    0.000000
+  H     -0.233013    0.940258    0.000000
+*
