@@ -864,6 +864,11 @@ class ThermalInformations(BaseDataClassWithUnit):
         "G_T": atom_ureg.kcal / atom_ureg.mol,
         "S": atom_ureg.calorie / atom_ureg.mol / atom_ureg.kelvin,
         "C_V": atom_ureg.calorie / atom_ureg.mol / atom_ureg.kelvin,
+        "molecular_mass": atom_ureg.amu,
+        "moments_of_inertia": atom_ureg.amu * atom_ureg.bohr**2,
+        "rotational_temperatures": atom_ureg.K,
+        "rotational_constants": atom_ureg.gigahertz,
+        "vibrational_temperatures": atom_ureg.K,
     }
     set_default_units: ClassVar[bool] = True
 
@@ -917,6 +922,36 @@ class ThermalInformations(BaseDataClassWithUnit):
         description="heat capacity at constant volume, unit is `cal/mol/K`",
         exclude_if=lambda x: x is None,
     )
+    molecular_mass: PlainQuantity | None = Field(
+        default=None,
+        description="molecular mass from the thermochemistry section, unit is `amu`",
+        exclude_if=lambda x: x is None,
+    )
+    moments_of_inertia: NumpyQuantity | None = Field(
+        default=None,
+        description="principal moments of inertia, unit is `amu*bohr**2`",
+        exclude_if=lambda x: x is None,
+    )
+    rotational_symmetry_number: int | None = Field(
+        default=None,
+        description="rotational symmetry number from the thermochemistry section",
+        exclude_if=lambda x: x is None,
+    )
+    rotational_temperatures: NumpyQuantity | None = Field(
+        default=None,
+        description="rotational temperatures, unit is `K`",
+        exclude_if=lambda x: x is None,
+    )
+    rotational_constants: NumpyQuantity | None = Field(
+        default=None,
+        description="rotational constants from frequency thermochemistry, unit is `GHz`",
+        exclude_if=lambda x: x is None,
+    )
+    vibrational_temperatures: NumpyQuantity | None = Field(
+        default=None,
+        description="vibrational temperatures, unit is `K`",
+        exclude_if=lambda x: x is None,
+    )
 
     def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
         return {
@@ -943,6 +978,8 @@ class ThermalInformations(BaseDataClassWithUnit):
                 "G_T": self.G_T,
                 "S": self.S,
                 "C_V": self.C_V,
+                "molecular_mass": self.molecular_mass,
+                "rotational_symmetry_number": self.rotational_symmetry_number,
             }.items()
             if value is not None
         }

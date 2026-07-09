@@ -2,12 +2,9 @@
 
 <!-- format-support-overview -->
 
-This page is the overview of MolOP's built-in format support. Detailed support
-scope is documented on each format page. The machine-checkable source of truth is
-`tests/format_feature_coverage/support_matrix.py`, and
-`tests/format_feature_coverage/test_support_matrix.py` verifies that the matrix
-matches the registered codecs, declares support scope and limits, and points to
-real tests.
+This page summarizes MolOP's built-in format support. Each format page describes
+the information that can be read or written, the supported scope, and known
+boundaries. The coverage statements are tested against the registered codecs.
 
 | Group | Formats | Summary |
 | ----- | ------- | ------- |

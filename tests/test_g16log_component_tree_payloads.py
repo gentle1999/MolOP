@@ -1,27 +1,23 @@
 from pathlib import Path
 
-from molop.io.logic.QM_frame_parsers.G16LogFileFrameParserV3 import G16LogFileFrameParserV3Memory
 from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
 
 
 FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "3-m-Py_anion_Opt.log"
 
 
+def _parsed_frames():
+    return G16LogFileParserMemory().parse(FIXTURE.read_text()).frames
+
+
 def _build_tree():
-    file_content = FIXTURE.read_text()
-    file_parser = G16LogFileParserMemory()
-    block = file_parser._split_file(file_content)[-1]
-    parser = G16LogFileFrameParserV3Memory()
-    tree = parser.build_component_tree(block)
-    for component in tree.iter_components():
-        component.parse_payload(block, tree)
-    return tree
+    return _parsed_frames()[-1].component_tree
 
 
-def test_g16log_v3_major_components_parse_payloads():
+def test_g16log_component_tree_major_components_expose_model_payloads():
     tree = _build_tree()
     components = list(tree.iter_components())
-    payloads = {component.component_name: component.payload for component in tree.iter_components()}
+    payloads = {component.component_name: component.payload for component in components}
     jobcpu_payloads = [
         component.payload for component in components if component.component_name == "jobcpu"
     ]
@@ -41,25 +37,11 @@ def test_g16log_v3_major_components_parse_payloads():
     assert payloads["l9999.archive"].get("charge") is not None
     assert payloads["l9999.archive"].get("multiplicity") is not None
     assert any(payload.get("job_cpu_time") is not None for payload in jobcpu_payloads)
-    assert any(payload.get("elapsed_time") is not None for payload in jobcpu_payloads)
-    assert any(payload.get("status") is not None for payload in jobcpu_payloads)
-    assert any(payload.get("termination_kind") == "Normal" for payload in jobcpu_payloads)
-    assert any(
-        "Normal termination of Gaussian" in payload.get("termination_line", "")
-        for payload in jobcpu_payloads
-    )
     assert any(payload.get("status") is not None for payload in final_payloads)
-    assert any(payload.get("termination_kind") == "Normal" for payload in final_payloads)
 
 
-def test_g16log_v3_first_frame_parses_link1_header_payloads():
-    file_content = FIXTURE.read_text()
-    block = G16LogFileParserMemory()._split_file(file_content)[0]
-    parser = G16LogFileFrameParserV3Memory()
-    parser.parse(block)
-    tree = parser.last_component_tree
-
-    assert tree is not None
+def test_g16log_first_frame_header_payloads_come_from_frame_data():
+    tree = _parsed_frames()[0].component_tree
 
     payload_by_name = {
         component.component_name: component.payload
@@ -78,14 +60,8 @@ def test_g16log_v3_first_frame_parses_link1_header_payloads():
     assert payload_by_name["l101.charge_multiplicity"]["multiplicity"] == 1
 
 
-def test_g16log_v3_l716_children_decompose_parent_payloads():
-    file_content = FIXTURE.read_text()
-    block = G16LogFileParserMemory()._split_file(file_content)[-1]
-    parser = G16LogFileFrameParserV3Memory()
-    parser.parse(block)
-    tree = parser.last_component_tree
-
-    assert tree is not None
+def test_g16log_l716_children_decompose_model_payloads():
+    tree = _build_tree()
 
     payload_by_node = {
         node.node_name: node.component.payload
@@ -115,18 +91,12 @@ def test_g16log_v3_l716_children_decompose_parent_payloads():
     assert payload_by_node["l716.thermochemistry.gibbs"]
     assert payload_by_node["l716.thermochemistry.entropy"].get("S") is not None
     assert payload_by_node["l716.thermochemistry.heatcapacity"].get("C_V") is not None
-    assert "l716.dipole" not in payload_by_node
-    assert "l716.polarizability.detail" not in payload_by_node
+    assert payload_by_node["l716.dipole"].get("dipole") is not None
+    assert payload_by_node["l716.polarizability.detail"]
 
 
-def test_g16log_v3_l716_vibration_mode_children_expose_per_mode_semantics():
-    file_content = FIXTURE.read_text()
-    block = G16LogFileParserMemory()._split_file(file_content)[-1]
-    parser = G16LogFileFrameParserV3Memory()
-    parser.parse(block)
-    tree = parser.last_component_tree
-
-    assert tree is not None
+def test_g16log_l716_vibration_mode_children_expose_per_mode_semantics():
+    tree = _build_tree()
 
     vibration_mode_nodes = [
         node

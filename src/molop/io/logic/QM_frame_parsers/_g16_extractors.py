@@ -8,34 +8,31 @@ from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity, PlainUnit
 
 from molop.config import moloplogger
-from molop.io.base_models.DataClasses import GeometryOptimizationStatus
 from molop.io.base_models.SearchPattern import MolOPPattern, MolOPPatternV2
-from molop.io.logic.QM_frame_models.G16V3Components import (
-    G16V3L202RotConstComponent,
-)
-from molop.io.logic.QM_frame_parsers._g16_v2_shared import (
-    ARCHIVE_TAIL_V2,
-    BERNY_STATE_BACKUP_PART_V2,
-    BERNY_STATE_MAJOR_PART_V2,
-    ELECTRIC_DIPOLE_PART_V2,
-    ENERGIES_IN_ARCHIVE_TAIL_V2,
-    FORCES_IN_CARTESIAN_V2,
-    FREQUENCY_ANALYSIS_V2,
-    HESSIAN_IN_ARCHIVE_TAIL_V2,
-    HESSIAN_IN_CARTESIAN_V2,
-    INPUT_COORDS_V2,
-    ISOTROPIC_POLARIZABILITY_V2,
-    POPULATION_ANALYSIS_V2,
-    SCF_ENERGIES_V2,
-    STANDARD_COORDS_V2,
-    THERMOCHEMISTRY_IN_ARCHIVE_TAIL_V2,
-    THERMOCHEMISTRY_PART_V2,
+from molop.io.logic.QM_frame_parsers._g16_shared import (
+    ARCHIVE_TAIL,
+    BERNY_STATE_BACKUP_PART,
+    BERNY_STATE_MAJOR_PART,
+    ELECTRIC_DIPOLE_PART,
+    ENERGIES_IN_ARCHIVE_TAIL,
+    FORCES_IN_CARTESIAN,
+    FREQUENCY_ANALYSIS,
+    HESSIAN_IN_ARCHIVE_TAIL,
+    HESSIAN_IN_CARTESIAN,
+    INPUT_COORDS,
+    ISOTROPIC_POLARIZABILITY,
+    POPULATION_ANALYSIS,
+    SCF_ENERGIES,
+    STANDARD_COORDS,
+    THERMOCHEMISTRY_IN_ARCHIVE_TAIL,
+    THERMOCHEMISTRY_PART,
     _extract_float_tokens,
     _extract_labeled_float_tokens,
     _extract_molecular_orbital_payload_from_text,
     _summarize_parse_context,
     _trim_molecular_orbital_symmetries,
     extract_coords,
+    extract_rotation_constants,
 )
 from molop.io.logic.QM_parsers._g16log_archive_tail import (
     parse_archive_tail_energies,
@@ -70,7 +67,7 @@ def _focus_from_state(pattern: MolOPPatternV2, state: ParseState) -> tuple[str, 
 def extract_input_coords_from_state(
     state: ParseState,
 ) -> tuple[list[int] | None, NumpyQuantity | None]:
-    focus_content, next_cursor = _focus_from_state(INPUT_COORDS_V2, state)
+    focus_content, next_cursor = _focus_from_state(INPUT_COORDS, state)
     if focus_content == "":
         return None, None
     if coords_match := g16_log_patterns.INPUT_COORDS.get_matches(focus_content):
@@ -82,7 +79,7 @@ def extract_input_coords_from_state(
 def extract_standard_coords_from_state(
     state: ParseState,
 ) -> tuple[list[int] | None, NumpyQuantity | None]:
-    focus_content, next_cursor = _focus_from_state(STANDARD_COORDS_V2, state)
+    focus_content, next_cursor = _focus_from_state(STANDARD_COORDS, state)
     if focus_content == "":
         return None, None
     if coords_match := g16_log_patterns.STANDARD_COORDS.get_matches(focus_content):
@@ -97,7 +94,7 @@ def extract_energies_and_total_spin_from_state(
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
     scf_energies_dict: dict[str, PlainQuantity | None] = {}
     total_spin_dict: dict[str, float | None] = {}
-    focus_content, next_cursor = _focus_from_state(SCF_ENERGIES_V2, state)
+    focus_content, next_cursor = _focus_from_state(SCF_ENERGIES, state)
     if focus_content == "":
         return None, None
     state.advance_to(next_cursor)
@@ -125,7 +122,7 @@ def extract_energies_and_total_spin_from_state(
 
 
 def extract_polarizability_from_state(state: ParseState) -> dict[str, Any] | None:
-    focus_content, next_cursor = _focus_from_state(ISOTROPIC_POLARIZABILITY_V2, state)
+    focus_content, next_cursor = _focus_from_state(ISOTROPIC_POLARIZABILITY, state)
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
@@ -139,7 +136,7 @@ def extract_populations_from_state(state: ParseState) -> dict[str, Any]:
     mo: dict[str, Any] = {}
     pops: dict[str, Any] = {}
     polars: dict[str, Any] = {}
-    focus_content, next_cursor = _focus_from_state(POPULATION_ANALYSIS_V2, state)
+    focus_content, next_cursor = _focus_from_state(POPULATION_ANALYSIS, state)
     if focus_content == "":
         return infos
     state.advance_to(next_cursor)
@@ -251,7 +248,7 @@ def extract_vibrations_from_state(state: ParseState) -> dict[str, Any] | None:
     )
     end_index = block.find("-------------------", start_index)
     if start_index == -1 or end_index == -1:
-        focus_content, next_cursor = _focus_from_state(FREQUENCY_ANALYSIS_V2, state)
+        focus_content, next_cursor = _focus_from_state(FREQUENCY_ANALYSIS, state)
     else:
         focus_content = block[start_index:end_index]
         next_cursor = end_index + 1
@@ -296,11 +293,41 @@ def extract_vibrations_from_state(state: ParseState) -> dict[str, Any] | None:
 
 
 def extract_thermal_infos_from_state(state: ParseState) -> dict[str, Any] | None:
-    focus_content, next_cursor = _focus_from_state(THERMOCHEMISTRY_PART_V2, state)
+    source_content = state.remaining_content
+    focus_content, next_cursor = _focus_from_state(THERMOCHEMISTRY_PART, state)
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
     thermal_dict: dict[str, Any] = {}
+    if matches := g16_log_patterns.MOLECULAR_MASS.get_matches(source_content):
+        thermal_dict["molecular_mass"] = float(matches[0][0]) * atom_ureg.amu
+    if matches := g16_log_patterns.MOMENTS_OF_INERTIA.get_matches(source_content):
+        values = _extract_float_tokens(matches[0][0])
+        if values:
+            thermal_dict["moments_of_inertia"] = (
+                np.array(values) * atom_ureg.amu * atom_ureg.bohr**2
+            )
+    if matches := g16_log_patterns.ROTATIONAL_SYMMETRY_NUMBER.get_matches(source_content):
+        thermal_dict["rotational_symmetry_number"] = int(matches[0][0])
+    if matches := g16_log_patterns.ROTATIONAL_TEMPERATURE.get_matches(source_content):
+        thermal_dict["rotational_temperatures"] = (
+            np.array(list(map(float, matches[0]))) * atom_ureg.K
+        )
+    if matches := g16_log_patterns.ROTATIONAL_CONST_IN_FREQUENCY_ANALYSIS.get_matches(
+        source_content
+    ):
+        thermal_dict["rotational_constants"] = (
+            np.array(list(map(float, matches[0]))) * atom_ureg.gigahertz
+        )
+    if matches := g16_log_patterns.VIBRATIONAL_TEMPERATURE.get_matches(source_content):
+        numeric_tokens = [
+            float(token)
+            for match in matches
+            for token in match[1:]
+            if token is not None and str(token).strip()
+        ]
+        if numeric_tokens:
+            thermal_dict["vibrational_temperatures"] = np.array(numeric_tokens) * atom_ureg.K
     if matches := g16_log_patterns.THERMOCHEMISTRY_CORRECTION.get_matches(focus_content):
         correction_mapping: dict[tuple[str, str], str] = {
             ("Zero-point", ""): "ZPVE",
@@ -332,7 +359,7 @@ def extract_thermal_infos_from_state(state: ParseState) -> dict[str, Any] | None
 
 
 def extract_forces_from_state(state: ParseState) -> NumpyQuantity | None:
-    focus_content, next_cursor = _focus_from_state(FORCES_IN_CARTESIAN_V2, state)
+    focus_content, next_cursor = _focus_from_state(FORCES_IN_CARTESIAN, state)
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
@@ -346,7 +373,7 @@ def extract_forces_from_state(state: ParseState) -> NumpyQuantity | None:
 
 
 def extract_hessian_from_state(state: ParseState) -> NumpyQuantity | None:
-    focus_content, next_cursor = _focus_from_state(HESSIAN_IN_CARTESIAN_V2, state)
+    focus_content, next_cursor = _focus_from_state(HESSIAN_IN_CARTESIAN, state)
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
@@ -368,7 +395,7 @@ def extract_hessian_from_state(state: ParseState) -> NumpyQuantity | None:
     return None
 
 
-def extract_berny_from_state(state: ParseState) -> GeometryOptimizationStatus | None:
+def extract_berny_from_state(state: ParseState) -> dict[str, Any] | None:
     berny_dict: dict[str, float | bool] = {}
     start_index = state.content.find(
         "Item               Value     Threshold  Converged?", state.cursor
@@ -378,9 +405,9 @@ def extract_berny_from_state(state: ParseState) -> GeometryOptimizationStatus | 
         start_index,
     )
     if start_index == -1 or end_index == -1:
-        focus_content, next_cursor = _focus_from_state(BERNY_STATE_MAJOR_PART_V2, state)
+        focus_content, next_cursor = _focus_from_state(BERNY_STATE_MAJOR_PART, state)
         if focus_content == "":
-            focus_content, next_cursor = _focus_from_state(BERNY_STATE_BACKUP_PART_V2, state)
+            focus_content, next_cursor = _focus_from_state(BERNY_STATE_BACKUP_PART, state)
     else:
         focus_content = state.content[start_index:end_index]
         next_cursor = end_index
@@ -402,13 +429,13 @@ def extract_berny_from_state(state: ParseState) -> GeometryOptimizationStatus | 
     berny_dict["geometry_optimized"] = bool(
         g16_log_patterns.BERNY_CONCLUSION.get_matches(focus_content)
     )
-    return GeometryOptimizationStatus.model_validate(berny_dict) if berny_dict else None
+    return berny_dict or None
 
 
 def extract_electric_dipole_and_polarizability_from_state(
     state: ParseState,
 ) -> dict[str, Any] | None:
-    focus_content, next_cursor = _focus_from_state(ELECTRIC_DIPOLE_PART_V2, state)
+    focus_content, next_cursor = _focus_from_state(ELECTRIC_DIPOLE_PART, state)
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
@@ -432,7 +459,7 @@ def extract_electric_dipole_and_polarizability_from_state(
 
 
 def extract_tail_metadata_from_state(state: ParseState) -> dict[str, Any]:
-    focus_content, next_cursor = _focus_from_state(ARCHIVE_TAIL_V2, state)
+    focus_content, next_cursor = _focus_from_state(ARCHIVE_TAIL, state)
     if focus_content == "":
         return {}
     state.advance_to(next_cursor)
@@ -441,7 +468,7 @@ def extract_tail_metadata_from_state(state: ParseState) -> dict[str, Any]:
 
 
 def extract_archive_tail_payload_from_state(state: ParseState) -> dict[str, Any]:
-    focus_content, next_cursor = _focus_from_state(ARCHIVE_TAIL_V2, state)
+    focus_content, next_cursor = _focus_from_state(ARCHIVE_TAIL, state)
     if focus_content == "":
         return {}
 
@@ -454,7 +481,7 @@ def extract_archive_tail_payload_from_state(state: ParseState) -> dict[str, Any]
 
 
 def extract_tail_energies_from_state(state: ParseState) -> dict[str, Any] | None:
-    focus_content, next_cursor = _focus_from_state(ENERGIES_IN_ARCHIVE_TAIL_V2, state)
+    focus_content, next_cursor = _focus_from_state(ENERGIES_IN_ARCHIVE_TAIL, state)
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
@@ -462,7 +489,7 @@ def extract_tail_energies_from_state(state: ParseState) -> dict[str, Any] | None
 
 
 def extract_tail_thermal_infos_from_state(state: ParseState) -> dict[str, Any] | None:
-    focus_content, next_cursor = _focus_from_state(THERMOCHEMISTRY_IN_ARCHIVE_TAIL_V2, state)
+    focus_content, next_cursor = _focus_from_state(THERMOCHEMISTRY_IN_ARCHIVE_TAIL, state)
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
@@ -474,7 +501,7 @@ def extract_tail_polarizability_from_state(state: ParseState) -> dict[str, Any] 
 
 
 def extract_tail_hessian_from_state(state: ParseState) -> NumpyQuantity | None:
-    focus_content, next_cursor = _focus_from_state(HESSIAN_IN_ARCHIVE_TAIL_V2, state)
+    focus_content, next_cursor = _focus_from_state(HESSIAN_IN_ARCHIVE_TAIL, state)
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
@@ -482,4 +509,4 @@ def extract_tail_hessian_from_state(state: ParseState) -> NumpyQuantity | None:
 
 
 def extract_rotation_consts_from_state(state: ParseState) -> NumpyQuantity | None:
-    return G16V3L202RotConstComponent._extract_rotation_constants(state.remaining_content)
+    return extract_rotation_constants(state.remaining_content)

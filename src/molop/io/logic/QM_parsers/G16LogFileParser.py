@@ -30,19 +30,11 @@ from molop.io.logic.QM_frame_parsers.G16LogFileFrameParser import (
     G16LogFileFrameParserDisk,
     G16LogFileFrameParserMemory,
 )
-from molop.io.logic.QM_frame_parsers.G16LogFileFrameParserV2 import (
-    G16LogFileFrameParserV2Disk,
-    G16LogFileFrameParserV2Memory,
-)
 from molop.io.logic.QM_models.G16LogFile import BaseCalcFile, G16LogFileDisk, G16LogFileMemory
 from molop.io.logic.QM_parsers._g16log_archive_tail import parse_archive_tail
 from molop.io.patterns.G16Patterns import MolOPPattern, g16_log_patterns
 from molop.unit import atom_ureg
 from molop.utils.functions import find_rigid_transform
-
-
-if TYPE_CHECKING:
-    from molop.io.codec_registry import Registry
 
 
 if TYPE_CHECKING:
@@ -431,23 +423,6 @@ class G16LogFileParserDisk(
     _frame_parser = G16LogFileFrameParserDisk
 
 
-class G16LogFileParserV2Memory(
-    G16LogFileParserMixin,
-    BaseFileParserMemory[G16LogFileMemory, G16LogFileFrameMemory, G16LogFileFrameParserV2Memory],
-):
-    _chem_file = G16LogFileMemory
-    _frame_parser = G16LogFileFrameParserV2Memory
-
-
-class G16LogFileParserV2Disk(
-    G16LogFileParserMixin,
-    BaseFileParserDisk[G16LogFileDisk, G16LogFileFrameDisk, G16LogFileFrameParserV2Disk],
-):
-    allowed_formats = (".log", ".g16", ".gal", ".out", ".irc", "gau")
-    _chem_file = G16LogFileDisk
-    _frame_parser = G16LogFileFrameParserV2Disk
-
-
 def register(registry: Registry) -> None:
     """Register this file parser as a reader codec.
 
@@ -463,7 +438,7 @@ def register(registry: Registry) -> None:
         extensions_for_parser,
     )
 
-    extensions = frozenset(extensions_for_parser(G16LogFileParserV2Disk))
+    extensions = frozenset(extensions_for_parser(G16LogFileParserDisk))
     priority = 100
 
     @registry.reader_factory(format_id="g16log", extensions=extensions, priority=priority)
@@ -474,7 +449,7 @@ def register(registry: Registry) -> None:
                 format_id="g16log",
                 extensions=extensions,
                 level=StructureLevel.COORDS,
-                parser_cls=G16LogFileParserV2Disk,
+                parser_cls=G16LogFileParserDisk,
                 priority=priority,
             ),
         )

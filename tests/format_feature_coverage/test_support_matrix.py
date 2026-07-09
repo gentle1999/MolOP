@@ -22,7 +22,14 @@ VALID_SUPPORT_LEVELS: set[SupportLevel] = {
     "fixture-covered",
     "intentionally-unsupported",
 }
-INTERNAL_IMPLEMENTATION_TERMS = ("component tree", "component-tree", "payload", "segmentation")
+INTERNAL_IMPLEMENTATION_TERMS = (
+    "component",
+    "component tree",
+    "component-tree",
+    "g16l",
+    "payload",
+    "segmentation",
+)
 
 
 def _test_functions_by_file() -> dict[str, set[str]]:

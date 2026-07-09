@@ -2,10 +2,8 @@
 
 <!-- format-support-overview -->
 
-本页只保留 MolOP 内置格式支持概览。每个具体格式的支持范围见独立页面。可机器检查的
-事实源是 `tests/format_feature_coverage/support_matrix.py`；
-`tests/format_feature_coverage/test_support_matrix.py` 会校验该矩阵与已注册 codec
-一致，并且每个特性都声明支持范围、限制和真实存在的测试节点。
+本页概览 MolOP 内置格式支持。每个具体格式的独立页面会说明可读取或写出的信息、
+支持范围和已知边界；这些覆盖声明会在测试中与已注册 codec 保持同步。
 
 | 分组 | 格式 | 概要 |
 | ---- | ---- | ---- |

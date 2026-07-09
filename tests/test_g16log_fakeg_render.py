@@ -10,7 +10,7 @@ from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
 FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "3-m-Py_anion_Opt.log"
 
 
-def test_g16log_v3_render_contains_expected_gaussian_sections():
+def test_g16log_fakeg_render_contains_expected_gaussian_sections():
     file_content = FIXTURE.read_text()
     frame = G16LogFileParserMemory().parse(file_content)[-1]
     rendered = frame.render_fakeg()
@@ -25,7 +25,7 @@ def test_g16log_v3_render_contains_expected_gaussian_sections():
     assert "                      A                      A                      A" in rendered
 
 
-def test_g16log_v3_can_render_specific_l716_child_nodes():
+def test_g16log_fakeg_can_render_specific_l716_child_nodes():
     file_content = FIXTURE.read_text()
     frame = G16LogFileParserMemory().parse(file_content)[-1]
     tree = frame.component_tree

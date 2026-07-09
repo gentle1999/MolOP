@@ -3,14 +3,11 @@ from pathlib import Path
 import pytest
 
 from molop import AutoParser
-from molop.io.logic.QM_frame_models.G16V3Components import (
-    _extract_labeled_float_tokens as _extract_v3_labeled_float_tokens,
-)
-from molop.io.logic.QM_frame_parsers._g16_v2_extractors import (
+from molop.io.logic.QM_frame_parsers._g16_extractors import (
     ParseState,
     extract_archive_tail_payload_from_state,
 )
-from molop.io.logic.QM_frame_parsers._g16_v2_shared import _extract_labeled_float_tokens
+from molop.io.logic.QM_frame_parsers._g16_shared import _extract_labeled_float_tokens
 from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
 
 
@@ -52,13 +49,6 @@ def test_extract_labeled_float_tokens_handles_concatenated_polarizability_values
         1272.481,
     ]
     assert _extract_labeled_float_tokens(
-        before_force_line, "Polarizability=", expected_count=3, decimal_places=8
-    ) == [
-        7.08599298,
-        -1.00725577,
-        6.37248853,
-    ]
-    assert _extract_v3_labeled_float_tokens(
         before_force_line, "Polarizability=", expected_count=3, decimal_places=8
     ) == [
         7.08599298,

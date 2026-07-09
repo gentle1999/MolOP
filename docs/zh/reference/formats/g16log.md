@@ -1,3 +1,10 @@
+<!--
+ * @Author: TMJ
+ * @Date: 2026-07-09 21:59:43
+ * @LastEditors: TMJ
+ * @LastEditTime: 2026-07-09 22:29:14
+ * @Description: 请填写简介
+-->
 # Gaussian 输出
 
 <!-- format-support:g16log -->
@@ -11,17 +18,28 @@
 | Registry 角色 | Reader |
 | 数据层级 | 坐标和 QM 结果 |
 
-Gaussian 输出解析以用户可获得的 QM 结果属性为口径，例如结构、能量、热力学、振动、
-轨道、布居、力和响应性质。
+MolOP 读取 Gaussian 输出文件，并提取后处理常用的结构、能量、热力学、振动、
+轨道、布居、梯度、响应性质、archive 和终止状态信息。覆盖范围按计算化学用户熟悉的
+Gaussian 输出内容组织；“部分支持”表示已覆盖常见或测试样例中的打印形式，但不等价于完整
+Gaussian 输出语法。
 
-| 特性 | 支持程度 | 支持范围 | 明确边界 | 测试证据 |
-| ---- | -------- | -------- | -------- | -------- |
-| <!-- feature-area:Metadata, geometry, charge, multiplicity, and status -->Metadata, geometry, charge, multiplicity, and status | fixture 覆盖 | 代表性 Gaussian 输出文件暴露原子、坐标或标准取向坐标、电荷、自旋多重度、title/options/keywords、运行时间和终止状态。 | 只读格式；覆盖 fixture 之外的输出区段可能仍是非结构化。 | `tests/test_parsers_smoke.py::test_autoparser_g16log_smoke`<br>`tests/test_g16log_parser_v3_node_payloads.py::test_g16log_v3_first_frame_parses_link1_header_payloads`<br>`tests/test_g16log_numeric_regression.py::test_g16log_file_running_time_is_accumulated_into_model_field`<br>`tests/test_io_registry_and_batch_more.py::test_g16_file_parser_finalizes_status_from_last_frame` |
-| <!-- feature-area:Model chemistry and route-derived requests -->Model chemistry and route-derived requests | 部分支持 | 已解析输出帧暴露共享 Gaussian route 语义，包括模型化学、任务类型、色散、溶剂化、布居请求和 HF 处理。 | Route 派生语义受共享 Gaussian route parser 覆盖范围限制；测试外的方法专有关键字可能仍为 raw 或非结构化。 | `tests/test_gaussian_route_semantics.py::test_g16log_frame_exposes_shared_semantic_route` |
-| <!-- feature-area:Energies -->Energies | 部分支持 | 代表性输出帧填充 reference/electronic 与方法特异能量；live reference energy 优先于 archive 值；archive-tail energy 会被解析，但不会凭空生成 live status 字段。 | 只声明测试覆盖的能量字段；不保证每个 Gaussian post-HF 或 correction energy 表都结构化。 | `tests/test_g16log_parser_v3_regression.py::test_g16log_v3_matches_v1_on_representative_fixtures`<br>`tests/test_g16log_parser_v3_regression.py::test_g16log_v3_preserves_live_reference_energy_over_archive_value`<br>`tests/test_g16log_parser_v3_regression.py::test_g16log_v3_uses_archive_energies_without_inventing_live_status` |
-| <!-- feature-area:Thermochemistry -->Thermochemistry | 部分支持 | Thermal information 包含 temperature、molecular mass、moments of inertia、rotational symmetry number、rotational/vibrational temperatures、rotational constants、ZPVE、thermal energy、enthalpy、Gibbs free energy、entropy 和 heat capacity。 | 热力学覆盖基于 fixture，主要对应 frequency 类型 Gaussian 输出。 | `tests/test_g16log_parser_v3_node_payloads.py::test_g16log_v3_l716_children_decompose_parent_payloads`<br>`tests/test_g16log_parser_v3_render.py::test_g16log_rendered_fakeg_can_be_reparsed_with_frequency_and_thermochemistry` |
-| <!-- feature-area:Vibrations and IR data -->Vibrations and IR data | 部分支持 | 暴露振动频率、约化质量、力常数、IR 强度、逐模式位移向量和虚频标记。 | Raman/VCD 等其他谱学变体不在已声明范围内，除非后续有明确测试。 | `tests/test_g16log_numeric_regression.py::test_default_g16log_parser_handles_concatenated_frequency_values`<br>`tests/test_g16log_parser_v3_node_payloads.py::test_g16log_v3_l716_vibration_mode_children_expose_per_mode_semantics` |
-| <!-- feature-area:Molecular orbitals and charge/spin populations -->Molecular orbitals and charge/spin populations | 部分支持 | 在代表性闭壳层和开壳层输出中暴露分子轨道能级/占据数和电荷/自旋布居数据。 | 不声明轨道系数矩阵或每种布居分析形式都已覆盖。 | `tests/test_g16log_mo_regression.py::test_default_g16log_parser_preserves_open_shell_mo_counts`<br>`tests/test_g16log_mo_regression.py::test_default_g16log_parser_handles_concatenated_orbital_energies`<br>`tests/test_g16log_parser_v3_regression.py::test_g16log_v3_matches_v1_on_representative_fixtures`<br>`tests/test_g16log_parser_v3_node_payloads.py::test_g16log_v3_major_components_parse_payloads` |
-| <!-- feature-area:Forces, Hessian, optimization status, and polarizability -->Forces, Hessian, optimization status, and polarizability | 部分支持 | 代表性输出保留 forces、Hessian 是否存在、几何优化状态和 polarizability。 | 只声明 fixture 覆盖字段；dipole detail 和扩展 polarizability 子区段不在当前声明范围内。 | `tests/test_g16log_parser_v3_regression.py::test_g16log_v3_matches_v1_on_representative_fixtures`<br>`tests/test_g16log_numeric_regression.py::test_extract_labeled_float_tokens_handles_concatenated_polarizability_values` |
-| <!-- feature-area:Link1 metadata propagation -->Link1 metadata propagation | 部分支持 | Link1 section 元数据会传播到后续帧，使多步 Gaussian 任务保留期望的逐帧上下文。 | 这一项仅限用户可见的逐帧元数据。 | `tests/test_g16log_link1_metadata.py::test_g16log_link1_sections_propagate_section_metadata_to_later_frames` |
-| <!-- feature-area:Registry conversion -->Registry conversion | 已支持 | 已解析 Gaussian 输出可以通过 registry 转换为坐标格式和 graph 格式。 | 转换取决于结构和 graph 的成功恢复。 | `tests/test_io_convert_registry_smoke.py::test_registry_convert_g16log_smoke` |
+| 能力 | 支持程度 | 可提取信息 | 边界 |
+| ---- | -------- | ---------- | ---- |
+| <!-- feature-area:Gaussian job metadata -->Gaussian 任务元数据 | 样例覆盖 | 软件版本、route 文本、title、电荷、自旋多重度，以及存在时累计的运行时间。 | 字段会被归一化；不保留原始 log 的行顺序或字节级排版。 |
+| <!-- feature-area:Title card -->Title card | 样例覆盖 | Gaussian title card 会作为归一化的任务标题暴露。 | 只声明标题文本；不保留周边原始 Gaussian 格式。 |
+| <!-- feature-area:Route keywords and calculation setup -->Route keywords 与计算设置 | 部分支持 | 原始 route 文本，以及可识别的模型化学、任务类型、色散、溶剂化、布居请求和 HF 设置。 | 测试外的方法专有关键字可能仍保留为 raw 文本。 |
+| <!-- feature-area:Input and standard orientations -->Input/standard orientation | 样例覆盖 | Gaussian 打印的 input orientation 与 standard orientation 中的原子和坐标。 | Distance matrix 和 stoichiometry 打印块不作为独立结构化字段声明。 |
+| <!-- feature-area:Rotational constants -->Rotational constants | 样例覆盖 | Gaussian 输出中的转动常数，以帧级频率量暴露。 | 不单独保留 principal-axis 诊断文本。 |
+| <!-- feature-area:SCF and electronic energies -->SCF 与电子能量 | 部分支持 | SCF、reference/electronic 和方法相关能量；主 log 中的能量优先于 archive-tail 重复值。 | 只声明已测试能量字段；不保证所有 post-HF 或 correction energy 表都结构化。 |
+| <!-- feature-area:Molecular orbitals and population analysis -->分子轨道与布居分析 | 部分支持 | 轨道能级/占据数、电荷/自旋布居、electronic spatial extent、多极矩，以及存在时的早期 polarizability。 | 不声明轨道系数矩阵或每一种 population analysis 变体都已覆盖。 |
+| <!-- feature-area:Vibrational frequencies and IR intensities -->振动频率与 IR 强度 | 部分支持 | 频率、约化质量、力常数、IR 强度、逐模式位移向量和虚频标记。 | Raman、VCD 等其他谱学变体只有在后续明确覆盖时才声明支持。 |
+| <!-- feature-area:Thermochemistry -->热力学 | 部分支持 | 温度、压力、分子质量、惯性矩、转动对称数、转动/振动温度、转动常数、ZPVE、热能、焓、Gibbs 自由能、熵和热容。 | 覆盖主要面向 frequency 类型 Gaussian 输出和已有样例。 |
+| <!-- feature-area:Dipole and polarizability -->偶极矩与 polarizability | 部分支持 | Gaussian 已覆盖响应性质区段中的 dipole 和 polarizability 值。 | 只声明样例覆盖的 response 字段；不保证所有响应性质打印变体都结构化。 |
+| <!-- feature-area:Cartesian gradients and forces -->Cartesian gradients/forces | 部分支持 | Gaussian forces 区段中的 Cartesian force 数组。 | 只声明归一化 force 数组；辅助 force diagnostics 不单独记录。 |
+| <!-- feature-area:Cartesian Hessian -->Cartesian Hessian | 部分支持 | Gaussian second-derivative 区段中的 Cartesian Hessian 数据。 | 契约是归一化 Hessian 字段，不是每个 second-derivative 诊断项。 |
+| <!-- feature-area:Geometry optimization convergence -->几何优化收敛 | 部分支持 | Berny 优化摘要，包括收敛阈值、force/displacement、energy change 和 optimized-state 标记。 | 测试样例外的 optimizer diagnostics 可能仍是非结构化。 |
+| <!-- feature-area:Gaussian archive section -->Gaussian archive section | 部分支持 | Archive-tail 中的 metadata、坐标、能量、热力学、polarizability 和 Hessian fallback/补充字段。 | 已从主 log 解析出的字段优先；archive-tail 不会凭空生成 live status、temperature 或 pressure。 |
+| <!-- feature-area:Termination status -->终止状态 | 部分支持 | Gaussian 正常/异常终止信息，并由最后一帧更新文件级 status。 | Status 仍是聚合信号；更细失败分类不在当前声明范围内。 |
+| <!-- feature-area:CPU and elapsed time -->CPU 与 elapsed time | 样例覆盖 | Job CPU / elapsed-time 风格记录会累计到运行时间字段。 | Per-link timing rows 不作为独立 timing record 暴露。 |
+| <!-- feature-area:Link1 multi-step jobs -->Link1 多步任务 | 部分支持 | Link1 section 元数据会传播到后续帧，使多步 Gaussian 任务保留逐帧上下文。 | 低层 link 边界行不作为用户级记录暴露。 |
+| <!-- feature-area:Registry conversion -->Registry conversion | 已支持 | 已解析 Gaussian 输出可以通过 registry 转换为坐标格式和 graph 格式。 | 转换质量取决于结构和 graph 的成功恢复。 |

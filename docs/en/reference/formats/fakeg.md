@@ -11,9 +11,14 @@
 | Registry role | File writer |
 | Data level | Parsed Gaussian output data |
 
-Gaussian-like text rendering from parsed Gaussian output data.
+`fakeg` renders parsed Gaussian output data as Gaussian-like text for human
+inspection, compatibility testing, and downstream-tool handoff. It is not a
+byte-for-byte Gaussian log reproducer.
 
-| Feature | Support | Scope | Limits | Test evidence |
-| ------- | ------- | ----- | ------ | ------------- |
-| <!-- feature-area:Rendered Gaussian-like output sections -->Rendered Gaussian-like output sections | Partial | Renders Gaussian-like structure, charge/multiplicity, frequency, and thermochemistry sections from parsed Gaussian output data. | Compatibility renderer only; not a byte-for-byte Gaussian log reproduction. | `tests/test_g16log_parser_v3_render.py::test_g16log_v3_render_contains_expected_gaussian_sections`<br>`tests/test_g16log_parser_v3_render.py::test_g16log_file_model_can_render_fakeg_for_all_frames` |
-| <!-- feature-area:Frequency and thermochemistry reparse -->Frequency and thermochemistry reparse | Supported | Rendered frequency and thermochemistry content can be parsed back into frame fields. | Frame-level fakeg rendering is intentionally unsupported. | `tests/test_g16log_parser_v3_render.py::test_g16log_file_format_transform_registers_fakeg_file_renderer_only`<br>`tests/test_g16log_parser_v3_render.py::test_g16log_rendered_fakeg_can_be_reparsed_with_frequency_and_thermochemistry` |
+| Capability | Support | Rendered content | Boundaries |
+| ---------- | ------- | ---------------- | ---------- |
+| <!-- feature-area:File-level Gaussian-like writer -->File-level Gaussian-like writer | Partial | `.fakeg` files from parsed Gaussian output data. | File-level rendering only; frame-level fakeG writing is not provided, and byte-for-byte Gaussian log reproduction is not claimed. |
+| <!-- feature-area:Structure and SCF energy rendering -->Structure and SCF energy rendering | Partial | Normalized orientation and SCF-cycle text from coordinate and energy fields. | Rendered sections are semantic Gaussian-like text, not original log text. |
+| <!-- feature-area:Vibrational frequency rendering -->Vibrational frequency rendering | Partial | Frequency, reduced-mass, force-constant, IR-intensity, and per-mode displacement sections. | Current coverage is limited to frequency and IR-related fields; Raman/VCD sections are not advertised. |
+| <!-- feature-area:Thermochemistry rendering -->Thermochemistry rendering | Partial | Temperature, correction, energy, entropy, heat-capacity, mass, inertia, and rotational/vibrational metadata. | This is a normalized thermochemistry summary, not a complete Gaussian thermochemistry pretty-printer. |
+| <!-- feature-area:Reparseable frequency and thermochemistry output -->Reparseable frequency and thermochemistry output | Supported | Rendered frequency and thermochemistry content can be parsed back into frame fields. | The round trip proves supported semantic fields, not byte-for-byte equivalence with Gaussian output. |

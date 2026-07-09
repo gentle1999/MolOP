@@ -1,661 +1,309 @@
+from __future__ import annotations
+
 from collections.abc import Mapping
+from enum import Enum, auto
 from typing import Any, cast
 
-import numpy as np
-from pint.facets.numpy.quantity import NumpyQuantity
-from pint.facets.plain import PlainQuantity, PlainUnit
-from rdkit import Chem
-
-from molop.config import moloplogger
-from molop.io.base_models.DataClasses import (
-    ChargeSpinPopulations,
-    Energies,
-    GeometryOptimizationStatus,
-    MolecularOrbitals,
-    Polarizability,
-    ThermalInformations,
-    TotalSpin,
-    Vibrations,
-)
 from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
-from molop.io.base_models.SearchPattern import MolOPPattern
 from molop.io.logic.QM_frame_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
     G16LogFileFrameMemory,
 )
-from molop.io.logic.QM_frame_models.G16V3Components import (
-    G16V3L601PopAnalComponent,
-    G16V3L716FreqComponent,
-    _parse_frequency_line_values,
-    _parse_orbital_line_values,
-    extract_coords,
+from molop.io.logic.QM_frame_parsers._g16_extractors import (
+    ParseState,
+    extract_archive_tail_payload_from_state,
+    extract_berny_from_state,
+    extract_electric_dipole_and_polarizability_from_state,
+    extract_energies_and_total_spin_from_state,
+    extract_forces_from_state,
+    extract_hessian_from_state,
+    extract_input_coords_from_state,
+    extract_polarizability_from_state,
+    extract_populations_from_state,
+    extract_rotation_consts_from_state,
+    extract_standard_coords_from_state,
+    extract_thermal_infos_from_state,
+    extract_vibrations_from_state,
 )
-from molop.io.logic.QM_frame_parsers._g16_v2_shared import _extract_labeled_float_tokens
-from molop.io.logic.QM_parsers._g16log_archive_tail import (
-    extract_archive_tail_payload,
-    parse_archive_tail,
-    parse_archive_tail_energies,
-    parse_archive_tail_hessian,
-    parse_archive_tail_polarizability,
-    parse_archive_tail_thermal_infos,
+from molop.io.logic.QM_frame_parsers._g16_shared import (
+    _parse_running_time,
+    _temperature_and_pressure_from_block,
 )
 from molop.io.patterns.G16Patterns import g16_log_patterns
-from molop.unit import atom_ureg
-from molop.utils.functions import fill_symmetric_matrix, merge_models
 
 
-# TODO: Bond order
-# TODO: NMR
+def _payload_mapping(value: Any) -> dict[str, Any]:
+    if isinstance(value, Mapping):
+        return {key: item for key, item in value.items() if item is not None}
+    if hasattr(value, "model_dump"):
+        return value.model_dump(
+            exclude_unset=True,
+            exclude_none=True,
+            exclude_computed_fields=True,
+        )
+    return {}
 
-pt = Chem.GetPeriodicTable()
+
+def _has_payload_value(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    try:
+        return len(value) > 0  # type: ignore[arg-type]
+    except Exception:
+        return True
 
 
-def _summarize_parse_context(text: str, *, limit: int = 240) -> str:
-    compact = " ".join(text.split())
-    if len(compact) <= limit:
-        return compact
-    return f"{compact[:limit]}..."
+def _merge_payload(
+    existing: Any,
+    incoming: Mapping[str, Any],
+    *,
+    overwrite: bool = False,
+) -> dict[str, Any]:
+    merged = _payload_mapping(existing)
+    for key, value in incoming.items():
+        if value is None:
+            continue
+        if overwrite or not _has_payload_value(merged.get(key)):
+            merged[key] = value
+    return merged
+
+
+def _merge_payload_field(
+    infos: dict[str, Any],
+    key: str,
+    incoming: Mapping[str, Any],
+    *,
+    overwrite: bool = False,
+) -> None:
+    if key in infos:
+        infos[key] = _merge_payload(infos[key], incoming, overwrite=overwrite)
+    else:
+        infos[key] = _payload_mapping(incoming)
+
+
+class G16ParsePhase(Enum):
+    """Explicit stages for the sequential Gaussian frame parser.
+
+    Transition table
+    ----------------
+    HEADER -> ORIENTATION
+    ORIENTATION -> STRUCTURE_ONLY_CHECK
+    STRUCTURE_ONLY_CHECK -> DONE | ROTATION
+    ROTATION -> SCF
+    SCF -> ISOTROPIC_POLARIZABILITY
+    ISOTROPIC_POLARIZABILITY -> POPULATION
+    POPULATION -> FREQUENCY
+    FREQUENCY -> THERMOCHEM
+    THERMOCHEM -> FORCES
+    FORCES -> HESSIAN
+    HESSIAN -> OPTIMIZATION
+    OPTIMIZATION -> ELECTRIC_RESPONSE
+    ELECTRIC_RESPONSE -> ARCHIVE_TAIL
+    ARCHIVE_TAIL -> DONE
+
+    Notes
+    -----
+    - The order is intentionally biased toward the historical fast scan path.
+    - Each phase consumes from the shared ``ParseState`` and advances the cursor.
+    - Component trees are rebuilt lazily from frame data for fakeG rendering and
+      inspection instead of participating in extraction.
+    """
+
+    HEADER = auto()
+    ORIENTATION = auto()
+    STRUCTURE_ONLY_CHECK = auto()
+    ROTATION = auto()
+    SCF = auto()
+    ISOTROPIC_POLARIZABILITY = auto()
+    POPULATION = auto()
+    FREQUENCY = auto()
+    THERMOCHEM = auto()
+    FORCES = auto()
+    HESSIAN = auto()
+    OPTIMIZATION = auto()
+    ELECTRIC_RESPONSE = auto()
+    ARCHIVE_TAIL = auto()
+    DONE = auto()
 
 
 class G16LogFileFrameParserMixin:
-    def _parse_frame(self) -> Mapping[str, Any]:
-        infos: dict[str, Any] = {"qm_software": "Gaussian"}
-        if time := self._parse_time():
-            infos["running_time"] = time
-        coords_match = self._parse_coords()
-        if (atoms := coords_match[0]) and (coords := coords_match[1]) is not None:
+    """Explicit-state Gaussian frame parser.
+
+    Design goals
+    ------------
+    - Preserve the sequential extraction performance characteristics of the legacy parser.
+    - Replace implicit ``self._block`` mutation chains with an explicit ``ParseState``.
+    - Keep phase ordering first-class so later maintenance can reason about transitions.
+    - Leave component trees to render/inspection paths instead of hot extraction.
+    """
+
+    def _run_header_phase(self, block: str, infos: dict[str, Any]) -> G16ParsePhase:
+        """Parse frame-global header data that does not depend on cursor state."""
+        if charge_multiplicity := g16_log_patterns.CHARGE_MULTIPLICITY.match_content(block):
+            infos["charge"] = int(charge_multiplicity[0][0])
+            infos["multiplicity"] = int(charge_multiplicity[0][1])
+        if running_time := _parse_running_time(block):
+            infos["running_time"] = running_time
+        return G16ParsePhase.ORIENTATION
+
+    def _run_orientation_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+        """Extract input and standard orientations, establishing core atom/coord payload."""
+        atoms, coords = extract_input_coords_from_state(state)
+        if atoms and coords is not None:
+            infos["atoms"] = atoms
             infos["coords"] = coords
+
+        atoms, standard_coords = extract_standard_coords_from_state(state)
+        if atoms and standard_coords is not None:
             infos["atoms"] = atoms
-        coords_match = self._parse_coords_standard_orientation()
-        if (atoms := coords_match[0]) and (coords := coords_match[1]) is not None:
-            atoms, standard_orientation_coords = coords_match
-            infos["standard_coords"] = standard_orientation_coords
-            infos["atoms"] = atoms
-        if cast(_HasParseMethod, self).only_extract_structure:
-            return infos
-        if (rotation_consts := self._parse_rotation_consts()) is not None:
+            infos["standard_coords"] = standard_coords
+
+        return G16ParsePhase.STRUCTURE_ONLY_CHECK
+
+    def _run_structure_only_check(self) -> G16ParsePhase:
+        """Stop early for structure-only mode before any expensive electronic parsing."""
+        return (
+            G16ParsePhase.DONE
+            if cast(_HasParseMethod, self).only_extract_structure
+            else G16ParsePhase.ROTATION
+        )
+
+    def _run_rotation_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+        """Parse lightweight rotational metadata that may appear before SCF/population sections."""
+        if (rotation_consts := extract_rotation_consts_from_state(state)) is not None:
             infos["rotation_constants"] = rotation_consts
-        energies, total_spin = self._parse_energies_and_total_spin()
-        if energies:
-            infos["energies"] = energies
-        if total_spin:
-            infos["total_spin"] = total_spin
-        if (polarizability := self._parse_polarizability()) is not None:
+        return G16ParsePhase.SCF
+
+    def _run_scf_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+        """Parse SCF/energy and spin-state information from the current cursor position."""
+        energies_dict, total_spin_dict = extract_energies_and_total_spin_from_state(state)
+        if energies_dict:
+            infos["energies"] = energies_dict
+        if total_spin_dict:
+            infos["total_spin"] = total_spin_dict
+        return G16ParsePhase.ISOTROPIC_POLARIZABILITY
+
+    def _run_isotropic_polarizability_phase(
+        self, state: ParseState, infos: dict[str, Any]
+    ) -> G16ParsePhase:
+        """Parse early scalar polarizability data before the larger population section."""
+        if (polarizability := extract_polarizability_from_state(state)) is not None:
             infos["polarizability"] = polarizability
-        pops, working_block = G16V3L601PopAnalComponent._extract_population_payload(
-            cast(_HasParseMethod, self)._block
-        )
-        cast(_HasParseMethod, self)._block = working_block
-        if pops:
-            infos.update(pops)
-        vibrations, working_block = G16V3L716FreqComponent._extract_vibration_payload(
-            cast(_HasParseMethod, self)._block
-        )
-        cast(_HasParseMethod, self)._block = working_block
-        if vibrations is not None:
+        return G16ParsePhase.POPULATION
+
+    def _run_population_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+        """Parse population analysis, orbitals, and any coupled response data in that block."""
+        if populations := extract_populations_from_state(state):
+            infos.update(populations)
+        return G16ParsePhase.FREQUENCY
+
+    def _run_frequency_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+        """Parse vibrational frequency blocks if present."""
+        if vibrations := extract_vibrations_from_state(state):
             infos["vibrations"] = vibrations
-        if (thermal_info := self._parse_thermal_infos()) is not None:
+        return G16ParsePhase.THERMOCHEM
+
+    def _run_thermochem_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+        """Parse thermochemistry summaries that often follow frequency sections."""
+        cursor_before = state.cursor
+        if (thermal_info := extract_thermal_infos_from_state(state)) is not None:
             infos["thermal_informations"] = thermal_info
-        if (forces := self._parse_forces()) is not None:
+        if temp_pressure := _temperature_and_pressure_from_block(state.content[cursor_before:]):
+            infos.update(temp_pressure)
+        return G16ParsePhase.FORCES
+
+    def _run_forces_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+        """Parse Cartesian forces when present."""
+        if (forces := extract_forces_from_state(state)) is not None:
             infos["forces"] = forces
-        if (hessian := self._parse_hessian()) is not None:
+        return G16ParsePhase.HESSIAN
+
+    def _run_hessian_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+        """Parse Hessian / second-derivative blocks."""
+        if (hessian := extract_hessian_from_state(state)) is not None:
             infos["hessian"] = hessian
-        if (berny := self._parse_berny()) is not None:
+        return G16ParsePhase.OPTIMIZATION
+
+    def _run_optimization_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+        """Parse Berny optimization state summaries."""
+        if (berny := extract_berny_from_state(state)) is not None:
             infos["geometry_optimization_status"] = berny
-        if (polarizability := self._parse_electric_dipole_moment_and_polarizability()) is not None:
-            if "polarizability" in infos:
-                infos["polarizability"] = merge_models(
-                    infos["polarizability"], polarizability, force_update=True
-                )
-            else:
-                infos["polarizability"] = polarizability
-        archive_payload, working_block = extract_archive_tail_payload(
-            cast(_HasParseMethod, self)._block
-        )
-        cast(_HasParseMethod, self)._block = working_block
-        if archive_payload:
-            tail = archive_payload.get("metadata", {})
+        return G16ParsePhase.ELECTRIC_RESPONSE
+
+    def _run_electric_response_phase(
+        self, state: ParseState, infos: dict[str, Any]
+    ) -> G16ParsePhase:
+        """Merge late electric-dipole/polarizability sections into existing response data."""
+        if (
+            polarizability := extract_electric_dipole_and_polarizability_from_state(state)
+        ) is not None:
+            _merge_payload_field(infos, "polarizability", polarizability, overwrite=True)
+        return G16ParsePhase.ARCHIVE_TAIL
+
+    def _run_archive_tail_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+        """Use archive-tail data as the final fallback/augmentation stage."""
+        archive_payload = extract_archive_tail_payload_from_state(state)
+        if tail := archive_payload.get("metadata"):
             for key, value in tail.items():
-                if key not in infos:
+                if not _has_payload_value(infos.get(key)):
                     infos[key] = value
-            if tail_energies_dict := archive_payload.get("energies"):
-                tail_energies = Energies.model_validate(tail_energies_dict)
-                if "energies" in infos:
-                    infos["energies"] = merge_models(infos["energies"], tail_energies)
-                else:
-                    infos["energies"] = tail_energies
-            if tail_thermal_info_dict := archive_payload.get("thermal_informations"):
-                tail_thermal_info = ThermalInformations.model_validate(tail_thermal_info_dict)
-                if "thermal_informations" in infos:
-                    infos["thermal_informations"] = merge_models(
-                        infos["thermal_informations"], tail_thermal_info
-                    )
-                else:
-                    infos["thermal_informations"] = tail_thermal_info
-            if tail_polarizability_dict := archive_payload.get("polarizability"):
-                tail_polarizability = Polarizability.model_validate(tail_polarizability_dict)
-                if "polarizability" in infos:
-                    infos["polarizability"] = merge_models(
-                        infos["polarizability"], tail_polarizability
-                    )
-                else:
-                    infos["polarizability"] = tail_polarizability
-            tail_hessian = archive_payload.get("hessian")
-            if tail_hessian is not None and "hessian" not in infos:
-                infos["hessian"] = tail_hessian
-        return infos
 
-    def _parse_time(self) -> PlainQuantity | None:
-        if time_match := g16_log_patterns.PROCEDURE_TIME.match_content(
-            cast(_HasParseMethod, self)._block
+        if tail_energies := archive_payload.get("energies"):
+            _merge_payload_field(infos, "energies", tail_energies)
+
+        if tail_thermal_info := archive_payload.get("thermal_informations"):
+            _merge_payload_field(infos, "thermal_informations", tail_thermal_info)
+
+        if tail_polarizability := archive_payload.get("polarizability"):
+            _merge_payload_field(infos, "polarizability", tail_polarizability)
+
+        if (tail_hessian := archive_payload.get("hessian")) is not None and not _has_payload_value(
+            infos.get("hessian")
         ):
-            return (
-                sum(float(time_part[1]) + float(time_part[2]) for time_part in time_match)
-                * atom_ureg.second
-            )
-        return None
+            infos["hessian"] = tail_hessian
 
-    def _parse_coords(self) -> tuple[list[int] | None, NumpyQuantity | None]:
-        focus_content, continued_content = g16_log_patterns.INPUT_COORDS.split_content(
-            cast(_HasParseMethod, self)._block
-        )
-        if focus_content == "":
-            return None, None
-        if coords_match := g16_log_patterns.INPUT_COORDS.get_matches(focus_content):
-            self._block = continued_content
-            return extract_coords(coords_match)
-        return None, None
+        return G16ParsePhase.DONE
 
-    def _parse_coords_standard_orientation(
-        self,
-    ) -> tuple[list[int] | None, NumpyQuantity | None]:
-        focus_content, self._block = g16_log_patterns.STANDARD_COORDS.split_content(
-            cast(_HasParseMethod, self)._block
-        )
-        if focus_content == "":
-            return None, None
-        if coords_match := g16_log_patterns.STANDARD_COORDS.get_matches(focus_content):
-            return extract_coords(coords_match)
-        return None, None
+    def _parse_frame(self) -> Mapping[str, Any]:
+        """Execute the explicit phase machine until all extractors have run."""
+        block = cast(_HasParseMethod, self)._block
+        state = ParseState(block)
+        infos: dict[str, Any] = {"qm_software": "Gaussian"}
 
-    def _parse_rotation_consts(self) -> NumpyQuantity | None:
-        if matches := g16_log_patterns.ROTATIONAL_CONST.get_matches(
-            cast(_HasParseMethod, self)._block
-        ):
-            return np.array(list(map(float, matches[0]))) * atom_ureg.gigahertz
-        return None
+        phase = G16ParsePhase.HEADER
+        while phase is not G16ParsePhase.DONE:
+            if phase is G16ParsePhase.HEADER:
+                phase = self._run_header_phase(block, infos)
+            elif phase is G16ParsePhase.ORIENTATION:
+                phase = self._run_orientation_phase(state, infos)
+            elif phase is G16ParsePhase.STRUCTURE_ONLY_CHECK:
+                phase = self._run_structure_only_check()
+            elif phase is G16ParsePhase.ROTATION:
+                phase = self._run_rotation_phase(state, infos)
+            elif phase is G16ParsePhase.SCF:
+                phase = self._run_scf_phase(state, infos)
+            elif phase is G16ParsePhase.ISOTROPIC_POLARIZABILITY:
+                phase = self._run_isotropic_polarizability_phase(state, infos)
+            elif phase is G16ParsePhase.POPULATION:
+                phase = self._run_population_phase(state, infos)
+            elif phase is G16ParsePhase.FREQUENCY:
+                phase = self._run_frequency_phase(state, infos)
+            elif phase is G16ParsePhase.THERMOCHEM:
+                phase = self._run_thermochem_phase(state, infos)
+            elif phase is G16ParsePhase.FORCES:
+                phase = self._run_forces_phase(state, infos)
+            elif phase is G16ParsePhase.HESSIAN:
+                phase = self._run_hessian_phase(state, infos)
+            elif phase is G16ParsePhase.OPTIMIZATION:
+                phase = self._run_optimization_phase(state, infos)
+            elif phase is G16ParsePhase.ELECTRIC_RESPONSE:
+                phase = self._run_electric_response_phase(state, infos)
+            elif phase is G16ParsePhase.ARCHIVE_TAIL:
+                phase = self._run_archive_tail_phase(state, infos)
 
-    def _parse_energies_and_total_spin(
-        self,
-    ) -> tuple[Energies | None, TotalSpin | None]:
-        scf_energies_dict: dict[str, PlainQuantity | None] = {}
-        total_spin_dict: dict[str, float | None] = {}
-        focus_content, self._block = g16_log_patterns.SCF_ENERGIES.split_content(
-            cast(_HasParseMethod, self)._block
-        )
-        if focus_content == "":
-            return (
-                (Energies.model_validate(scf_energies_dict) if scf_energies_dict else None),
-                TotalSpin.model_validate(total_spin_dict) if total_spin_dict else None,
-            )
-        if matches := g16_log_patterns.SCF_ENERGY_AND_FUNCTIONAL.get_matches(focus_content):
-            scf_energies_dict["reference_energy"] = float(matches[0][1]) * atom_ureg.hartree
-        if matches := g16_log_patterns.SPIN_SPIN_SQUERE.get_matches(focus_content):
-            total_spin_dict["spin_square"] = float(matches[0][0])
-            total_spin_dict["spin_quantum_number"] = float(matches[0][1])
-        if matches := g16_log_patterns.ENERGY_MP2_4.get_matches(focus_content):
-            for match in matches:
-                scf_energies_dict[f"{match[0].lower()}_energy"] = (
-                    float(match[1].replace("D", "E")) * atom_ureg.hartree
-                )
-        if matches := g16_log_patterns.ENERGY_MP5.get_matches(focus_content):
-            scf_energies_dict["mp5_energy"] = (
-                float(matches[0][1].replace("D", "E")) * atom_ureg.hartree
-            )
-        if matches := g16_log_patterns.ENERGY_CCSD.get_matches(focus_content):
-            scf_energies_dict["ccsd_energy"] = (
-                float(matches[0][0].replace("D", "E")) * atom_ureg.hartree
-            )
-        if matches := g16_log_patterns.ENERGY_CCSD_T.get_matches(focus_content):
-            scf_energies_dict["ccsd_energy"] = (
-                float(matches[0][0].replace("D", "E")) * atom_ureg.hartree
-            )
-        return (Energies.model_validate(scf_energies_dict) if scf_energies_dict else None), (
-            TotalSpin.model_validate(total_spin_dict) if total_spin_dict else None
-        )
-
-    def _parse_polarizability(self) -> Polarizability | None:
-        focus_content, self._block = g16_log_patterns.ISOTROPIC_POLARIZABILITY.split_content(
-            cast(_HasParseMethod, self)._block
-        )
-        if focus_content == "":
-            return None
-        if matches := g16_log_patterns.ISOTROPIC_POLARIZABILITY.get_matches(focus_content):
-            return Polarizability(isotropic_polarizability=float(matches[0][0]) * atom_ureg.bohr**3)
-        return None
-
-    def _parse_populations(self) -> dict[str, Any]:
-        infos: dict[str, Any] = {}
-        mo: dict[str, Any] = {}
-        pops: dict[str, Any] = {}
-        polars: dict[str, Any] = {}
-        try:
-            focus_content, self._block = g16_log_patterns.POPULATION_ANALYSIS.split_content(
-                cast(_HasParseMethod, self)._block
-            )
-            if focus_content == "":
-                if mo:
-                    infos["molecular_orbitals"] = MolecularOrbitals.model_validate(mo)
-                if pops:
-                    infos["charge_spin_populations"] = ChargeSpinPopulations.model_validate(pops)
-                if polars:
-                    infos["polarizability"] = Polarizability.model_validate(polars)
-                return infos
-            patterns_and_keys_1: list[tuple[MolOPPattern, str]] = [
-                (
-                    g16_log_patterns.MOLECULAR_ORBITALS_SYMMETRY_ALPHA,
-                    "alpha_symmetries",
-                ),
-                (g16_log_patterns.MOLECULAR_ORBITALS_SYMMETRY_BETA, "beta_symmetries"),
-                (g16_log_patterns.MOLECULAR_ORBITALS_SYMMETRY, "alpha_symmetries"),
-            ]
-            for pattern, key in patterns_and_keys_1:
-                sub_focus_content, focus_content = pattern.split_content(focus_content)
-                if matches := pattern.get_matches(sub_focus_content):
-                    mo[key] = [sym for match in matches for sym in match[1].split()]
-            if matches := g16_log_patterns.ELECTRONIC_STATE.get_matches(focus_content):
-                mo["electronic_state"] = matches[0][0]
-            if matches := g16_log_patterns.MOLECULAR_ORBITALS.get_matches(focus_content):
-                temp_alpha_orbitals = []
-                temp_alpha_occupancies = []
-                temp_beta_orbitals = []
-                temp_beta_occupancies = []
-                for orbital_type, occ_stat, energies in matches:
-                    energies = _parse_orbital_line_values(energies)
-                    if occ_stat not in ["occ.", "virt."]:
-                        raise ValueError(f"Invalid {orbital_type} occupancy status: {occ_stat}")
-                    if orbital_type == "Alpha":
-                        temp_alpha_orbitals.extend(energies)
-                        temp_alpha_occupancies.extend([occ_stat == "occ."] * len(energies))
-                    elif orbital_type == "Beta":
-                        temp_beta_orbitals.extend(energies)
-                        temp_beta_occupancies.extend([occ_stat == "occ."] * len(energies))
-                    else:
-                        raise ValueError(f"Invalid orbital type: {orbital_type}")
-                mo["alpha_energies"] = np.array(temp_alpha_orbitals) * atom_ureg.hartree
-                mo["alpha_occupancies"] = temp_alpha_occupancies
-                mo["beta_energies"] = np.array(temp_beta_orbitals) * atom_ureg.hartree
-                mo["beta_occupancies"] = temp_beta_occupancies
-            patterns_and_keys_2: list[tuple[MolOPPattern, str]] = [
-                (g16_log_patterns.MULLIKEN_SPIN_DENSITY, "mulliken_spins"),
-                (g16_log_patterns.MULLIKEN_POPULATION, "mulliken_charges"),
-                (g16_log_patterns.APT_POPULATION, "apt_charges"),
-                (g16_log_patterns.LOWDIN_POPULATION, "lowdin_charges"),
-            ]
-            for pattern, key in patterns_and_keys_2:
-                sub_focus_content, focus_content = pattern.split_content(focus_content)
-                if matches := pattern.get_matches(sub_focus_content):
-                    pops[key] = [
-                        float(match[0] if key != "mulliken_spins" else match[1])
-                        for match in matches
-                    ]
-            sub_focus_content, focus_content = (
-                g16_log_patterns.ELECTRONIC_SPATIAL_EXTENT.split_content(focus_content)
-            )
-            if matches := g16_log_patterns.ELECTRONIC_SPATIAL_EXTENT.get_matches(sub_focus_content):
-                polars["electronic_spatial_extent"] = float(matches[0][0]) * atom_ureg.bohr**2
-            patterns_and_keys_3: list[tuple[MolOPPattern, str, PlainUnit]] = [
-                (g16_log_patterns.DIPOLE_MOMENT, "dipole", atom_ureg.debye),
-                (
-                    g16_log_patterns.QUADRUPOLE_MOMENT,
-                    "quadrupole",
-                    atom_ureg.debye * atom_ureg.angstrom,
-                ),
-                (
-                    g16_log_patterns.TRACELESS_QUADRUPOLE_MOMENT,
-                    "traceless_quadrupole",
-                    atom_ureg.debye * atom_ureg.angstrom,
-                ),
-                (
-                    g16_log_patterns.OCTAPOLE_MOMENT,
-                    "octapole",
-                    atom_ureg.debye * atom_ureg.angstrom**2,
-                ),
-                (
-                    g16_log_patterns.HEXADECAPOLE_MOMENT,
-                    "hexadecapole",
-                    atom_ureg.debye * atom_ureg.angstrom**3,
-                ),
-            ]
-            for pattern, key, unit in patterns_and_keys_3:
-                sub_focus_content, focus_content = pattern.split_content(focus_content)
-                if matches := pattern.get_matches(sub_focus_content):
-                    polars[key] = np.array([float(match[0]) for match in matches]) * unit
-
-            if exact_polarizability := _extract_labeled_float_tokens(
-                self._block, "Exact polarizability:", expected_count=6, decimal_places=3
-            ):
-                polars["polarizability_tensor"] = np.array(exact_polarizability) * atom_ureg.bohr**3
-            elif approx_polarizability := _extract_labeled_float_tokens(
-                self._block, "Approx polarizability:", expected_count=6, decimal_places=3
-            ):
-                polars["polarizability_tensor"] = (
-                    np.array(approx_polarizability) * atom_ureg.bohr**3
-                )
-
-            sub_focus_content, self._block = g16_log_patterns.HIRSHFELD_POPULATION.split_content(
-                self._block
-            )
-            if matches := g16_log_patterns.HIRSHFELD_POPULATION.get_matches(sub_focus_content):
-                pops["hirshfeld_charges"] = [float(match[0]) for match in matches]
-                pops["hirshfeld_spins"] = [float(match[1]) for match in matches]
-                pops["hirshfeld_q_cm5"] = [float(match[5]) for match in matches]
-            if dipole_before_force := _extract_labeled_float_tokens(
-                self._block, "Dipole        =", expected_count=3, decimal_places=8
-            ):
-                polars["dipole"] = (
-                    np.array(dipole_before_force)
-                    * atom_ureg.atomic_unit_of_current
-                    * atom_ureg.atomic_unit_of_time
-                    * atom_ureg.bohr
-                )
-            if polarizability_before_force := _extract_labeled_float_tokens(
-                self._block, "Polarizability=", expected_count=6, decimal_places=8
-            ):
-                polars["polarizability_tensor"] = (
-                    np.array(polarizability_before_force) * atom_ureg.bohr**3
-                )
-            if mo:
-                infos["molecular_orbitals"] = MolecularOrbitals.model_validate(mo)
-            if pops:
-                infos["charge_spin_populations"] = ChargeSpinPopulations.model_validate(pops)
-            if polars:
-                infos["polarizability"] = Polarizability.model_validate(polars)
-        except (ValueError, IndexError) as e:
-            moloplogger.warning(
-                "Error parsing populations: %s | context=%s",
-                e,
-                _summarize_parse_context(self._block),
-            )
-        except Exception as e:
-            moloplogger.error(f"Unexpected error occurred while parsing populations: {e}")
         return infos
-
-    def _parse_vibrations(self) -> Vibrations | None:
-        vib_dict: dict[str, Any] = {}
-        start_index = cast(_HasParseMethod, self)._block.find(
-            "Harmonic frequencies (cm**-1), IR intensities (KM/Mole), Raman scattering"
-        )
-        end_index = cast(_HasParseMethod, self)._block.find("-------------------", start_index)
-        if start_index == -1 or end_index == -1:
-            focus_content, self._block = g16_log_patterns.FREQUENCY_ANALYSIS.split_content(
-                cast(_HasParseMethod, self)._block
-            )
-        else:
-            focus_content = self._block[start_index:end_index]
-            self._block = self._block[end_index + 1 :]
-        if focus_content == "":
-            return None
-        length = 0
-        if matches := g16_log_patterns.FREQUENCIES.get_matches(focus_content):
-            vib_dict["frequencies"] = (
-                np.array(
-                    list(
-                        map(
-                            float,
-                            (
-                                value
-                                for match in matches
-                                for value in _parse_frequency_line_values(match[0])
-                            ),
-                        )
-                    )
-                )
-                * atom_ureg.cm_1
-            )
-            length = len(vib_dict["frequencies"])
-        if matches := g16_log_patterns.FREQUENCIES_REDUCED_MASS.get_matches(focus_content):
-            vib_dict["reduced_masses"] = (
-                np.array(
-                    list(
-                        map(
-                            float,
-                            (
-                                value
-                                for match in matches
-                                for value in _parse_frequency_line_values(match[0])
-                            ),
-                        )
-                    )
-                )
-                * atom_ureg.amu
-            )
-        if matches := g16_log_patterns.FREQUENCIES_FORCE_CONSTANTS.get_matches(focus_content):
-            vib_dict["force_constants"] = (
-                np.array(
-                    list(
-                        map(
-                            float,
-                            (
-                                value
-                                for match in matches
-                                for value in _parse_frequency_line_values(match[0])
-                            ),
-                        )
-                    )
-                )
-                * atom_ureg.mdyne
-                / atom_ureg.angstrom
-            )
-        if matches := g16_log_patterns.FREQUENCIES_IR_INTENSITIES.get_matches(focus_content):
-            vib_dict["IR_intensities"] = (
-                np.array(
-                    list(
-                        map(
-                            float,
-                            (
-                                value
-                                for match in matches
-                                for value in _parse_frequency_line_values(match[0])
-                            ),
-                        )
-                    )
-                )
-                * atom_ureg.km
-                / atom_ureg.mol
-            )
-        if matches := g16_log_patterns.FREQUENCIES_MODE.get_matches(focus_content):
-            v = np.array(
-                [value for match in matches for value in _parse_frequency_line_values(match[0])]
-            ).reshape(-1, 3)
-            L = len(v) // length
-            v1, v2, v3 = v[0::3], v[1::3], v[2::3]
-            vib_dict["vibration_modes"] = [
-                vn[i * L : i * L + L] for i in range(length // 3) for vn in [v1, v2, v3]
-            ] * atom_ureg.angstrom
-        if vib_dict:
-            return Vibrations.model_validate(vib_dict)
-        return None
-
-    def _parse_thermal_infos(self) -> ThermalInformations | None:
-        thermal_dict: dict[str, Any] = {}
-        focus_content, self._block = g16_log_patterns.THERMOCHEMISTRY_PART.split_content(
-            cast(_HasParseMethod, self)._block
-        )
-        if matches := g16_log_patterns.THERMOCHEMISTRY_CORRECTION.get_matches(focus_content):
-            mapping = {
-                ("Zero-point", ""): "ZPVE",
-                ("Thermal", " to Energy"): "TCE",
-                ("Thermal", " to Enthalpy"): "TCH",
-                ("Thermal", " to Gibbs Free Energy"): "TCG",
-            }
-            for match in matches:
-                thermal_dict[mapping[(match[0], match[1])]] = float(match[2]) * atom_ureg.Unit(
-                    "hartree/particle"
-                )
-        if matches := g16_log_patterns.THERMOCHEMISTRY_SUM.get_matches(focus_content):
-            _mapping = {
-                "zero-point Energies": "U_0",
-                "thermal Energies": "U_T",
-                "thermal Enthalpies": "H_T",
-                "thermal Free Energies": "G_T",
-            }
-            for match in matches:
-                thermal_dict[_mapping[match[0]]] = float(match[1]) * atom_ureg.Unit(
-                    "hartree/particle"
-                )
-        if matches := g16_log_patterns.THERMOCHEMISTRY_CV_S.get_matches(focus_content):
-            thermal_dict["S"], thermal_dict["C_V"] = (
-                float(matches[0][1]) * atom_ureg.Unit("cal/mol/K"),
-                float(matches[0][2]) * atom_ureg.Unit("cal/mol/K"),
-            )
-        if thermal_dict:
-            return ThermalInformations.model_validate(thermal_dict)
-        return None
-
-    def _parse_forces(self) -> NumpyQuantity | None:
-        focus_content, self._block = g16_log_patterns.FORCES_IN_CARTESIAN.split_content(
-            cast(_HasParseMethod, self)._block
-        )
-        if focus_content == "":
-            return None
-        if matches := g16_log_patterns.FORCES_IN_CARTESIAN.get_matches(focus_content):
-            forces = (
-                np.array([list(map(float, match)) for match in matches])
-                * atom_ureg.hartree
-                / atom_ureg.bohr
-            )
-            return forces
-        return None
-
-    def _parse_hessian(self) -> NumpyQuantity | None:
-        focus_content, self._block = g16_log_patterns.HESSIAN_IN_CARTESIAN.split_content(
-            cast(_HasParseMethod, self)._block
-        )
-        if matches := g16_log_patterns.HESSIAN_IN_CARTESIAN.get_matches(focus_content):
-            hessian_dict: dict[int, list[float]] = {}
-            for match in matches:
-                row = int(match[0])
-                elements = list(map(float, match[1].replace("D", "E").split()))
-                if row not in hessian_dict:
-                    hessian_dict[row] = []
-                hessian_dict[row].extend(elements)
-            hessian = (
-                fill_symmetric_matrix(
-                    np.array([element for row in hessian_dict.values() for element in row])
-                )
-                * atom_ureg.hartree
-                / atom_ureg.bohr**2
-            )
-            return hessian
-        return None
-
-    def _parse_berny(self) -> GeometryOptimizationStatus | None:
-        berny_dict: dict[str, float] = {}
-        start_index = cast(_HasParseMethod, self)._block.find(
-            "Item               Value     Threshold  Converged?"
-        )
-        end_index = cast(_HasParseMethod, self)._block.find(
-            "GradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGrad",
-            start_index,
-        )
-        if start_index == -1 or end_index == -1:
-            focus_content, self._block = g16_log_patterns.BERNY_STATE_MAJOR_PART.split_content(
-                cast(_HasParseMethod, self)._block
-            )
-            if focus_content == "":
-                focus_content, self._block = g16_log_patterns.BERNY_STATE_BACKUP_PART.split_content(
-                    self._block
-                )
-        else:
-            focus_content = self._block[start_index:end_index]
-            self._block = self._block[end_index:]
-        if focus_content == "":
-            return None
-        if matches := g16_log_patterns.BERNY_STATE.get_matches(focus_content):
-            mapping = {
-                "Maximum Force": "max_force",
-                "RMS     Force": "rms_force",
-                "Maximum Displacement": "max_displacement",
-                "RMS     Displacement": "rms_displacement",
-            }
-            for match in matches:
-                berny_dict[mapping[match[0]]] = float(match[1])
-                berny_dict[f"{mapping[match[0]]}_threshold"] = float(match[2])
-        if matches := g16_log_patterns.ENERGY_CHANGE.get_matches(focus_content):
-            berny_dict["energy_change"] = float(matches[0][0].replace("D", "E"))
-        if matches := g16_log_patterns.BERNY_CONCLUSION.get_matches(focus_content):
-            berny_dict["geometry_optimized"] = True
-        else:
-            berny_dict["geometry_optimized"] = False
-        if berny_dict:
-            return GeometryOptimizationStatus.model_validate(berny_dict)
-        return None
-
-    def _parse_electric_dipole_moment_and_polarizability(
-        self,
-    ) -> Polarizability | None:
-        polarizability_dict: dict[str, Any] = {}
-        focus_content, self._block = g16_log_patterns.ELECTRIC_DIPOLE_PART.split_content(
-            cast(_HasParseMethod, self)._block
-        )
-        if focus_content == "":
-            return None
-        if matches := g16_log_patterns.ELECTRIC_DIPOLE_MOMENT.get_matches(focus_content):
-            dipole = (
-                np.array([float(match[1].replace("D", "E")) for match in matches[1:]])
-                * atom_ureg.debye
-            )
-            polarizability_dict["dipole"] = dipole
-        if matches := g16_log_patterns.DIPOLE_POLARIZABILITY.get_matches(focus_content):
-            polarizability_dict["isotropic_polarizability"] = (
-                float(matches[0][1].replace("D", "E")) * atom_ureg.bohr**3
-            )
-            polarizability_dict["anisotropic_polarizability"] = (
-                float(matches[1][1].replace("D", "E")) * atom_ureg.bohr**3
-            )
-            polarizability_dict["polarizability_tensor"] = (
-                np.array([float(match[1].replace("D", "E")) for match in matches[2:]])
-                * atom_ureg.bohr**3
-            )
-        if polarizability_dict:
-            return Polarizability.model_validate(polarizability_dict)
-        return None
-
-    def _parse_tail(self) -> dict[str, Any]:
-        tail_dict, remaining_tail = parse_archive_tail(
-            cast(_HasParseMethod, self)._block, include_coords=True
-        )
-        self._block = remaining_tail
-        return tail_dict
-
-    def _parse_tail_energies(self) -> Energies | None:
-        focus_content, self._block = g16_log_patterns.ENERGIES_IN_ARCHIVE_TAIL.split_content(
-            cast(_HasParseMethod, self)._block
-        )
-        if focus_content == "":
-            return None
-        energy_dict = parse_archive_tail_energies(focus_content)
-        return Energies.model_validate(energy_dict) if energy_dict else None
-
-    def _parse_tail_thermal_infos(self) -> ThermalInformations | None:
-        focus_content, self._block = g16_log_patterns.THERMOCHEMISTRY_IN_ARCHIVE_TAIL.split_content(
-            self._block
-        )
-        if focus_content == "":
-            return None
-        thermal_dict = parse_archive_tail_thermal_infos(focus_content)
-        return ThermalInformations.model_validate(thermal_dict) if thermal_dict else None
-
-    def _parse_tail_polarizability(self) -> Polarizability | None:
-        polarizability_dict = parse_archive_tail_polarizability(cast(_HasParseMethod, self)._block)
-        return Polarizability.model_validate(polarizability_dict) if polarizability_dict else None
-
-    def _parse_tail_hessian(self) -> NumpyQuantity | None:
-        focus_content, self._block = g16_log_patterns.HESSIAN_IN_ARCHIVE_TAIL.split_content(
-            cast(_HasParseMethod, self)._block
-        )
-        return parse_archive_tail_hessian(focus_content)
 
 
 class G16LogFileFrameParserMemory(

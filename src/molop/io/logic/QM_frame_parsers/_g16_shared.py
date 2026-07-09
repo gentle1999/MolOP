@@ -5,30 +5,31 @@ from typing import Any
 
 import numpy as np
 from pint.facets.numpy.quantity import NumpyQuantity
+from pint.facets.plain import PlainQuantity
 
 from molop.io.base_models.SearchPattern import MolOPPatternV2
 from molop.io.patterns.G16Patterns import g16_log_patterns
 from molop.unit import atom_ureg
 
 
-INPUT_COORDS_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.INPUT_COORDS)
-STANDARD_COORDS_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.STANDARD_COORDS)
-SCF_ENERGIES_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.SCF_ENERGIES)
-ISOTROPIC_POLARIZABILITY_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.ISOTROPIC_POLARIZABILITY)
-POPULATION_ANALYSIS_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.POPULATION_ANALYSIS)
-FREQUENCY_ANALYSIS_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.FREQUENCY_ANALYSIS)
-THERMOCHEMISTRY_PART_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.THERMOCHEMISTRY_PART)
-FORCES_IN_CARTESIAN_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.FORCES_IN_CARTESIAN)
-HESSIAN_IN_CARTESIAN_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.HESSIAN_IN_CARTESIAN)
-BERNY_STATE_MAJOR_PART_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.BERNY_STATE_MAJOR_PART)
-BERNY_STATE_BACKUP_PART_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.BERNY_STATE_BACKUP_PART)
-ELECTRIC_DIPOLE_PART_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.ELECTRIC_DIPOLE_PART)
-ENERGIES_IN_ARCHIVE_TAIL_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.ENERGIES_IN_ARCHIVE_TAIL)
-THERMOCHEMISTRY_IN_ARCHIVE_TAIL_V2 = MolOPPatternV2.from_pattern(
+INPUT_COORDS = MolOPPatternV2.from_pattern(g16_log_patterns.INPUT_COORDS)
+STANDARD_COORDS = MolOPPatternV2.from_pattern(g16_log_patterns.STANDARD_COORDS)
+SCF_ENERGIES = MolOPPatternV2.from_pattern(g16_log_patterns.SCF_ENERGIES)
+ISOTROPIC_POLARIZABILITY = MolOPPatternV2.from_pattern(g16_log_patterns.ISOTROPIC_POLARIZABILITY)
+POPULATION_ANALYSIS = MolOPPatternV2.from_pattern(g16_log_patterns.POPULATION_ANALYSIS)
+FREQUENCY_ANALYSIS = MolOPPatternV2.from_pattern(g16_log_patterns.FREQUENCY_ANALYSIS)
+THERMOCHEMISTRY_PART = MolOPPatternV2.from_pattern(g16_log_patterns.THERMOCHEMISTRY_PART)
+FORCES_IN_CARTESIAN = MolOPPatternV2.from_pattern(g16_log_patterns.FORCES_IN_CARTESIAN)
+HESSIAN_IN_CARTESIAN = MolOPPatternV2.from_pattern(g16_log_patterns.HESSIAN_IN_CARTESIAN)
+BERNY_STATE_MAJOR_PART = MolOPPatternV2.from_pattern(g16_log_patterns.BERNY_STATE_MAJOR_PART)
+BERNY_STATE_BACKUP_PART = MolOPPatternV2.from_pattern(g16_log_patterns.BERNY_STATE_BACKUP_PART)
+ELECTRIC_DIPOLE_PART = MolOPPatternV2.from_pattern(g16_log_patterns.ELECTRIC_DIPOLE_PART)
+ENERGIES_IN_ARCHIVE_TAIL = MolOPPatternV2.from_pattern(g16_log_patterns.ENERGIES_IN_ARCHIVE_TAIL)
+THERMOCHEMISTRY_IN_ARCHIVE_TAIL = MolOPPatternV2.from_pattern(
     g16_log_patterns.THERMOCHEMISTRY_IN_ARCHIVE_TAIL
 )
-HESSIAN_IN_ARCHIVE_TAIL_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.HESSIAN_IN_ARCHIVE_TAIL)
-ARCHIVE_TAIL_V2 = MolOPPatternV2.from_pattern(g16_log_patterns.ARCHIVE_TAIL)
+HESSIAN_IN_ARCHIVE_TAIL = MolOPPatternV2.from_pattern(g16_log_patterns.HESSIAN_IN_ARCHIVE_TAIL)
+ARCHIVE_TAIL = MolOPPatternV2.from_pattern(g16_log_patterns.ARCHIVE_TAIL)
 
 
 def extract_coords(
@@ -44,11 +45,36 @@ def extract_coords(
     return atoms, np.array(coords) * atom_ureg.angstrom
 
 
+def extract_rotation_constants(block: str) -> NumpyQuantity | None:
+    if matches := g16_log_patterns.ROTATIONAL_CONST.get_matches(block):
+        return np.array(list(map(float, matches[0]))) * atom_ureg.gigahertz
+    return None
+
+
 def _extract_float_tokens(text: str, *, decimal_places: int | None = None) -> list[float]:
     pattern = r"[-+]?\d+\.\d+(?:[DEde][-+]?\d+)?"
     if decimal_places is not None:
         pattern = rf"[-+]?\d+\.\d{{{decimal_places}}}(?:[DEde][-+]?\d+)?"
     return [float(value.replace("D", "E").replace("d", "E")) for value in re.findall(pattern, text)]
+
+
+def _parse_orbital_line_values(energies: str) -> list[float]:
+    precise_values = [
+        float(value.replace("D", "E").replace("d", "E"))
+        for value in re.findall(r"[-+]?\d+\.\d{5}(?:[DEde][-+]?\d+)?", energies)
+    ]
+    if precise_values:
+        return precise_values
+    return [
+        float(value.replace("D", "E").replace("d", "E"))
+        for value in re.findall(r"[-+]?\d+\.\d+(?:[DEde][-+]?\d+)?", energies)
+    ]
+
+
+def _parse_frequency_line_values(line: str) -> list[float]:
+    if "--" in line:
+        line = line.split("--", 1)[1]
+    return _parse_orbital_line_values(line)
 
 
 def _extract_labeled_float_tokens(
@@ -141,6 +167,34 @@ def _trim_molecular_orbital_symmetries(mo: dict[str, Any]) -> dict[str, Any]:
         if len(beta_symmetries) > count:
             mo["beta_symmetries"] = beta_symmetries[-count:]
     return mo
+
+
+def _parse_running_time(block: str) -> PlainQuantity | None:
+    if matches := g16_log_patterns.PROCEDURE_TIME.match_content(block):
+        total_seconds = 0.0
+        for match in matches:
+            total_seconds += float(match[1]) + float(match[2])
+        return total_seconds * atom_ureg.second
+    if matches := g16_log_patterns.JOB_TIME.match_content(block):
+        total_seconds = 0.0
+        for match in matches:
+            total_seconds += (
+                float(match[1]) * 24 * 3600
+                + float(match[2]) * 3600
+                + float(match[3]) * 60
+                + float(match[4])
+            )
+        return total_seconds * atom_ureg.second
+    return None
+
+
+def _temperature_and_pressure_from_block(block: str) -> dict[str, Any]:
+    if matches := g16_log_patterns.TEMPEREATURE_PRESSURE.match_content(block):
+        return {
+            "temperature": float(matches[0][0]) * atom_ureg.K,
+            "pressure": float(matches[0][1]) * atom_ureg.atm,
+        }
+    return {}
 
 
 def _summarize_parse_context(text: str, *, limit: int = 240) -> str:
