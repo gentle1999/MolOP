@@ -12,7 +12,6 @@ from molop.io.base_models.DataClasses import GeometryOptimizationStatus
 from molop.io.base_models.SearchPattern import MolOPPattern, MolOPPatternV2
 from molop.io.logic.QM_frame_models.G16V3Components import (
     G16V3L202RotConstComponent,
-    G16V3L9999ArchiveComponent,
 )
 from molop.io.logic.QM_frame_parsers._g16_v2_shared import (
     ARCHIVE_TAIL_V2,
@@ -38,7 +37,13 @@ from molop.io.logic.QM_frame_parsers._g16_v2_shared import (
     _trim_molecular_orbital_symmetries,
     extract_coords,
 )
-from molop.io.logic.QM_parsers._g16log_archive_tail import parse_archive_tail_metadata
+from molop.io.logic.QM_parsers._g16log_archive_tail import (
+    parse_archive_tail_energies,
+    parse_archive_tail_hessian,
+    parse_archive_tail_payload,
+    parse_archive_tail_polarizability,
+    parse_archive_tail_thermal_infos,
+)
 from molop.io.patterns.G16Patterns import g16_log_patterns
 from molop.unit import atom_ureg
 from molop.utils.functions import fill_symmetric_matrix
@@ -431,65 +436,8 @@ def extract_tail_metadata_from_state(state: ParseState) -> dict[str, Any]:
     if focus_content == "":
         return {}
     state.advance_to(next_cursor)
-    tail, _tail_remaining = parse_archive_tail_metadata(focus_content, include_coords=True)
-    return tail
-
-
-def _extract_tail_energies_from_content(content: str) -> dict[str, Any] | None:
-    energy_dict: dict[str, Any] = {}
-    if matches := g16_log_patterns.ENERGIES_IN_ARCHIVE_TAIL.get_matches(content):
-        for match in matches:
-            e = match[0]
-            energies_value = float(match[1]) * atom_ureg.hartree
-            if "HF" in e:
-                energy_dict["reference_energy"] = energies_value
-            if "MP2" in e:
-                energy_dict["mp2_energy"] = energies_value
-            if "MP3" in e:
-                energy_dict["mp3_energy"] = energies_value
-            if "MP4" in e:
-                energy_dict["mp4_energy"] = energies_value
-            if "CCSD" in e:
-                energy_dict["ccsd_energy"] = energies_value
-    return energy_dict or None
-
-
-def _extract_tail_thermal_infos_from_content(content: str) -> dict[str, Any] | None:
-    thermal_dict: dict[str, Any] = {}
-    thermal_mapping = {
-        "ZeroPoint": "ZPVE",
-        "Thermal": "TCE",
-        "ETot": "U_T",
-        "HTot": "H_T",
-        "GTot": "G_T",
-    }
-    if matches := g16_log_patterns.THERMOCHEMISTRY_IN_ARCHIVE_TAIL.get_matches(content):
-        for match in matches:
-            if match[0] in thermal_mapping:
-                thermal_dict[thermal_mapping[match[0]]] = float(match[1]) * atom_ureg.Unit(
-                    "hartree/particle"
-                )
-    return thermal_dict or None
-
-
-def _extract_tail_hessian_from_content(content: str) -> NumpyQuantity | None:
-    focus_content, _remaining_content = HESSIAN_IN_ARCHIVE_TAIL_V2.split_content_from(content)
-    if focus_content == "":
-        return None
-    if matches := g16_log_patterns.HESSIAN_IN_ARCHIVE_TAIL.get_matches(focus_content):
-        try:
-            return (
-                fill_symmetric_matrix(np.array([float(match[0]) for match in matches]))
-                * atom_ureg.hartree
-                / atom_ureg.bohr**2
-            )
-        except (AssertionError, ValueError) as exc:
-            moloplogger.warning(
-                "Skipping invalid Gaussian archive hessian: %s | values=%d",
-                exc,
-                len(matches),
-            )
-    return None
+    payload, _tail_remaining = parse_archive_tail_payload(focus_content, include_coords=True)
+    return payload.get("metadata", {})
 
 
 def extract_archive_tail_payload_from_state(state: ParseState) -> dict[str, Any]:
@@ -501,19 +449,7 @@ def extract_archive_tail_payload_from_state(state: ParseState) -> dict[str, Any]
     # them before advancing past the block, otherwise energy fallback data can be
     # skipped on terminal frequency frames without a live "SCF Done" line.
     state.advance_to(next_cursor)
-    normalized_focus_content = focus_content.replace("\n ", "")
-    metadata, _tail_remaining = parse_archive_tail_metadata(focus_content, include_coords=True)
-    payload: dict[str, Any] = {"metadata": metadata}
-    if energies := _extract_tail_energies_from_content(normalized_focus_content):
-        payload["energies"] = energies
-    if thermal_infos := _extract_tail_thermal_infos_from_content(normalized_focus_content):
-        payload["thermal_informations"] = thermal_infos
-    if polarizability := G16V3L9999ArchiveComponent._extract_archive_polarizability(
-        normalized_focus_content
-    ):
-        payload["polarizability"] = polarizability
-    if (hessian := _extract_tail_hessian_from_content(normalized_focus_content)) is not None:
-        payload["hessian"] = hessian
+    payload, _tail_remaining = parse_archive_tail_payload(focus_content, include_coords=True)
     return payload
 
 
@@ -522,7 +458,7 @@ def extract_tail_energies_from_state(state: ParseState) -> dict[str, Any] | None
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
-    return _extract_tail_energies_from_content(focus_content.replace("\n ", ""))
+    return parse_archive_tail_energies(focus_content)
 
 
 def extract_tail_thermal_infos_from_state(state: ParseState) -> dict[str, Any] | None:
@@ -530,11 +466,11 @@ def extract_tail_thermal_infos_from_state(state: ParseState) -> dict[str, Any] |
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
-    return _extract_tail_thermal_infos_from_content(focus_content.replace("\n ", ""))
+    return parse_archive_tail_thermal_infos(focus_content)
 
 
 def extract_tail_polarizability_from_state(state: ParseState) -> dict[str, Any] | None:
-    return G16V3L9999ArchiveComponent._extract_archive_polarizability(state.remaining_content)
+    return parse_archive_tail_polarizability(state.remaining_content)
 
 
 def extract_tail_hessian_from_state(state: ParseState) -> NumpyQuantity | None:
@@ -542,7 +478,7 @@ def extract_tail_hessian_from_state(state: ParseState) -> NumpyQuantity | None:
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
-    return _extract_tail_hessian_from_content(focus_content.replace("\n ", ""))
+    return parse_archive_tail_hessian(focus_content)
 
 
 def extract_rotation_consts_from_state(state: ParseState) -> NumpyQuantity | None:

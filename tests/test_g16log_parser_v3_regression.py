@@ -52,19 +52,20 @@ def test_g16log_v3_matches_v1_on_representative_fixtures():
         )
 
 
-def test_g16log_v3_does_not_invent_archive_energies_on_terminal_frame():
+def test_g16log_v3_uses_archive_energies_without_inventing_live_status():
     block = _last_frame_block(ARCHIVE_ONLY_FIXTURE)
     v1_frame = G16LogFileFrameParserMemory().parse(block)
     v3_frame = G16LogFileFrameParserV3Memory().parse(block)
 
-    assert v1_frame.energies is None
-    assert v3_frame.energies is None
-    assert v1_frame.status is None
-    assert v3_frame.status is None
-    assert v1_frame.temperature is None
-    assert v3_frame.temperature is None
-    assert v1_frame.pressure is None
-    assert v3_frame.pressure is None
+    for frame in (v1_frame, v3_frame):
+        assert frame.energies is not None
+        assert frame.energies.reference_energy is not None
+        assert frame.energies.reference_energy.to("hartree").m == pytest.approx(-1.1330046)
+        assert frame.energies.ccsd_energy is not None
+        assert frame.energies.ccsd_energy.to("hartree").m == pytest.approx(-1.1726356)
+        assert frame.status is None
+        assert frame.temperature is None
+        assert frame.pressure is None
 
 
 def test_g16log_v3_preserves_live_reference_energy_over_archive_value():

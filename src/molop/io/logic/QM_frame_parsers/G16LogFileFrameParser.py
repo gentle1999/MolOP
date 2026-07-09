@@ -26,13 +26,19 @@ from molop.io.logic.QM_frame_models.G16LogFileFrame import (
 from molop.io.logic.QM_frame_models.G16V3Components import (
     G16V3L601PopAnalComponent,
     G16V3L716FreqComponent,
-    G16V3L9999ArchiveComponent,
     _parse_frequency_line_values,
     _parse_orbital_line_values,
     extract_coords,
 )
 from molop.io.logic.QM_frame_parsers._g16_v2_shared import _extract_labeled_float_tokens
-from molop.io.logic.QM_parsers._g16log_archive_tail import parse_archive_tail
+from molop.io.logic.QM_parsers._g16log_archive_tail import (
+    extract_archive_tail_payload,
+    parse_archive_tail,
+    parse_archive_tail_energies,
+    parse_archive_tail_hessian,
+    parse_archive_tail_polarizability,
+    parse_archive_tail_thermal_infos,
+)
 from molop.io.patterns.G16Patterns import g16_log_patterns
 from molop.unit import atom_ureg
 from molop.utils.functions import fill_symmetric_matrix, merge_models
@@ -103,51 +109,38 @@ class G16LogFileFrameParserMixin:
                 )
             else:
                 infos["polarizability"] = polarizability
-        tail, working_block = G16V3L9999ArchiveComponent._extract_archive_metadata(
+        archive_payload, working_block = extract_archive_tail_payload(
             cast(_HasParseMethod, self)._block
         )
         cast(_HasParseMethod, self)._block = working_block
-        if tail:
+        if archive_payload:
+            tail = archive_payload.get("metadata", {})
             for key, value in tail.items():
                 if key not in infos:
                     infos[key] = value
-            tail_energies, working_block = G16V3L9999ArchiveComponent._extract_archive_energies(
-                cast(_HasParseMethod, self)._block
-            )
-            cast(_HasParseMethod, self)._block = working_block
-            if tail_energies is not None:
+            if tail_energies_dict := archive_payload.get("energies"):
+                tail_energies = Energies.model_validate(tail_energies_dict)
                 if "energies" in infos:
                     infos["energies"] = merge_models(infos["energies"], tail_energies)
                 else:
                     infos["energies"] = tail_energies
-            tail_thermal_info, working_block = (
-                G16V3L9999ArchiveComponent._extract_archive_thermal_infos(
-                    cast(_HasParseMethod, self)._block
-                )
-            )
-            cast(_HasParseMethod, self)._block = working_block
-            if tail_thermal_info is not None:
+            if tail_thermal_info_dict := archive_payload.get("thermal_informations"):
+                tail_thermal_info = ThermalInformations.model_validate(tail_thermal_info_dict)
                 if "thermal_informations" in infos:
                     infos["thermal_informations"] = merge_models(
                         infos["thermal_informations"], tail_thermal_info
                     )
                 else:
                     infos["thermal_informations"] = tail_thermal_info
-            if (
-                tail_polarizability := G16V3L9999ArchiveComponent._extract_archive_polarizability(
-                    cast(_HasParseMethod, self)._block
-                )
-            ) is not None:
+            if tail_polarizability_dict := archive_payload.get("polarizability"):
+                tail_polarizability = Polarizability.model_validate(tail_polarizability_dict)
                 if "polarizability" in infos:
                     infos["polarizability"] = merge_models(
                         infos["polarizability"], tail_polarizability
                     )
                 else:
                     infos["polarizability"] = tail_polarizability
-            tail_hessian, working_block = G16V3L9999ArchiveComponent._extract_archive_hessian(
-                cast(_HasParseMethod, self)._block
-            )
-            cast(_HasParseMethod, self)._block = working_block
+            tail_hessian = archive_payload.get("hessian")
             if tail_hessian is not None and "hessian" not in infos:
                 infos["hessian"] = tail_hessian
         return infos
@@ -637,87 +630,32 @@ class G16LogFileFrameParserMixin:
         return tail_dict
 
     def _parse_tail_energies(self) -> Energies | None:
-        energy_dict: dict[str, Any] = {}
         focus_content, self._block = g16_log_patterns.ENERGIES_IN_ARCHIVE_TAIL.split_content(
             cast(_HasParseMethod, self)._block
         )
         if focus_content == "":
             return None
-        if matches := g16_log_patterns.ENERGIES_IN_ARCHIVE_TAIL.get_matches(focus_content):
-            for match in matches:
-                e = match[0]
-                energies_value = float(match[1]) * atom_ureg.hartree
-                if "HF" in e:
-                    energy_dict["reference_energy"] = energies_value
-                if "MP2" in e:
-                    energy_dict["mp2_energy"] = energies_value
-                if "MP3" in e:
-                    energy_dict["mp3_energy"] = energies_value
-                if "MP4" in e:
-                    energy_dict["mp4_energy"] = energies_value
-                if "CCSD" in e:
-                    energy_dict["ccsd_energy"] = energies_value
-        if energy_dict:
-            return Energies.model_validate(energy_dict)
-        return None
+        energy_dict = parse_archive_tail_energies(focus_content)
+        return Energies.model_validate(energy_dict) if energy_dict else None
 
     def _parse_tail_thermal_infos(self) -> ThermalInformations | None:
-        thermal_dict: dict[str, Any] = {}
-        thermal_mapping = {
-            "ZeroPoint": "ZPVE",
-            "Thermal": "TCE",
-            "ETot": "U_T",
-            "HTot": "H_T",
-            "GTot": "G_T",
-        }
         focus_content, self._block = g16_log_patterns.THERMOCHEMISTRY_IN_ARCHIVE_TAIL.split_content(
             self._block
         )
         if focus_content == "":
             return None
-        if matches := g16_log_patterns.THERMOCHEMISTRY_IN_ARCHIVE_TAIL.get_matches(focus_content):
-            for match in matches:
-                if match[0] in thermal_mapping:
-                    thermal_dict[thermal_mapping[match[0]]] = float(match[1]) * atom_ureg.Unit(
-                        "hartree/particle"
-                    )
-        if thermal_dict:
-            return ThermalInformations.model_validate(thermal_dict)
-        return None
+        thermal_dict = parse_archive_tail_thermal_infos(focus_content)
+        return ThermalInformations.model_validate(thermal_dict) if thermal_dict else None
 
     def _parse_tail_polarizability(self) -> Polarizability | None:
-        polarizability_dict: dict[str, Any] = {}
-        if matches := g16_log_patterns.DIPOLE_IN_ARCHIVE_TAIL.get_matches(
-            cast(_HasParseMethod, self)._block
-        ):
-            polarizability_dict["dipole"] = (
-                np.array([float(value) for value in matches[0]]) * atom_ureg.debye
-            )
-        if matches := g16_log_patterns.POLAR_IN_ARCHIVE_TAIL.get_matches(self._block):
-            polarizability_dict["polarizability_tensor"] = (
-                np.array([float(value) for value in matches[0]]) * atom_ureg.bohr**3
-            )
-        if matches := g16_log_patterns.QUADRUPOLE_IN_ARCHIVE_TAIL.get_matches(self._block):
-            polarizability_dict["quadrupole"] = (
-                np.array([float(value) for value in matches[0]])
-                * atom_ureg.debye
-                * atom_ureg.angstrom
-            )
-        if polarizability_dict:
-            return Polarizability.model_validate(polarizability_dict)
-        return None
+        polarizability_dict = parse_archive_tail_polarizability(cast(_HasParseMethod, self)._block)
+        return Polarizability.model_validate(polarizability_dict) if polarizability_dict else None
 
     def _parse_tail_hessian(self) -> NumpyQuantity | None:
         focus_content, self._block = g16_log_patterns.HESSIAN_IN_ARCHIVE_TAIL.split_content(
             cast(_HasParseMethod, self)._block
         )
-        if matches := g16_log_patterns.HESSIAN_IN_ARCHIVE_TAIL.get_matches(focus_content):
-            return (
-                fill_symmetric_matrix(np.array([float(match[0]) for match in matches]))
-                * atom_ureg.hartree
-                / atom_ureg.bohr**2
-            )
-        return None
+        return parse_archive_tail_hessian(focus_content)
 
 
 class G16LogFileFrameParserMemory(

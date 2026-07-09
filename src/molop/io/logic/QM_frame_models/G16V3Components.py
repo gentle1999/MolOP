@@ -39,6 +39,11 @@ from molop.io.logic.QM_frame_parsers._g16_v2_shared import (
 )
 from molop.io.logic.QM_parsers._g16log_archive_tail import (
     parse_archive_tail,
+    parse_archive_tail_energies,
+    parse_archive_tail_hessian,
+    parse_archive_tail_payload,
+    parse_archive_tail_polarizability,
+    parse_archive_tail_thermal_infos,
 )
 from molop.io.patterns.G16Patterns import g16_log_patterns
 from molop.unit import atom_ureg
@@ -2825,49 +2830,22 @@ class G16V3L9999ArchiveComponent(G16V3BaseComponent):
 
     @staticmethod
     def _extract_archive_energies(block: str) -> tuple[Energies | None, str]:
-        energy_dict: dict[str, Any] = {}
         focus_content, remaining_block = g16_log_patterns.ENERGIES_IN_ARCHIVE_TAIL.split_content(
             block
         )
         if focus_content == "":
             return None, block
-        if matches := g16_log_patterns.ENERGIES_IN_ARCHIVE_TAIL.get_matches(focus_content):
-            for match in matches:
-                e = match[0]
-                energies_value = float(match[1]) * atom_ureg.hartree
-                if "HF" in e:
-                    energy_dict["reference_energy"] = energies_value
-                if "MP2" in e:
-                    energy_dict["mp2_energy"] = energies_value
-                if "MP3" in e:
-                    energy_dict["mp3_energy"] = energies_value
-                if "MP4" in e:
-                    energy_dict["mp4_energy"] = energies_value
-                if "CCSD" in e:
-                    energy_dict["ccsd_energy"] = energies_value
+        energy_dict = parse_archive_tail_energies(focus_content)
         return (Energies.model_validate(energy_dict) if energy_dict else None, remaining_block)
 
     @staticmethod
     def _extract_archive_thermal_infos(block: str) -> tuple[ThermalInformations | None, str]:
-        thermal_dict: dict[str, Any] = {}
-        thermal_mapping = {
-            "ZeroPoint": "ZPVE",
-            "Thermal": "TCE",
-            "ETot": "U_T",
-            "HTot": "H_T",
-            "GTot": "G_T",
-        }
         focus_content, remaining_block = (
             g16_log_patterns.THERMOCHEMISTRY_IN_ARCHIVE_TAIL.split_content(block)
         )
         if focus_content == "":
             return None, block
-        if matches := g16_log_patterns.THERMOCHEMISTRY_IN_ARCHIVE_TAIL.get_matches(focus_content):
-            for match in matches:
-                if match[0] in thermal_mapping:
-                    thermal_dict[thermal_mapping[match[0]]] = float(match[1]) * atom_ureg.Unit(
-                        "hartree/particle"
-                    )
+        thermal_dict = parse_archive_tail_thermal_infos(focus_content)
         return (
             ThermalInformations.model_validate(thermal_dict) if thermal_dict else None,
             remaining_block,
@@ -2875,53 +2853,32 @@ class G16V3L9999ArchiveComponent(G16V3BaseComponent):
 
     @staticmethod
     def _extract_archive_polarizability(block: str) -> dict[str, Any] | None:
-        polarizability_dict: dict[str, Any] = {}
-        if matches := g16_log_patterns.DIPOLE_IN_ARCHIVE_TAIL.get_matches(block):
-            polarizability_dict["dipole"] = (
-                np.array([float(value) for value in matches[0]]) * atom_ureg.debye
-            )
-        if matches := g16_log_patterns.POLAR_IN_ARCHIVE_TAIL.get_matches(block):
-            polarizability_dict["polarizability_tensor"] = (
-                np.array([float(value) for value in matches[0]]) * atom_ureg.bohr**3
-            )
-        if matches := g16_log_patterns.QUADRUPOLE_IN_ARCHIVE_TAIL.get_matches(block):
-            polarizability_dict["quadrupole"] = (
-                np.array([float(value) for value in matches[0]])
-                * atom_ureg.debye
-                * atom_ureg.angstrom
-            )
-        return polarizability_dict or None
+        return parse_archive_tail_polarizability(block)
 
     @staticmethod
     def _extract_archive_hessian(block: str) -> tuple[NumpyQuantity | None, str]:
         focus_content, remaining_block = g16_log_patterns.HESSIAN_IN_ARCHIVE_TAIL.split_content(
             block
         )
-        if matches := g16_log_patterns.HESSIAN_IN_ARCHIVE_TAIL.get_matches(focus_content):
-            return (
-                fill_symmetric_matrix(np.array([float(match[0]) for match in matches]))
-                * atom_ureg.hartree
-                / atom_ureg.bohr**2,
-                remaining_block,
-            )
-        return None, remaining_block
+        return parse_archive_tail_hessian(focus_content), remaining_block
 
     @classmethod
     def _parse_archive_payload(cls, raw_text: str, *, structure_only: bool) -> dict[str, Any]:
-        metadata, remaining_tail = cls._extract_archive_metadata(raw_text)
-        payload = dict(metadata)
+        archive_payload, _remaining_tail = parse_archive_tail_payload(
+            raw_text,
+            include_coords=True,
+            structure_only=structure_only,
+        )
+        payload = dict(archive_payload.get("metadata", {}))
         if structure_only:
             return payload
-        energies, _remaining_tail = cls._extract_archive_energies(remaining_tail)
-        if energies is not None:
-            payload["energies"] = energies
-        thermal, _remaining_tail = cls._extract_archive_thermal_infos(remaining_tail)
-        if thermal is not None:
-            payload["thermal_informations"] = thermal
-        if tail_polarizability := cls._extract_archive_polarizability(remaining_tail):
-            payload["polarizability"] = tail_polarizability
-        hessian, _remaining_tail = cls._extract_archive_hessian(remaining_tail)
-        if hessian is not None:
+        if energies := archive_payload.get("energies"):
+            payload["energies"] = Energies.model_validate(energies)
+        if thermal := archive_payload.get("thermal_informations"):
+            payload["thermal_informations"] = ThermalInformations.model_validate(thermal)
+        if polarizability := archive_payload.get("polarizability"):
+            payload["polarizability"] = Polarizability.model_validate(polarizability)
+        if (hessian := archive_payload.get("hessian")) is not None:
             payload["hessian"] = hessian
         return payload
 

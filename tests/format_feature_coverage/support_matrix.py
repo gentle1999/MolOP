@@ -285,12 +285,12 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="Energies",
                 support="partial",
-                scope="Reference/electronic and method-specific energies are populated on representative output frames; live reference energies take precedence over archive values; terminal archive-only frames do not invent energies.",
+                scope="Reference/electronic and method-specific energies are populated on representative output frames; live reference energies take precedence over archive values; archive-tail energies are parsed without inventing live status fields.",
                 limitations="Only tested energy fields are advertised; not every Gaussian post-HF or correction energy table is guaranteed structured.",
                 tests=(
                     "tests/test_g16log_parser_v3_regression.py::test_g16log_v3_matches_v1_on_representative_fixtures",
                     "tests/test_g16log_parser_v3_regression.py::test_g16log_v3_preserves_live_reference_energy_over_archive_value",
-                    "tests/test_g16log_parser_v3_regression.py::test_g16log_v3_does_not_invent_archive_energies_on_terminal_frame",
+                    "tests/test_g16log_parser_v3_regression.py::test_g16log_v3_uses_archive_energies_without_inventing_live_status",
                 ),
             ),
             FeatureSupport(
