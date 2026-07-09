@@ -60,6 +60,7 @@ df_full
 ## Related Links
 
 - [Installation](installation.md)
+- [Model Field Map](../reference/model_fields.md)
 - [01-Gaussian Parse and Inspect (Notebook)](../examples/01-gaussian-parse-and-inspect.ipynb)
 - [Tutorials Overview](../tutorials/index.md)
 - [API Reference](../reference/api.md)

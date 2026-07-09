@@ -58,6 +58,7 @@ df_full
 ## 相关链接
 
 - [安装指南](installation.md)
+- [模型字段](../reference/model_fields.md)
 - [01-Gaussian 解析与检查（Notebook）](../examples/01-gaussian-parse-and-inspect.ipynb)
 - [教程概览](../tutorials/index.md)
 - [API 参考](../reference/api.md)
