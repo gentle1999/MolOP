@@ -22,7 +22,9 @@ from molop.io.base_models.FileParser import (
     _HasFileParseMethod,
 )
 from molop.io.base_models.ParseContainers import ModelParseResult, TextParseContext
+from molop.io.base_models.SearchPattern import MolOPPattern
 from molop.io.codec_exceptions import FormatMismatchError
+from molop.io.logic.gaussian_patterns import g16_log_patterns
 from molop.io.logic.QM_frame_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
     G16LogFileFrameMemory,
@@ -33,7 +35,6 @@ from molop.io.logic.QM_frame_parsers.G16LogFileFrameParser import (
 )
 from molop.io.logic.QM_models.G16LogFile import BaseCalcFile, G16LogFileDisk, G16LogFileMemory
 from molop.io.logic.QM_parsers._g16log_archive_tail import parse_archive_tail
-from molop.io.patterns.G16Patterns import MolOPPattern, g16_log_patterns
 from molop.unit import atom_ureg
 from molop.utils.functions import find_rigid_transform
 

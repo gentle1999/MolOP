@@ -6,7 +6,7 @@ from typing import Any
 from pydantic import Field
 
 from molop.io.base_models.Bases import BaseDataClassWithUnit
-from molop.io.patterns.G16Patterns import SEMI_EMPIRICAL_METHODS
+from molop.io.logic.gaussian_patterns import SEMI_EMPIRICAL_METHODS
 
 
 class GaussianRouteToken(BaseDataClassWithUnit):

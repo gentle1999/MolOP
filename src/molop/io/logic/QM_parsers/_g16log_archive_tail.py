@@ -8,7 +8,7 @@ from rdkit import Chem
 
 from molop.config import moloplogger
 from molop.io.base_models.SearchPattern import MolOPPattern
-from molop.io.patterns.G16Patterns import g16_log_patterns
+from molop.io.logic.gaussian_patterns import g16_log_patterns
 from molop.unit import atom_ureg
 from molop.utils.functions import fill_symmetric_matrix
 

@@ -20,6 +20,7 @@ from molop.io.logic.gaussian_common import (
     as_common_qm_input_target,
     populate_common_gaussian_qm_containers,
 )
+from molop.io.logic.gaussian_patterns import SEMI_EMPIRICAL_METHODS
 from molop.io.logic.gaussian_route_models import (
     GaussianRouteSemantic,
     parse_gaussian_route_semantic,
@@ -29,7 +30,6 @@ from molop.io.logic.QM_frame_models.G16Components import (
     G16ComponentTreeBuilder,
     _rawify_payload,
 )
-from molop.io.patterns.G16Patterns import SEMI_EMPIRICAL_METHODS
 from molop.unit import atom_ureg
 from molop.utils.functions import find_rigid_transform, invert_transform_coords, transform_coords
 

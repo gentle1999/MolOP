@@ -23,11 +23,11 @@ from molop.io.base_models.ChemFileFrame import BaseQMInputFrame
 from molop.io.base_models.DataClasses import AtomInInternalCoords, InternalCoords
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
 from molop.io.logic.gaussian_common import populate_common_gaussian_qm_containers
+from molop.io.logic.gaussian_patterns import options_parser
 from molop.io.logic.gaussian_route_models import (
     GaussianRouteSemantic,
     parse_gaussian_route_semantic,
 )
-from molop.io.patterns.G16Patterns import options_parser
 from molop.structure.FormatConverter import rdmol_to_gjf_connectivity
 from molop.structure.GeometryTransformation import merge_mols_directly
 from molop.unit import atom_ureg

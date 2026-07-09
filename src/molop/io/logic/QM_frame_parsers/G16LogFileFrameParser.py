@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
 from molop.io.base_models.ParseContainers import ModelParseResult
+from molop.io.logic.gaussian_patterns import g16_log_patterns
 from molop.io.logic.QM_frame_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
     G16LogFileFrameMemory,
@@ -30,7 +31,6 @@ from molop.io.logic.QM_frame_parsers._g16_shared import (
     _parse_running_time,
     _temperature_and_pressure_from_block,
 )
-from molop.io.patterns.G16Patterns import g16_log_patterns
 
 
 class G16ParsePhase(Enum):

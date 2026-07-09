@@ -9,6 +9,7 @@ from pint.facets.plain import PlainQuantity, PlainUnit
 
 from molop.config import moloplogger
 from molop.io.base_models.SearchPattern import MolOPPattern, MolOPPatternV2
+from molop.io.logic.gaussian_patterns import g16_log_patterns
 from molop.io.logic.QM_frame_parsers._g16_shared import (
     ARCHIVE_TAIL,
     BERNY_STATE_BACKUP_PART,
@@ -41,7 +42,6 @@ from molop.io.logic.QM_parsers._g16log_archive_tail import (
     parse_archive_tail_polarizability,
     parse_archive_tail_thermal_infos,
 )
-from molop.io.patterns.G16Patterns import g16_log_patterns
 from molop.unit import atom_ureg
 from molop.utils.functions import fill_symmetric_matrix
 

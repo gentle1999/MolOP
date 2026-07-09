@@ -23,6 +23,9 @@ from molop.io.logic.gaussian_common import (
     as_common_qm_input_target,
     populate_common_gaussian_qm_containers,
 )
+from molop.io.logic.gaussian_patterns import (
+    SEMI_EMPIRICAL_METHODS,
+)
 from molop.io.logic.gaussian_route_models import (
     GaussianRouteSemantic,
     parse_gaussian_route_semantic,
@@ -30,9 +33,6 @@ from molop.io.logic.gaussian_route_models import (
 from molop.io.logic.QM_frame_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
     G16LogFileFrameMemory,
-)
-from molop.io.patterns.G16Patterns import (
-    SEMI_EMPIRICAL_METHODS,
 )
 
 

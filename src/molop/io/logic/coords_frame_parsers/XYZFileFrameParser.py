@@ -15,7 +15,7 @@ from rdkit import Chem
 from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
 from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.coords_frame_models.XYZFileFrame import XYZFileFrameDisk, XYZFileFrameMemory
-from molop.io.patterns.XYZPatterns import xyz_patterns
+from molop.io.logic.coords_frame_parsers._xyz_patterns import xyz_patterns
 from molop.unit import atom_ureg
 
 

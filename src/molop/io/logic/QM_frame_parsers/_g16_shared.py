@@ -8,7 +8,7 @@ from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity
 
 from molop.io.base_models.SearchPattern import MolOPPatternV2
-from molop.io.patterns.G16Patterns import g16_log_patterns
+from molop.io.logic.gaussian_patterns import g16_log_patterns
 from molop.unit import atom_ureg
 
 
