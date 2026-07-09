@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 import json
 from pathlib import Path
 
@@ -81,7 +82,10 @@ def test_format_transform_completes_dynamic_options_for_target_format() -> None:
     completions = extra_arg.shell_complete(ctx, "--e")
 
     assert [item.value for item in completions] == ["--engine"]
-    assert completions[0].help == "Rendering backend used to generate the target format. Default: 'rdkit'."
+    assert (
+        completions[0].help
+        == "Rendering backend used to generate the target format. Default: 'rdkit'."
+    )
 
 
 def test_format_transform_has_no_orcainp_writer_dynamic_options() -> None:
@@ -243,6 +247,27 @@ def test_terminal_operation_cannot_be_followed_by_batch_operation(
     assert called is False
 
 
+def test_to_summary_df_params_preserve_all_frame_and_options() -> None:
+    params = ToSummaryDfParams(
+        frame="all",
+        n_jobs=2,
+        brief=False,
+        flatten_columns=True,
+        on_missing_frame="error",
+    )
+
+    kwargs = params.method_kwargs(BatchInputConfig(pattern="dummy.log", n_jobs=8))
+
+    assert kwargs == {
+        "mode": "frame",
+        "frameIDs": "all",
+        "n_jobs": 2,
+        "brief": False,
+        "flatten_columns": True,
+        "on_missing_frame": "error",
+    }
+
+
 def test_parse_filter_sample_outputs_batch_paths_json() -> None:
     result = runner.invoke(
         app,
@@ -300,6 +325,67 @@ def test_parse_format_transform_writes_output(tmp_path: Path) -> None:
     assert (out_dir / "h2_grad_orca.xyz").exists()
 
 
+def test_parse_format_transform_no_write_overrides_output_dir(tmp_path: Path) -> None:
+    out_dir = tmp_path / "out"
+    result = runner.invoke(
+        app,
+        [
+            "-q",
+            "parse",
+            "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp",
+            "--parser-detection",
+            "orcainp",
+            "--n-jobs",
+            "1",
+            "format-transform",
+            "--format",
+            "xyz",
+            "--output-dir",
+            str(out_dir),
+            "--no-write",
+            "--graph-policy",
+            "prefer",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert not out_dir.exists()
+    assert "h2_grad_orca.inp" in result.stdout
+    assert "H" in result.stdout
+
+
+def test_parse_format_transform_write_without_output_dir_suppresses_stdout(
+    tmp_path: Path,
+) -> None:
+    input_path = tmp_path / "h2.xyz"
+    input_path.write_text(
+        "2\ncomment\nH 0.0 0.0 0.0\nH 0.0 0.0 0.7\n",
+        encoding="utf-8",
+    )
+    result = runner.invoke(
+        app,
+        [
+            "-q",
+            "parse",
+            str(input_path),
+            "--parser-detection",
+            "xyz",
+            "--n-jobs",
+            "1",
+            "format-transform",
+            "--format",
+            "gjf",
+            "--write",
+            "--graph-policy",
+            "prefer",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert result.stdout == ""
+    assert (tmp_path / "h2.gjf").exists()
+
+
 def test_parse_summary_terminal_writes_csv(tmp_path: Path) -> None:
     out = tmp_path / "summary.csv"
     result = runner.invoke(
@@ -323,8 +409,38 @@ def test_parse_summary_terminal_writes_csv(tmp_path: Path) -> None:
     assert out.read_text(encoding="utf-8").strip()
 
 
+def test_parse_summary_frame_all_flatten_columns(tmp_path: Path) -> None:
+    out = tmp_path / "summary.csv"
+    result = runner.invoke(
+        app,
+        [
+            "-q",
+            "parse",
+            "tests/test_files/g16log/1.log",
+            "--parser-detection",
+            "g16log",
+            "--n-jobs",
+            "1",
+            "to-summary-df",
+            "--frame",
+            "all",
+            "--flatten-columns",
+            "--out",
+            str(out),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    rows = list(csv.DictReader(out.read_text(encoding="utf-8").splitlines()))
+    assert len(rows) > 1
+    assert "General.FrameID" in rows[0]
+    assert [row["General.FrameID"] for row in rows] == ["0", "1", "2", "3", "4"]
+
+
 def test_old_flat_command_is_removed() -> None:
-    result = runner.invoke(app, ["summary", "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp"])
+    result = runner.invoke(
+        app, ["summary", "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp"]
+    )
 
     assert result.exit_code != 0
     assert "No such command" in result.output

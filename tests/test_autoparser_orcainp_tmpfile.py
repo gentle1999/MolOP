@@ -64,9 +64,7 @@ H 0.8 0.0 0.0
     assert frame.geometry is not None
     assert len(frame.geometry.atoms) == 2
     assert frame.atoms == [1, 1]
-    assert frame.geometry.point_charges == [
-        {"charge": 0.5, "x": 0.0, "y": 0.0, "z": 1.0}
-    ]
+    assert frame.geometry.point_charges == [{"charge": 0.5, "x": 0.0, "y": 0.0, "z": 1.0}]
 
 
 def test_orcainp_writer_is_not_registered() -> None:

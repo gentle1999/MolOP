@@ -488,7 +488,9 @@ def _transition_dipole_from_line(text: str, start: int) -> Any | None:
     if len(values) < 8:
         return None
     try:
-        return np.asarray([_as_float(value) for value in values[-3:]], dtype=float) * atom_ureg.debye
+        return (
+            np.asarray([_as_float(value) for value in values[-3:]], dtype=float) * atom_ureg.debye
+        )
     except ValueError:
         return None
 
@@ -546,5 +548,7 @@ class ORCALogFileFrameParserMemory(
     _file_frame_class_ = ORCALogFileFrameMemory
 
 
-class ORCALogFileFrameParserDisk(ORCALogFileFrameParserMixin, BaseFrameParser[ORCALogFileFrameDisk]):
+class ORCALogFileFrameParserDisk(
+    ORCALogFileFrameParserMixin, BaseFrameParser[ORCALogFileFrameDisk]
+):
     _file_frame_class_ = ORCALogFileFrameDisk

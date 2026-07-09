@@ -24,6 +24,7 @@ from molop.io.logic.QM_frame_models.G16V3Components import (
 )
 from molop.io.logic.QM_frame_parsers._g16_v2_extractors import (
     ParseState,
+    extract_archive_tail_payload_from_state,
     extract_berny_from_state,
     extract_electric_dipole_and_polarizability_from_state,
     extract_energies_and_total_spin_from_state,
@@ -34,11 +35,6 @@ from molop.io.logic.QM_frame_parsers._g16_v2_extractors import (
     extract_populations_from_state,
     extract_rotation_consts_from_state,
     extract_standard_coords_from_state,
-    extract_tail_energies_from_state,
-    extract_tail_hessian_from_state,
-    extract_tail_metadata_from_state,
-    extract_tail_polarizability_from_state,
-    extract_tail_thermal_infos_from_state,
     extract_thermal_infos_from_state,
     extract_vibrations_from_state,
 )
@@ -225,44 +221,43 @@ class G16LogFileFrameParserV2Mixin:
 
     def _run_archive_tail_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
         """Use archive-tail data as the final fallback/augmentation stage."""
-        if tail := extract_tail_metadata_from_state(state):
+        archive_payload = extract_archive_tail_payload_from_state(state)
+        if tail := archive_payload.get("metadata"):
             for key, value in tail.items():
                 if key not in infos:
                     infos[key] = value
 
-            if tail_energies := extract_tail_energies_from_state(state):
-                tail_energies_model = Energies.model_validate(tail_energies)
-                if "energies" in infos:
-                    infos["energies"] = merge_models(
-                        cast(Energies, infos["energies"]), tail_energies_model
-                    )
-                else:
-                    infos["energies"] = tail_energies_model
+        if tail_energies := archive_payload.get("energies"):
+            tail_energies_model = Energies.model_validate(tail_energies)
+            if "energies" in infos:
+                infos["energies"] = merge_models(
+                    cast(Energies, infos["energies"]), tail_energies_model
+                )
+            else:
+                infos["energies"] = tail_energies_model
 
-            if tail_thermal_info := extract_tail_thermal_infos_from_state(state):
-                tail_thermal_model = ThermalInformations.model_validate(tail_thermal_info)
-                if "thermal_informations" in infos:
-                    infos["thermal_informations"] = merge_models(
-                        cast(ThermalInformations, infos["thermal_informations"]),
-                        tail_thermal_model,
-                    )
-                else:
-                    infos["thermal_informations"] = tail_thermal_model
+        if tail_thermal_info := archive_payload.get("thermal_informations"):
+            tail_thermal_model = ThermalInformations.model_validate(tail_thermal_info)
+            if "thermal_informations" in infos:
+                infos["thermal_informations"] = merge_models(
+                    cast(ThermalInformations, infos["thermal_informations"]),
+                    tail_thermal_model,
+                )
+            else:
+                infos["thermal_informations"] = tail_thermal_model
 
-            if tail_polarizability := extract_tail_polarizability_from_state(state):
-                tail_polarizability_model = Polarizability.model_validate(tail_polarizability)
-                if "polarizability" in infos:
-                    infos["polarizability"] = merge_models(
-                        cast(Polarizability, infos["polarizability"]),
-                        tail_polarizability_model,
-                    )
-                else:
-                    infos["polarizability"] = tail_polarizability_model
+        if tail_polarizability := archive_payload.get("polarizability"):
+            tail_polarizability_model = Polarizability.model_validate(tail_polarizability)
+            if "polarizability" in infos:
+                infos["polarizability"] = merge_models(
+                    cast(Polarizability, infos["polarizability"]),
+                    tail_polarizability_model,
+                )
+            else:
+                infos["polarizability"] = tail_polarizability_model
 
-            if (
-                tail_hessian := extract_tail_hessian_from_state(state)
-            ) is not None and "hessian" not in infos:
-                infos["hessian"] = tail_hessian
+        if (tail_hessian := archive_payload.get("hessian")) is not None and "hessian" not in infos:
+            infos["hessian"] = tail_hessian
 
         return G16ParsePhase.DONE
 

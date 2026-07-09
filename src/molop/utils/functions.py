@@ -1,4 +1,4 @@
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import numpy as np
 from pydantic import BaseModel
@@ -140,15 +140,24 @@ def invert_transform_coords(orientation_coords: np.ndarray, T: np.ndarray) -> np
 T = TypeVar("T", bound=BaseModel)
 
 
+def _dump_model_for_merge(model: BaseModel) -> dict[str, Any]:
+    return model.model_dump(
+        exclude_unset=True,
+        exclude_none=True,
+        exclude_computed_fields=True,
+    )
+
+
 def merge_models(model_1: T, model_2: T, force_update: bool = False) -> T:
     assert type(model_1) is type(model_2), (
         f"Models must be of the same type, got {type(model_1)} and {type(model_2)}"
     )
-    field_dict = model_1.model_dump(exclude_unset=True)
+    field_dict = _dump_model_for_merge(model_1)
+    update_dict = _dump_model_for_merge(model_2)
     if force_update:
-        field_dict.update(model_2.model_dump(exclude_unset=True))
+        field_dict.update(update_dict)
     else:
-        for key, value in model_2.model_dump(exclude_unset=True).items():
+        for key, value in update_dict.items():
             if key not in field_dict:
                 field_dict[key] = value
     return model_1.__class__.model_validate(field_dict)

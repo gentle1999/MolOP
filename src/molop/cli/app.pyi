@@ -43,6 +43,7 @@ def format_transform(
     output_dir: Path | None = None,
     frame: str = "-1",
     embed: bool = True,
+    write_to_disk: bool | None = None,
     n_jobs: int | None = None,
     extra_args: tuple[str, ...] = (),
 ) -> OperationCall: ...
@@ -50,6 +51,9 @@ def to_summary_df(
     mode: Literal["file", "frame"] = "frame",
     frame: str = "-1",
     n_jobs: int | None = None,
+    brief: bool = True,
+    flatten_columns: bool = False,
+    on_missing_frame: Literal["skip", "error"] = "skip",
     out: Path | None = None,
     output_format: Literal["csv", "json"] = "csv",
 ) -> OperationCall: ...

@@ -51,7 +51,9 @@ _RUN_TIME_RE = re.compile(
 
 
 class _HasMetadataFinalize(Protocol):
-    def _update_file_metadata_from_frames(self, chem_file: Any, metadata: dict[str, Any]) -> None: ...
+    def _update_file_metadata_from_frames(
+        self, chem_file: Any, metadata: dict[str, Any]
+    ) -> None: ...
 
 
 def _ensure_orca_output(file_content: str) -> None:
@@ -141,7 +143,10 @@ def _parse_running_time(file_content: str) -> Any | None:
 def _parse_status(file_content: str) -> Status | None:
     if "****ORCA TERMINATED NORMALLY****" in file_content:
         return Status(normal_terminated=True, scf_converged=True)
-    if "ORCA finished by error termination" in file_content or "ORCA TERMINATED ABNORMALLY" in file_content:
+    if (
+        "ORCA finished by error termination" in file_content
+        or "ORCA TERMINATED ABNORMALLY" in file_content
+    ):
         return Status(normal_terminated=False, scf_converged=False)
     return None
 
@@ -227,6 +232,7 @@ class ORCALogFileParserMixin:
             inherited_forces = _last_frame_value(frames[:-1], "forces")
             if inherited_forces is not None:
                 last_frame.forces = inherited_forces
+
 
 class ORCALogFileParserMemory(
     ORCALogFileParserMixin,

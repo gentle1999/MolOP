@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import os
 from collections.abc import Sequence
-from typing import Any, Literal, Protocol, cast
+from typing import Any, Protocol, cast
 
 from molop.io import codec_registry
 from molop.io.codec_types import GraphPolicy
+from molop.io.frame_selection import FrameSelector, normalize_frame_selector
 
 
 class _HasFrames(Protocol):
@@ -17,26 +18,50 @@ class _HasFramePayload(Protocol):
     def model_dump(self, **kwargs: Any) -> dict[str, Any]: ...
 
 
+def _source_file_path(value: object) -> str | None:
+    file_path = getattr(value, "file_path", None)
+    if isinstance(file_path, str) and file_path:
+        return file_path
+    return None
+
+
+def _resolve_format_output_path(
+    value: object,
+    format: str,
+    file_path: os.PathLike | str | None = None,
+) -> str:
+    source_path = os.fspath(file_path) if file_path is not None else _source_file_path(value)
+    if source_path is None:
+        raise ValueError("file_path is required when writing a memory-only object to disk")
+    assert not os.path.isdir(source_path), "file_path should be a file path or None"
+    dir_path = os.path.dirname(source_path)
+    base = os.path.basename(source_path).split(".")[0]
+    return os.path.join(dir_path, f"{base}.{format}")
+
+
 class FrameFormatTransformMixin:
     def format_transform(
         self,
         format: str,
         file_path: os.PathLike | str | None = None,
+        write_to_disk: bool = False,
         **kwargs: Any,
     ) -> str:
-        assert file_path is None or not os.path.isdir(file_path), (
-            "file_path should be a file path or None"
-        )
         normalized_format = format.strip().lower()
         graph_policy = kwargs.pop("graph_policy", None)
+        writer_file_path = (
+            _resolve_format_output_path(self, normalized_format, file_path)
+            if write_to_disk
+            else None
+        )
         rendered = self._render_frame_format(
             normalized_format,
-            file_path=file_path,
+            file_path=writer_file_path,
             graph_policy=graph_policy,
             **kwargs,
         )
-        if file_path is not None:
-            output_path = self._resolve_output_path(file_path, normalized_format)
+        if write_to_disk:
+            output_path = cast(str, writer_file_path)
             with open(output_path, "w") as f:
                 f.write(rendered)
         return rendered
@@ -62,45 +87,31 @@ class FrameFormatTransformMixin:
             )
         return rendered
 
-    def _resolve_output_path(self, file_path: os.PathLike | str, format: str) -> str:
-        normalized_file_path = os.fspath(file_path)
-        dir_path = os.path.dirname(normalized_file_path)
-        base = os.path.basename(normalized_file_path).split(".")[0]
-        return os.path.join(dir_path, f"{base}.{format}")
-
 
 class FormatTransformMixin:
     def format_transform(
         self,
         format: str,
-        frameID: Sequence[int] | int | Literal["all"] | slice = -1,
+        frameID: FrameSelector = -1,
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
+        write_to_disk: bool = False,
         **kwargs,
     ) -> str | list[str]:
         typed_self = cast(_HasFrames, self)
-        frame_key: object = frameID
-        assert file_path is None or not os.path.isdir(file_path), (
-            "file_path should be a file path or None"
+        frame_ids = normalize_frame_selector(
+            frameID,
+            len(typed_self.frames),
+            parameter_name="frameID",
         )
-        if isinstance(frame_key, int):
-            frame_ids = [frame_key if frame_key >= 0 else len(typed_self.frames) + frame_key]
-        elif frame_key == "all":
-            frame_ids = list(range(len(typed_self.frames)))
-        elif isinstance(frame_key, slice):
-            frame_ids = list(range(len(typed_self.frames)))[frame_key]
-        elif isinstance(frame_key, Sequence):
-            frame_ids = []
-            for i in frame_key:
-                assert isinstance(i, int), "frameID should be a sequence of integers"
-                frame_ids.append(i)
-        else:
-            raise ValueError("frameID should be an integer, a sequence of integers, or 'all'")
 
         graph_policy = kwargs.pop("graph_policy", None)
         write_kwargs = dict(kwargs)
-        if file_path is not None:
-            write_kwargs["file_path"] = os.fspath(file_path)
+        writer_file_path = (
+            _resolve_format_output_path(self, format, file_path) if write_to_disk else None
+        )
+        if writer_file_path is not None:
+            write_kwargs["file_path"] = writer_file_path
         rendered = cast(
             str | list[str],
             codec_registry.write(
@@ -112,12 +123,12 @@ class FormatTransformMixin:
                 **write_kwargs,
             ),
         )
-        if file_path:
-            dir_path = os.path.dirname(os.fspath(file_path))
-            base = os.path.basename(file_path).split(".")[0]
+        if write_to_disk:
+            output_file_path = cast(str, writer_file_path)
+            dir_path = os.path.dirname(output_file_path)
+            base = os.path.basename(output_file_path).split(".")[0]
             if isinstance(rendered, str):
-                filename = base + f".{format}"
-                output_path = os.path.join(dir_path, filename)
+                output_path = os.path.join(dir_path, f"{base}.{format}")
                 with open(output_path, "w") as f:
                     f.write(rendered)
             elif isinstance(rendered, list):

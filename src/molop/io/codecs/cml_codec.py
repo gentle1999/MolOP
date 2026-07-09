@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, Literal, cast
 
@@ -8,16 +7,12 @@ from rdkit import Chem
 
 from molop.io.codec_registry import Registry
 from molop.io.codec_types import StructureLevel, WriterCodec
+from molop.io.frame_selection import FrameSelector, normalize_frame_selector
 
 
-def _normalize_frame_ids(value: object, frameID: Sequence[int] | int | Literal["all"]) -> list[int]:
+def _normalize_frame_ids(value: object, frameID: FrameSelector) -> list[int]:
     typed_value = cast(Any, value)
-    frame_count = len(typed_value.frames)
-    if isinstance(frameID, int):
-        return [frameID if frameID >= 0 else frame_count + frameID]
-    if frameID == "all":
-        return list(range(frame_count))
-    return list(frameID)
+    return normalize_frame_selector(frameID, len(typed_value.frames), parameter_name="frameID")
 
 
 def _render_cml_frame(frame: object, *, engine: Literal["rdkit", "openbabel"] = "rdkit") -> str:
@@ -48,7 +43,7 @@ class CMLWriter:
         self,
         value: object,
         *,
-        frameID: Sequence[int] | int | Literal["all"] = -1,
+        frameID: FrameSelector = -1,
         embed_in_one_file: bool = True,
         engine: Literal["rdkit", "openbabel"] = "rdkit",
         **kwargs: Any,

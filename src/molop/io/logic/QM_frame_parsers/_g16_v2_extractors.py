@@ -435,13 +435,9 @@ def extract_tail_metadata_from_state(state: ParseState) -> dict[str, Any]:
     return tail
 
 
-def extract_tail_energies_from_state(state: ParseState) -> dict[str, Any] | None:
-    focus_content, next_cursor = _focus_from_state(ENERGIES_IN_ARCHIVE_TAIL_V2, state)
-    if focus_content == "":
-        return None
-    state.advance_to(next_cursor)
+def _extract_tail_energies_from_content(content: str) -> dict[str, Any] | None:
     energy_dict: dict[str, Any] = {}
-    if matches := g16_log_patterns.ENERGIES_IN_ARCHIVE_TAIL.get_matches(focus_content):
+    if matches := g16_log_patterns.ENERGIES_IN_ARCHIVE_TAIL.get_matches(content):
         for match in matches:
             e = match[0]
             energies_value = float(match[1]) * atom_ureg.hartree
@@ -458,11 +454,7 @@ def extract_tail_energies_from_state(state: ParseState) -> dict[str, Any] | None
     return energy_dict or None
 
 
-def extract_tail_thermal_infos_from_state(state: ParseState) -> dict[str, Any] | None:
-    focus_content, next_cursor = _focus_from_state(THERMOCHEMISTRY_IN_ARCHIVE_TAIL_V2, state)
-    if focus_content == "":
-        return None
-    state.advance_to(next_cursor)
+def _extract_tail_thermal_infos_from_content(content: str) -> dict[str, Any] | None:
     thermal_dict: dict[str, Any] = {}
     thermal_mapping = {
         "ZeroPoint": "ZPVE",
@@ -471,13 +463,74 @@ def extract_tail_thermal_infos_from_state(state: ParseState) -> dict[str, Any] |
         "HTot": "H_T",
         "GTot": "G_T",
     }
-    if matches := g16_log_patterns.THERMOCHEMISTRY_IN_ARCHIVE_TAIL.get_matches(focus_content):
+    if matches := g16_log_patterns.THERMOCHEMISTRY_IN_ARCHIVE_TAIL.get_matches(content):
         for match in matches:
             if match[0] in thermal_mapping:
                 thermal_dict[thermal_mapping[match[0]]] = float(match[1]) * atom_ureg.Unit(
                     "hartree/particle"
                 )
     return thermal_dict or None
+
+
+def _extract_tail_hessian_from_content(content: str) -> NumpyQuantity | None:
+    focus_content, _remaining_content = HESSIAN_IN_ARCHIVE_TAIL_V2.split_content_from(content)
+    if focus_content == "":
+        return None
+    if matches := g16_log_patterns.HESSIAN_IN_ARCHIVE_TAIL.get_matches(focus_content):
+        try:
+            return (
+                fill_symmetric_matrix(np.array([float(match[0]) for match in matches]))
+                * atom_ureg.hartree
+                / atom_ureg.bohr**2
+            )
+        except (AssertionError, ValueError) as exc:
+            moloplogger.warning(
+                "Skipping invalid Gaussian archive hessian: %s | values=%d",
+                exc,
+                len(matches),
+            )
+    return None
+
+
+def extract_archive_tail_payload_from_state(state: ParseState) -> dict[str, Any]:
+    focus_content, next_cursor = _focus_from_state(ARCHIVE_TAIL_V2, state)
+    if focus_content == "":
+        return {}
+
+    # All archive sub-payloads live inside the same bounded archive block. Parse
+    # them before advancing past the block, otherwise energy fallback data can be
+    # skipped on terminal frequency frames without a live "SCF Done" line.
+    state.advance_to(next_cursor)
+    normalized_focus_content = focus_content.replace("\n ", "")
+    metadata, _tail_remaining = parse_archive_tail_metadata(focus_content, include_coords=True)
+    payload: dict[str, Any] = {"metadata": metadata}
+    if energies := _extract_tail_energies_from_content(normalized_focus_content):
+        payload["energies"] = energies
+    if thermal_infos := _extract_tail_thermal_infos_from_content(normalized_focus_content):
+        payload["thermal_informations"] = thermal_infos
+    if polarizability := G16V3L9999ArchiveComponent._extract_archive_polarizability(
+        normalized_focus_content
+    ):
+        payload["polarizability"] = polarizability
+    if (hessian := _extract_tail_hessian_from_content(normalized_focus_content)) is not None:
+        payload["hessian"] = hessian
+    return payload
+
+
+def extract_tail_energies_from_state(state: ParseState) -> dict[str, Any] | None:
+    focus_content, next_cursor = _focus_from_state(ENERGIES_IN_ARCHIVE_TAIL_V2, state)
+    if focus_content == "":
+        return None
+    state.advance_to(next_cursor)
+    return _extract_tail_energies_from_content(focus_content.replace("\n ", ""))
+
+
+def extract_tail_thermal_infos_from_state(state: ParseState) -> dict[str, Any] | None:
+    focus_content, next_cursor = _focus_from_state(THERMOCHEMISTRY_IN_ARCHIVE_TAIL_V2, state)
+    if focus_content == "":
+        return None
+    state.advance_to(next_cursor)
+    return _extract_tail_thermal_infos_from_content(focus_content.replace("\n ", ""))
 
 
 def extract_tail_polarizability_from_state(state: ParseState) -> dict[str, Any] | None:
@@ -489,13 +542,7 @@ def extract_tail_hessian_from_state(state: ParseState) -> NumpyQuantity | None:
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
-    if matches := g16_log_patterns.HESSIAN_IN_ARCHIVE_TAIL.get_matches(focus_content):
-        return (
-            fill_symmetric_matrix(np.array([float(match[0]) for match in matches]))
-            * atom_ureg.hartree
-            / atom_ureg.bohr**2
-        )
-    return None
+    return _extract_tail_hessian_from_content(focus_content.replace("\n ", ""))
 
 
 def extract_rotation_consts_from_state(state: ParseState) -> NumpyQuantity | None:

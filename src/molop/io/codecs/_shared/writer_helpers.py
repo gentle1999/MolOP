@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, Literal, cast
+from typing import Any, cast
 
 from molop.io.base_models.ChemFile import BaseChemFile
 from molop.io.base_models.ChemFileFrame import BaseChemFileFrame
 from molop.io.base_models.Mixins import DiskStorageMixin, FileMixin
 from molop.io.codec_types import StructureLevel, WriterCodec
+from molop.io.frame_selection import FrameSelector
 
 
 def clone_file_and_frames(
@@ -20,13 +20,16 @@ def clone_file_and_frames(
     frame_file_paths: dict[int, str] | None = None,
 ) -> Any:
     source_file = cast(BaseChemFile, source)
-    file_payload = source_file.model_dump()
+    file_payload = source_file.model_dump(exclude_computed_fields=True)
     if file_path is not None and issubclass(file_cls, DiskStorageMixin):
         file_payload["file_path"] = file_path
     cloned_file = file_cls.model_validate(file_payload)
     for frame in source_file.frames:
         typed_frame = cast(BaseChemFileFrame, frame)
-        frame_payload = typed_frame.model_dump(exclude={"file_path"})
+        frame_payload = typed_frame.model_dump(
+            exclude={"file_path"},
+            exclude_computed_fields=True,
+        )
         if frame_file_paths is not None and issubclass(frame_cls, DiskStorageMixin):
             maybe_frame_file_path = frame_file_paths.get(typed_frame.frame_id)
             if maybe_frame_file_path is not None:
@@ -44,7 +47,10 @@ def clone_frame(
     file_path: str | None = None,
 ) -> Any:
     source_frame = cast(BaseChemFileFrame, source)
-    frame_payload = source_frame.model_dump(exclude={"file_path"})
+    frame_payload = source_frame.model_dump(
+        exclude={"file_path"},
+        exclude_computed_fields=True,
+    )
     if file_path is not None and issubclass(frame_cls, DiskStorageMixin):
         frame_payload["file_path"] = file_path
     cloned_frame = frame_cls.model_validate(frame_payload)
@@ -64,7 +70,7 @@ class FileRendererWriter:
         self,
         value: object,
         *,
-        frameID: Sequence[int] | int | Literal["all"] = -1,
+        frameID: FrameSelector = -1,
         embed_in_one_file: bool = True,
         **kwargs: Any,
     ) -> object:

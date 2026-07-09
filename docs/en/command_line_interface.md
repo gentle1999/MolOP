@@ -2,6 +2,9 @@
 
 MolOP exposes a single business command: `molop parse`.
 
+For the stable CLI chain contract, including parameter defaults and error
+policy, see [API Contracts](reference/api_contracts.md).
+
 The command first parses files into a `FileBatchModelDisk` batch state, then
 executes a checked chain of operations. Operations that return another
 `FileBatchModelDisk` can be followed by more operations. Operations that return
@@ -62,9 +65,11 @@ uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.in
   format-transform --format xyz --output-dir .tmp/molop_xyz
 ```
 
-When `format-transform` writes files through `--output-dir`, it does not print
-the rendered file contents to stdout. The generated files are the operation
-result.
+For CLI compatibility, `--output-dir` implies writing files. Use `--write`
+without `--output-dir` to write beside each source file, or `--no-write` to
+force render-only behavior even when an output directory is present. When
+`format-transform` writes files, it does not print the rendered file contents to
+stdout. The generated files are the operation result.
 
 Generate a summary table:
 
@@ -74,6 +79,11 @@ uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.in
   --n-jobs 1 \
   to-summary-df --out .tmp/molop_summary.csv
 ```
+
+`to-summary-df` defaults to the last frame (`--frame -1`). Use
+`--frame all` to summarize every frame, `--full` for expanded fields, and
+`--flatten-columns` for CSV/JSON-friendly column names such as
+`General.FrameID`.
 
 ## Operation Reference
 
@@ -90,7 +100,7 @@ Terminal operations:
 
 | Operation | Meaning |
 | --- | --- |
-| `format-transform` | Transform files to another format. With `--output-dir`, files are written and stdout stays quiet. |
+| `format-transform` | Transform files to another format. `--output-dir` implies writing; `--write` writes beside sources when no output dir is given; `--no-write` disables disk output. |
 | `to-summary-df` | Build a summary table. |
 | `draw-grid-image` | Render a molecule grid image. |
 | `groupby` | Group files and print grouped paths. |

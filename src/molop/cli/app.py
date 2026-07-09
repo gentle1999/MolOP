@@ -51,6 +51,8 @@ FORMAT_TRANSFORM_STATIC_OPTIONS = {
     "--frame",
     "--embed",
     "--no-embed",
+    "--write",
+    "--no-write",
     "--n-jobs",
     "-h",
     "--help",
@@ -586,6 +588,12 @@ def sample(n: int = 10, seed: int | None = None) -> OperationCall:
     "--embed/--no-embed", default=True, show_default=True, help="Embed selected frames in one file."
 )
 @click.option(
+    "--write/--no-write",
+    "write_to_disk",
+    default=None,
+    help="Write generated files. Without --output-dir, files are written next to each source file.",
+)
+@click.option(
     "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
 )
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED, cls=DynamicFormatOptionsArgument)
@@ -594,6 +602,7 @@ def format_transform(
     output_dir: Path | None = None,
     frame: str = "-1",
     embed: bool = True,
+    write_to_disk: bool | None = None,
     n_jobs: int | None = None,
     extra_args: tuple[str, ...] = (),
 ) -> OperationCall:
@@ -605,6 +614,7 @@ def format_transform(
             output_dir=output_dir,
             frame=frame,
             embed=embed,
+            write_to_disk=write_to_disk,
             n_jobs=n_jobs,
             format_options=parse_dynamic_options(extra_args),
         ),
@@ -626,6 +636,25 @@ def format_transform(
     "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
 )
 @click.option(
+    "--brief/--full",
+    default=True,
+    show_default=True,
+    help="Use compact or full summary fields.",
+)
+@click.option(
+    "--flatten-columns/--multi-index-columns",
+    default=False,
+    show_default=True,
+    help="Flatten MultiIndex summary columns with dot-separated names.",
+)
+@click.option(
+    "--on-missing-frame",
+    type=click.Choice(["skip", "error"]),
+    default="skip",
+    show_default=True,
+    help="How to handle selected frame indices that are missing in a file.",
+)
+@click.option(
     "--out", type=click.Path(path_type=Path, dir_okay=False), default=None, help="Output file."
 )
 @click.option(
@@ -640,13 +669,25 @@ def to_summary_df(
     mode: Literal["file", "frame"] = "frame",
     frame: str = "-1",
     n_jobs: int | None = None,
+    brief: bool = True,
+    flatten_columns: bool = False,
+    on_missing_frame: Literal["skip", "error"] = "skip",
     out: Path | None = None,
     output_format: Literal["csv", "json"] = "csv",
 ) -> OperationCall:
     """Build a summary DataFrame from the current batch."""
     return _operation_call(
         "to-summary-df",
-        ToSummaryDfParams(mode=mode, frame=frame, n_jobs=n_jobs, out=out, format=output_format),
+        ToSummaryDfParams(
+            mode=mode,
+            frame=frame,
+            n_jobs=n_jobs,
+            brief=brief,
+            flatten_columns=flatten_columns,
+            on_missing_frame=on_missing_frame,
+            out=out,
+            format=output_format,
+        ),
     )
 
 

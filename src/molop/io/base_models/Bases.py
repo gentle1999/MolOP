@@ -21,9 +21,7 @@ from molop.config import molopconfig, moloplogger
 from molop.unit import unit_transform
 
 
-PropertyScalarValue: TypeAlias = (
-    str | int | float | bool | PlainQuantity | NumpyQuantity | None
-)
+PropertyScalarValue: TypeAlias = str | int | float | bool | PlainQuantity | NumpyQuantity | None
 PropertyColumnValue: TypeAlias = (
     list[str | int | float | bool | None] | np.ndarray | PlainQuantity | NumpyQuantity
 )
@@ -170,7 +168,9 @@ class PropertyTable(BaseDataClassWithUnit):
     def validate_property_table(self) -> Self:
         if not self.columns:
             return self
-        column_lengths = {name: self._column_length(column) for name, column in self.columns.items()}
+        column_lengths = {
+            name: self._column_length(column) for name, column in self.columns.items()
+        }
         expected_length = next(iter(column_lengths.values()))
         mismatched = {
             name: length for name, length in column_lengths.items() if length != expected_length

@@ -1,7 +1,7 @@
-from typing import Literal
+from molop.io.frame_selection import FrameSelector
 
 
-def parse_frame_selection(spec: str) -> int | list[int] | Literal["all"]:
+def parse_frame_selection(spec: str) -> FrameSelector:
     spec = spec.strip()
     if not spec:
         raise ValueError("Frame selection string cannot be empty.")

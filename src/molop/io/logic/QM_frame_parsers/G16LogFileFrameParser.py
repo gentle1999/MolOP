@@ -691,15 +691,17 @@ class G16LogFileFrameParserMixin:
             cast(_HasParseMethod, self)._block
         ):
             polarizability_dict["dipole"] = (
-                np.array([float(match[1]) for match in matches[1:]]) * atom_ureg.debye
+                np.array([float(value) for value in matches[0]]) * atom_ureg.debye
             )
         if matches := g16_log_patterns.POLAR_IN_ARCHIVE_TAIL.get_matches(self._block):
             polarizability_dict["polarizability_tensor"] = (
-                np.array([float(match[1]) for match in matches[1:]]) * atom_ureg.bohr**3
+                np.array([float(value) for value in matches[0]]) * atom_ureg.bohr**3
             )
         if matches := g16_log_patterns.QUADRUPOLE_IN_ARCHIVE_TAIL.get_matches(self._block):
             polarizability_dict["quadrupole"] = (
-                np.array([float(match[1]) for match in matches[1:]]) * atom_ureg.bohr**3
+                np.array([float(value) for value in matches[0]])
+                * atom_ureg.debye
+                * atom_ureg.angstrom
             )
         if polarizability_dict:
             return Polarizability.model_validate(polarizability_dict)

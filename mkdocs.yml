@@ -89,6 +89,7 @@ plugins:
             Gaussian-like renderer: Gaussian-Like Renderer
             OpenBabel fallback: OpenBabel Fallback
             转换行为: Transform Behaviors
+            API 契约: API Contracts
             模型字段: Model Field Map
             贡献指南: Contributing
             更新日志: Changelog
@@ -123,6 +124,7 @@ nav:
       - Gaussian-like renderer: reference/formats/fakeg.md
       - OpenBabel fallback: reference/formats/openbabel-fallback.md
     - 转换行为: reference/transform_behavior.md
+    - API 契约: reference/api_contracts.md
     - 模型字段: reference/model_fields.md
   - 设计稿:
     - QM 公共数据模型: design/qm_data_model.md

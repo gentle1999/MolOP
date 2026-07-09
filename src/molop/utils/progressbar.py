@@ -1,7 +1,7 @@
 import sys
 import warnings
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Any, NoReturn, TypeAlias, TypeVar, cast, overload
+from typing import TYPE_CHECKING, Any, Literal, NoReturn, TypeAlias, TypeVar, cast, overload
 
 from joblib import Parallel, delayed
 from tqdm import tqdm as st_tqdm
@@ -92,6 +92,24 @@ def AdaptiveProgress(
     return cast(Iterable[T], obj)
 
 
+def _finalize_parallel_results(
+    results: Iterable[R], return_results: bool | None
+) -> Iterable[R] | None:
+    if return_results is False:
+        for _ in results:
+            pass
+        return None
+    if (
+        return_results is None
+        and isinstance(results, list)
+        and results
+        and all(result is None for result in results)
+    ):
+        return None
+    return results
+
+
+@overload
 def parallel_map(
     func: Callable[[T], R],
     iterable: Iterable[T],
@@ -101,8 +119,51 @@ def parallel_map(
     disable: bool = False,
     return_as: str | None = None,
     tqdm_kwargs: dict[str, Any] | None = None,
+    *,
+    return_results: Literal[False],
     **joblib_kwargs: Any,
-) -> Iterable[R]:
+) -> None: ...
+@overload
+def parallel_map(
+    func: Callable[[T], R],
+    iterable: Iterable[T],
+    n_jobs: int = -1,
+    total: int | None = None,
+    desc: str = "Processing",
+    disable: bool = False,
+    return_as: str | None = None,
+    tqdm_kwargs: dict[str, Any] | None = None,
+    *,
+    return_results: Literal[True],
+    **joblib_kwargs: Any,
+) -> Iterable[R]: ...
+@overload
+def parallel_map(
+    func: Callable[[T], R],
+    iterable: Iterable[T],
+    n_jobs: int = -1,
+    total: int | None = None,
+    desc: str = "Processing",
+    disable: bool = False,
+    return_as: str | None = None,
+    tqdm_kwargs: dict[str, Any] | None = None,
+    *,
+    return_results: None = None,
+    **joblib_kwargs: Any,
+) -> Iterable[R] | None: ...
+def parallel_map(
+    func: Callable[[T], R],
+    iterable: Iterable[T],
+    n_jobs: int = -1,
+    total: int | None = None,
+    desc: str = "Processing",
+    disable: bool = False,
+    return_as: str | None = None,
+    tqdm_kwargs: dict[str, Any] | None = None,
+    *,
+    return_results: bool | None = None,
+    **joblib_kwargs: Any,
+) -> Iterable[R] | None:
     """
     A parallel wrapper with type hints and progress bar
 
@@ -122,13 +183,17 @@ def parallel_map(
         Whether to disable the progress bar. Default is False.
     tqdm_kwargs : Optional[dict[str, Any]], optional
         Additional keyword arguments to pass to tqdm. Default is None.
+    return_results : Optional[bool], optional
+        When False, exhaust execution and return None. When None, list results
+        containing only implicit None values are returned as None.
     **joblib_kwargs : Any
         Additional keyword arguments to pass to joblib.Parallel.
 
     Returns
     -------
-    Iterable[R]
-        The iterable of results after applying the function to each item in the iterable.
+    Iterable[R] | None
+        The iterable of results after applying the function to each item, or None
+        for side-effect-only calls.
     """
     effective_return_as = return_as
     if effective_return_as is None:
@@ -139,12 +204,12 @@ def parallel_map(
     )
     if n_jobs == 1:
         if effective_return_as in {"generator", "generator_unordered"}:
-            return (func(item) for item in iterator)
-        return [func(item) for item in iterator]
+            return _finalize_parallel_results((func(item) for item in iterator), return_results)
+        return _finalize_parallel_results([func(item) for item in iterator], return_results)
 
     results = Parallel(n_jobs=n_jobs, return_as=effective_return_as, **joblib_kwargs)(
         delayed(func)(item) for item in iterator
     )
     if results is None:
         raise ValueError("The parallel map returned None.")
-    return cast(Iterable[R], results)
+    return _finalize_parallel_results(cast(Iterable[R], results), return_results)

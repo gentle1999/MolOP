@@ -359,7 +359,13 @@ def _extract_star_geometry(block: str) -> _GeometrySection | None:
             if ctype in _EXTERNAL_TYPES and len(header_tokens) > 3
             else None
         )
-        units = None if ctype in _EXTERNAL_TYPES else header_tokens[3] if len(header_tokens) > 3 else None
+        units = (
+            None
+            if ctype in _EXTERNAL_TYPES
+            else header_tokens[3]
+            if len(header_tokens) > 3
+            else None
+        )
 
         has_closing_star = False
         if ctype in _EXTERNAL_TYPES:
@@ -622,13 +628,9 @@ def _parse_internal_coordinate_lines(
                 return 0
             return parsed - 1
 
-        distance = (
-            _resolve_float_expression(tokens[4], parameters) if len(tokens) > 4 else 0.0
-        )
+        distance = _resolve_float_expression(tokens[4], parameters) if len(tokens) > 4 else 0.0
         angle = _resolve_float_expression(tokens[5], parameters) if len(tokens) > 5 else 0.0
-        dihedral = (
-            _resolve_float_expression(tokens[6], parameters) if len(tokens) > 6 else 0.0
-        )
+        dihedral = _resolve_float_expression(tokens[6], parameters) if len(tokens) > 6 else 0.0
         if distance is None or angle is None or dihedral is None:
             all_numeric = False
             atom_internal = None
@@ -762,7 +764,9 @@ def _extract_block_spans(block: str) -> list[_BlockSpan]:
         body_lines, inline_closed = _block_body_from_inline(inline)
         end_idx = idx + 1
 
-        nested_depth = 1 if inline and not inline_closed and _opens_nested_block(name, inline) else 0
+        nested_depth = (
+            1 if inline and not inline_closed and _opens_nested_block(name, inline) else 0
+        )
         if not inline_closed:
             scan_idx = idx + 1
             while scan_idx < len(spans):

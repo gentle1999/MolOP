@@ -13,6 +13,8 @@ from typing import Any, Literal, Protocol, cast, overload
 from pydantic import Field, computed_field
 from typing_extensions import Self
 
+from molop.io.frame_selection import FrameSelector, normalize_frame_selector
+
 
 class _RenderableFrame(Protocol):
     frame_id: int
@@ -102,35 +104,29 @@ class FileMixin:
     @overload
     def _render(
         self,
-        frameID: Sequence[int] | int | Literal["all"],
+        frameID: FrameSelector,
         embed_in_one_file: Literal[True],
         **kwargs,
     ) -> str: ...
     @overload
     def _render(
         self,
-        frameID: Sequence[int] | int | Literal["all"],
+        frameID: FrameSelector,
         embed_in_one_file: Literal[False],
         **kwargs,
     ) -> list[str]: ...
     def _render(
         self,
-        frameID: Sequence[int] | int | Literal["all"] = -1,
+        frameID: FrameSelector = -1,
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> str | list[str]:
         typed_self = cast(_HasRenderableFrames, self)
-        if isinstance(frameID, int):
-            frameIDs = [frameID if frameID >= 0 else len(typed_self.frames) + frameID]
-        elif frameID == "all":
-            frameIDs = list(range(len(typed_self.frames)))
-        elif isinstance(frameID, Sequence):
-            frameIDs = []
-            for i in frameID:
-                assert isinstance(i, int), "frameID should be a sequence of integers"
-                frameIDs.append(i)
-        else:
-            raise ValueError("frameID should be an integer, a sequence of integers, or 'all'")
+        frameIDs = normalize_frame_selector(
+            frameID,
+            len(typed_self.frames),
+            parameter_name="frameID",
+        )
         if embed_in_one_file:
             return typed_self._render_frames_in_one_file(frameIDs, **kwargs)
         else:

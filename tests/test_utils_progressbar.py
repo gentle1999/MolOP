@@ -26,6 +26,56 @@ def test_parallel_map_n_jobs_one_returns_expected_results(
     assert results == [1, 4, 9, 16]
 
 
+def test_parallel_map_suppresses_implicit_none_results_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(progressbar_module, "_best_tqdm_cls", None, raising=False)
+    items = [1, 2, 3]
+    seen: list[int] = []
+
+    results = parallel_map(lambda value: seen.append(value), items, n_jobs=1, disable=True)
+
+    assert results is None
+    assert seen == items
+
+
+def test_parallel_map_can_preserve_explicit_none_results(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(progressbar_module, "_best_tqdm_cls", None, raising=False)
+    items = [1, 2, 3]
+
+    results = parallel_map(
+        lambda _value: None,
+        items,
+        n_jobs=1,
+        disable=True,
+        return_results=True,
+    )
+
+    assert results == [None, None, None]
+
+
+def test_parallel_map_return_results_false_exhausts_generator(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(progressbar_module, "_best_tqdm_cls", None, raising=False)
+    items = [1, 2, 3]
+    seen: list[int] = []
+
+    results = parallel_map(
+        lambda value: seen.append(value),
+        items,
+        n_jobs=1,
+        disable=True,
+        return_as="generator",
+        return_results=False,
+    )
+
+    assert results is None
+    assert seen == items
+
+
 def test_parallel_map_n_jobs_one_supports_generator_return_as(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

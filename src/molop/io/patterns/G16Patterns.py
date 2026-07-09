@@ -589,18 +589,19 @@ class G16LogPatterns:
     )
     THERMOCHEMISTRY_IN_ARCHIVE_TAIL = MolOPPattern(
         content_pattern=r"(ZeroPoint|Thermal|ETot|HTot|GTot)=(\s*-?\d+\.\d*)",
+        content_repeat=0,
         description="The thermochemistry in the archive tail of the Gaussian calculation. link 9999",
     )
     DIPOLE_IN_ARCHIVE_TAIL = MolOPPattern(
-        content_pattern=r"Dipole\s*=(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)(\s*-?\d+\.\d*)",
+        content_pattern=r"Dipole\s*=\s*(-?\d+\.\d*)\s*,\s*(-?\d+\.\d*)\s*,\s*(-?\d+\.\d*)",
         description="The dipole in the archive tail of the Gaussian calculation. link 9999",
     )
     POLAR_IN_ARCHIVE_TAIL = MolOPPattern(
-        content_pattern=r"Polar\s*=\s*(-?\d+\.\d*)(-?\d+\.\d*)(-?\d+\.\d*)(-?\d+\.\d*)(-?\d+\.\d*)(-?\d+\.\d*)",
+        content_pattern=r"Polar\s*=\s*(-?\d+\.\d*)\s*,\s*(-?\d+\.\d*)\s*,\s*(-?\d+\.\d*)\s*,\s*(-?\d+\.\d*)\s*,\s*(-?\d+\.\d*)\s*,\s*(-?\d+\.\d*)",
         description="The polarizability in the archive tail of the Gaussian calculation. link 9999",
     )
     QUADRUPOLE_IN_ARCHIVE_TAIL = MolOPPattern(
-        content_pattern=r"Quadrupole\s*=\s*(-?\d+\.\d*)(-?\d+\.\d*)(-?\d+\.\d*)(-?\d+\.\d*)(-?\d+\.\d*)(-?\d+\.\d*)",
+        content_pattern=r"Quadrupole\s*=\s*(-?\d+\.\d*)\s*,\s*(-?\d+\.\d*)\s*,\s*(-?\d+\.\d*)\s*,\s*(-?\d+\.\d*)\s*,\s*(-?\d+\.\d*)\s*,\s*(-?\d+\.\d*)",
         description="The quadrupole in the archive tail of the Gaussian calculation. link 9999",
     )
     HESSIAN_IN_ARCHIVE_TAIL = MolOPPattern(

@@ -68,23 +68,17 @@ def test_orcainp_fixture_parse_structured_frame(fixture_path: Path) -> None:
 
 
 def test_orcainp_single_point_inputs_include_orca6_manual_fixtures() -> None:
-    manual_fixtures = sorted(
-        ORCA_SINGLE_POINT_INPUT_DIR.glob("orca6_energygradients_*.inp")
-    )
+    manual_fixtures = sorted(ORCA_SINGLE_POINT_INPUT_DIR.glob("orca6_energygradients_*.inp"))
     assert len(manual_fixtures) == 66
 
 
 def test_orcainp_scf_stability_inputs_include_orca6_manual_fixtures() -> None:
-    manual_fixtures = sorted(
-        ORCA_SCF_STABILITY_INPUT_DIR.glob("orca6_scfstability_*.inp")
-    )
+    manual_fixtures = sorted(ORCA_SCF_STABILITY_INPUT_DIR.glob("orca6_scfstability_*.inp"))
     assert len(manual_fixtures) == 1
 
 
 def test_orcainp_optimization_inputs_include_orca6_manual_fixtures() -> None:
-    manual_fixtures = sorted(
-        ORCA_OPTIMIZATION_INPUT_DIR.glob("orca6_optimizations_*.inp")
-    )
+    manual_fixtures = sorted(ORCA_OPTIMIZATION_INPUT_DIR.glob("orca6_optimizations_*.inp"))
     assert len(manual_fixtures) == 24
 
 
@@ -470,8 +464,7 @@ def test_orcainp_mrci_manual_xyz_scan_fixture_uses_first_parameter_value_for_fra
 
 def test_orcainp_orca6_manual_internal_coords_fill_frame_atoms_and_coords() -> None:
     fixture_path = (
-        ORCA_SINGLE_POINT_INPUT_DIR
-        / "orca6_energygradients_017_mp2_def2_tzvp_tightscf.inp"
+        ORCA_SINGLE_POINT_INPUT_DIR / "orca6_energygradients_017_mp2_def2_tzvp_tightscf.inp"
     )
     frame = AutoParser(str(fixture_path), parser_detection="orcainp")[0][-1]
     assert isinstance(frame, ORCAInpFileFrameDisk)
@@ -495,7 +488,9 @@ def test_orcainp_orca6_manual_output_print_without_equals_is_structured() -> Non
 
 
 def test_orcainp_orca6_manual_dispersion_is_functional_suffix() -> None:
-    fixture_path = ORCA_SINGLE_POINT_INPUT_DIR / "orca6_energygradients_078_blyp_d3_def2_qzvpp_opt.inp"
+    fixture_path = (
+        ORCA_SINGLE_POINT_INPUT_DIR / "orca6_energygradients_078_blyp_d3_def2_qzvpp_opt.inp"
+    )
     frame = AutoParser(str(fixture_path), parser_detection="orcainp")[0][-1]
     assert isinstance(frame, ORCAInpFileFrameDisk)
     assert frame.method == "DFT"
@@ -523,10 +518,7 @@ def test_orcainp_orca6_manual_dlpno_double_hybrid_dispersion_is_functional_suffi
 
 
 def test_orcainp_orca6_scf_stability_block_is_structured() -> None:
-    fixture_path = (
-        ORCA_SCF_STABILITY_INPUT_DIR
-        / "orca6_scfstability_000_bhlyp_def2_svp_nori.inp"
-    )
+    fixture_path = ORCA_SCF_STABILITY_INPUT_DIR / "orca6_scfstability_000_bhlyp_def2_svp_nori.inp"
     frame = AutoParser(str(fixture_path), parser_detection="orcainp")[0][-1]
     assert isinstance(frame, ORCAInpFileFrameDisk)
     assert frame.method == "DFT"
@@ -546,10 +538,7 @@ def test_orcainp_orca6_scf_stability_block_is_structured() -> None:
 
 
 def test_orcainp_orca6_optimization_constraints_block_is_not_truncated() -> None:
-    fixture_path = (
-        ORCA_OPTIMIZATION_INPUT_DIR
-        / "orca6_optimizations_010_rks_b3lyp_g_sv_p_opt.inp"
-    )
+    fixture_path = ORCA_OPTIMIZATION_INPUT_DIR / "orca6_optimizations_010_rks_b3lyp_g_sv_p_opt.inp"
     frame = AutoParser(str(fixture_path), parser_detection="orcainp")[0][-1]
     assert isinstance(frame, ORCAInpFileFrameDisk)
     assert frame.geometry is not None
@@ -562,8 +551,7 @@ def test_orcainp_orca6_optimization_constraints_block_is_not_truncated() -> None
 
 def test_orcainp_orca6_optimization_hess_internal_block_is_not_truncated() -> None:
     fixture_path = (
-        ORCA_OPTIMIZATION_INPUT_DIR
-        / "orca6_optimizations_020_geomopt_hess_internal_scanname.inp"
+        ORCA_OPTIMIZATION_INPUT_DIR / "orca6_optimizations_020_geomopt_hess_internal_scanname.inp"
     )
     frame = AutoParser(str(fixture_path), parser_detection="orcainp")[0][-1]
     assert isinstance(frame, ORCAInpFileFrameDisk)
@@ -577,10 +565,7 @@ def test_orcainp_orca6_optimization_hess_internal_block_is_not_truncated() -> No
 
 
 def test_orcainp_orca6_optimization_compound_block_keeps_nested_steps() -> None:
-    fixture_path = (
-        ORCA_OPTIMIZATION_INPUT_DIR
-        / "orca6_optimizations_007_compound_two_step_opt.inp"
-    )
+    fixture_path = ORCA_OPTIMIZATION_INPUT_DIR / "orca6_optimizations_007_compound_two_step_opt.inp"
     frame = AutoParser(str(fixture_path), parser_detection="orcainp")[0][-1]
     assert isinstance(frame, ORCAInpFileFrameDisk)
     assert frame.geometry is not None
@@ -595,9 +580,7 @@ def test_orcainp_orca6_optimization_compound_block_keeps_nested_steps() -> None:
 
 
 def test_orcainp_orca6_optimization_scan_block_keeps_all_scan_lines() -> None:
-    fixture_path = (
-        ORCA_OPTIMIZATION_INPUT_DIR / "orca6_optimizations_027_b3lyp_g_sv_p_opt.inp"
-    )
+    fixture_path = ORCA_OPTIMIZATION_INPUT_DIR / "orca6_optimizations_027_b3lyp_g_sv_p_opt.inp"
     frame = AutoParser(str(fixture_path), parser_detection="orcainp")[0][-1]
     assert isinstance(frame, ORCAInpFileFrameDisk)
     assert frame.geometry is not None
@@ -622,8 +605,7 @@ def test_orcainp_orca6_optimization_pdbfile_geometry_is_structured() -> None:
 
 def test_orcainp_orca6_optimization_fragment_mixed_basis_is_structured() -> None:
     fixture_path = (
-        ORCA_OPTIMIZATION_INPUT_DIR
-        / "orca6_optimizations_016_fragment_constraints_bp86.inp"
+        ORCA_OPTIMIZATION_INPUT_DIR / "orca6_optimizations_016_fragment_constraints_bp86.inp"
     )
     frame = AutoParser(str(fixture_path), parser_detection="orcainp")[0][-1]
     assert isinstance(frame, ORCAInpFileFrameDisk)
@@ -664,8 +646,7 @@ def test_orcainp_orca6_optimization_neb_block_and_xtb_geometry_are_structured() 
 
 def test_orcainp_orca6_frequency_opt_then_freq_example_is_structured() -> None:
     fixture_path = (
-        ORCA_FREQUENCY_INPUT_DIR
-        / "orca6_frequencies_000_bp_def2_tzvp_opt_anfreq_numfreq.inp"
+        ORCA_FREQUENCY_INPUT_DIR / "orca6_frequencies_000_bp_def2_tzvp_opt_anfreq_numfreq.inp"
     )
     frame = AutoParser(str(fixture_path), parser_detection="orcainp")[0][-1]
     assert isinstance(frame, ORCAInpFileFrameDisk)

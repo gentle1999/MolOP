@@ -434,12 +434,16 @@ def _file_base_args() -> tuple[tuple[str, str], ...]:
         ("format", "Target output format literal for this overload."),
         (
             "frameID",
-            'Frame selector forwarded to rendering; accepts index, sequence, slice, or `"all"`.',
+            'Frame selector forwarded to rendering; accepts index, sequence, or `"all"`.',
         ),
-        ("file_path", "Optional output path. If omitted, a format-derived path is used."),
+        ("file_path", "Optional output path used only when `write_to_disk=True`."),
         (
             "embed_in_one_file",
             "Whether selected frames are embedded into one file when supported by the format.",
+        ),
+        (
+            "write_to_disk",
+            "Whether rendered content is written to disk; omitted paths default to the source directory.",
         ),
         (
             "graph_policy",
@@ -454,7 +458,11 @@ def _frame_base_args() -> tuple[tuple[str, str], ...]:
         ("format", "Target output format literal for this overload."),
         (
             "file_path",
-            "Optional output path. If provided, the rendered text is also written to a format-derived file.",
+            "Optional output path used only when `write_to_disk=True`.",
+        ),
+        (
+            "write_to_disk",
+            "Whether rendered content is written to disk; omitted paths default to the source directory.",
         ),
         (
             "graph_policy",
@@ -469,7 +477,7 @@ def _batch_base_args() -> tuple[tuple[str, str], ...]:
         ("format", "Target output format literal for this overload."),
         (
             "output_dir",
-            "Output directory for generated files; defaults to batch behavior when omitted.",
+            "Output directory used only when `write_to_disk=True`; omitted paths default to source directories.",
         ),
         ("frameID", "Frame selector forwarded to per-file rendering."),
         (
@@ -477,6 +485,10 @@ def _batch_base_args() -> tuple[tuple[str, str], ...]:
             "Whether selected frames are embedded into one file when supported by the format.",
         ),
         ("n_jobs", "Parallelism used by batch transform."),
+        (
+            "write_to_disk",
+            "Whether rendered content is written to disk; omitted paths default to source directories.",
+        ),
         (
             "graph_policy",
             'Molecular graph policy used before rendering (for example, `"prefer"`).',
@@ -692,6 +704,18 @@ def _render_extra_import_lines(specs: list[_RenderSpec]) -> list[str]:
     return lines
 
 
+def _specs_use_annotation_name(specs: list[_RenderSpec], name: str) -> bool:
+    for spec in specs:
+        for param in spec.params:
+            try:
+                expr = ast.parse(param.annotation, mode="eval")
+            except SyntaxError:
+                continue
+            if any(isinstance(node, ast.Name) and node.id == name for node in ast.walk(expr)):
+                return True
+    return False
+
+
 def _render_base_model_stub(file_specs: list[_RenderSpec], frame_specs: list[_RenderSpec]) -> str:
     file_specs = sorted(file_specs, key=lambda s: s.format_id)
     frame_specs = sorted(frame_specs, key=lambda s: s.format_id)
@@ -716,17 +740,22 @@ def _render_base_model_stub(file_specs: list[_RenderSpec], frame_specs: list[_Re
 
     lines: list[str] = []
     extra_imports = _render_extra_import_lines([*file_specs, *frame_specs])
-    _stub_prelude(
-        lines,
-        "Static chemfile format_transform overload stubs",
+    prelude_imports = ["import os"]
+    if _specs_use_annotation_name([*file_specs, *frame_specs], "Sequence"):
+        prelude_imports.append("from collections.abc import Sequence")
+    prelude_imports.extend(
         [
-            "import os",
-            "from collections.abc import Sequence",
             "from typing import Any, Literal, overload",
             "",
             "from molop.io.codec_types import GraphPolicy",
+            "from molop.io.frame_selection import FrameSelector",
             *([""] + extra_imports if extra_imports else []),
-        ],
+        ]
+    )
+    _stub_prelude(
+        lines,
+        "Static chemfile format_transform overload stubs",
+        prelude_imports,
     )
 
     lines.append("class FrameFormatTransformMixin:")
@@ -736,6 +765,7 @@ def _render_base_model_stub(file_specs: list[_RenderSpec], frame_specs: list[_Re
         lines.append("        self,")
         lines.append(f'        format: Literal["{s.format_id}"],')
         lines.append("        file_path: os.PathLike | str | None = None,")
+        lines.append("        write_to_disk: bool = False,")
         lines.append("        *,")
         lines.append("        graph_policy: GraphPolicy | None = None,")
         for p in s.params:
@@ -759,6 +789,7 @@ def _render_base_model_stub(file_specs: list[_RenderSpec], frame_specs: list[_Re
     lines.append("        self,")
     lines.append("        format: str,")
     lines.append("        file_path: os.PathLike | str | None = None,")
+    lines.append("        write_to_disk: bool = False,")
     lines.append("        *,")
     lines.append("        graph_policy: GraphPolicy | None = None,")
     lines.append("        **kwargs: Any,")
@@ -773,9 +804,10 @@ def _render_base_model_stub(file_specs: list[_RenderSpec], frame_specs: list[_Re
         lines.append("    def format_transform(")
         lines.append("        self,")
         lines.append(f'        format: Literal["{s.format_id}"],')
-        lines.append('        frameID: Sequence[int] | int | Literal["all"] | slice = -1,')
+        lines.append("        frameID: FrameSelector = -1,")
         lines.append("        file_path: os.PathLike | str | None = None,")
         lines.append("        embed_in_one_file: bool = True,")
+        lines.append("        write_to_disk: bool = False,")
         lines.append("        *,")
         lines.append("        graph_policy: GraphPolicy | None = None,")
         for p in s.params:
@@ -798,9 +830,10 @@ def _render_base_model_stub(file_specs: list[_RenderSpec], frame_specs: list[_Re
     lines.append("    def format_transform(")
     lines.append("        self,")
     lines.append("        format: str,")
-    lines.append('        frameID: Sequence[int] | int | Literal["all"] | slice = -1,')
+    lines.append("        frameID: FrameSelector = -1,")
     lines.append("        file_path: os.PathLike | str | None = None,")
     lines.append("        embed_in_one_file: bool = True,")
+    lines.append("        write_to_disk: bool = False,")
     lines.append("        *,")
     lines.append("        graph_policy: GraphPolicy | None = None,")
     lines.append("        **kwargs: Any,")
@@ -824,16 +857,22 @@ def _render_batch_stub(specs: list[_RenderSpec]) -> str:
     )
     lines: list[str] = []
     extra_imports = _render_extra_import_lines(specs)
-    _stub_prelude(
-        lines,
-        "Static batch format_transform overload stubs",
+    prelude_imports = []
+    if _specs_use_annotation_name(specs, "Sequence"):
+        prelude_imports.append("from collections.abc import Sequence")
+    prelude_imports.extend(
         [
-            "from collections.abc import Sequence",
             "from typing import Any, Literal, overload",
             "",
             "from molop.io.codec_types import GraphPolicy",
+            "from molop.io.frame_selection import FrameSelector",
             *([""] + extra_imports if extra_imports else []),
-        ],
+        ]
+    )
+    _stub_prelude(
+        lines,
+        "Static batch format_transform overload stubs",
+        prelude_imports,
     )
     lines.append("class BatchFormatTransformMixin:")
     for s in specs:
@@ -842,8 +881,9 @@ def _render_batch_stub(specs: list[_RenderSpec]) -> str:
         lines.append("        self,")
         lines.append(f'        format: Literal["{s.format_id}"],')
         lines.append("        output_dir: str | None = None,")
-        lines.append('        frameID: int | Literal["all"] | Sequence[int] = -1,')
+        lines.append("        frameID: FrameSelector = -1,")
         lines.append("        embed_in_one_file: bool = True,")
+        lines.append("        write_to_disk: bool = False,")
         lines.append("        n_jobs: int = 1,")
         lines.append("        *,")
         lines.append("        graph_policy: GraphPolicy | None = None,")
@@ -868,8 +908,9 @@ def _render_batch_stub(specs: list[_RenderSpec]) -> str:
     lines.append("        self,")
     lines.append("        format: str,")
     lines.append("        output_dir: str | None = None,")
-    lines.append('        frameID: int | Literal["all"] | Sequence[int] = -1,')
+    lines.append("        frameID: FrameSelector = -1,")
     lines.append("        embed_in_one_file: bool = True,")
+    lines.append("        write_to_disk: bool = False,")
     lines.append("        n_jobs: int = 1,")
     lines.append("        *,")
     lines.append("        graph_policy: GraphPolicy | None = None,")

@@ -9,10 +9,8 @@ from collections.abc import Callable, Iterable, Iterator, MutableMapping, Sequen
 from typing import (
     TYPE_CHECKING,
     Any,
-    Concatenate,
     Generic,
     Literal,
-    ParamSpec,
     Protocol,
     TypeAlias,
     TypeVar,
@@ -24,6 +22,7 @@ import pandas as pd
 
 from molop.config import molopconfig, moloplogger
 from molop.io._batch_format_transform import BatchFormatTransformMixin
+from molop.io.frame_selection import FrameSelector, normalize_frame_selector
 from molop.utils.progressbar import parallel_map
 
 
@@ -60,7 +59,6 @@ def _looks_like_disk_file(obj: object) -> bool:
 
 
 R = TypeVar("R")
-P = ParamSpec("P")
 TFile = TypeVar("TFile")
 TFileDisk = TypeVar("TFileDisk", bound=FileDiskObj)
 
@@ -85,15 +83,53 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         if diskfiles is not None:
             self.add_diskfiles(diskfiles)
 
+    @overload
     def parallel_execute(
         self,
-        func: Callable[Concatenate[TFileDisk, P], R],
+        func: Callable[..., R],
         desc: str = "",
         n_jobs: int = 1,
         return_as: Literal["list", "generator", "generator_unordered"] = "list",
-        *args: P.args,  # do not use this parameter
-        **kwargs: P.kwargs,
-    ) -> Iterable[R]:
+        *args: Any,
+        _diskfiles_snapshot: Sequence[TFileDisk] | None = None,
+        return_results: Literal[False],
+        **kwargs: Any,
+    ) -> None: ...
+    @overload
+    def parallel_execute(
+        self,
+        func: Callable[..., R],
+        desc: str = "",
+        n_jobs: int = 1,
+        return_as: Literal["list", "generator", "generator_unordered"] = "list",
+        *args: Any,
+        _diskfiles_snapshot: Sequence[TFileDisk] | None = None,
+        return_results: Literal[True],
+        **kwargs: Any,
+    ) -> Iterable[R]: ...
+    @overload
+    def parallel_execute(
+        self,
+        func: Callable[..., R],
+        desc: str = "",
+        n_jobs: int = 1,
+        return_as: Literal["list", "generator", "generator_unordered"] = "list",
+        *args: Any,  # do not use this parameter
+        _diskfiles_snapshot: Sequence[TFileDisk] | None = None,
+        return_results: None = None,
+        **kwargs: Any,
+    ) -> Iterable[R] | None: ...
+    def parallel_execute(
+        self,
+        func: Callable[..., R],
+        desc: str = "",
+        n_jobs: int = 1,
+        return_as: Literal["list", "generator", "generator_unordered"] = "list",
+        *args: Any,  # do not use this parameter
+        _diskfiles_snapshot: Sequence[TFileDisk] | None = None,
+        return_results: bool | None = None,
+        **kwargs: Any,
+    ) -> Iterable[R] | None:
         """
         Internal helper to execute a function over the batch in parallel or serial.
         Refactored to support Adaptive UI (Rich/Ipywidgets) and Type Hints.
@@ -101,15 +137,21 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         Accepts extra keyword arguments to pass to the function.
 
         Parameters:
-            func (Callable[Concatenate[TFileDisk, P], R]): The function to execute.
+            func (Callable[..., R]): The function to execute.
             desc (str, optional): The description to show in the progress bar. Defaults to "".
             n_jobs (int, optional): The number of jobs to use. Defaults to 1.
             return_as (Literal["list", "generator", "generator_unordered"], optional): The return mode to use. Defaults to "list".
+            _diskfiles_snapshot (Sequence[TFileDisk] | None, optional): Internal precomputed
+                batch snapshot used by callers that need the same item order for zipping results.
+            return_results (bool | None, optional): When False, exhaust execution and return None.
+                When None, list results containing only implicit None values are returned as None.
             **kwargs: Additional keyword arguments to pass to the function.
         Returns:
-            Iterable[R]: The results of the function execution.
+            Iterable[R] | None: The function results, or None for side-effect-only calls.
         """
-        diskfiles = self._snapshot_diskfiles()
+        diskfiles = (
+            _diskfiles_snapshot if _diskfiles_snapshot is not None else self._snapshot_diskfiles()
+        )
 
         return parallel_map(
             lambda diskfile: func(diskfile, *args, **kwargs),
@@ -119,6 +161,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             total=len(diskfiles),
             disable=not molopconfig.show_progress_bar,
             return_as=return_as,
+            return_results=return_results,
             maxtasks_per_child=50,
             max_nbytes=molopconfig.parallel_max_size,
         )
@@ -402,7 +445,14 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         diskfiles = self._snapshot_diskfiles()
         return self._filter_diskfiles(
             diskfiles,
-            self.parallel_execute(judge_func, desc, n_jobs, return_as="generator"),
+            self.parallel_execute(
+                judge_func,
+                desc,
+                n_jobs,
+                return_as="generator",
+                _diskfiles_snapshot=diskfiles,
+                return_results=True,
+            ),
         )
 
     def filter_value(
@@ -447,7 +497,14 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         diskfiles = self._snapshot_diskfiles()
         return self._filter_diskfiles(
             diskfiles,
-            self.parallel_execute(judge_func, desc, n_jobs, return_as="generator"),
+            self.parallel_execute(
+                judge_func,
+                desc,
+                n_jobs,
+                return_as="generator",
+                _diskfiles_snapshot=diskfiles,
+                return_results=True,
+            ),
         )
 
     def filter_custom(
@@ -471,7 +528,14 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         diskfiles = self._snapshot_diskfiles()
         return self._filter_diskfiles(
             diskfiles,
-            self.parallel_execute(condition, desc, n_jobs, return_as="generator"),
+            self.parallel_execute(
+                condition,
+                desc,
+                n_jobs,
+                return_as="generator",
+                _diskfiles_snapshot=diskfiles,
+                return_results=True,
+            ),
         )
 
     def groupby(
@@ -489,7 +553,14 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         """
         desc = f"Grouping files with {molopconfig.set_n_jobs(n_jobs)} jobs"
         diskfiles = self._snapshot_diskfiles()
-        keys = self.parallel_execute(key_func, desc, n_jobs, return_as="generator")
+        keys = self.parallel_execute(
+            key_func,
+            desc,
+            n_jobs,
+            return_as="generator",
+            _diskfiles_snapshot=diskfiles,
+            return_results=True,
+        )
         temp_groups: dict[str, list[TFileDisk]] = {}
         for diskfile, key in zip(diskfiles, keys, strict=True):
             if key not in temp_groups:
@@ -543,14 +614,25 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         diskfiles = self._snapshot_diskfiles()
         return self._filter_diskfiles(
             diskfiles,
-            self.parallel_execute(judge_func, desc, n_jobs, return_as="generator"),
+            self.parallel_execute(
+                judge_func,
+                desc,
+                n_jobs,
+                return_as="generator",
+                _diskfiles_snapshot=diskfiles,
+                return_results=True,
+            ),
         )
 
     def to_summary_df(
         self,
         mode: Literal["file", "frame"] = "frame",
-        frameIDs: int | Sequence[int] = -1,
+        frameIDs: FrameSelector = -1,
         n_jobs: int = 1,
+        *,
+        brief: bool = True,
+        flatten_columns: bool = False,
+        on_missing_frame: Literal["skip", "error"] = "skip",
         **kwargs: Any,
     ) -> pd.DataFrame:
         """
@@ -558,8 +640,13 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
 
         Parameters:
             mode (Literal["file", "frame"]): Whether to generate file-level or frame-level summary.
-            frameIDs (int | Sequence[int]): Frame IDs to process. Use -1 for all frames.
+            frameIDs (FrameSelector): Frame IDs to process.
+                Use -1 for the last frame or "all" for every frame.
             n_jobs (int): Number of parallel jobs.
+            brief (bool): Whether to use the compact summary payload.
+            flatten_columns (bool): Whether to flatten MultiIndex columns with dot-separated names.
+            on_missing_frame (Literal["skip", "error"]): How to handle frame indices that are
+                out of range for a file.
             **kwargs: Additional arguments for to_summary_series.
 
         Returns:
@@ -567,27 +654,52 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         """
         if mode not in ["file", "frame"]:
             raise ValueError(f"Invalid mode: {mode}")
-        current_frameIDs = [frameIDs] if isinstance(frameIDs, int) else frameIDs
+        if on_missing_frame not in ["skip", "error"]:
+            raise ValueError(f"Invalid on_missing_frame: {on_missing_frame}")
+
+        def selected_frame_ids(diskfile: FileDiskObj) -> Sequence[int]:
+            try:
+                frame_ids = normalize_frame_selector(
+                    frameIDs,
+                    len(diskfile),
+                    parameter_name="frameIDs",
+                    validate_range=on_missing_frame == "error",
+                )
+            except IndexError as exc:
+                raise IndexError(
+                    f"{exc} for {getattr(diskfile, 'file_path', '<unknown>')} "
+                    f"with {len(diskfile)} frames"
+                ) from exc
+            if on_missing_frame == "skip":
+                return [fid for fid in frame_ids if 0 <= fid < len(diskfile)]
+            return frame_ids
 
         def process_file_summary(diskfile: FileDiskObj) -> list[pd.Series]:
             if mode == "file":
-                return [diskfile.to_summary_series(**kwargs)]
+                return [diskfile.to_summary_series(brief=brief, **kwargs)]
             elif mode == "frame":
                 return [
-                    diskfile[fid].to_summary_series(**kwargs)
-                    for fid in current_frameIDs
-                    if fid < len(diskfile) and fid >= -len(diskfile)
+                    diskfile[fid].to_summary_series(brief=brief, **kwargs)
+                    for fid in selected_frame_ids(diskfile)
                 ]
             return []
 
         desc = f"MolOP processing {mode} summary with {molopconfig.set_n_jobs(n_jobs)} jobs"
-        nested_results = self.parallel_execute(process_file_summary, desc, n_jobs)
+        nested_results = self.parallel_execute(
+            process_file_summary, desc, n_jobs, return_results=True
+        )
         series_list: list[pd.Series] = [s for sublist in nested_results for s in sublist]
         if not series_list:
             return pd.DataFrame()
         df: pd.DataFrame = pd.concat(series_list, axis=1).T
         top_level_order = df.columns.get_level_values(0).unique()
-        return pd.DataFrame(df[top_level_order])
+        df = pd.DataFrame(df[top_level_order])
+        if flatten_columns and isinstance(df.columns, pd.MultiIndex):
+            df.columns = [
+                ".".join(str(level) for level in column if level not in ("", None))
+                for column in df.columns.to_flat_index()
+            ]
+        return df
 
     def release_file_content(self) -> None:
         """
@@ -685,7 +797,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             return f"successfully copied {diskfile.file_path} to {output_dir}"
 
         desc = f"Copying files to {output_dir} with {molopconfig.set_n_jobs(n_jobs)} jobs"
-        return self.parallel_execute(copy, desc, n_jobs, return_as="list")
+        return self.parallel_execute(copy, desc, n_jobs, return_as="list", return_results=True)
 
     def move_to(self, output_dir: str, n_jobs: int = 1):
         if not os.path.exists(output_dir):
@@ -702,4 +814,4 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             return f"successfully moved {diskfile.file_path} to {output_dir}"
 
         desc = f"Moving files to {output_dir} with {molopconfig.set_n_jobs(n_jobs)} jobs"
-        return self.parallel_execute(move, desc, n_jobs, return_as="list")
+        return self.parallel_execute(move, desc, n_jobs, return_as="list", return_results=True)

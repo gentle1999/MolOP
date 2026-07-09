@@ -171,7 +171,9 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
                 support="supported",
                 scope="Gaussian output structures can be converted to SMILES through the registry.",
                 limitations="Conversion depends on successful graph recovery or transformation.",
-                tests=("tests/test_io_convert_registry_smoke.py::test_registry_convert_g16log_smoke",),
+                tests=(
+                    "tests/test_io_convert_registry_smoke.py::test_registry_convert_g16log_smoke",
+                ),
             ),
         ),
     ),
@@ -347,7 +349,9 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
                 support="supported",
                 scope="Parsed Gaussian output can be converted to coordinate and graph formats through the registry.",
                 limitations="Conversion depends on successful structure and graph recovery.",
-                tests=("tests/test_io_convert_registry_smoke.py::test_registry_convert_g16log_smoke",),
+                tests=(
+                    "tests/test_io_convert_registry_smoke.py::test_registry_convert_g16log_smoke",
+                ),
             ),
         ),
     ),
@@ -464,7 +468,9 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
                 support="intentionally-unsupported",
                 scope="ORCA input writer is not registered.",
                 limitations="Rendering is disabled until a structured renderer can preserve ORCA input semantics.",
-                tests=("tests/test_autoparser_orcainp_tmpfile.py::test_orcainp_writer_is_not_registered",),
+                tests=(
+                    "tests/test_autoparser_orcainp_tmpfile.py::test_orcainp_writer_is_not_registered",
+                ),
             ),
         ),
     ),
@@ -495,7 +501,9 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
                 support="partial",
                 scope="Final single-point total energies are exposed in Hartree for fixtures that declare expected final energies.",
                 limitations="Only tested ORCA energy fields are advertised; method-specific correction/decomposition tables may remain unstructured.",
-                tests=("tests/test_orca_output_fixtures.py::test_orca_output_structured_parse_contract",),
+                tests=(
+                    "tests/test_orca_output_fixtures.py::test_orca_output_structured_parse_contract",
+                ),
             ),
             FeatureSupport(
                 area="Forces and geometry optimization",

@@ -100,19 +100,24 @@ class FormatTransformParams(OperationParams):
     output_dir: Path | None = None
     frame: str = "-1"
     embed: bool = True
+    write_to_disk: bool | None = None
     n_jobs: int | None = None
     format_options: dict[str, Any] = Field(default_factory=dict)
 
     def method_kwargs(self, input_config: BatchInputConfig) -> dict[str, Any]:
+        should_write = (
+            self.write_to_disk if self.write_to_disk is not None else self.output_dir is not None
+        )
         kwargs: dict[str, Any] = {
             "format": self.format,
             "output_dir": str(self.output_dir) if self.output_dir is not None else None,
             "frameID": parse_cli_frame_selection(self.frame),
             "embed_in_one_file": self.embed,
+            "write_to_disk": should_write,
             "n_jobs": self.n_jobs if self.n_jobs is not None else input_config.n_jobs,
             **self.format_options,
         }
-        if self.output_dir is not None:
+        if should_write and self.output_dir is not None:
             self.output_dir.mkdir(parents=True, exist_ok=True)
         return kwargs
 
@@ -123,14 +128,19 @@ class ToSummaryDfParams(OperationParams):
     n_jobs: int | None = None
     out: Path | None = None
     format: Literal["csv", "json"] = "csv"
+    brief: bool = True
+    flatten_columns: bool = False
+    on_missing_frame: Literal["skip", "error"] = "skip"
 
     def method_kwargs(self, input_config: BatchInputConfig) -> dict[str, Any]:
         frame_selection = parse_cli_frame_selection(self.frame)
-        frame_ids = -1 if frame_selection == "all" else frame_selection
         return {
             "mode": self.mode,
-            "frameIDs": frame_ids,
+            "frameIDs": frame_selection,
             "n_jobs": self.n_jobs if self.n_jobs is not None else input_config.n_jobs,
+            "brief": self.brief,
+            "flatten_columns": self.flatten_columns,
+            "on_missing_frame": self.on_missing_frame,
         }
 
 
@@ -291,7 +301,13 @@ def _result_is_file_output_only(plan: BatchPlan) -> bool:
     if not plan.operations:
         return False
     params = plan.operations[-1].params
-    return isinstance(params, FormatTransformParams) and params.output_dir is not None
+    return isinstance(params, FormatTransformParams) and _format_transform_writes_to_disk(params)
+
+
+def _format_transform_writes_to_disk(params: FormatTransformParams) -> bool:
+    if params.write_to_disk is not None:
+        return params.write_to_disk
+    return params.output_dir is not None
 
 
 def _execute_operation(

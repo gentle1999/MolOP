@@ -80,7 +80,7 @@ rdmol = batch[0][0].rdmol
 from molop.io import AutoParser
 batch = AutoParser("*.log")
 # 批量转换为 SDF 并保存（具体参数以 Notebook 03 为准）
-batch.format_transform(format="sdf", output_dir="./output", frameID=-1)
+batch.format_transform(format="sdf", output_dir="./output", frameID=-1, write_to_disk=True)
 ```
 
 ### 预期输出
@@ -99,7 +99,7 @@ batch.format_transform(format="sdf", output_dir="./output", frameID=-1)
 # 生成摘要 CSV
 uv run molop -q parse "tests/test_files/g16log/2-TS1-Opt.log" \
   --n-jobs 1 \
-  to-summary-df --out tutorial_ts_summary.csv --format csv --mode frame --frame -1
+  to-summary-df --out tutorial_ts_summary.csv --format csv --mode frame --frame -1 --flatten-columns
 
 # 将分子文件转换为另一种格式
 uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \

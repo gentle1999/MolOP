@@ -797,9 +797,8 @@ def _extract_parameter_docs(callable_obj: Callable[..., object]) -> dict[str, st
                 if any(description_parts):
                     break
                 continue
-            if (
-                _PARAMETER_DOC_RE.match(follow_stripped)
-                or _NUMPY_PARAMETER_DOC_RE.match(follow_stripped)
+            if _PARAMETER_DOC_RE.match(follow_stripped) or _NUMPY_PARAMETER_DOC_RE.match(
+                follow_stripped
             ):
                 break
             if follow_line.startswith((" ", "\t")):

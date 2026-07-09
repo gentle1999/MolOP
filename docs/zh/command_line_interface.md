@@ -2,6 +2,8 @@
 
 MolOP 只暴露一个业务命令：`molop parse`。
 
+稳定的 CLI chain 契约，包括参数默认值和错误策略，见 [API 契约](reference/api_contracts.md)。
+
 该命令先把文件解析成 `FileBatchModelDisk` 批状态，然后执行经过检查的操作链。返回值仍是
 `FileBatchModelDisk` 的操作可以继续链接；返回其他结果的操作必须放在最后一步，且这一关系会在实际解析文件前检查。
 
@@ -59,7 +61,9 @@ uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.in
   format-transform --format xyz --output-dir .tmp/molop_xyz
 ```
 
-当 `format-transform` 通过 `--output-dir` 写入文件时，CLI 不会把渲染后的文件内容打印到
+为保持 CLI 兼容性，`--output-dir` 会隐式写盘。若不指定 `--output-dir`，可用
+`--write` 写到每个源文件所在目录；也可用 `--no-write` 强制只渲染、不落盘，即使
+命令中提供了输出目录。`format-transform` 写盘时不会把渲染后的文件内容打印到
 stdout；生成的文件就是该操作的结果。
 
 生成摘要表：
@@ -70,6 +74,10 @@ uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.in
   --n-jobs 1 \
   to-summary-df --out .tmp/molop_summary.csv
 ```
+
+`to-summary-df` 默认汇总最后一帧（`--frame -1`）。使用 `--frame all`
+可汇总所有帧，`--full` 可输出扩展字段，`--flatten-columns` 会生成更适合
+CSV/JSON 的列名，例如 `General.FrameID`。
 
 ## 操作参考
 
@@ -86,7 +94,7 @@ uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.in
 
 | 操作 | 说明 |
 | --- | --- |
-| `format-transform` | 转换文件格式。设置 `--output-dir` 时写入文件且不打印文件内容。 |
+| `format-transform` | 转换文件格式。`--output-dir` 隐式写盘；无输出目录时 `--write` 写到源目录；`--no-write` 禁用落盘。 |
 | `to-summary-df` | 生成摘要表。 |
 | `draw-grid-image` | 渲染分子网格图。 |
 | `groupby` | 分组并输出路径。 |

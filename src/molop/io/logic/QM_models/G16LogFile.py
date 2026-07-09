@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal, Protocol, cast
+from typing import TYPE_CHECKING, Protocol, cast
 
 import numpy as np
 from pydantic import Field, model_validator
@@ -18,6 +18,7 @@ from typing_extensions import Self
 
 from molop.io.base_models.ChemFile import BaseCalcFile
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
+from molop.io.frame_selection import FrameSelector, normalize_frame_selector
 from molop.io.logic.gaussian_common import (
     as_common_qm_input_target,
     populate_common_gaussian_qm_containers,
@@ -92,9 +93,7 @@ class G16LogFileMixin:
                 self.method = "DFT"
         if semantic_route.empirical_dispersion:
             self.functional = f"{self.functional}-{semantic_route.empirical_dispersion.upper()}"
-        populate_common_gaussian_qm_containers(
-            as_common_qm_input_target(self), semantic_route
-        )
+        populate_common_gaussian_qm_containers(as_common_qm_input_target(self), semantic_route)
         return self
 
     @property
@@ -333,17 +332,19 @@ class G16LogFileMixin:
 
     def render_fakeg(
         self,
-        frameID: Sequence[int] | int | Literal["all"] | slice = "all",
+        frameID: FrameSelector = "all",
         *,
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> str | list[str]:
         typed_self = cast(_HasG16RenderedFrames, self)
-        if frameID == "all":
-            selected_frames = list(typed_self.frames)
-        else:
-            selected = typed_self[frameID]
-            selected_frames = selected if isinstance(selected, list) else [selected]
+        frame_ids = normalize_frame_selector(
+            frameID,
+            len(typed_self.frames),
+            parameter_name="frameID",
+            validate_range=True,
+        )
+        selected_frames = [typed_self.frames[frame_id] for frame_id in frame_ids]
 
         if embed_in_one_file:
             frame_ids = [frame.frame_id for frame in selected_frames]

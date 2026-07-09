@@ -406,9 +406,7 @@ class QMModelChemistry(BaseDataClassWithUnit):
     reference_method: str | None = Field(
         default=None, description="Reference wavefunction or method"
     )
-    functional: str | None = Field(
-        default=None, description="DFT or double-hybrid functional"
-    )
+    functional: str | None = Field(default=None, description="DFT or double-hybrid functional")
     basis_set: str | None = Field(default=None, description="Primary orbital basis set")
     auxiliary_basis_set: str | None = Field(
         default=None, description="Primary auxiliary or fitting basis set"
@@ -436,7 +434,9 @@ class QMTaskRequest(BaseDataClassWithUnit):
         default=None, description="Requested derivative order when applicable"
     )
     target_state: int | None = Field(default=None, description="Target electronic state/root")
-    transition_state: bool = Field(default=False, description="Whether TS optimization is requested")
+    transition_state: bool = Field(
+        default=False, description="Whether TS optimization is requested"
+    )
     scan: bool = Field(default=False, description="Whether this task includes a coordinate scan")
     properties: list[str] = Field(default_factory=list, description="Requested properties")
     source_keywords: list[str] = Field(default_factory=list, description="Source keyword tokens")
@@ -460,7 +460,9 @@ class ExcitedStateRequest(BaseDataClassWithUnit):
     triplets: bool = Field(default=False, description="Whether triplet states are requested")
     spin_flip: bool = Field(default=False, description="Whether spin-flip treatment is requested")
     follow_root: bool = Field(default=False, description="Whether root following is requested")
-    properties: list[str] = Field(default_factory=list, description="Requested excited-state properties")
+    properties: list[str] = Field(
+        default_factory=list, description="Requested excited-state properties"
+    )
     source_blocks: list[str] = Field(default_factory=list, description="Source input block names")
     options: dict[str, Any] = Field(
         default_factory=dict, description="Program-specific excited-state options"
@@ -500,11 +502,15 @@ class MultireferenceStateBlock(BaseDataClassWithUnit):
 
 
 class MultireferenceRequest(BaseDataClassWithUnit):
-    enabled: bool = Field(default=False, description="Whether multi-reference treatment is requested")
+    enabled: bool = Field(
+        default=False, description="Whether multi-reference treatment is requested"
+    )
     method: str | None = Field(default=None, description="Multi-reference method")
     reference_method: str | None = Field(default=None, description="Reference method")
     ci_type: str | None = Field(default=None, description="Configuration interaction type")
-    active_space: ActiveSpace | None = Field(default=None, description="Global active-space summary")
+    active_space: ActiveSpace | None = Field(
+        default=None, description="Global active-space summary"
+    )
     state_blocks: list[MultireferenceStateBlock] = Field(
         default_factory=list, description="Requested spin/symmetry/root blocks"
     )
@@ -517,9 +523,13 @@ class MultireferenceRequest(BaseDataClassWithUnit):
 
 
 class ExplicitSolventRequest(BaseDataClassWithUnit):
-    enabled: bool = Field(default=False, description="Whether explicit-solvent placement is requested")
+    enabled: bool = Field(
+        default=False, description="Whether explicit-solvent placement is requested"
+    )
     solvent_model: str | None = Field(default=None, description="Underlying implicit solvent model")
-    solvent: str | None = Field(default=None, description="Solvent name chosen for explicit placement")
+    solvent: str | None = Field(
+        default=None, description="Solvent name chosen for explicit placement"
+    )
     solvent_file: str | None = Field(default=None, description="Custom solvent file, if provided")
     nsolv: int | None = Field(default=None, description="Number of explicit solvent molecules")
     cluster_mode: str | None = Field(default=None, description="SOLVATOR cluster mode")
@@ -619,23 +629,29 @@ class ElectronicStates(BaseDataClassWithUnit, Sequence[ElectronicState]):
 
         energies = [state.energy for state in self.states]
         if any(energy is not None for energy in energies):
-            columns["energy"] = np.array(
-                [
-                    np.nan if energy is None else energy.to(atom_ureg.hartree).magnitude
-                    for energy in energies
-                ]
-            ) * atom_ureg.hartree
+            columns["energy"] = (
+                np.array(
+                    [
+                        np.nan if energy is None else energy.to(atom_ureg.hartree).magnitude
+                        for energy in energies
+                    ]
+                )
+                * atom_ureg.hartree
+            )
 
         excitation_energies = [state.excitation_energy for state in self.states]
         if any(excitation_energy is not None for excitation_energy in excitation_energies):
-            columns["excitation_energy"] = np.array(
-                [
-                    np.nan
-                    if excitation_energy is None
-                    else excitation_energy.to(atom_ureg.eV).magnitude
-                    for excitation_energy in excitation_energies
-                ]
-            ) * atom_ureg.eV
+            columns["excitation_energy"] = (
+                np.array(
+                    [
+                        np.nan
+                        if excitation_energy is None
+                        else excitation_energy.to(atom_ureg.eV).magnitude
+                        for excitation_energy in excitation_energies
+                    ]
+                )
+                * atom_ureg.eV
+            )
 
         return PropertyTable(
             columns=columns,
@@ -2136,9 +2152,7 @@ class SinglePointProperties(BaseDataClassWithUnit):
             if len(getattr(self, name)) > 0
         ]
 
-    def to_atomic_property_table(
-        self, atom_symbols: Sequence[str] | None = None
-    ) -> PropertyTable:
+    def to_atomic_property_table(self, atom_symbols: Sequence[str] | None = None) -> PropertyTable:
         property_lengths = [len(getattr(self, name)) for name in self.atomic_property_names]
         if property_lengths:
             num_atoms = property_lengths[0]

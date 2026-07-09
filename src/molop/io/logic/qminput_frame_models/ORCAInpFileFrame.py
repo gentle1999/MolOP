@@ -139,18 +139,24 @@ class ORCAExcitedStateSemantic(BaseModel):
     nacme: bool = Field(default=False, description="Whether NACME evaluation is requested")
     etf: bool = Field(default=False, description="Whether ETF is requested")
     dosoc: bool = Field(default=False, description="Whether SOC is requested in CIS")
-    doalpha: bool = Field(default=False, description="Whether alpha-channel only calculation is requested")
+    doalpha: bool = Field(
+        default=False, description="Whether alpha-channel only calculation is requested"
+    )
     rootwise: bool = Field(default=False, description="Whether rootwise solving is requested")
-    do_dbfilter: bool = Field(default=False, description="Whether STEOM doubly excited filtering is enabled")
-    do_store_steom: bool = Field(default=False, description="Whether STEOM intermediates are stored")
-    do_simple_dens: bool = Field(default=False, description="Whether STEOM simple density is disabled")
+    do_dbfilter: bool = Field(
+        default=False, description="Whether STEOM doubly excited filtering is enabled"
+    )
+    do_store_steom: bool = Field(
+        default=False, description="Whether STEOM intermediates are stored"
+    )
+    do_simple_dens: bool = Field(
+        default=False, description="Whether STEOM simple density is disabled"
+    )
     add_l2_term: bool = Field(default=False, description="Whether DLPNO STEOM L2 term is enabled")
     do_full_semiclassical: bool = Field(
         default=False, description="Whether full semiclassical treatment is enabled"
     )
-    do_higher_moments: bool = Field(
-        default=False, description="Whether higher moments are enabled"
-    )
+    do_higher_moments: bool = Field(default=False, description="Whether higher moments are enabled")
     firkeepfirstref: bool = Field(
         default=False, description="Whether first reference is kept in follow-root mode"
     )
@@ -650,7 +656,9 @@ def _parse_orca_explicit_solvent_semantics(
         cluster_mode=options.get("clustermode"),
         droplet=_parse_bool_option(options, "droplet"),
         radius=_parse_float_option(options, "radius"),
-        fixsolute=not _parse_bool_option(options, "nofixsolute") if "nofixsolute" in options else _parse_bool_option(options, "fixsolute") or True,
+        fixsolute=not _parse_bool_option(options, "nofixsolute")
+        if "nofixsolute" in options
+        else _parse_bool_option(options, "fixsolute") or True,
         vacuumsearch=_parse_bool_option(options, "vacuumsearch"),
         randomsolv=_parse_bool_option(options, "randomsolv"),
         printlevel=options.get("printlevel"),
@@ -724,7 +732,20 @@ def _parse_orca_solvation_semantics(
             for key in ("epsilon", "refrac", "rsolv", "rmin", "pmin", "fepstype", "xfeps")
         ):
             solvation_model = solvation_model or "CPCM"
-        for key in ("epsilon", "refrac", "rsolv", "rmin", "pmin", "fepstype", "xfeps", "surfacetype", "scale_gauss", "cpcmccm", "draco", "draco_charges"):
+        for key in (
+            "epsilon",
+            "refrac",
+            "rsolv",
+            "rmin",
+            "pmin",
+            "fepstype",
+            "xfeps",
+            "surfacetype",
+            "scale_gauss",
+            "cpcmccm",
+            "draco",
+            "draco_charges",
+        ):
             if key in block_options and block_options[key] is not None:
                 options[key] = block_options[key]
         fepstype = block_options.get("fepstype")
@@ -744,7 +765,9 @@ def _collect_excited_state_blocks(blocks: Sequence[ORCABlock]) -> list[ORCABlock
     return [block for block in blocks if block.name.lower() in relevant_names]
 
 
-def _detect_excited_state_family(keyword_text: str, blocks: Sequence[ORCABlock]) -> tuple[str | None, str | None]:
+def _detect_excited_state_family(
+    keyword_text: str, blocks: Sequence[ORCABlock]
+) -> tuple[str | None, str | None]:
     tokens = [token for token in re.split(r"\s+", keyword_text.strip()) if token]
     family: str | None = None
     reference_method: str | None = None
@@ -840,7 +863,9 @@ def _parse_multi_reference_new_blocks(block: ORCABlock) -> list[ORCAMultiReferen
 
         multiplicity = _parse_int(tokens[1]) if len(tokens) > 1 else None
         irrep = tokens[2] if len(tokens) > 2 else None
-        nroots = _parse_int(tokens[4]) if len(tokens) > 4 and tokens[3].lower() == "nroots" else None
+        nroots = (
+            _parse_int(tokens[4]) if len(tokens) > 4 and tokens[3].lower() == "nroots" else None
+        )
         raw_lines = [stripped]
         refs: str | None = None
         excitations: str | None = None
@@ -938,9 +963,9 @@ def _build_multi_reference_semantic(
     }
     mrci_block = next((block for block in relevant_blocks if block.name.lower() == "mrci"), None)
     mrci_options = block_options.get("mrci", {})
-    canonical_ci_type = _normalize_multi_reference_method(mrci_options.get("citype") or "") or mrci_options.get(
-        "citype"
-    )
+    canonical_ci_type = _normalize_multi_reference_method(
+        mrci_options.get("citype") or ""
+    ) or mrci_options.get("citype")
 
     reference_method: str | None = None
     if "casscf" in block_options:
@@ -1171,13 +1196,13 @@ def _build_orca_model_chemistry(
     multi_reference_enabled: bool,
 ) -> QMModelChemistry:
     solvation_model, solvent, solvation_options = _parse_orca_solvation_semantics(keywords, blocks)
-    options: dict[str, Any] = {"has_mixed_basis": any(atom.basis_overrides for atom in geometry or [])}
+    options: dict[str, Any] = {
+        "has_mixed_basis": any(atom.basis_overrides for atom in geometry or [])
+    }
     if solvation_options:
         options["solvation"] = solvation_options
     return QMModelChemistry(
-        method_family=_orca_method_family(
-            method, functional, multi_reference_enabled
-        ),
+        method_family=_orca_method_family(method, functional, multi_reference_enabled),
         method=method or None,
         functional=functional or None,
         basis_set=basis_set or None,
@@ -1486,7 +1511,9 @@ def _build_orca_explicit_solvent_requests(
     ]
 
 
-def _populate_common_orca_qm_containers(frame: BaseQMInputFrame, mixin: ORCAInpFileFrameMixin) -> None:
+def _populate_common_orca_qm_containers(
+    frame: BaseQMInputFrame, mixin: ORCAInpFileFrameMixin
+) -> None:
     frame.model_chemistry = _build_orca_model_chemistry(
         keywords=frame.keywords,
         method=frame.method,
@@ -1504,15 +1531,15 @@ def _populate_common_orca_qm_containers(frame: BaseQMInputFrame, mixin: ORCAInpF
         mixin.excited_state_semantic,
         mixin.multi_reference_semantic,
     )
-    frame.excited_state_requests = _build_orca_excited_state_requests(
-        mixin.excited_state_semantic
-    )
+    frame.excited_state_requests = _build_orca_excited_state_requests(mixin.excited_state_semantic)
     frame.multireference_requests = _build_orca_multireference_requests(
         mixin.multi_reference_semantic
     )
     if hasattr(frame, "explicit_solvent_requests"):
-        cast(_HasExplicitSolventRequests, frame).explicit_solvent_requests = (
-            _build_orca_explicit_solvent_requests(mixin.explicit_solvent_semantic)
+        cast(
+            _HasExplicitSolventRequests, frame
+        ).explicit_solvent_requests = _build_orca_explicit_solvent_requests(
+            mixin.explicit_solvent_semantic
         )
     frame.backfill_common_qm_containers_from_legacy()
     frame.project_common_qm_fields()

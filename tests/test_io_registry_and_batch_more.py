@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
+import pandas as pd
 import pytest
 
 from molop.io.base_models._format_transform import FrameFormatTransformMixin
@@ -106,6 +107,39 @@ class FakeStateDiskFile(FakeDiskFile):
 
     def __getitem__(self, idx: int) -> FakeFrame:
         return self.frames[idx]
+
+
+class FakeSummaryFrame:
+    def __init__(self, frame_id: int) -> None:
+        self.frame_id = frame_id
+
+    def to_summary_series(self, brief: bool = True, **_kwargs: Any) -> pd.Series:
+        return pd.Series(
+            {
+                ("General", "FrameID"): self.frame_id,
+                ("General", "Brief"): brief,
+            }
+        )
+
+
+class FakeSummaryDiskFile(FakeDiskFile):
+    def __init__(self, file_path: str, frame_count: int) -> None:
+        super().__init__(file_path, "log", "g16log")
+        self.frames = [FakeSummaryFrame(frame_id) for frame_id in range(frame_count)]
+
+    def __len__(self) -> int:
+        return len(self.frames)
+
+    def __getitem__(self, idx: int) -> FakeSummaryFrame:
+        return self.frames[idx]
+
+    def to_summary_series(self, brief: bool = True, **_kwargs: Any) -> pd.Series:
+        return pd.Series(
+            {
+                ("File", "Path"): self.file_path,
+                ("File", "Brief"): brief,
+            }
+        )
 
 
 class DummyFrameTransform(FrameFormatTransformMixin):
@@ -405,6 +439,99 @@ def test_filebatch_iteration_is_reentrant_for_nested_loops() -> None:
     ]
 
 
+def test_parallel_execute_suppresses_implicit_none_results_by_default() -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(
+            cast(
+                Any,
+                [
+                    FakeDiskFile("/tmp/a.xyz", "xyz", "xyz"),
+                    FakeDiskFile("/tmp/b.xyz", "xyz", "xyz"),
+                ],
+            )
+        ),
+    )
+    seen: list[str] = []
+
+    def collect_path(diskfile: FakeDiskFile) -> None:
+        seen.append(diskfile.file_path)
+
+    result = batch.parallel_execute(collect_path, n_jobs=1)
+
+    assert result is None
+    assert seen == ["/tmp/a.xyz", "/tmp/b.xyz"]
+
+
+def test_parallel_execute_returns_values_by_default() -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(
+            cast(
+                Any,
+                [
+                    FakeDiskFile("/tmp/a.xyz", "xyz", "xyz"),
+                    FakeDiskFile("/tmp/b.xyz", "xyz", "xyz"),
+                ],
+            )
+        ),
+    )
+
+    result = batch.parallel_execute(lambda diskfile: diskfile.file_path, n_jobs=1)
+
+    assert result == ["/tmp/a.xyz", "/tmp/b.xyz"]
+
+
+def test_parallel_execute_can_preserve_explicit_none_results() -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(
+            cast(
+                Any,
+                [
+                    FakeDiskFile("/tmp/a.xyz", "xyz", "xyz"),
+                    FakeDiskFile("/tmp/b.xyz", "xyz", "xyz"),
+                ],
+            )
+        ),
+    )
+
+    result = batch.parallel_execute(lambda _diskfile: None, n_jobs=1, return_results=True)
+
+    assert result == [None, None]
+
+
+def test_parallel_execute_uses_provided_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(
+            cast(
+                Any,
+                [
+                    FakeDiskFile("/tmp/a.xyz", "xyz", "xyz"),
+                    FakeDiskFile("/tmp/b.xyz", "xyz", "xyz"),
+                ],
+            )
+        ),
+    )
+    snapshot = batch._snapshot_diskfiles()
+
+    def fail_snapshot() -> list[Any]:
+        raise AssertionError("parallel_execute should reuse the provided snapshot")
+
+    monkeypatch.setattr(batch, "_snapshot_diskfiles", fail_snapshot)
+
+    result = batch.parallel_execute(
+        lambda diskfile: diskfile.file_path,
+        n_jobs=1,
+        _diskfiles_snapshot=snapshot,
+    )
+
+    assert result == ["/tmp/a.xyz", "/tmp/b.xyz"]
+
+
 def test_filter_custom_keeps_alignment_with_generator_results(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -432,6 +559,126 @@ def test_filter_custom_keeps_alignment_with_generator_results(
     filtered = batch.filter_custom(lambda _diskfile: True)
 
     assert filtered.file_paths == ["/tmp/a.xyz", "/tmp/c.xyz"]
+
+
+def test_filter_custom_reuses_existing_snapshot(monkeypatch: pytest.MonkeyPatch) -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(
+            cast(
+                Any,
+                [
+                    FakeDiskFile("/tmp/a.xyz", "xyz", "xyz"),
+                    FakeDiskFile("/tmp/b.xyz", "xyz", "xyz"),
+                    FakeDiskFile("/tmp/c.xyz", "xyz", "xyz"),
+                ],
+            )
+        ),
+    )
+    snapshot = batch._snapshot_diskfiles()
+    snapshot_calls = 0
+
+    def counted_snapshot() -> list[Any]:
+        nonlocal snapshot_calls
+        snapshot_calls += 1
+        return snapshot
+
+    monkeypatch.setattr(batch, "_snapshot_diskfiles", counted_snapshot)
+
+    filtered = batch.filter_custom(lambda diskfile: diskfile.file_path != "/tmp/b.xyz")
+
+    assert snapshot_calls == 1
+    assert filtered.file_paths == ["/tmp/a.xyz", "/tmp/c.xyz"]
+
+
+def test_to_summary_df_frameids_all_returns_every_frame() -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(
+            cast(
+                Any,
+                [
+                    FakeSummaryDiskFile("/tmp/a.log", 2),
+                    FakeSummaryDiskFile("/tmp/b.log", 1),
+                ],
+            )
+        ),
+    )
+
+    df = batch.to_summary_df(frameIDs="all", n_jobs=1)
+
+    assert df[("General", "FrameID")].tolist() == [0, 1, 0]
+
+
+def test_to_summary_df_keeps_last_frame_default() -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(
+            cast(
+                Any,
+                [
+                    FakeSummaryDiskFile("/tmp/a.log", 2),
+                    FakeSummaryDiskFile("/tmp/b.log", 1),
+                ],
+            )
+        ),
+    )
+
+    df = batch.to_summary_df(n_jobs=1)
+
+    assert df[("General", "FrameID")].tolist() == [1, 0]
+
+
+def test_to_summary_df_normalizes_negative_frame_sequence() -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(
+            cast(
+                Any,
+                [
+                    FakeSummaryDiskFile("/tmp/a.log", 3),
+                    FakeSummaryDiskFile("/tmp/b.log", 2),
+                ],
+            )
+        ),
+    )
+
+    df = batch.to_summary_df(frameIDs=[0, -1], n_jobs=1)
+
+    assert df[("General", "FrameID")].tolist() == [0, 2, 0, 1]
+
+
+def test_to_summary_df_brief_and_flatten_columns() -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(cast(Any, [FakeSummaryDiskFile("/tmp/a.log", 1)])),
+    )
+
+    df = batch.to_summary_df(frameIDs=0, n_jobs=1, brief=False, flatten_columns=True)
+
+    assert df.columns.tolist() == ["General.FrameID", "General.Brief"]
+    assert df["General.Brief"].tolist() == [False]
+
+
+def test_to_summary_df_mode_file_passes_brief() -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(cast(Any, [FakeSummaryDiskFile("/tmp/a.log", 1)])),
+    )
+
+    df = batch.to_summary_df(mode="file", n_jobs=1, brief=False, flatten_columns=True)
+
+    assert df["File.Brief"].tolist() == [False]
+
+
+def test_to_summary_df_missing_frame_error() -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(cast(Any, [FakeSummaryDiskFile("/tmp/a.log", 1)])),
+    )
+
+    with pytest.raises(IndexError, match="Frame index 3 is out of range"):
+        batch.to_summary_df(frameIDs=3, n_jobs=1, on_missing_frame="error")
 
 
 def test_groupby_uses_generator_results_without_index_skew(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -736,7 +983,7 @@ def test_frame_format_transform_writes_requested_output_file(
     )
 
     target = tmp_path / "frame.anything"
-    rendered = frame.format_transform("xyz", file_path=target)
+    rendered = frame.format_transform("xyz", file_path=target, write_to_disk=True)
 
     assert rendered == "xyz-block"
     assert (tmp_path / "frame.xyz").read_text() == "xyz-block"

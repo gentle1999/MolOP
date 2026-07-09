@@ -30,6 +30,7 @@ def test_format_transform_file_path_writes_under_requested_dir(tmp_path, monkeyp
     file_model.format_transform(
         "xyz",
         file_path=str(out_dir / "out.xyz"),
+        write_to_disk=True,
         graph_policy="prefer",
     )
 
@@ -48,7 +49,7 @@ def test_format_transform_batch_output_dir_writes_under_requested_dir(tmp_path, 
     fixture_path = Path(__file__).resolve().parent / "test_files" / "xyz" / "dsgdb9nsd_004015-7.xyz"
     batch = AutoParser(str(fixture_path))
 
-    batch.format_transform("xyz", output_dir=str(out_dir), n_jobs=1)
+    batch.format_transform("xyz", output_dir=str(out_dir), write_to_disk=True, n_jobs=1)
 
     expected = out_dir / "dsgdb9nsd_004015-7.xyz"
     leak = cwd_dir / "dsgdb9nsd_004015-7.xyz"
@@ -71,6 +72,7 @@ def test_format_transform_multi_output_stays_in_output_dir(tmp_path, monkeypatch
         "xyz",
         output_dir=str(out_dir),
         embed_in_one_file=False,
+        write_to_disk=True,
         frameID="all",
         n_jobs=1,
     )
@@ -90,6 +92,7 @@ def test_format_transform_gjf_chk_propagation_single_file(tmp_path):
     file_model.format_transform(
         "gjf",
         file_path=str(out_file),
+        write_to_disk=True,
         chk=True,
     )
 
@@ -108,6 +111,7 @@ def test_format_transform_gjf_chk_propagation_multi_file(tmp_path):
         "gjf",
         output_dir=str(out_dir),
         embed_in_one_file=False,
+        write_to_disk=True,
         frameID=[0, 1],
         chk=True,
         n_jobs=1,
@@ -120,3 +124,74 @@ def test_format_transform_gjf_chk_propagation_multi_file(tmp_path):
 
     assert "%chk=1000.chk" in gjf0.read_text()
     assert "%chk=1001.chk" in gjf1.read_text()
+
+
+def test_format_transform_write_to_disk_defaults_to_source_directory(tmp_path):
+    fixture_path = tmp_path / "source.xyz"
+    fixture_path.write_text(
+        "2\ncomment\nH 0.0 0.0 0.0\nH 0.0 0.0 0.7\n",
+        encoding="utf-8",
+    )
+    batch = AutoParser(str(fixture_path))
+    file_model = batch[0]
+
+    rendered = file_model.format_transform("gjf", write_to_disk=True, graph_policy="prefer")
+
+    expected = tmp_path / "source.gjf"
+    assert expected.exists()
+    assert expected.read_text(encoding="utf-8") == rendered
+
+
+def test_format_transform_file_path_is_ignored_when_not_writing(tmp_path):
+    out_file = tmp_path / "ignored_name.gjf"
+    fixture_path = Path(__file__).resolve().parent / "test_files" / "g16log" / "1.log"
+    batch = AutoParser(str(fixture_path))
+    file_model = batch[0]
+
+    rendered = file_model.format_transform("gjf", file_path=str(out_file), chk=True)
+
+    assert not out_file.exists()
+    assert "%chk=ignored_name.chk" not in rendered
+
+
+def test_frame_format_transform_write_to_disk_defaults_to_source_directory(tmp_path):
+    fixture_path = tmp_path / "frame_source.xyz"
+    fixture_path.write_text(
+        "2\ncomment\nH 0.0 0.0 0.0\nH 0.0 0.0 0.7\n",
+        encoding="utf-8",
+    )
+    batch = AutoParser(str(fixture_path))
+    frame = batch[0][0]
+
+    rendered = frame.format_transform("gjf", write_to_disk=True, graph_policy="prefer")
+
+    expected = tmp_path / "frame_source.gjf"
+    assert expected.exists()
+    assert expected.read_text(encoding="utf-8") == rendered
+
+
+def test_batch_format_transform_write_to_disk_defaults_to_source_directory(tmp_path):
+    fixture_path = tmp_path / "batch_source.xyz"
+    fixture_path.write_text(
+        "2\ncomment\nH 0.0 0.0 0.0\nH 0.0 0.0 0.7\n",
+        encoding="utf-8",
+    )
+    batch = AutoParser(str(fixture_path))
+
+    result = batch.format_transform("gjf", write_to_disk=True, graph_policy="prefer", n_jobs=1)
+
+    expected = tmp_path / "batch_source.gjf"
+    assert expected.exists()
+    assert result[str(fixture_path)] == expected.read_text(encoding="utf-8")
+
+
+def test_batch_format_transform_output_dir_is_ignored_when_not_writing(tmp_path):
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    fixture_path = Path(__file__).resolve().parent / "test_files" / "xyz" / "dsgdb9nsd_004015-7.xyz"
+    batch = AutoParser(str(fixture_path))
+
+    result = batch.format_transform("xyz", output_dir=str(out_dir), n_jobs=1)
+
+    assert result
+    assert not list(out_dir.iterdir())

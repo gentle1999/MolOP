@@ -2,6 +2,8 @@ import numpy as np
 import pytest
 from pydantic import BaseModel
 
+from molop.io.base_models.DataClasses import Energies
+from molop.unit import atom_ureg
 from molop.utils.functions import (
     fill_symmetric_matrix,
     find_rigid_transform,
@@ -106,3 +108,14 @@ def test_merge_models():
     merged_force = merge_models(m1, m2, force_update=True)
     assert merged_force.a == 2
     assert merged_force.b == "new"
+
+
+def test_merge_models_excludes_computed_fields_from_validation_payload():
+    reference = Energies(reference_energy=-100.0 * atom_ureg.hartree)
+    correlated = Energies(mp2_energy=-101.0 * atom_ureg.hartree)
+
+    merged = merge_models(reference, correlated)
+
+    assert merged.reference_energy.to("hartree").magnitude == pytest.approx(-100.0)
+    assert merged.mp2_energy.to("hartree").magnitude == pytest.approx(-101.0)
+    assert merged.total_energy.to("hartree").magnitude == pytest.approx(-101.0)
