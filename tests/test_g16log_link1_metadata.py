@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from molop.io.logic.QM_parsers._g16_file_parse_result import G16FileParseResult
 from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
 
 
@@ -42,6 +43,31 @@ def test_g16log_link1_sections_propagate_section_metadata_to_later_frames() -> N
         assert "b3lyp/6-31g(d)" in frame.keywords.lower()
         assert "ccsd/aug-cc-pvtz" not in frame.keywords.lower()
         assert frame.title_card.strip() == "opt and freq in PhCl/MeOH=20/1"
+
+
+def test_g16log_file_metadata_result_is_canonical_model_data() -> None:
+    parser = G16LogFileParserMemory()
+    result = parser._parse_metadata_result(DFT_FIXTURE.read_text())
+    metadata = result.model_data()
+
+    assert isinstance(result, G16FileParseResult)
+    assert metadata["qm_software"] == "Gaussian"
+    assert "component_tree" not in metadata
+    assert "_component_tree" not in metadata
+    assert "frame_content" not in metadata
+    assert "file_content" not in metadata
+    assert "b3lyp/6-31g(d)" in metadata["keywords"].lower()
+    assert metadata["title_card"].strip() == "opt and freq in PhCl/MeOH=20/1"
+    assert metadata["charge"] == 0
+    assert metadata["multiplicity"] == 1
+
+    mutated = result.model_data()
+    mutated["qm_software"] = "Mutated"
+    assert result.model_data()["qm_software"] == "Gaussian"
+
+    file_model = parser._chem_file.model_validate(metadata)
+    assert file_model.qm_software == "Gaussian"
+    assert file_model.method == "DFT"
 
 
 def test_g16log_entering_link1_sections_propagate_section_metadata_to_later_frames() -> None:

@@ -31,6 +31,7 @@ from molop.io.logic.QM_frame_parsers.G16LogFileFrameParser import (
     G16LogFileFrameParserMemory,
 )
 from molop.io.logic.QM_models.G16LogFile import BaseCalcFile, G16LogFileDisk, G16LogFileMemory
+from molop.io.logic.QM_parsers._g16_file_parse_result import G16FileParseResult
 from molop.io.logic.QM_parsers._g16log_archive_tail import parse_archive_tail
 from molop.io.patterns.G16Patterns import MolOPPattern, g16_log_patterns
 from molop.unit import atom_ureg
@@ -87,39 +88,44 @@ class G16LogFileParserMixin:
     def _quick_check_file_format(cls, file_content: str) -> None:
         _ensure_gaussian_output(file_content[:_GAUSSIAN_PROBE_BYTES])
 
-    def _parse_metadata(self, file_content: str) -> dict[str, Any]:
-        metadata: dict[str, Any] = {"qm_software": "Gaussian"}
+    def _parse_metadata_result(self, file_content: str) -> G16FileParseResult:
+        result = G16FileParseResult()
         raw_file_content = file_content
         self._file_content = file_content
         if version := self._parse_version():
-            metadata["qm_software_version"] = version
+            result.set("qm_software_version", version)
         if options := self._parse_options():
-            metadata["options"] = options
+            result.set("options", options)
         if route := self._parse_keywords():
-            metadata["keywords"] = route
+            result.set("keywords", route)
         if title := self._parse_title():
-            metadata["title_card"] = title
+            result.set("title_card", title)
         if charge_multiplicity := self._parse_charge_multiplicity():
-            metadata["charge"], metadata["multiplicity"] = charge_multiplicity
+            charge, multiplicity = charge_multiplicity
+            result.set("charge", charge)
+            result.set("multiplicity", multiplicity)
         transform_matrix = self._parse_standard_orientation_transformation_matrix()
         if transform_matrix is not None:
-            metadata["standard_orientation_transformation_matrix"] = transform_matrix
+            result.set("standard_orientation_transformation_matrix", transform_matrix)
         if cast(_HasFileParseMethod, self).only_extract_structure:
-            return metadata
+            return result
         if solvent := self._parse_solvent():
-            metadata["solvent"] = solvent
+            result.set("solvent", solvent)
         temperature, pressure = self._parse_temperature_and_pressure(raw_file_content)
         if temperature:
-            metadata["temperature"] = temperature
+            result.set("temperature", temperature)
         if pressure:
-            metadata["pressure"] = pressure
+            result.set("pressure", pressure)
         if tail := parse_archive_tail(file_content):
-            metadata.update(tail[0])
+            result.update(tail[0])
         if running_time := self._parse_running_time():
-            metadata["running_time"] = running_time
+            result.set("running_time", running_time)
         if status := self._parse_termination_status():
-            metadata["status"] = status
-        return metadata
+            result.set("status", status)
+        return result
+
+    def _parse_metadata(self, file_content: str) -> dict[str, Any]:
+        return self._parse_metadata_result(file_content).model_data()
 
     def _split_sections(self, file_content: str) -> list[str]:
         matches = list(LINK1_SECTION_PATTERN.finditer(file_content))
