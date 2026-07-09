@@ -2,8 +2,8 @@ from pathlib import Path
 
 import pytest
 
+from molop.io.base_models.ParseContainers import ModelParseResult
 from molop.io.logic.QM_frame_models.G16LogFileFrame import G16LogFileFrameMemory
-from molop.io.logic.QM_frame_parsers._g16_parse_result import G16FrameParseResult
 from molop.io.logic.QM_frame_parsers.G16LogFileFrameParser import G16LogFileFrameParserMemory
 from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
 
@@ -58,7 +58,7 @@ def test_g16log_state_machine_result_is_canonical_model_data():
     result = G16LogFileFrameParserMemory()._parse_block_to_result(block)
     model_data = result.model_data()
 
-    assert isinstance(result, G16FrameParseResult)
+    assert isinstance(result, ModelParseResult)
     assert model_data["qm_software"] == "Gaussian"
     assert "component_tree" not in model_data
     assert "_component_tree" not in model_data

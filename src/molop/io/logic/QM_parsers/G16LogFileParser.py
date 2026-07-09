@@ -21,6 +21,7 @@ from molop.io.base_models.FileParser import (
     BaseFileParserMemory,
     _HasFileParseMethod,
 )
+from molop.io.base_models.ParseContainers import ModelParseResult, TextParseContext
 from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.QM_frame_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
@@ -31,10 +32,6 @@ from molop.io.logic.QM_frame_parsers.G16LogFileFrameParser import (
     G16LogFileFrameParserMemory,
 )
 from molop.io.logic.QM_models.G16LogFile import BaseCalcFile, G16LogFileDisk, G16LogFileMemory
-from molop.io.logic.QM_parsers._g16_file_parse_result import (
-    G16FileParseContext,
-    G16FileParseResult,
-)
 from molop.io.logic.QM_parsers._g16log_archive_tail import parse_archive_tail
 from molop.io.patterns.G16Patterns import MolOPPattern, g16_log_patterns
 from molop.unit import atom_ureg
@@ -91,9 +88,9 @@ class G16LogFileParserMixin:
     def _quick_check_file_format(cls, file_content: str) -> None:
         _ensure_gaussian_output(file_content[:_GAUSSIAN_PROBE_BYTES])
 
-    def _parse_metadata_result(self, file_content: str) -> G16FileParseResult:
-        context = G16FileParseContext(file_content)
-        result = G16FileParseResult()
+    def _parse_metadata_result(self, file_content: str) -> ModelParseResult:
+        context = TextParseContext(file_content)
+        result = ModelParseResult({"qm_software": "Gaussian"})
         if version := self._parse_version(context):
             result.set("qm_software_version", version)
         if options := self._parse_options(context):
@@ -294,13 +291,13 @@ class G16LogFileParserMixin:
     # Details of the parsing process for metadata
     # -------------------------------------------
 
-    def _parse_version(self, context: G16FileParseContext) -> str | None:
+    def _parse_version(self, context: TextParseContext) -> str | None:
         focus_content = context.split(g16_log_patterns.VERSION)
         if matches := g16_log_patterns.VERSION.get_matches(focus_content):
             return matches[0][0]
         return None
 
-    def _parse_options(self, context: G16FileParseContext) -> str | None:
+    def _parse_options(self, context: TextParseContext) -> str | None:
         focus_content, continued_content = g16_log_patterns.OPTIONS.split_content(context.content)
         if matches := g16_log_patterns.OPTIONS.get_matches(focus_content):
             options = "\n".join([f"{match[0]}={match[1]}" for match in matches])
@@ -308,14 +305,14 @@ class G16LogFileParserMixin:
             return options
         return None
 
-    def _parse_keywords(self, context: G16FileParseContext) -> str | None:
+    def _parse_keywords(self, context: TextParseContext) -> str | None:
         focus_content, continued_content = g16_log_patterns.KEYWORDS.split_content(context.content)
         if len(keyword_lines := focus_content.splitlines()) >= 3:
             context.content = continued_content
             return "\n".join(keyword_lines[1:-1]).replace("\n ", "")
         return None
 
-    def _parse_title(self, context: G16FileParseContext) -> str | None:
+    def _parse_title(self, context: TextParseContext) -> str | None:
         focus_content, continued_content = g16_log_patterns.TITLE.split_content(context.content)
         if len(title_lines := focus_content.splitlines()) >= 3:
             context.content = continued_content
@@ -323,7 +320,7 @@ class G16LogFileParserMixin:
         return None
 
     def _parse_charge_multiplicity(
-        self, context: G16FileParseContext
+        self, context: TextParseContext
     ) -> tuple[int, int] | tuple[None, None]:
         if match := g16_log_patterns.CHARGE_MULTIPLICITY.match_content(context.content):
             charge, multiplicity = int(match[0][0]), int(match[0][1])
@@ -331,7 +328,7 @@ class G16LogFileParserMixin:
         return None, None
 
     def _parse_standard_orientation_transformation_matrix(
-        self, context: G16FileParseContext
+        self, context: TextParseContext
     ) -> np.ndarray | None:
         try:
             coords = self._parse_coordinates(context, g16_log_patterns.INITIAL_INPUT_COORDS)
@@ -345,7 +342,7 @@ class G16LogFileParserMixin:
             raise e
 
     def _parse_coordinates(
-        self, context: G16FileParseContext, pattern: MolOPPattern
+        self, context: TextParseContext, pattern: MolOPPattern
     ) -> np.ndarray | None:
         focus_content = context.split(pattern)
         if matches := pattern.match_content(focus_content):
@@ -354,7 +351,7 @@ class G16LogFileParserMixin:
             )
         return None
 
-    def _parse_solvent(self, context: G16FileParseContext) -> ImplicitSolvation | None:
+    def _parse_solvent(self, context: TextParseContext) -> ImplicitSolvation | None:
         solvent_dict: dict[str, Any] = {}
         focus_content = context.split(g16_log_patterns.SOLVENT_PARAMETERS)
         if matches := g16_log_patterns.SOLVENT_MODEL.get_matches(focus_content):
@@ -386,7 +383,7 @@ class G16LogFileParserMixin:
             return temperature, pressure
         return None, None
 
-    def _parse_running_time(self, context: G16FileParseContext) -> PlainQuantity | None:
+    def _parse_running_time(self, context: TextParseContext) -> PlainQuantity | None:
         if matches := g16_log_patterns.JOB_TIME.match_content(context.content):
             total_seconds = 0.0
             for match in matches:
@@ -395,7 +392,7 @@ class G16LogFileParserMixin:
             return total_seconds * atom_ureg.second
         return None
 
-    def _parse_termination_status(self, context: G16FileParseContext) -> Status | None:
+    def _parse_termination_status(self, context: TextParseContext) -> Status | None:
         status_dict: dict[str, Any] = {}
         if matches := g16_log_patterns.TERMINATION_STATUS.match_content(context.content):
             status = matches[-1][0]

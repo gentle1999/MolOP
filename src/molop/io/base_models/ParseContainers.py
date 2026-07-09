@@ -44,17 +44,27 @@ def _merge_payload(
 
 
 @dataclass(slots=True)
-class G16FrameParseResult:
-    """Canonical state-machine output before model validation."""
+class TextParseContext:
+    """Mutable local scan context for parser helpers."""
 
-    fields: dict[str, Any] = field(default_factory=lambda: {"qm_software": "Gaussian"})
+    content: str
+
+    def split(self, pattern: Any) -> str:
+        focus_content, self.content = pattern.split_content(self.content)
+        return focus_content
+
+
+@dataclass(slots=True)
+class ModelParseResult:
+    """Model-ready parse fields before Pydantic validation."""
+
+    fields: dict[str, Any] = field(default_factory=dict)
 
     def set(self, key: str, value: Any) -> None:
         self.fields[key] = value
 
     def update(self, values: Mapping[str, Any]) -> None:
-        for key, value in values.items():
-            self.fields[key] = value
+        self.fields.update(values)
 
     def set_missing_from(self, values: Mapping[str, Any]) -> None:
         for key, value in values.items():

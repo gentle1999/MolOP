@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from molop.io.logic.QM_parsers._g16_file_parse_result import G16FileParseResult
+from molop.io.base_models.ParseContainers import ModelParseResult
 from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
 
 
@@ -50,7 +50,7 @@ def test_g16log_file_metadata_result_is_canonical_model_data() -> None:
     result = parser._parse_metadata_result(DFT_FIXTURE.read_text())
     metadata = result.model_data()
 
-    assert isinstance(result, G16FileParseResult)
+    assert isinstance(result, ModelParseResult)
     assert "_file_content" not in parser.__dict__
     assert metadata["qm_software"] == "Gaussian"
     assert "component_tree" not in metadata
