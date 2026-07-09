@@ -6,6 +6,17 @@ from typing import Any
 
 
 @dataclass(slots=True)
+class G16FileParseContext:
+    """Mutable local scan context for Gaussian file metadata extraction."""
+
+    content: str
+
+    def split(self, pattern: Any) -> str:
+        focus_content, self.content = pattern.split_content(self.content)
+        return focus_content
+
+
+@dataclass(slots=True)
 class G16FileParseResult:
     """Canonical Gaussian file metadata before file-model validation."""
 

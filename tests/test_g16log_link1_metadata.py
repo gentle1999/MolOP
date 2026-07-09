@@ -51,6 +51,7 @@ def test_g16log_file_metadata_result_is_canonical_model_data() -> None:
     metadata = result.model_data()
 
     assert isinstance(result, G16FileParseResult)
+    assert "_file_content" not in parser.__dict__
     assert metadata["qm_software"] == "Gaussian"
     assert "component_tree" not in metadata
     assert "_component_tree" not in metadata
