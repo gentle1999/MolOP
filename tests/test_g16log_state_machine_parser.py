@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from molop.io.logic.QM_frame_models.G16LogFileFrame import G16LogFileFrameMemory
+from molop.io.logic.QM_frame_parsers._g16_parse_result import G16FrameParseResult
 from molop.io.logic.QM_frame_parsers.G16LogFileFrameParser import G16LogFileFrameParserMemory
 from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
 
@@ -50,6 +51,30 @@ def test_g16log_state_machine_frame_parser_matches_file_parser_frames():
         assert bool(direct_frame.geometry_optimization_status) == bool(
             file_frame.geometry_optimization_status
         )
+
+
+def test_g16log_state_machine_result_is_canonical_model_data():
+    block = _last_frame_block(FIXTURES[0])
+    result = G16LogFileFrameParserMemory()._parse_block_to_result(block)
+    model_data = result.model_data()
+
+    assert isinstance(result, G16FrameParseResult)
+    assert model_data["qm_software"] == "Gaussian"
+    assert "component_tree" not in model_data
+    assert "_component_tree" not in model_data
+    assert "component_tree_input" not in model_data
+    assert model_data["energies"]["reference_energy"] is not None
+    assert model_data["vibrations"]["frequencies"] is not None
+    assert model_data["thermal_informations"]["ZPVE"] is not None
+
+    mutated = result.model_data()
+    mutated["qm_software"] = "Mutated"
+    assert result.model_data()["qm_software"] == "Gaussian"
+
+    frame = G16LogFileFrameMemory.model_validate({"frame_content": block, **model_data})
+    assert frame.energies is not None
+    assert frame.vibrations is not None
+    assert frame.component_tree is not None
 
 
 def test_g16log_state_machine_uses_archive_energies_without_inventing_live_status():

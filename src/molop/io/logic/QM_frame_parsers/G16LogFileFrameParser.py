@@ -25,62 +25,12 @@ from molop.io.logic.QM_frame_parsers._g16_extractors import (
     extract_thermal_infos_from_state,
     extract_vibrations_from_state,
 )
+from molop.io.logic.QM_frame_parsers._g16_parse_result import G16FrameParseResult
 from molop.io.logic.QM_frame_parsers._g16_shared import (
     _parse_running_time,
     _temperature_and_pressure_from_block,
 )
 from molop.io.patterns.G16Patterns import g16_log_patterns
-
-
-def _payload_mapping(value: Any) -> dict[str, Any]:
-    if isinstance(value, Mapping):
-        return {key: item for key, item in value.items() if item is not None}
-    if hasattr(value, "model_dump"):
-        return value.model_dump(
-            exclude_unset=True,
-            exclude_none=True,
-            exclude_computed_fields=True,
-        )
-    return {}
-
-
-def _has_payload_value(value: Any) -> bool:
-    if value is None:
-        return False
-    if isinstance(value, str):
-        return bool(value.strip())
-    try:
-        return len(value) > 0  # type: ignore[arg-type]
-    except Exception:
-        return True
-
-
-def _merge_payload(
-    existing: Any,
-    incoming: Mapping[str, Any],
-    *,
-    overwrite: bool = False,
-) -> dict[str, Any]:
-    merged = _payload_mapping(existing)
-    for key, value in incoming.items():
-        if value is None:
-            continue
-        if overwrite or not _has_payload_value(merged.get(key)):
-            merged[key] = value
-    return merged
-
-
-def _merge_payload_field(
-    infos: dict[str, Any],
-    key: str,
-    incoming: Mapping[str, Any],
-    *,
-    overwrite: bool = False,
-) -> None:
-    if key in infos:
-        infos[key] = _merge_payload(infos[key], incoming, overwrite=overwrite)
-    else:
-        infos[key] = _payload_mapping(incoming)
 
 
 class G16ParsePhase(Enum):
@@ -139,26 +89,28 @@ class G16LogFileFrameParserMixin:
     - Leave component trees to render/inspection paths instead of hot extraction.
     """
 
-    def _run_header_phase(self, block: str, infos: dict[str, Any]) -> G16ParsePhase:
+    def _run_header_phase(self, block: str, result: G16FrameParseResult) -> G16ParsePhase:
         """Parse frame-global header data that does not depend on cursor state."""
         if charge_multiplicity := g16_log_patterns.CHARGE_MULTIPLICITY.match_content(block):
-            infos["charge"] = int(charge_multiplicity[0][0])
-            infos["multiplicity"] = int(charge_multiplicity[0][1])
+            result.set("charge", int(charge_multiplicity[0][0]))
+            result.set("multiplicity", int(charge_multiplicity[0][1]))
         if running_time := _parse_running_time(block):
-            infos["running_time"] = running_time
+            result.set("running_time", running_time)
         return G16ParsePhase.ORIENTATION
 
-    def _run_orientation_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+    def _run_orientation_phase(
+        self, state: ParseState, result: G16FrameParseResult
+    ) -> G16ParsePhase:
         """Extract input and standard orientations, establishing core atom/coord payload."""
         atoms, coords = extract_input_coords_from_state(state)
         if atoms and coords is not None:
-            infos["atoms"] = atoms
-            infos["coords"] = coords
+            result.set("atoms", atoms)
+            result.set("coords", coords)
 
         atoms, standard_coords = extract_standard_coords_from_state(state)
         if atoms and standard_coords is not None:
-            infos["atoms"] = atoms
-            infos["standard_coords"] = standard_coords
+            result.set("atoms", atoms)
+            result.set("standard_coords", standard_coords)
 
         return G16ParsePhase.STRUCTURE_ONLY_CHECK
 
@@ -170,140 +122,149 @@ class G16LogFileFrameParserMixin:
             else G16ParsePhase.ROTATION
         )
 
-    def _run_rotation_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+    def _run_rotation_phase(self, state: ParseState, result: G16FrameParseResult) -> G16ParsePhase:
         """Parse lightweight rotational metadata that may appear before SCF/population sections."""
         if (rotation_consts := extract_rotation_consts_from_state(state)) is not None:
-            infos["rotation_constants"] = rotation_consts
+            result.set("rotation_constants", rotation_consts)
         return G16ParsePhase.SCF
 
-    def _run_scf_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+    def _run_scf_phase(self, state: ParseState, result: G16FrameParseResult) -> G16ParsePhase:
         """Parse SCF/energy and spin-state information from the current cursor position."""
         energies_dict, total_spin_dict = extract_energies_and_total_spin_from_state(state)
         if energies_dict:
-            infos["energies"] = energies_dict
+            result.set("energies", energies_dict)
         if total_spin_dict:
-            infos["total_spin"] = total_spin_dict
+            result.set("total_spin", total_spin_dict)
         return G16ParsePhase.ISOTROPIC_POLARIZABILITY
 
     def _run_isotropic_polarizability_phase(
-        self, state: ParseState, infos: dict[str, Any]
+        self, state: ParseState, result: G16FrameParseResult
     ) -> G16ParsePhase:
         """Parse early scalar polarizability data before the larger population section."""
         if (polarizability := extract_polarizability_from_state(state)) is not None:
-            infos["polarizability"] = polarizability
+            result.set("polarizability", polarizability)
         return G16ParsePhase.POPULATION
 
-    def _run_population_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+    def _run_population_phase(
+        self, state: ParseState, result: G16FrameParseResult
+    ) -> G16ParsePhase:
         """Parse population analysis, orbitals, and any coupled response data in that block."""
         if populations := extract_populations_from_state(state):
-            infos.update(populations)
+            result.update(populations)
         return G16ParsePhase.FREQUENCY
 
-    def _run_frequency_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+    def _run_frequency_phase(self, state: ParseState, result: G16FrameParseResult) -> G16ParsePhase:
         """Parse vibrational frequency blocks if present."""
         if vibrations := extract_vibrations_from_state(state):
-            infos["vibrations"] = vibrations
+            result.set("vibrations", vibrations)
         return G16ParsePhase.THERMOCHEM
 
-    def _run_thermochem_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+    def _run_thermochem_phase(
+        self, state: ParseState, result: G16FrameParseResult
+    ) -> G16ParsePhase:
         """Parse thermochemistry summaries that often follow frequency sections."""
         cursor_before = state.cursor
         if (thermal_info := extract_thermal_infos_from_state(state)) is not None:
-            infos["thermal_informations"] = thermal_info
+            result.set("thermal_informations", thermal_info)
         if temp_pressure := _temperature_and_pressure_from_block(state.content[cursor_before:]):
-            infos.update(temp_pressure)
+            result.update(temp_pressure)
         return G16ParsePhase.FORCES
 
-    def _run_forces_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+    def _run_forces_phase(self, state: ParseState, result: G16FrameParseResult) -> G16ParsePhase:
         """Parse Cartesian forces when present."""
         if (forces := extract_forces_from_state(state)) is not None:
-            infos["forces"] = forces
+            result.set("forces", forces)
         return G16ParsePhase.HESSIAN
 
-    def _run_hessian_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+    def _run_hessian_phase(self, state: ParseState, result: G16FrameParseResult) -> G16ParsePhase:
         """Parse Hessian / second-derivative blocks."""
         if (hessian := extract_hessian_from_state(state)) is not None:
-            infos["hessian"] = hessian
+            result.set("hessian", hessian)
         return G16ParsePhase.OPTIMIZATION
 
-    def _run_optimization_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+    def _run_optimization_phase(
+        self, state: ParseState, result: G16FrameParseResult
+    ) -> G16ParsePhase:
         """Parse Berny optimization state summaries."""
         if (berny := extract_berny_from_state(state)) is not None:
-            infos["geometry_optimization_status"] = berny
+            result.set("geometry_optimization_status", berny)
         return G16ParsePhase.ELECTRIC_RESPONSE
 
     def _run_electric_response_phase(
-        self, state: ParseState, infos: dict[str, Any]
+        self, state: ParseState, result: G16FrameParseResult
     ) -> G16ParsePhase:
         """Merge late electric-dipole/polarizability sections into existing response data."""
         if (
             polarizability := extract_electric_dipole_and_polarizability_from_state(state)
         ) is not None:
-            _merge_payload_field(infos, "polarizability", polarizability, overwrite=True)
+            result.merge_payload_field("polarizability", polarizability, overwrite=True)
         return G16ParsePhase.ARCHIVE_TAIL
 
-    def _run_archive_tail_phase(self, state: ParseState, infos: dict[str, Any]) -> G16ParsePhase:
+    def _run_archive_tail_phase(
+        self, state: ParseState, result: G16FrameParseResult
+    ) -> G16ParsePhase:
         """Use archive-tail data as the final fallback/augmentation stage."""
         archive_payload = extract_archive_tail_payload_from_state(state)
         if tail := archive_payload.get("metadata"):
-            for key, value in tail.items():
-                if not _has_payload_value(infos.get(key)):
-                    infos[key] = value
+            result.set_missing_from(tail)
 
         if tail_energies := archive_payload.get("energies"):
-            _merge_payload_field(infos, "energies", tail_energies)
+            result.merge_payload_field("energies", tail_energies)
 
         if tail_thermal_info := archive_payload.get("thermal_informations"):
-            _merge_payload_field(infos, "thermal_informations", tail_thermal_info)
+            result.merge_payload_field("thermal_informations", tail_thermal_info)
 
         if tail_polarizability := archive_payload.get("polarizability"):
-            _merge_payload_field(infos, "polarizability", tail_polarizability)
+            result.merge_payload_field("polarizability", tail_polarizability)
 
-        if (tail_hessian := archive_payload.get("hessian")) is not None and not _has_payload_value(
-            infos.get("hessian")
+        if (tail_hessian := archive_payload.get("hessian")) is not None and not result.has_value(
+            "hessian"
         ):
-            infos["hessian"] = tail_hessian
+            result.set("hessian", tail_hessian)
 
         return G16ParsePhase.DONE
 
-    def _parse_frame(self) -> Mapping[str, Any]:
+    def _parse_block_to_result(self, block: str) -> G16FrameParseResult:
         """Execute the explicit phase machine until all extractors have run."""
-        block = cast(_HasParseMethod, self)._block
         state = ParseState(block)
-        infos: dict[str, Any] = {"qm_software": "Gaussian"}
+        result = G16FrameParseResult()
 
         phase = G16ParsePhase.HEADER
         while phase is not G16ParsePhase.DONE:
             if phase is G16ParsePhase.HEADER:
-                phase = self._run_header_phase(block, infos)
+                phase = self._run_header_phase(block, result)
             elif phase is G16ParsePhase.ORIENTATION:
-                phase = self._run_orientation_phase(state, infos)
+                phase = self._run_orientation_phase(state, result)
             elif phase is G16ParsePhase.STRUCTURE_ONLY_CHECK:
                 phase = self._run_structure_only_check()
             elif phase is G16ParsePhase.ROTATION:
-                phase = self._run_rotation_phase(state, infos)
+                phase = self._run_rotation_phase(state, result)
             elif phase is G16ParsePhase.SCF:
-                phase = self._run_scf_phase(state, infos)
+                phase = self._run_scf_phase(state, result)
             elif phase is G16ParsePhase.ISOTROPIC_POLARIZABILITY:
-                phase = self._run_isotropic_polarizability_phase(state, infos)
+                phase = self._run_isotropic_polarizability_phase(state, result)
             elif phase is G16ParsePhase.POPULATION:
-                phase = self._run_population_phase(state, infos)
+                phase = self._run_population_phase(state, result)
             elif phase is G16ParsePhase.FREQUENCY:
-                phase = self._run_frequency_phase(state, infos)
+                phase = self._run_frequency_phase(state, result)
             elif phase is G16ParsePhase.THERMOCHEM:
-                phase = self._run_thermochem_phase(state, infos)
+                phase = self._run_thermochem_phase(state, result)
             elif phase is G16ParsePhase.FORCES:
-                phase = self._run_forces_phase(state, infos)
+                phase = self._run_forces_phase(state, result)
             elif phase is G16ParsePhase.HESSIAN:
-                phase = self._run_hessian_phase(state, infos)
+                phase = self._run_hessian_phase(state, result)
             elif phase is G16ParsePhase.OPTIMIZATION:
-                phase = self._run_optimization_phase(state, infos)
+                phase = self._run_optimization_phase(state, result)
             elif phase is G16ParsePhase.ELECTRIC_RESPONSE:
-                phase = self._run_electric_response_phase(state, infos)
+                phase = self._run_electric_response_phase(state, result)
             elif phase is G16ParsePhase.ARCHIVE_TAIL:
-                phase = self._run_archive_tail_phase(state, infos)
+                phase = self._run_archive_tail_phase(state, result)
 
-        return infos
+        return result
+
+    def _parse_frame(self) -> Mapping[str, Any]:
+        """Return model-ready frame fields from the canonical state-machine result."""
+        return self._parse_block_to_result(cast(_HasParseMethod, self)._block).model_data()
 
 
 class G16LogFileFrameParserMemory(
