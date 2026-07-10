@@ -89,8 +89,8 @@ frame，并将列名展开为 `General.FrameID`、`Status.IsError`、
 
 ### fakeG 渲染
 
-`file.format_transform("fakeg")` 遵循通用转换默认值 `frameID=-1`，因此默认渲染最后一帧。
-如需全文件 Gaussian-like 输出，使用 `file.format_transform("fakeg", frameID="all")` 或
+`file.format_transform("fakeg")` 遵循通用转换默认值 `frame=-1`，因此默认渲染最后一帧。
+如需全文件 Gaussian-like 输出，使用 `file.format_transform("fakeg", frame="all")` 或
 `file.render_fakeg()`。
 
 `fakeg` 输出是语义化、归一化文本，适合人工检查、兼容性测试和重新解析检查；它不是

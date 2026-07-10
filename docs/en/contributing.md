@@ -104,16 +104,20 @@ class MyFmtFrameDisk(DiskStorageMixin, MyFmtFrameMixin, BaseCoordsFrame["MyFmtFr
 
 
 class MyFmtFileMixin(FileMixin):
-    def _render_frames_in_one_file(self, frameID: Sequence[int], **kwargs) -> str:
+    def _render_frames_in_one_file(self, frame_ids: Sequence[int], **kwargs) -> str:
         typed_self = cast(_HasRenderableFrames, self)
         return "\n\n".join(
-            frame._render(**kwargs) for frame in typed_self.frames if frame.frame_id in frameID
+            frame._render(**kwargs)
+            for frame in typed_self.frames
+            if frame.frame_id in frame_ids
         )
 
-    def _render_frames(self, frameID: Sequence[int], **kwargs) -> list[str]:
+    def _render_frames(self, frame_ids: Sequence[int], **kwargs) -> list[str]:
         typed_self = cast(_HasRenderableFrames, self)
         return [
-            frame._render(**kwargs) for frame in typed_self.frames if frame.frame_id in frameID
+            frame._render(**kwargs)
+            for frame in typed_self.frames
+            if frame.frame_id in frame_ids
         ]
 
 
@@ -250,7 +254,7 @@ sequenceDiagram
         FileParser->>FileModel: assemble file object and append frames
         FileModel-->>API: parsed file model
     else file transform
-        API->>Registry: write(file_obj, format, frameID, embed_in_one_file)
+        API->>Registry: write(file_obj, format, frame, embed_in_one_file)
         Registry->>Writer: select file-domain writer
         Writer->>FileModel: _render(...)
         FileModel-->>Writer: rendered text or file output
@@ -286,8 +290,8 @@ These file bases already provide:
 
 If your file model is renderable through the generic registry path, implement the `FileMixin` contract:
 
-- `_render_frames_in_one_file(frameID, **kwargs) -> str`
-- `_render_frames(frameID, **kwargs) -> list[str]`
+- `_render_frames_in_one_file(frame_ids, **kwargs) -> str`
+- `_render_frames(frame_ids, **kwargs) -> list[str]`
 
 Reference patterns:
 

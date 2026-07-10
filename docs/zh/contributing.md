@@ -104,16 +104,20 @@ class MyFmtFrameDisk(DiskStorageMixin, MyFmtFrameMixin, BaseCoordsFrame["MyFmtFr
 
 
 class MyFmtFileMixin(FileMixin):
-    def _render_frames_in_one_file(self, frameID: Sequence[int], **kwargs) -> str:
+    def _render_frames_in_one_file(self, frame_ids: Sequence[int], **kwargs) -> str:
         typed_self = cast(_HasRenderableFrames, self)
         return "\n\n".join(
-            frame._render(**kwargs) for frame in typed_self.frames if frame.frame_id in frameID
+            frame._render(**kwargs)
+            for frame in typed_self.frames
+            if frame.frame_id in frame_ids
         )
 
-    def _render_frames(self, frameID: Sequence[int], **kwargs) -> list[str]:
+    def _render_frames(self, frame_ids: Sequence[int], **kwargs) -> list[str]:
         typed_self = cast(_HasRenderableFrames, self)
         return [
-            frame._render(**kwargs) for frame in typed_self.frames if frame.frame_id in frameID
+            frame._render(**kwargs)
+            for frame in typed_self.frames
+            if frame.frame_id in frame_ids
         ]
 
 
@@ -250,7 +254,7 @@ sequenceDiagram
         FileParser->>FileModel: 组装文件对象并 append 帧
         FileModel-->>API: 返回解析后的文件模型
     else 文件级 transform
-        API->>Registry: write(file_obj, format, frameID, embed_in_one_file)
+        API->>Registry: write(file_obj, format, frame, embed_in_one_file)
         Registry->>Writer: 选择 file-domain writer
         Writer->>FileModel: _render(...)
         FileModel-->>Writer: 返回渲染文本或文件输出
@@ -286,8 +290,8 @@ sequenceDiagram
 
 如果你的文件模型需要通过通用 registry 路径参与渲染，就必须实现 `FileMixin` 约定的两个方法：
 
-- `_render_frames_in_one_file(frameID, **kwargs) -> str`
-- `_render_frames(frameID, **kwargs) -> list[str]`
+- `_render_frames_in_one_file(frame_ids, **kwargs) -> str`
+- `_render_frames(frame_ids, **kwargs) -> list[str]`
 
 参考实现：
 

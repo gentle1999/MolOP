@@ -26,9 +26,9 @@ class _RenderableFrame(Protocol):
 class _HasRenderableFrames(Protocol):
     frames: Sequence[_RenderableFrame]
 
-    def _render_frames_in_one_file(self, frameID: Sequence[int], **kwargs) -> str: ...
+    def _render_frames_in_one_file(self, frame_ids: Sequence[int], **kwargs) -> str: ...
 
-    def _render_frames(self, frameID: Sequence[int], **kwargs) -> list[str]: ...
+    def _render_frames(self, frame_ids: Sequence[int], **kwargs) -> list[str]: ...
 
 
 class MemoryStorageMixin: ...
@@ -107,37 +107,39 @@ class FileMixin:
     @overload
     def _render(
         self,
-        frameID: FrameSelector,
+        frame: FrameSelector,
         embed_in_one_file: Literal[True],
         **kwargs,
     ) -> str: ...
     @overload
     def _render(
         self,
-        frameID: FrameSelector,
+        frame: FrameSelector,
         embed_in_one_file: Literal[False],
         **kwargs,
     ) -> list[str]: ...
     def _render(
         self,
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> str | list[str]:
         typed_self = cast(_HasRenderableFrames, self)
         frame_ids = normalize_frame_selector(
-            frameID,
+            frame,
             len(typed_self.frames),
-            parameter_name="frameID",
+            parameter_name="frame",
         )
         if embed_in_one_file:
             return typed_self._render_frames_in_one_file(frame_ids, **kwargs)
         else:
             return typed_self._render_frames(frame_ids, **kwargs)
 
-    def _render_frames_in_one_file(self, frameID: Sequence[int], **kwargs) -> str:
-        return self.file_frame_separator.join(self._render_frames(frameID, **kwargs))
+    def _render_frames_in_one_file(self, frame_ids: Sequence[int], **kwargs) -> str:
+        return self.file_frame_separator.join(self._render_frames(frame_ids, **kwargs))
 
-    def _render_frames(self, frameID: Sequence[int], **kwargs) -> list[str]:
+    def _render_frames(self, frame_ids: Sequence[int], **kwargs) -> list[str]:
         typed_self = cast(_HasRenderableFrames, self)
-        return [frame._render(**kwargs) for frame in typed_self.frames if frame.frame_id in frameID]
+        return [
+            frame._render(**kwargs) for frame in typed_self.frames if frame.frame_id in frame_ids
+        ]

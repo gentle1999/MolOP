@@ -1618,28 +1618,28 @@ class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
             yield self[i]
 
     @overload
-    def __getitem__(self, frameID: int) -> Vibration: ...
+    def __getitem__(self, frame: int) -> Vibration: ...
     @overload
-    def __getitem__(self, frameID: slice) -> list[Vibration]: ...
+    def __getitem__(self, frame: slice) -> list[Vibration]: ...
     @overload
-    def __getitem__(self, frameID: Sequence) -> list[Vibration]: ...
-    def __getitem__(self, frameID: int | slice | Sequence) -> Vibration | list[Vibration]:
+    def __getitem__(self, frame: Sequence) -> list[Vibration]: ...
+    def __getitem__(self, frame: int | slice | Sequence) -> Vibration | list[Vibration]:
         item_dict = {}
-        if isinstance(frameID, int):
-            if len(self.frequencies) > frameID:
-                item_dict["frequency"] = self.frequencies[frameID]
-            if len(self.reduced_masses) > frameID:
-                item_dict["reduced_mass"] = self.reduced_masses[frameID]
-            if len(self.force_constants) > frameID:
-                item_dict["force_constant"] = self.force_constants[frameID]
-            if len(self.IR_intensities) > frameID:
-                item_dict["IR_intensity"] = self.IR_intensities[frameID]
-            if len(self.vibration_modes) > frameID:
-                item_dict["vibration_mode"] = self.vibration_modes[frameID]
+        if isinstance(frame, int):
+            if len(self.frequencies) > frame:
+                item_dict["frequency"] = self.frequencies[frame]
+            if len(self.reduced_masses) > frame:
+                item_dict["reduced_mass"] = self.reduced_masses[frame]
+            if len(self.force_constants) > frame:
+                item_dict["force_constant"] = self.force_constants[frame]
+            if len(self.IR_intensities) > frame:
+                item_dict["IR_intensity"] = self.IR_intensities[frame]
+            if len(self.vibration_modes) > frame:
+                item_dict["vibration_mode"] = self.vibration_modes[frame]
             return Vibration.model_validate(item_dict)
-        if isinstance(frameID, slice):
-            return [self[idx] for idx in range(*frameID.indices(len(self.frequencies)))]
-        return [self[idx] for idx in frameID]
+        if isinstance(frame, slice):
+            return [self[idx] for idx in range(*frame.indices(len(self.frequencies)))]
+        return [self[idx] for idx in frame]
 
     def __len__(self) -> int:
         return len(self.frequencies)

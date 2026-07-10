@@ -89,7 +89,7 @@ rdmol = batch[0][0].rdmol
 from molop.io import AutoParser
 batch = AutoParser("*.log")
 # Batch convert to SDF and save (see Notebook 03 for canonical parameters)
-batch.format_transform(format="sdf", output_dir="./output", frameID=-1, write_to_disk=True)
+batch.format_transform(format="sdf", output_dir="./output", frame=-1, write_to_disk=True)
 ```
 
 ### Expected Output

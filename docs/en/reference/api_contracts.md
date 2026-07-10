@@ -10,7 +10,7 @@ MolOP uses one frame selector concept for public transform and summary APIs:
 
 | Surface | Parameter | Default | Return mapping | Error strategy |
 | --- | --- | --- | --- | --- |
-| Python transform | `frameID` | `-1` | Normalized to frame indices before rendering. Negative integers count from the end. | Non-integer sequence items raise `TypeError`; strings other than `"all"` raise `ValueError`. |
+| Python transform | `frame` | `-1` | Normalized to frame indices before rendering. Negative integers count from the end. | Non-integer sequence items raise `TypeError`; strings other than `"all"` raise `ValueError`. |
 | Python summary | `frame` | `-1` | Normalized per file. `"all"` expands to every frame in each file. | Same selector errors; missing frames are controlled by `on_missing_frame`. |
 | CLI | `--frame` | `-1` | Parsed from `"all"`, one integer, or comma-separated integers, then forwarded to the Python API. | Invalid text raises a CLI usage error before executing the chain. |
 
@@ -26,7 +26,7 @@ file objects remains normal Python collection behavior.
 | `format` | frame, file, batch | Required | Target writer format id such as `xyz`, `sdf`, `gjf`, or `cml`. | Unsupported formats raise the registry writer error. Writer-specific validation errors propagate. |
 | `file_path` | frame, file | `None` | Output file path used only when `write_to_disk=True`. | Ignored when not writing. Directory paths assert. Memory-only objects need this path when writing. |
 | `output_dir` | batch | `None` | Output directory used only when `write_to_disk=True`. | Ignored when not writing. Python API expects an existing directory when writing; CLI creates it. |
-| `frameID` | file, batch | `-1` | Frame selector: `int | Sequence[int] | "all"`. | Selector type errors are raised before writer dispatch. Out-of-range handling is writer-dependent unless a writer validates. |
+| `frame` | file, batch | `-1` | Frame selector: `int | Sequence[int] | "all"`. | Selector type errors are raised before writer dispatch. Out-of-range handling is writer-dependent unless a writer validates. |
 | `embed_in_one_file` | file, batch | `True` | Combine selected frames into one rendered output when the format supports it. | Writer errors propagate. |
 | `write_to_disk` | frame, file, batch | `False` | Write rendered content to disk. Without an explicit path, disk-backed objects write beside the source file. | Write errors propagate. Memory-only objects without `file_path` raise `ValueError`. |
 | `n_jobs` | batch | `1` | Parallel jobs for batch conversion. | Joblib and worker exceptions propagate through `parallel_execute`. |
@@ -92,7 +92,7 @@ Terminal operations must be last and are validated before parsing files.
 | --- | --- | --- | --- |
 | `--format` | Required | Target writer format id. Terminal operation. | Missing value or unsupported writer raises CLI/registry errors. |
 | `--output-dir` | `None` | Implies writing for CLI compatibility. | Directory is created before execution when writing. |
-| `--frame` | `"-1"` | CLI frame selector forwarded as `frameID`. | Invalid selector text raises CLI usage error. |
+| `--frame` | `"-1"` | CLI frame selector forwarded as `frame`. | Invalid selector text raises CLI usage error. |
 | `--embed / --no-embed` | `--embed` | Controls multi-frame embedding. | Writer errors propagate. |
 | `--write / --no-write` | Auto | `--write` writes beside sources without `--output-dir`; `--no-write` forces render-only behavior. | Write errors propagate. |
 | `--n-jobs` | Parse-level `--n-jobs` | Overrides batch transform parallelism. | Joblib errors propagate. |

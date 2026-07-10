@@ -31,7 +31,7 @@ class BatchFormatTransformMixin:
         self,
         format: str,
         output_dir: str | None = None,
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
         n_jobs: int = 1,
@@ -46,7 +46,7 @@ class BatchFormatTransformMixin:
             try:
                 res = diskfile.format_transform(
                     format,
-                    frameID=frameID,
+                    frame=frame,
                     embed_in_one_file=embed_in_one_file,
                     write_to_disk=write_to_disk,
                     file_path=os.path.join(

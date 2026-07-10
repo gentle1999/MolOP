@@ -10,9 +10,9 @@ from molop.io.codec_types import StructureLevel, WriterCodec
 from molop.io.frame_selection import FrameSelector, normalize_frame_selector
 
 
-def _normalize_frame_ids(value: object, frameID: FrameSelector) -> list[int]:
+def _normalize_frame_ids(value: object, frame: FrameSelector) -> list[int]:
     typed_value = cast(Any, value)
-    return normalize_frame_selector(frameID, len(typed_value.frames), parameter_name="frameID")
+    return normalize_frame_selector(frame, len(typed_value.frames), parameter_name="frame")
 
 
 def _render_cml_frame(frame: object, *, engine: Literal["rdkit", "openbabel"] = "rdkit") -> str:
@@ -43,7 +43,7 @@ class CMLWriter:
         self,
         value: object,
         *,
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         embed_in_one_file: bool = True,
         engine: Literal["rdkit", "openbabel"] = "rdkit",
         **kwargs: Any,
@@ -53,7 +53,7 @@ class CMLWriter:
         if not hasattr(value, "frames"):
             raise TypeError("CML writer requires a BaseChemFile-compatible input.")
         typed_value = cast(Any, value)
-        selected_frame_ids = _normalize_frame_ids(value, frameID)
+        selected_frame_ids = _normalize_frame_ids(value, frame)
         rendered_frames = [
             _render_cml_frame(frame, engine=engine)
             for frame in typed_value.frames
@@ -78,7 +78,7 @@ class CMLFrameWriter:
         **kwargs: Any,
     ) -> object:
         _ = kwargs.pop("file_path", None)
-        kwargs.pop("frameID", None)
+        kwargs.pop("frame", None)
         kwargs.pop("embed_in_one_file", None)
         return _render_cml_frame(value, engine=engine)
 

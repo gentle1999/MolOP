@@ -10,7 +10,7 @@ MolOP 公开转换与汇总 API 统一使用一个 frame selector 概念：
 
 | 入口 | 参数 | 默认值 | 返回映射 | 错误策略 |
 | --- | --- | --- | --- | --- |
-| Python 转换 | `frameID` | `-1` | 渲染前归一化为 frame index；负整数从末尾计数。 | 序列中非整数抛出 `TypeError`；除 `"all"` 外的字符串抛出 `ValueError`。 |
+| Python 转换 | `frame` | `-1` | 渲染前归一化为 frame index；负整数从末尾计数。 | 序列中非整数抛出 `TypeError`；除 `"all"` 外的字符串抛出 `ValueError`。 |
 | Python 汇总 | `frame` | `-1` | 按文件归一化；`"all"` 展开为每个文件的全部 frame。 | selector 类型错误立即抛出；缺失 frame 由 `on_missing_frame` 控制。 |
 | CLI | `--frame` | `-1` | 从 `"all"`、单个整数或逗号分隔整数解析，再传给 Python API。 | 非法文本在执行 chain 前抛出 CLI 用法错误。 |
 
@@ -25,7 +25,7 @@ MolOP 公开转换与汇总 API 统一使用一个 frame selector 概念：
 | `format` | frame、file、batch | 必填 | 目标 writer format id，如 `xyz`、`sdf`、`gjf`、`cml`。 | 不支持的格式抛出 registry writer 错误；writer 校验错误向上传播。 |
 | `file_path` | frame、file | `None` | 仅在 `write_to_disk=True` 时作为输出文件路径。 | 不写盘时忽略；目录路径触发断言；memory-only 对象写盘但无路径时抛出 `ValueError`。 |
 | `output_dir` | batch | `None` | 仅在 `write_to_disk=True` 时作为输出目录。 | 不写盘时忽略；Python API 写盘时要求目录已存在，CLI 会自动创建。 |
-| `frameID` | file、batch | `-1` | frame selector：`int | Sequence[int] | "all"`。 | selector 类型错误在 writer dispatch 前抛出；越界行为由具体 writer 决定，除非 writer 显式校验。 |
+| `frame` | file、batch | `-1` | frame selector：`int | Sequence[int] | "all"`。 | selector 类型错误在 writer dispatch 前抛出；越界行为由具体 writer 决定，除非 writer 显式校验。 |
 | `embed_in_one_file` | file、batch | `True` | 格式支持时，将选中的多个 frame 合并到一个渲染结果。 | writer 错误向上传播。 |
 | `write_to_disk` | frame、file、batch | `False` | 将渲染结果写盘；无显式路径时，disk-backed 对象写到源文件所在目录。 | 写盘错误向上传播；memory-only 对象无 `file_path` 时抛出 `ValueError`。 |
 | `n_jobs` | batch | `1` | batch 转换并行度。 | joblib 与 worker 异常通过 `parallel_execute` 向上传播。 |
@@ -89,7 +89,7 @@ CLI 入口为 `molop parse PATTERN [parse options] OPERATION ...`。返回
 | --- | --- | --- | --- |
 | `--format` | 必填 | 目标 writer format id；终止操作。 | 缺失值或不支持 writer 时抛出 CLI/registry 错误。 |
 | `--output-dir` | `None` | 为兼容 CLI 旧行为，提供后隐式写盘。 | 写盘时执行前创建目录。 |
-| `--frame` | `"-1"` | CLI frame selector，转发为 `frameID`。 | 非法 selector 文本抛出 CLI 用法错误。 |
+| `--frame` | `"-1"` | CLI frame selector，转发为 `frame`。 | 非法 selector 文本抛出 CLI 用法错误。 |
 | `--embed / --no-embed` | `--embed` | 控制多 frame 合并。 | writer 错误向上传播。 |
 | `--write / --no-write` | 自动 | `--write` 在无 `--output-dir` 时写到源目录；`--no-write` 强制只渲染。 | 写盘错误向上传播。 |
 | `--n-jobs` | parse 级 `--n-jobs` | 覆盖 batch transform 并行度。 | joblib 错误向上传播。 |

@@ -73,7 +73,7 @@ def test_format_transform_multi_output_stays_in_output_dir(tmp_path, monkeypatch
         output_dir=str(out_dir),
         embed_in_one_file=False,
         write_to_disk=True,
-        frameID="all",
+        frame="all",
         n_jobs=1,
     )
 
@@ -112,7 +112,7 @@ def test_format_transform_gjf_chk_propagation_multi_file(tmp_path):
         output_dir=str(out_dir),
         embed_in_one_file=False,
         write_to_disk=True,
-        frameID=[0, 1],
+        frame=[0, 1],
         chk=True,
         n_jobs=1,
     )

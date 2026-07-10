@@ -407,7 +407,7 @@ def _file_base_args() -> tuple[tuple[str, str], ...]:
     return (
         ("format", "Target output format literal for this overload."),
         (
-            "frameID",
+            "frame",
             'Frame selector forwarded to rendering; accepts index, sequence, or `"all"`.',
         ),
         ("file_path", "Optional output path used only when `write_to_disk=True`."),
@@ -453,7 +453,7 @@ def _batch_base_args() -> tuple[tuple[str, str], ...]:
             "output_dir",
             "Output directory used only when `write_to_disk=True`; omitted paths default to source directories.",
         ),
-        ("frameID", "Frame selector forwarded to per-file rendering."),
+        ("frame", "Frame selector forwarded to per-file rendering."),
         (
             "embed_in_one_file",
             "Whether selected frames are embedded into one file when supported by the format.",
@@ -602,7 +602,7 @@ def _render_spec_from_writer(repo_root: Path, writer: _WriterSpec) -> _RenderSpe
                 source=f"{rel_writer_path}",
             )
 
-        excluded = {"value", "frameID", "embed_in_one_file", "file_path"}
+        excluded = {"value", "frame", "embed_in_one_file", "file_path"}
         params = tuple(param for param in _extract_params(write_def) if param.name not in excluded)
         return _RenderSpec(
             format_id=writer.format_id,
@@ -778,7 +778,7 @@ def _render_base_model_stub(file_specs: list[_RenderSpec], frame_specs: list[_Re
         lines.append("    def format_transform(")
         lines.append("        self,")
         lines.append(f'        format: Literal["{s.format_id}"],')
-        lines.append("        frameID: FrameSelector = -1,")
+        lines.append("        frame: FrameSelector = -1,")
         lines.append("        file_path: os.PathLike | str | None = None,")
         lines.append("        embed_in_one_file: bool = True,")
         lines.append("        write_to_disk: bool = False,")
@@ -804,7 +804,7 @@ def _render_base_model_stub(file_specs: list[_RenderSpec], frame_specs: list[_Re
     lines.append("    def format_transform(")
     lines.append("        self,")
     lines.append("        format: str,")
-    lines.append("        frameID: FrameSelector = -1,")
+    lines.append("        frame: FrameSelector = -1,")
     lines.append("        file_path: os.PathLike | str | None = None,")
     lines.append("        embed_in_one_file: bool = True,")
     lines.append("        write_to_disk: bool = False,")
@@ -855,7 +855,7 @@ def _render_batch_stub(specs: list[_RenderSpec]) -> str:
         lines.append("        self,")
         lines.append(f'        format: Literal["{s.format_id}"],')
         lines.append("        output_dir: str | None = None,")
-        lines.append("        frameID: FrameSelector = -1,")
+        lines.append("        frame: FrameSelector = -1,")
         lines.append("        embed_in_one_file: bool = True,")
         lines.append("        write_to_disk: bool = False,")
         lines.append("        n_jobs: int = 1,")
@@ -882,7 +882,7 @@ def _render_batch_stub(specs: list[_RenderSpec]) -> str:
     lines.append("        self,")
     lines.append("        format: str,")
     lines.append("        output_dir: str | None = None,")
-    lines.append("        frameID: FrameSelector = -1,")
+    lines.append("        frame: FrameSelector = -1,")
     lines.append("        embed_in_one_file: bool = True,")
     lines.append("        write_to_disk: bool = False,")
     lines.append("        n_jobs: int = 1,")

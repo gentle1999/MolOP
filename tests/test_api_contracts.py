@@ -41,14 +41,14 @@ def test_format_transform_public_signature_contract() -> None:
     assert list(file_sig.parameters) == [
         "self",
         "format",
-        "frameID",
+        "frame",
         "file_path",
         "embed_in_one_file",
         "write_to_disk",
         "kwargs",
     ]
-    assert file_sig.parameters["frameID"].default == -1
-    assert "slice" not in str(file_sig.parameters["frameID"].annotation)
+    assert file_sig.parameters["frame"].default == -1
+    assert "slice" not in str(file_sig.parameters["frame"].annotation)
     assert file_sig.parameters["embed_in_one_file"].default is True
     assert file_sig.parameters["write_to_disk"].default is False
 
@@ -57,14 +57,14 @@ def test_format_transform_public_signature_contract() -> None:
         "self",
         "format",
         "output_dir",
-        "frameID",
+        "frame",
         "embed_in_one_file",
         "write_to_disk",
         "n_jobs",
         "kwargs",
     ]
     assert batch_sig.parameters["output_dir"].default is None
-    assert batch_sig.parameters["frameID"].default == -1
+    assert batch_sig.parameters["frame"].default == -1
     assert batch_sig.parameters["embed_in_one_file"].default is True
     assert batch_sig.parameters["write_to_disk"].default is False
     assert batch_sig.parameters["n_jobs"].default == 1
@@ -74,7 +74,7 @@ def test_to_summary_df_public_signature_contract() -> None:
     file_sig = signature(BaseChemFile.to_summary_df)
     assert file_sig.parameters["frame"].kind is Parameter.KEYWORD_ONLY
     assert file_sig.parameters["frame"].default == -1
-    assert "frameIDs" not in file_sig.parameters
+    assert "frames" not in file_sig.parameters
     assert file_sig.parameters["flatten_columns"].default is False
     assert file_sig.parameters["on_missing_frame"].default == "skip"
 
@@ -82,7 +82,7 @@ def test_to_summary_df_public_signature_contract() -> None:
 
     assert sig.parameters["mode"].default == "frame"
     assert sig.parameters["frame"].default == -1
-    assert "frameIDs" not in sig.parameters
+    assert "frames" not in sig.parameters
     assert sig.parameters["n_jobs"].default == 1
     assert sig.parameters["brief"].kind is Parameter.KEYWORD_ONLY
     assert sig.parameters["brief"].default is True
@@ -109,7 +109,7 @@ def test_frame_selector_contract() -> None:
     assert normalize_frame_selector(-1, 3) == [2]
     assert normalize_frame_selector([0, -1], 3) == [0, 2]
 
-    with pytest.raises(ValueError, match="frameID must be an integer"):
+    with pytest.raises(ValueError, match="frame must be an integer"):
         normalize_frame_selector("last", 3)
     with pytest.raises(TypeError, match="sequence must contain only integers"):
         normalize_frame_selector([0, "bad"], 3)  # type: ignore[list-item]

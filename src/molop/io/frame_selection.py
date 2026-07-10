@@ -11,7 +11,7 @@ def normalize_frame_selector(
     frame_selector: FrameSelector,
     frame_count: int,
     *,
-    parameter_name: str = "frameID",
+    parameter_name: str = "frame",
     validate_range: bool = False,
 ) -> list[int]:
     if isinstance(frame_selector, str):

@@ -6,7 +6,7 @@
 
 ## 核心行为
 
-- **帧选择**：默认情况下，仅转换最后一帧 (`frameID=-1`)。可以指定 `frameID="all"` 或一组帧 ID 来转换更多帧。
+- **帧选择**：默认情况下，仅转换最后一帧 (`frame=-1`)。可以指定 `frame="all"` 或一组帧 ID 来转换更多帧。
 - **合并输出**：如果 `embed_in_one_file=True`（默认），多个帧将合并到一个输出文件中（如果格式支持，如 SDF 或多帧 XYZ）。
 - **文件输出**：Python API 需要显式传入 `write_to_disk=True` 才会写盘。写盘时，
   `file_path` 或 batch 的 `output_dir` 用于选择输出位置；如果没有提供路径，则写到

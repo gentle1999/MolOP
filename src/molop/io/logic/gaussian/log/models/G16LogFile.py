@@ -234,9 +234,9 @@ class G16LogFileMixin(GaussianRouteSemanticFieldsMixin):
 
         return "\n\n".join(section for section in sections if section)
 
-    def _render_frames_in_one_file(self, frameID: Sequence[int], **kwargs) -> str:
+    def _render_frames_in_one_file(self, frame_ids: Sequence[int], **kwargs) -> str:
         typed_self = cast(_HasG16RenderedFrames, self)
-        selected_frames = [frame for frame in typed_self.frames if frame.frame_id in frameID]
+        selected_frames = [frame for frame in typed_self.frames if frame.frame_id in frame_ids]
         if len(selected_frames) > 1:
             body = self._render_fakeg_multiframe_file(selected_frames)
         else:
@@ -249,24 +249,26 @@ class G16LogFileMixin(GaussianRouteSemanticFieldsMixin):
             sections.append(footer)
         return "\n\n".join(sections)
 
-    def _render_frames(self, frameID: Sequence[int], **kwargs) -> list[str]:
+    def _render_frames(self, frame_ids: Sequence[int], **kwargs) -> list[str]:
         typed_self = cast(_HasG16RenderedFrames, self)
         return [
-            frame.render_fakeg(**kwargs) for frame in typed_self.frames if frame.frame_id in frameID
+            frame.render_fakeg(**kwargs)
+            for frame in typed_self.frames
+            if frame.frame_id in frame_ids
         ]
 
     def render_fakeg(
         self,
-        frameID: FrameSelector = "all",
+        frame: FrameSelector = "all",
         *,
         embed_in_one_file: bool = True,
         **kwargs,
     ) -> str | list[str]:
         typed_self = cast(_HasG16RenderedFrames, self)
         frame_ids = normalize_frame_selector(
-            frameID,
+            frame,
             len(typed_self.frames),
-            parameter_name="frameID",
+            parameter_name="frame",
             validate_range=True,
         )
         selected_frames = [typed_self.frames[frame_id] for frame_id in frame_ids]
@@ -330,7 +332,7 @@ class _HasG16RenderedFrames(Protocol):
     def frames(self) -> list[G16LogFileFrameMemory | G16LogFileFrameDisk]: ...
 
     def __getitem__(
-        self, frameID: Sequence[int] | int | slice
+        self, frame: Sequence[int] | int | slice
     ) -> (
         G16LogFileFrameMemory
         | G16LogFileFrameDisk

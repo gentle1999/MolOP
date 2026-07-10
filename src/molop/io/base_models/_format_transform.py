@@ -92,7 +92,7 @@ class FormatTransformMixin:
     def format_transform(
         self,
         format: str,
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
@@ -100,9 +100,9 @@ class FormatTransformMixin:
     ) -> str | list[str]:
         typed_self = cast(_HasFrames, self)
         frame_ids = normalize_frame_selector(
-            frameID,
+            frame,
             len(typed_self.frames),
-            parameter_name="frameID",
+            parameter_name="frame",
         )
 
         graph_policy = kwargs.pop("graph_policy", None)
@@ -117,7 +117,7 @@ class FormatTransformMixin:
             codec_registry.write(
                 format,
                 self,
-                frameID=frame_ids,
+                frame=frame_ids,
                 embed_in_one_file=embed_in_one_file,
                 graph_policy=graph_policy,
                 **write_kwargs,

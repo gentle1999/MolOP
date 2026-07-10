@@ -84,19 +84,19 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
         return f"frames={len(self)}, {super().__repr__()}"
 
     @overload
-    def __getitem__(self, frameID: int) -> FrameT: ...
+    def __getitem__(self, frame: int) -> FrameT: ...
     @overload
-    def __getitem__(self, frameID: slice) -> list[FrameT]: ...
+    def __getitem__(self, frame: slice) -> list[FrameT]: ...
     @overload
-    def __getitem__(self, frameID: Sequence[int]) -> list[FrameT]: ...
-    def __getitem__(self, frameID: int | slice | Sequence[int]) -> FrameT | list[FrameT]:
+    def __getitem__(self, frame: Sequence[int]) -> list[FrameT]: ...
+    def __getitem__(self, frame: int | slice | Sequence[int]) -> FrameT | list[FrameT]:
         try:
-            if isinstance(frameID, int):
-                return self._frames_[frameID]
-            if isinstance(frameID, slice):
-                return self._frames_[frameID]
-            if isinstance(frameID, Sequence):
-                return [self._frames_[i] for i in frameID]
+            if isinstance(frame, int):
+                return self._frames_[frame]
+            if isinstance(frame, slice):
+                return self._frames_[frame]
+            if isinstance(frame, Sequence):
+                return [self._frames_[i] for i in frame]
         except IndexError as e:
             raise e
 

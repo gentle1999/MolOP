@@ -99,8 +99,8 @@ one row per selected frame and uses dot-separated column names such as
 ### fakeG Rendering
 
 `file.format_transform("fakeg")` follows the general transform default
-`frameID=-1`, so it renders the last frame unless another selector is passed.
-Use `file.format_transform("fakeg", frameID="all")` or `file.render_fakeg()` for
+`frame=-1`, so it renders the last frame unless another selector is passed.
+Use `file.format_transform("fakeg", frame="all")` or `file.render_fakeg()` for
 full-file Gaussian-like output.
 
 `fakeg` output is semantic and normalized. It is suitable for inspection,

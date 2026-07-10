@@ -84,7 +84,7 @@ class FileRendererWriter:
         self,
         value: object,
         *,
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         embed_in_one_file: bool = True,
         **kwargs: Any,
     ) -> object:
@@ -102,7 +102,7 @@ class FileRendererWriter:
         )
         return FileMixin._render(
             cast(Any, cloned_file),
-            frameID=frameID,
+            frame=frame,
             embed_in_one_file=embed_in_one_file,
             **kwargs,
         )
@@ -152,7 +152,7 @@ class FrameRendererWriter:
         if not hasattr(value, "model_dump") or not hasattr(value, "_render"):
             raise TypeError("Writer requires a BaseChemFileFrame-compatible input.")
         output_file_path = kwargs.pop("file_path", None)
-        kwargs.pop("frameID", None)
+        kwargs.pop("frame", None)
         kwargs.pop("embed_in_one_file", None)
         cloned_frame = clone_frame(
             value,

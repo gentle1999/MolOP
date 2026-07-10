@@ -725,7 +725,7 @@ def _collect_signature_options(
             "value",
             "kwargs",
             "file_path",
-            "frameID",
+            "frame",
             "embed_in_one_file",
         }:
             continue

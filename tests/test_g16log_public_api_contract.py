@@ -124,7 +124,7 @@ def test_g16log_fakeg_file_transform_is_file_level_and_reparseable() -> None:
     parsed_file = _parse_fixture()
 
     rendered = cast(str, parsed_file.format_transform("fakeg"))
-    rendered_all = cast(str, parsed_file.format_transform("fakeg", frameID="all"))
+    rendered_all = cast(str, parsed_file.format_transform("fakeg", frame="all"))
 
     assert isinstance(rendered, str)
     assert "Standard orientation:" in rendered

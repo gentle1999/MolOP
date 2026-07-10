@@ -17,7 +17,7 @@ For parameter defaults, return values, and error policy, see
 
 ## Key Behaviors
 
-- **Frame Selection**: By default, only the last frame (`frameID=-1`) is transformed. You can specify `frameID="all"` or a sequence of frame IDs to transform more frames.
+- **Frame Selection**: By default, only the last frame (`frame=-1`) is transformed. You can specify `frame="all"` or a sequence of frame IDs to transform more frames.
 - **Embedding**: If `embed_in_one_file=True` (default), multiple frames are combined into a single output file if the format supports it (e.g., SDF or multi-frame XYZ).
 - **File Output**: Python callers must pass `write_to_disk=True` to write rendered
   content to disk. When writing, `file_path` or batch `output_dir` selects the

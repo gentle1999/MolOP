@@ -1623,7 +1623,7 @@ def test_simple_file_models_use_base_frame_rendering() -> None:
                 violations.append(f"{_rel(path)} reimplements {node.name}")
         banned_fragments = {
             "frame._render": "still renders frames directly",
-            "frame.frame_id in frameID": "still filters frames directly",
+            "frame.frame_id in frame_ids": "still filters frames directly",
             "_HasRenderableFrames": "still depends on renderable frame protocol directly",
         }
         for fragment, message in banned_fragments.items():

@@ -112,7 +112,7 @@ class FormatTransformParams(OperationParams):
         kwargs: dict[str, Any] = {
             "format": self.format,
             "output_dir": str(self.output_dir) if self.output_dir is not None else None,
-            "frameID": parse_cli_frame_selection(self.frame),
+            "frame": parse_cli_frame_selection(self.frame),
             "embed_in_one_file": self.embed,
             "write_to_disk": should_write,
             "n_jobs": self.n_jobs if self.n_jobs is not None else input_config.n_jobs,

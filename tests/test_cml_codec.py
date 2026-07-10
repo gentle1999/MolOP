@@ -26,7 +26,7 @@ def test_cml_writer_renders_selected_frames_in_one_file(monkeypatch: pytest.Monk
 
     rendered = writer.write(
         DummyFile([DummyFrame(0, rdmol="a"), DummyFrame(1, rdmol="b")]),
-        frameID="all",
+        frame="all",
         embed_in_one_file=True,
     )
 
@@ -39,7 +39,7 @@ def test_cml_writer_supports_negative_frame_id(monkeypatch: pytest.MonkeyPatch) 
 
     rendered = writer.write(
         DummyFile([DummyFrame(0, rdmol="a"), DummyFrame(1, rdmol="b")]),
-        frameID=-1,
+        frame=-1,
     )
 
     assert rendered == "cml:b"
@@ -59,7 +59,7 @@ def test_cml_writer_can_return_selected_frames_as_separate_blocks(
                 DummyFrame(2, rdmol="c"),
             ]
         ),
-        frameID=[0, 2],
+        frame=[0, 2],
         embed_in_one_file=False,
     )
 
@@ -72,7 +72,7 @@ def test_cml_writer_supports_openbabel_engine() -> None:
 
     rendered = writer.write(
         DummyFile([DummyFrame(0, omol=omol)]),
-        frameID=[0],
+        frame=[0],
         embed_in_one_file=False,
         engine="openbabel",
     )

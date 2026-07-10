@@ -565,7 +565,7 @@ class FormatTransformMixin:
     def format_transform(
         self,
         format: Literal["cml"],
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
@@ -580,7 +580,7 @@ class FormatTransformMixin:
         ----------
         format :
             Target output format literal for this overload.
-        frameID :
+        frame :
             Frame selector forwarded to rendering; accepts index, sequence, or `"all"`.
         file_path :
             Optional output path used only when `write_to_disk=True`.
@@ -618,7 +618,7 @@ class FormatTransformMixin:
     def format_transform(
         self,
         format: Literal["fakeg"],
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
@@ -632,7 +632,7 @@ class FormatTransformMixin:
         ----------
         format :
             Target output format literal for this overload.
-        frameID :
+        frame :
             Frame selector forwarded to rendering; accepts index, sequence, or `"all"`.
         file_path :
             Optional output path used only when `write_to_disk=True`.
@@ -669,7 +669,7 @@ class FormatTransformMixin:
     def format_transform(
         self,
         format: Literal["gjf"],
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
@@ -696,7 +696,7 @@ class FormatTransformMixin:
         ----------
         format :
             Target output format literal for this overload.
-        frameID :
+        frame :
             Frame selector forwarded to rendering; accepts index, sequence, or `"all"`.
         file_path :
             Optional output path used only when `write_to_disk=True`.
@@ -926,7 +926,7 @@ class FormatTransformMixin:
     def format_transform(
         self,
         format: Literal["sdf"],
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
@@ -941,7 +941,7 @@ class FormatTransformMixin:
         ----------
         format :
             Target output format literal for this overload.
-        frameID :
+        frame :
             Frame selector forwarded to rendering; accepts index, sequence, or `"all"`.
         file_path :
             Optional output path used only when `write_to_disk=True`.
@@ -985,7 +985,7 @@ class FormatTransformMixin:
     def format_transform(
         self,
         format: Literal["smi"],
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
@@ -999,7 +999,7 @@ class FormatTransformMixin:
         ----------
         format :
             Target output format literal for this overload.
-        frameID :
+        frame :
             Frame selector forwarded to rendering; accepts index, sequence, or `"all"`.
         file_path :
             Optional output path used only when `write_to_disk=True`.
@@ -1036,7 +1036,7 @@ class FormatTransformMixin:
     def format_transform(
         self,
         format: Literal["xyz"],
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
@@ -1051,7 +1051,7 @@ class FormatTransformMixin:
         ----------
         format :
             Target output format literal for this overload.
-        frameID :
+        frame :
             Frame selector forwarded to rendering; accepts index, sequence, or `"all"`.
         file_path :
             Optional output path used only when `write_to_disk=True`.
@@ -1095,7 +1095,7 @@ class FormatTransformMixin:
     def format_transform(
         self,
         format: str,
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         file_path: os.PathLike | str | None = None,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
@@ -1109,7 +1109,7 @@ class FormatTransformMixin:
         ----------
         format :
             Target output format literal for this overload.
-        frameID :
+        frame :
             Frame selector forwarded to rendering; accepts index, sequence, or `"all"`.
         file_path :
             Optional output path used only when `write_to_disk=True`.

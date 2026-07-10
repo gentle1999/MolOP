@@ -27,7 +27,7 @@ class BatchFormatTransformMixin:
         self,
         format: Literal["cml"],
         output_dir: str | None = None,
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
         n_jobs: int = 1,
@@ -44,7 +44,7 @@ class BatchFormatTransformMixin:
             Target output format literal for this overload.
         output_dir :
             Output directory used only when `write_to_disk=True`; omitted paths default to source directories.
-        frameID :
+        frame :
             Frame selector forwarded to per-file rendering.
         embed_in_one_file :
             Whether selected frames are embedded into one file when supported by the format.
@@ -83,7 +83,7 @@ class BatchFormatTransformMixin:
         self,
         format: Literal["fakeg"],
         output_dir: str | None = None,
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
         n_jobs: int = 1,
@@ -99,7 +99,7 @@ class BatchFormatTransformMixin:
             Target output format literal for this overload.
         output_dir :
             Output directory used only when `write_to_disk=True`; omitted paths default to source directories.
-        frameID :
+        frame :
             Frame selector forwarded to per-file rendering.
         embed_in_one_file :
             Whether selected frames are embedded into one file when supported by the format.
@@ -137,7 +137,7 @@ class BatchFormatTransformMixin:
         self,
         format: Literal["gjf"],
         output_dir: str | None = None,
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
         n_jobs: int = 1,
@@ -166,7 +166,7 @@ class BatchFormatTransformMixin:
             Target output format literal for this overload.
         output_dir :
             Output directory used only when `write_to_disk=True`; omitted paths default to source directories.
-        frameID :
+        frame :
             Frame selector forwarded to per-file rendering.
         embed_in_one_file :
             Whether selected frames are embedded into one file when supported by the format.
@@ -397,7 +397,7 @@ class BatchFormatTransformMixin:
         self,
         format: Literal["sdf"],
         output_dir: str | None = None,
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
         n_jobs: int = 1,
@@ -414,7 +414,7 @@ class BatchFormatTransformMixin:
             Target output format literal for this overload.
         output_dir :
             Output directory used only when `write_to_disk=True`; omitted paths default to source directories.
-        frameID :
+        frame :
             Frame selector forwarded to per-file rendering.
         embed_in_one_file :
             Whether selected frames are embedded into one file when supported by the format.
@@ -459,7 +459,7 @@ class BatchFormatTransformMixin:
         self,
         format: Literal["smi"],
         output_dir: str | None = None,
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
         n_jobs: int = 1,
@@ -475,7 +475,7 @@ class BatchFormatTransformMixin:
             Target output format literal for this overload.
         output_dir :
             Output directory used only when `write_to_disk=True`; omitted paths default to source directories.
-        frameID :
+        frame :
             Frame selector forwarded to per-file rendering.
         embed_in_one_file :
             Whether selected frames are embedded into one file when supported by the format.
@@ -513,7 +513,7 @@ class BatchFormatTransformMixin:
         self,
         format: Literal["xyz"],
         output_dir: str | None = None,
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
         n_jobs: int = 1,
@@ -530,7 +530,7 @@ class BatchFormatTransformMixin:
             Target output format literal for this overload.
         output_dir :
             Output directory used only when `write_to_disk=True`; omitted paths default to source directories.
-        frameID :
+        frame :
             Frame selector forwarded to per-file rendering.
         embed_in_one_file :
             Whether selected frames are embedded into one file when supported by the format.
@@ -575,7 +575,7 @@ class BatchFormatTransformMixin:
         self,
         format: str,
         output_dir: str | None = None,
-        frameID: FrameSelector = -1,
+        frame: FrameSelector = -1,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
         n_jobs: int = 1,
@@ -591,7 +591,7 @@ class BatchFormatTransformMixin:
             Target output format literal for this overload.
         output_dir :
             Output directory used only when `write_to_disk=True`; omitted paths default to source directories.
-        frameID :
+        frame :
             Frame selector forwarded to per-file rendering.
         embed_in_one_file :
             Whether selected frames are embedded into one file when supported by the format.
