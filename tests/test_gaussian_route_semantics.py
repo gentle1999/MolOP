@@ -1,9 +1,26 @@
 from pathlib import Path
 from typing import Any, cast
 
+import numpy as np
+
 from molop.io import AutoParser
-from molop.io.logic.gaussian_route_models import parse_gaussian_route_semantic
-from molop.io.logic.qminput_frame_models.GJFFileFrame import GJFRouteSection
+from molop.io.base_models.ParseContainers import ModelParseResult
+from molop.io.logic.gaussian.input.frame_models.GJFFileFrame import (
+    GJFFileFrameMemory,
+    GJFRouteSection,
+)
+from molop.io.logic.gaussian.input.frame_parsers.GJFFileFrameParser import GJFFileFrameParserMemory
+from molop.io.logic.gaussian.input.GaussianInputPatterns import g16_input_patterns
+from molop.io.logic.gaussian.input.GaussianLink0 import (
+    GaussianLink0Commands,
+    render_gaussian_link0_shared_memory_line,
+)
+from molop.io.logic.gaussian.input.GaussianRoute import GaussianRouteSemantic
+from molop.io.logic.gaussian.input.GaussianRouteParsing import parse_gaussian_route_semantic
+from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import G16LogFileFrameMemory
+from molop.io.logic.gaussian.log.models.G16LogFile import G16LogFileMemory
+from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
+from molop.unit import atom_ureg
 
 
 def test_shared_gaussian_route_parser_extracts_model_chemistry_and_capabilities() -> None:
@@ -55,6 +72,28 @@ def test_gjf_route_section_uses_shared_semantic_model() -> None:
     assert route.semantic_route.raw_route == route.route
 
 
+def test_gjf_patterns_expose_named_groups_for_parser_fields() -> None:
+    route_match = g16_input_patterns.ROUTE.search("#p hf/sto-3g\n\n")
+    title_match = g16_input_patterns.TITLE.search("water\n")
+    charge_match = g16_input_patterns.CHARGE_MULTIPLICITY.search("0 1\n")
+    atom_match = g16_input_patterns.ATOMS.match("H 0.0 0.0 0.7")
+    modredundant_ref_match = g16_input_patterns.MODREDUNDANT_ATOM_REF.match("*")
+
+    assert route_match is not None
+    assert route_match.group("route") == "#p hf/sto-3g"
+    assert title_match is not None
+    assert title_match.group("title") == "water"
+    assert charge_match is not None
+    assert charge_match.group("charge") == "0"
+    assert charge_match.group("multiplicity") == "1"
+    assert atom_match is not None
+    assert atom_match.group("symbol") == "H"
+    assert float(atom_match.group("x")) == 0.0
+    assert float(atom_match.group("z")) == 0.7
+    assert modredundant_ref_match is not None
+    assert modredundant_ref_match.group("atom_ref") == "*"
+
+
 def test_gjf_route_section_stores_explicit_semantic_field() -> None:
     semantic = parse_gaussian_route_semantic("#p hf/3-21g sp")
     route = GJFRouteSection.model_validate({"route": "#p hf/3-21g sp", "semantic_route": semantic})
@@ -62,6 +101,86 @@ def test_gjf_route_section_stores_explicit_semantic_field() -> None:
     assert route.semantic_route.model_chemistry.method_family == "HF"
     assert route.semantic_route.model_chemistry.functional is None
     assert route.semantic_route.job_types == ["sp"]
+
+
+def test_gjf_route_section_direct_model_construction_does_not_parse_semantics() -> None:
+    route = GJFRouteSection.model_validate({"route": "b3lyp/def2svp opt"})
+
+    assert route.route == "# b3lyp/def2svp opt"
+    assert route.semantic_route.raw_route == ""
+    assert route.semantic_route.model_chemistry.method_token is None
+    assert route.semantic_route.job_types == []
+
+
+def test_gjf_frame_parser_returns_model_ready_sections() -> None:
+    parser = GJFFileFrameParserMemory()
+    block = """%nprocshared=4
+%nosave
+#p b3lyp/def2svp opt
+
+water
+
+0 1
+O 0.0 0.0 0.0
+H 0.0 0.0 0.9
+H 0.8 0.0 0.0
+"""
+    parser._block = block
+
+    result = parser._parse_block_to_result(block)
+    assert isinstance(result, ModelParseResult)
+    assert result.has_value("molecule_specifications") is True
+    payload = parser._parse_frame()
+
+    assert payload["link0_commands"].cpu_request() == 4
+    assert [(link0.key, link0.value) for link0 in payload["link0_commands"].link0_keywords] == [
+        ("nprocshared", "4"),
+        ("nosave", None),
+    ]
+    assert payload["route_section"].semantic_route.model_chemistry.method_family == "DFT"
+    assert payload["route_section"].semantic_route.model_chemistry.basis_set == "def2svp"
+    assert payload["title_card"].title_card == "water"
+    assert payload["molecule_specifications"].total_charge == 0
+    assert payload["molecule_specifications"].atomic_numbers() == [8, 1, 1]
+
+
+def test_gaussian_link0_container_supports_gjf_and_g16_fakeg_projection() -> None:
+    link0 = GaussianLink0Commands.from_str("%nprocshared=4\n%mem=1GB\n")
+
+    assert link0.cpu_request() == 4
+    assert link0.shared_memory_cpu_value() == "4"
+    assert link0.shared_memory_cpu_render_line() == (
+        " Will use up to    4 processors via shared memory."
+    )
+    assert render_gaussian_link0_shared_memory_line("%nprocshared=4\n%mem=1GB\n") == (
+        " Will use up to    4 processors via shared memory."
+    )
+
+
+def test_gjf_frame_parser_returns_model_ready_additional_sections() -> None:
+    parser = GJFFileFrameParserMemory()
+    parser._block = """#p b3lyp/def2svp opt=modredundant
+
+water
+
+0 1
+O 0.0 0.0 0.0
+H 0.0 0.0 0.9
+H 0.8 0.0 0.0
+
+B 1 2 F
+"""
+
+    payload = parser._parse_frame()
+
+    assert payload["additional_sections"].strip() == "B 1 2 F"
+    assert payload["additional_section_diagnostics"] == []
+    parsed_sections = payload["parsed_additional_sections"]
+    assert len(parsed_sections) == 1
+    assert parsed_sections[0].section_type == "modredundant"
+    assert parsed_sections[0].lines[0].coordinate_type == "B"
+    assert parsed_sections[0].lines[0].atom_refs == ["1", "2"]
+    assert parsed_sections[0].lines[0].action == "F"
 
 
 def test_hf_route_does_not_populate_functional() -> None:
@@ -100,6 +219,85 @@ def test_g16log_frame_exposes_shared_semantic_route() -> None:
     assert semantic.model_chemistry.basis_set == "aug-cc-pvtz"
     assert "opt" in semantic.job_types
     assert frame.dieze_tag == semantic.dieze_tag
+
+
+def test_g16log_file_parser_populates_semantic_route_metadata() -> None:
+    fixture_path = Path(__file__).resolve().parent / "test_files" / "g16log" / "1.log"
+
+    result = G16LogFileParserMemory()._parse_metadata_result(fixture_path.read_text())
+    semantic = result.model_data()["semantic_route"]
+
+    assert isinstance(semantic, GaussianRouteSemantic)
+    assert semantic.model_chemistry.method_family == "CCSD"
+    assert semantic.model_chemistry.basis_set == "aug-cc-pvtz"
+
+
+def test_g16log_models_do_not_parse_semantic_route_from_raw_keywords() -> None:
+    file_model = G16LogFileMemory.model_validate({"keywords": "#p b3lyp/def2svp opt"})
+    frame_model = G16LogFileFrameMemory.model_validate(
+        {
+            "keywords": "#p b3lyp/def2svp opt",
+            "atoms": [8],
+            "coords": np.array([[0.0, 0.0, 0.0]]) * atom_ureg.angstrom,
+            "standard_coords": np.array([[0.0, 0.0, 0.0]]) * atom_ureg.angstrom,
+        }
+    )
+
+    assert file_model.semantic_route.raw_route == ""
+    assert file_model.semantic_route.model_chemistry.method_token is None
+    assert frame_model.semantic_route.raw_route == ""
+    assert frame_model.semantic_route.model_chemistry.method_token is None
+
+
+def test_g16log_models_project_hf_method_from_semantic_route() -> None:
+    semantic = parse_gaussian_route_semantic("#p hf/3-21g sp")
+    file_model = G16LogFileMemory.model_validate(
+        {
+            "keywords": semantic.raw_route,
+            "semantic_route": semantic,
+            "method": "stale-method",
+            "functional": "stale-functional",
+            "basis_set": "stale-basis",
+        }
+    )
+    frame_model = G16LogFileFrameMemory.model_validate(
+        {
+            "keywords": semantic.raw_route,
+            "semantic_route": semantic,
+            "method": "stale-method",
+            "functional": "stale-functional",
+            "basis_set": "stale-basis",
+            "atoms": [1],
+            "coords": np.array([[0.0, 0.0, 0.0]]) * atom_ureg.angstrom,
+            "standard_coords": np.array([[0.0, 0.0, 0.0]]) * atom_ureg.angstrom,
+        }
+    )
+
+    assert file_model.method == "HF"
+    assert file_model.functional == ""
+    assert file_model.basis_set == "3-21g"
+    assert file_model.model_chemistry.method_family == "HF"
+    assert frame_model.method == "HF"
+    assert frame_model.functional == ""
+    assert frame_model.basis_set == "3-21g"
+    assert frame_model.model_chemistry.method_family == "HF"
+
+
+def test_gjf_frame_projects_hf_method_from_shared_semantic_route() -> None:
+    frame = GJFFileFrameMemory.model_validate(
+        {
+            "route_section": GJFRouteSection.from_str("#p hf/3-21g sp"),
+            "atoms": [1],
+            "coords": np.array([[0.0, 0.0, 0.0]]) * atom_ureg.angstrom,
+        }
+    )
+
+    assert frame.method == "HF"
+    assert frame.functional == ""
+    assert frame.basis_set == "3-21g"
+    assert frame.model_chemistry.method_family == "HF"
+    assert frame.model_chemistry.functional is None
+    assert frame.model_chemistry.basis_set == "3-21g"
 
 
 def test_gjf_route_section_to_dict_projects_from_semantic_route() -> None:

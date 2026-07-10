@@ -1,0 +1,41 @@
+"""
+Author: TMJ
+Date: 2025-07-28 23:05:56
+LastEditors: TMJ
+LastEditTime: 2026-06-19 00:57:34
+Description: 请填写简介
+"""
+
+from typing import cast
+
+from pydantic import Field
+
+from molop.io.base_models.ChemFileFrame import BaseCoordsFrame, _HasCoords
+from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
+from molop.io.logic.coords.frame_models._coords_renderers import render_xyz_frame
+
+
+class XYZFileFrameMixin:
+    comment: str = Field(default="", description="comment")
+
+    def _render(self, comment: str | None = None, **kwargs) -> str:
+        """Render the XYZ file frame as a string.
+
+        Args:
+            comment (str | None): The comment to use. Defaults to None.
+
+        Returns:
+            str: The rendered XYZ file frame.
+        """
+        typed_self = cast(_HasCoords, self)
+        return render_xyz_frame(typed_self, comment=comment, stored_comment=self.comment)
+
+
+class XYZFileFrameMemory(
+    MemoryStorageMixin, XYZFileFrameMixin, BaseCoordsFrame["XYZFileFrameMemory"]
+): ...
+
+
+class XYZFileFrameDisk(
+    DiskStorageMixin, XYZFileFrameMixin, BaseCoordsFrame["XYZFileFrameDisk"]
+): ...

@@ -101,6 +101,8 @@ class DiskStorageMixin:
 
 
 class FileMixin:
+    file_frame_separator: str = "\n"
+
     @overload
     def _render(
         self,
@@ -133,11 +135,8 @@ class FileMixin:
             return typed_self._render_frames(frameIDs, **kwargs)
 
     def _render_frames_in_one_file(self, frameID: Sequence[int], **kwargs) -> str:
-        raise NotImplementedError(
-            f"{self.__class__.__name__} has not implemented _render_frames_in_one_file method yet"
-        )
+        return self.file_frame_separator.join(self._render_frames(frameID, **kwargs))
 
     def _render_frames(self, frameID: Sequence[int], **kwargs) -> list[str]:
-        raise NotImplementedError(
-            f"{self.__class__.__name__} has not implemented _render_frames method yet"
-        )
+        typed_self = cast(_HasRenderableFrames, self)
+        return [frame._render(**kwargs) for frame in typed_self.frames if frame.frame_id in frameID]

@@ -116,7 +116,7 @@ uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.in
 
 ### 代码示例
 
-在 `src/molop/io/logic/coords_parsers/MyParser.py` 中定义：
+在 `src/molop/io/logic` 下的格式包中定义，例如 `src/molop/io/logic/myfmt/parsers/MyParser.py`：
 
 ```python
 def register(registry):

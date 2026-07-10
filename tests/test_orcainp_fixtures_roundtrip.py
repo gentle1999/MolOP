@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from molop.io import AutoParser  # type: ignore[reportMissingImports]
-from molop.io.logic.qminput_frame_models.ORCAInpFileFrame import ORCAInpFileFrameDisk
+from molop.io.logic.orca.input.frame_models.ORCAInpFileFrame import ORCAInpFileFrameDisk
 
 
 ORCA_FIXTURE_DIR = Path(__file__).resolve().parent / "test_files" / "orca"

@@ -53,9 +53,9 @@ When you add a new parser or renderer plugin, the following are the behaviors th
 
 Reference implementations:
 
-- Dual file/frame rendering: `src/molop/io/logic/coords_models/XYZFile.py` and `src/molop/io/logic/coords_frame_models/XYZFileFrame.py`
-- File-only rendering: `src/molop/io/logic/QM_models/G16LogFile.py`
-- Reader registration: `src/molop/io/logic/qminput_parsers/GJFFileParser.py`
+- Dual file/frame rendering: `src/molop/io/logic/coords/models/XYZFile.py` and `src/molop/io/logic/coords/frame_models/XYZFileFrame.py`
+- File-only rendering: `src/molop/io/logic/gaussian/log/models/G16LogFile.py`
+- Reader registration: `src/molop/io/logic/gaussian/input/parsers/GJFFileParser.py`
 
 ### Minimal plugin example
 
@@ -291,8 +291,8 @@ If your file model is renderable through the generic registry path, implement th
 
 Reference patterns:
 
-- `src/molop/io/logic/qminput_models/GJFFile.py`
-- `src/molop/io/logic/QM_models/G16LogFile.py`
+- `src/molop/io/logic/gaussian/input/models/GJFFile.py`
+- `src/molop/io/logic/gaussian/log/models/G16LogFile.py`
 
 #### Frame models
 
@@ -321,13 +321,13 @@ Frame renderers should implement format-specific single-frame logic only. File a
 
 ### Registration rules for new formats
 
-Renderers become available only after a module exposes a callable `register(registry)` function. Builtin codec loading scans parser/model packages and invokes that function lazily.
+Renderers become available only after a module exposes a callable `register(registry)` function. Builtin codec loading recursively scans public `*File.py` and `*FileParser.py` modules under `src/molop/io/logic` and invokes that function lazily.
 
 For readers:
 
 - register through `Registry.reader_factory(...)`
 - provide a format id, extensions, and priority
-- keep parsing logic in parser modules under `src/molop/io/logic/*_parsers`
+- keep parsing logic in parser modules under the corresponding format package in `src/molop/io/logic`
 
 For writers/renderers:
 
@@ -343,9 +343,9 @@ For writers/renderers:
 
 Reference registration files:
 
-- `src/molop/io/logic/qminput_models/GJFFile.py`
-- `src/molop/io/logic/coords_models/XYZFile.py`
-- `src/molop/io/logic/QM_models/G16LogFile.py`
+- `src/molop/io/logic/gaussian/input/models/GJFFile.py`
+- `src/molop/io/logic/coords/models/XYZFile.py`
+- `src/molop/io/logic/gaussian/log/models/G16LogFile.py`
 
 ### File-only vs frame-only support
 

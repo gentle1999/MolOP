@@ -178,6 +178,22 @@ def test_catalog_builtin_scan_orders_and_dedups(monkeypatch) -> None:
     assert calls == ["molop.io.codecs.readers.a", "molop.io.codecs.readers.b", "openbabel"]
 
 
+def test_catalog_builtin_scan_discovers_logic_recursively() -> None:
+    from molop.io.codecs import catalog
+
+    module_names = catalog._discover_builtin_codec_module_names()
+
+    assert "molop.io.logic.coords.parsers.XYZFileParser" in module_names
+    assert "molop.io.logic.gaussian.input.parsers.GJFFileParser" in module_names
+    assert "molop.io.logic.gaussian.log.parsers.G16LogFileParser" in module_names
+    assert "molop.io.logic.orca.input.parsers.ORCAInpFileParser" in module_names
+    assert "molop.io.logic.orca.log.parsers.ORCALogFileParser" in module_names
+    assert "molop.io.logic.gaussian.input.models.GJFFile" in module_names
+    assert "molop.io.logic.gaussian.log.models.G16LogFile" in module_names
+    assert all(not part.startswith("_") for name in module_names for part in name.split("."))
+    assert all(name.rsplit(".", 1)[-1].endswith(("File", "FileParser")) for name in module_names)
+
+
 def test_catalog_builtin_scan_missing_register_fails(monkeypatch) -> None:
     import pytest
 

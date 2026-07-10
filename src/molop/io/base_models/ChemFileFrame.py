@@ -830,11 +830,11 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                     (
                         "Environment",
                         f"Temperature ({self.temperature.units})",
-                    ): self.temperature
+                    ): self.temperature.m
                 }
             if self.pressure:
                 brief_dict = brief_dict | {
-                    ("Environment", f"Pressure ({self.pressure.units})"): self.pressure
+                    ("Environment", f"Pressure ({self.pressure.units})"): self.pressure.m
                 }
 
             if not brief:

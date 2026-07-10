@@ -1,5 +1,7 @@
+import importlib.util
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 
@@ -8,6 +10,17 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _read(rel_path: str) -> str:
     return (ROOT / rel_path).read_text(encoding="utf-8")
+
+
+def _load_script_module(rel_path: str):
+    path = ROOT / rel_path
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    assert spec is not None
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    sys.modules[path.stem] = module
+    spec.loader.exec_module(module)
+    return module
 
 
 def _extract_overload_blocks(text: str, function_name: str) -> list[str]:
@@ -103,3 +116,36 @@ def test_stub_generators_check_mode_is_deterministic() -> None:
     ]
     for command in commands:
         subprocess.run(command, cwd=ROOT, check=True)
+
+
+def test_typing_catalog_generator_discovers_logic_models_recursively() -> None:
+    generator = _load_script_module("scripts/generate_io_typing_catalog.py")
+
+    file_exports, frame_exports = generator._discover_exports(ROOT / "src")
+    file_modules = {export.module for export in file_exports}
+    frame_modules = {export.module for export in frame_exports}
+
+    assert "molop.io.logic.coords.models.XYZFile" in file_modules
+    assert "molop.io.logic.gaussian.input.models.GJFFile" in file_modules
+    assert "molop.io.logic.gaussian.log.models.G16LogFile" in file_modules
+    assert "molop.io.logic.orca.input.models.ORCAInpFile" in file_modules
+    assert "molop.io.logic.orca.log.models.ORCALogFile" in file_modules
+    assert "molop.io.logic.coords.frame_models.XYZFileFrame" in frame_modules
+    assert "molop.io.logic.gaussian.input.frame_models.GJFFileFrame" in frame_modules
+    assert "molop.io.logic.gaussian.log.frame_models.G16LogFileFrame" in frame_modules
+    assert "molop.io.logic.orca.input.frame_models.ORCAInpFileFrame" in frame_modules
+    assert "molop.io.logic.orca.log.frame_models.ORCALogFileFrame" in frame_modules
+
+
+def test_format_transform_generator_discovers_logic_writers_recursively() -> None:
+    generator = _load_script_module("scripts/generate_chemfile_format_transform_stubs.py")
+
+    module_names = set(generator._discover_writer_modules(ROOT, ROOT / "src"))
+
+    assert "molop.io.logic.coords.models.XYZFile" in module_names
+    assert "molop.io.logic.gaussian.input.models.GJFFile" in module_names
+    assert "molop.io.logic.gaussian.log.models.G16LogFile" in module_names
+    assert "molop.io.logic.orca.input.models.ORCAInpFile" in module_names
+    assert "molop.io.logic.orca.log.models.ORCALogFile" in module_names
+    assert "molop.io.logic.qminput_models.GJFFile" not in module_names
+    assert "molop.io.logic.QM_models.G16LogFile" not in module_names

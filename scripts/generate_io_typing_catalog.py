@@ -38,6 +38,21 @@ def _module_name(src_root: Path, py_file: Path) -> str:
     return ".".join(rel.with_suffix("").parts)
 
 
+def _iter_logic_py_files(src_root: Path) -> list[Path]:
+    logic_root = src_root / "molop" / "io" / "logic"
+    return sorted(
+        [
+            p
+            for p in logic_root.rglob("*.py")
+            if p.is_file()
+            and p.name != "__init__.py"
+            and not p.stem.startswith("_")
+            and "__pycache__" not in p.parts
+        ],
+        key=lambda p: p.as_posix(),
+    )
+
+
 def _iter_py_files(dir_path: Path) -> list[Path]:
     return sorted(
         [p for p in dir_path.glob("*.py") if p.is_file() and p.name != "__init__.py"],
@@ -45,24 +60,21 @@ def _iter_py_files(dir_path: Path) -> list[Path]:
     )
 
 
-def _discover_exports(
-    src_root: Path, search_dirs: list[Path]
-) -> tuple[list[_Export], list[_Export]]:
+def _discover_exports(src_root: Path) -> tuple[list[_Export], list[_Export]]:
     file_exports: list[_Export] = []
     frame_exports: list[_Export] = []
 
-    for d in search_dirs:
-        for py in _iter_py_files(d):
-            mod = _module_name(src_root, py)
-            tree = ast.parse(py.read_text(encoding="utf-8"), filename=str(py))
-            for node in tree.body:
-                if not isinstance(node, ast.ClassDef):
-                    continue
-                name = node.name
-                if name.endswith("FileDisk"):
-                    file_exports.append(_Export(module=mod, name=name))
-                if name.endswith("FileFrameDisk"):
-                    frame_exports.append(_Export(module=mod, name=name))
+    for py in _iter_logic_py_files(src_root):
+        mod = _module_name(src_root, py)
+        tree = ast.parse(py.read_text(encoding="utf-8"), filename=str(py))
+        for node in tree.body:
+            if not isinstance(node, ast.ClassDef):
+                continue
+            name = node.name
+            if name.endswith("FileDisk"):
+                file_exports.append(_Export(module=mod, name=name))
+            if name.endswith("FileFrameDisk"):
+                frame_exports.append(_Export(module=mod, name=name))
 
     # Deterministic order. Prefer module-first sorting to align with import
     # sorting used by formatters/linters.
@@ -176,18 +188,7 @@ def main(argv: list[str] | None = None) -> int:
     repo_root = Path(__file__).resolve().parents[1]
     src_root = _src_root(repo_root)
 
-    search_dirs = [
-        # File models
-        src_root / "molop" / "io" / "logic" / "coords_models",
-        src_root / "molop" / "io" / "logic" / "qminput_models",
-        src_root / "molop" / "io" / "logic" / "QM_models",
-        # Frame models
-        src_root / "molop" / "io" / "logic" / "coords_frame_models",
-        src_root / "molop" / "io" / "logic" / "qminput_frame_models",
-        src_root / "molop" / "io" / "logic" / "QM_frame_models",
-    ]
-
-    file_exports, frame_exports = _discover_exports(src_root, search_dirs)
+    file_exports, frame_exports = _discover_exports(src_root)
     out_path = (repo_root / args.output).resolve()
     out = _format_with_ruff(
         _render_stub(file_exports, frame_exports),

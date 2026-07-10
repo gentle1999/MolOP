@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from molop.io.base_models.ParseContainers import ModelParseResult
-from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
+from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
 
 
 CCSD_FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "1.log"

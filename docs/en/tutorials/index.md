@@ -125,7 +125,7 @@ uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.in
 
 ### Code Snippet
 
-Define in `src/molop/io/logic/coords_parsers/MyParser.py`:
+Define in a format package under `src/molop/io/logic`, for example `src/molop/io/logic/myfmt/parsers/MyParser.py`:
 
 ```python
 def register(registry):

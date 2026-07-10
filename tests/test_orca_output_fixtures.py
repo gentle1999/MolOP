@@ -6,6 +6,10 @@ from typing import Any
 import pytest
 
 from molop.io import AutoParser
+from molop.io.logic.orca.log.frame_parsers.ORCALogFileFrameParser import (
+    ORCALogFileFrameParserMemory,
+)
+from molop.io.logic.orca.log.parsers.ORCALogFileParser import ORCALogFileParserMemory
 
 
 ORCA_OUTPUT_FIXTURE_DIR = Path(__file__).resolve().parent / "test_files" / "orca" / "output_files"
@@ -114,6 +118,49 @@ def test_orca_output_auto_detection_prefers_orca_for_shared_out_suffix() -> None
     assert len(batch) == 1
     assert batch[0].detected_format_id == "orcaout"
     assert batch[0].qm_software == "ORCA"
+
+
+def test_orca_output_metadata_result_is_model_ready() -> None:
+    path = ORCA_OUTPUT_FIXTURE_DIR / "local" / "H2_sp_orca.out"
+    parser = ORCALogFileParserMemory()
+
+    metadata = parser._parse_metadata_result(
+        path.read_text(encoding="utf-8", errors="replace")
+    ).model_data()
+
+    assert metadata["qm_software"] == "ORCA"
+    assert metadata["qm_software_version"] == "4.1.1"
+    assert metadata["input_file_name"] == "H2_sp.inp"
+    assert metadata["model_chemistry"].method_family == "DFT"
+    assert metadata["model_chemistry"].functional == "PBE"
+    assert metadata["model_chemistry"].basis_set == "def2-SVP"
+    assert metadata["task_requests"][0].task_type == "sp"
+    assert metadata["charge"] == 0
+    assert metadata["multiplicity"] == 1
+    assert metadata["status"].normal_terminated is True
+    assert metadata["running_time"].to("second").magnitude > 0
+
+
+def test_orca_log_state_machine_rejects_unexpected_phase(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parser = ORCALogFileFrameParserMemory()
+
+    monkeypatch.setattr(parser, "_run_structure_phase", lambda _text, _result: object())
+
+    with pytest.raises(AssertionError, match="Unexpected ORCA log frame parse phase"):
+        parser._parse_block_to_result("")
+
+
+def test_orca_log_metadata_state_machine_rejects_unexpected_phase(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parser = ORCALogFileParserMemory()
+
+    monkeypatch.setattr(parser, "_run_software_metadata_phase", lambda _context, _result: object())
+
+    with pytest.raises(AssertionError, match="Unexpected ORCA log metadata parse phase"):
+        parser._parse_metadata_result("")
 
 
 @pytest.mark.parametrize(

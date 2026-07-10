@@ -4,7 +4,8 @@ from typing import cast
 import pytest
 
 from molop.io.codec_exceptions import UnsupportedFormatError
-from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
+from molop.io.logic.gaussian.log.models.G16LogFile import G16LogFileMemory
+from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
 
 
 FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "3-m-Py_anion_Opt.log"
@@ -61,6 +62,20 @@ def test_g16log_file_model_can_render_fakeg_for_all_frames():
     assert rendered.count("Frequencies --") >= 1
     assert rendered.count("Normal termination of Gaussian") == 2
     assert "Job cpu time:" not in rendered
+
+
+def test_g16log_fakeg_header_uses_shared_link0_cpu_projection() -> None:
+    rendered = G16LogFileMemory.model_validate(
+        {
+            "qm_software_version": "Gaussian 16",
+            "options": "%nprocshared=4\n%mem=1GB",
+            "keywords": "#p hf/sto-3g sp",
+            "title_card": "water",
+        }
+    )._render_fakeg_header()
+
+    assert "%nprocshared=4" in rendered
+    assert "Will use up to    4 processors via shared memory." in rendered
 
 
 def test_g16log_file_format_transform_registers_fakeg_file_renderer_only():

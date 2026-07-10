@@ -2,7 +2,10 @@ from pathlib import Path
 
 import pytest
 
-from molop.io.logic.qminput_parsers.GJFFileParser import GJFFileParserDisk, GJFFileParserMemory
+from molop.io.logic.gaussian.input.parsers.GJFFileParser import (
+    GJFFileParserDisk,
+    GJFFileParserMemory,
+)
 
 
 def test_gjf_disk_parser_expands_at_include(tmp_path: Path) -> None:

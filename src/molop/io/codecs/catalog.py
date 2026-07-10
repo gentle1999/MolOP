@@ -11,9 +11,8 @@ Design goals:
   codec implementations nor enumerate entry points.
 
 Policies:
-- Builtin scan scope: direct child modules under file parser/model packages:
-  - `molop.io.logic.coords_parsers` and `molop.io.logic.QM_parsers` (reader registration)
-  - `molop.io.logic.coords_models` and `molop.io.logic.QM_models` (writer registration)
+- Builtin scan scope: public `*File.py` and `*FileParser.py` modules under
+  `molop.io.logic`, discovered recursively.
 - Exclusions: module basenames starting with '_' are skipped.
 - Ordering: deterministic sort by fully-qualified module name.
 - Builtin failures: fail hard (raise) if import/register fails.
@@ -27,16 +26,7 @@ from importlib import import_module
 from typing import Any
 
 
-_BUILTIN_SCAN_PACKAGE_NAMES: tuple[str, ...] = (
-    # File parsers register reader codecs.
-    "molop.io.logic.coords_parsers",
-    "molop.io.logic.qminput_parsers",
-    "molop.io.logic.QM_parsers",
-    # File models register writer codecs.
-    "molop.io.logic.coords_models",
-    "molop.io.logic.qminput_models",
-    "molop.io.logic.QM_models",
-)
+_BUILTIN_SCAN_ROOT_PACKAGE_NAME = "molop.io.logic"
 
 _ENTRY_POINT_GROUP = "molop.codecs"
 
@@ -52,26 +42,30 @@ _loaded_plugin_registries: set[int] = set()
 def _discover_builtin_codec_module_names() -> list[str]:
     """Return candidate builtin codec module names (unsorted).
 
-    Discovery is limited to direct child modules of the builtin codec packages.
+    Discovery is convention-based: concrete file models and file parsers live in
+    public modules ending with `File` or `FileParser`.
     """
 
     import importlib
     import pkgutil
 
     discovered: list[str] = []
-    for pkg_name in _BUILTIN_SCAN_PACKAGE_NAMES:
-        pkg = importlib.import_module(pkg_name)
-        pkg_path = getattr(pkg, "__path__", None)
-        if pkg_path is None:
+    root_pkg = importlib.import_module(_BUILTIN_SCAN_ROOT_PACKAGE_NAME)
+    root_path = getattr(root_pkg, "__path__", None)
+    if root_path is None:
+        return discovered
+
+    prefix = f"{root_pkg.__name__}."
+    for mod in pkgutil.walk_packages(root_path, prefix):
+        if mod.ispkg:
             continue
-        prefix = f"{pkg.__name__}."
-        for mod in pkgutil.iter_modules(pkg_path, prefix):
-            if mod.ispkg:
-                continue
-            base = mod.name.rsplit(".", 1)[-1]
-            if base.startswith("_"):
-                continue
-            discovered.append(mod.name)
+        parts = mod.name.split(".")
+        base = parts[-1]
+        if any(part.startswith("_") for part in parts):
+            continue
+        if not base.endswith(("File", "FileParser")):
+            continue
+        discovered.append(mod.name)
     return discovered
 
 

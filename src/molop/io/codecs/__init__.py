@@ -4,8 +4,8 @@ Importing this package MUST NOT implicitly populate the global codec registry.
 
 Builtin registration is co-located with original implementations and loaded via
 `molop.io.codecs.catalog.load_builtin_codecs()` as part of lazy activation:
-- `molop.io.logic.coords_parsers` and `molop.io.logic.QM_parsers` register reader codecs.
-- `molop.io.logic.coords_models` and `molop.io.logic.QM_models` register writer codecs.
+- public `*FileParser.py` modules under `molop.io.logic` register reader codecs.
+- public `*File.py` modules under `molop.io.logic` register writer codecs.
 
 Third-party codecs may be discovered via Python entry points (group:
 `molop.codecs`) and loaded via `molop.io.codecs.catalog.load_plugin_codecs()`.

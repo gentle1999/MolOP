@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from molop.io.logic.QM_frame_models.G16Components import (
+from molop.io.logic.gaussian.log.frame_models.G16Components import (
     G16ComponentTreeBuilder,
     G16JobCPUComponent,
     G16L202OrientComponent,
@@ -12,7 +12,7 @@ from molop.io.logic.QM_frame_models.G16Components import (
     G16LeaveComponent,
     get_g16log_component_classes,
 )
-from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
+from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
 
 
 FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "3-m-Py_anion_Opt.log"

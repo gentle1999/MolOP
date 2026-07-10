@@ -11,6 +11,18 @@ from molop.io.codec_types import StructureLevel, WriterCodec
 from molop.io.frame_selection import FrameSelector
 
 
+def _adapt_writer_frame_payload(
+    frame_cls: type[BaseChemFileFrame], frame_payload: dict[str, Any]
+) -> dict[str, Any]:
+    adapter = getattr(frame_cls, "adapt_writer_payload", None)
+    if not callable(adapter):
+        return frame_payload
+    adapted_payload = adapter(frame_payload)
+    if adapted_payload is None:
+        return frame_payload
+    return cast(dict[str, Any], adapted_payload)
+
+
 def clone_file_and_frames(
     source: object,
     file_cls: type[BaseChemFile],
@@ -34,6 +46,7 @@ def clone_file_and_frames(
             maybe_frame_file_path = frame_file_paths.get(typed_frame.frame_id)
             if maybe_frame_file_path is not None:
                 frame_payload["file_path"] = maybe_frame_file_path
+        frame_payload = _adapt_writer_frame_payload(frame_cls, frame_payload)
         cloned_frame = frame_cls.model_validate(frame_payload)
 
         cloned_file.append(cast(Any, cloned_frame))
@@ -53,6 +66,7 @@ def clone_frame(
     )
     if file_path is not None and issubclass(frame_cls, DiskStorageMixin):
         frame_payload["file_path"] = file_path
+    frame_payload = _adapt_writer_frame_payload(frame_cls, frame_payload)
     cloned_frame = frame_cls.model_validate(frame_payload)
 
     return cloned_frame

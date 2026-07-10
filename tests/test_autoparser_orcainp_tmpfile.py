@@ -5,15 +5,70 @@ import pytest
 
 from molop.io import AutoParser  # type: ignore[reportMissingImports]
 from molop.io.base_models.DataClasses import CoordinateContainer, CoordinateParameters
+from molop.io.base_models.ParseContainers import ModelParseResult
 from molop.io.codec_exceptions import UnsupportedFormatError
 from molop.io.codec_registry import get_supported_writer_formats
-from molop.io.logic.qminput_frame_models.ORCAInpFileFrame import ORCAInpFileFrameDisk
+from molop.io.logic.orca.input.frame_models.ORCAInpFileFrame import ORCAInpFileFrameDisk
+from molop.io.logic.orca.input.frame_parsers.ORCAInpFileFrameParser import (
+    ORCAInpFileFrameParserMemory,
+    parse_orca_input_frame_result,
+)
+from molop.io.logic.orca.input.parsers._orca_inp_metadata import parse_orca_input_metadata
+from molop.io.logic.orca.input.parsers.ORCAInpFileParser import ORCAInpFileParserMemory
 
 
 def _write_orcainp(tmp_path: Path, content: str, name: str = "input.inp") -> Path:
     path = tmp_path / name
     path.write_text(content, encoding="utf-8")
     return path
+
+
+def test_orcainp_file_parser_metadata_result_is_model_ready() -> None:
+    parser = ORCAInpFileParserMemory()
+    result = parser._parse_metadata_result("! SP HF def2-SVP\n* xyz 0 1\nH 0 0 0\n*\n")
+
+    assert isinstance(result, ModelParseResult)
+    assert result.model_data() == {
+        "qm_software": "ORCA",
+        "qm_software_version": "Any",
+    }
+
+
+def test_orcainp_frame_parser_returns_model_ready_semantics() -> None:
+    parser = ORCAInpFileFrameParserMemory()
+    block = """! B3LYP D3BJ def2-TZVP
+%pal
+  nprocs 4
+end
+%maxcore 2000
+%output
+Print[ P_UNO_OccNum ] = 1
+end
+* xyz 0 1
+H 0.0 0.0 0.0
+H 0.7 0.0 0.0
+*
+"""
+    parser._block = block
+
+    result = parse_orca_input_frame_result(block)
+    assert isinstance(result, ModelParseResult)
+    assert result.has_value("model_chemistry") is True
+    metadata = parse_orca_input_metadata(block)
+    assert metadata["functional"] == "B3LYP-D3BJ"
+    assert metadata["request_num_cpu"] == 4
+    assert metadata["request_memory"].magnitude == pytest.approx(2000.0)
+    payload = parser._parse_frame()
+
+    assert payload["keywords"] == "B3LYP D3BJ def2-TZVP"
+    assert payload["method"] == "DFT"
+    assert payload["functional"] == "B3LYP-D3BJ"
+    assert payload["basis_set"] == "def2-TZVP"
+    assert payload["request_num_cpu"] == 4
+    assert payload["request_memory"].magnitude == pytest.approx(2000.0)
+    assert payload["model_chemistry"].functional == "B3LYP-D3BJ"
+    assert payload["task_requests"][0].task_type == "sp"
+    assert payload["output_print_settings"][0].target == "P_UNO_OccNum"
 
 
 def test_autoparser_orcainp_minimal_xyz_parses_atoms_and_coords(tmp_path: Path) -> None:

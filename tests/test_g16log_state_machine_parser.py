@@ -3,9 +3,11 @@ from pathlib import Path
 import pytest
 
 from molop.io.base_models.ParseContainers import ModelParseResult
-from molop.io.logic.QM_frame_models.G16LogFileFrame import G16LogFileFrameMemory
-from molop.io.logic.QM_frame_parsers.G16LogFileFrameParser import G16LogFileFrameParserMemory
-from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
+from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import G16LogFileFrameMemory
+from molop.io.logic.gaussian.log.frame_parsers.G16LogFileFrameParser import (
+    G16LogFileFrameParserMemory,
+)
+from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
 
 
 FIXTURES = [
@@ -133,3 +135,25 @@ def test_g16log_file_parser_frames_expose_model_derived_component_tree():
 
 def test_g16log_frame_model_no_longer_accepts_component_tree_input_field():
     assert "component_tree_input" not in G16LogFileFrameMemory.model_fields
+
+
+def test_g16log_state_machine_rejects_unexpected_phase(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parser = G16LogFileFrameParserMemory()
+
+    monkeypatch.setattr(parser, "_run_header_phase", lambda _block, _result: object())
+
+    with pytest.raises(AssertionError, match="Unexpected G16 frame parse phase"):
+        parser._parse_block_to_result("")
+
+
+def test_g16log_metadata_state_machine_rejects_unexpected_phase(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parser = G16LogFileParserMemory()
+
+    monkeypatch.setattr(parser, "_run_route_metadata_phase", lambda _context, _result: object())
+
+    with pytest.raises(AssertionError, match="Unexpected G16 metadata parse phase"):
+        parser._parse_metadata_result("")

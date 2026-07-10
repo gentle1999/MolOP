@@ -53,9 +53,9 @@ MolOP 的 IO 栈刻意分成三层：**解析（parsing）**、**存储（storag
 
 参考实现：
 
-- 同时支持 file/frame 渲染：`src/molop/io/logic/coords_models/XYZFile.py` 与 `src/molop/io/logic/coords_frame_models/XYZFileFrame.py`
-- 仅文件渲染：`src/molop/io/logic/QM_models/G16LogFile.py`
-- reader 注册：`src/molop/io/logic/qminput_parsers/GJFFileParser.py`
+- 同时支持 file/frame 渲染：`src/molop/io/logic/coords/models/XYZFile.py` 与 `src/molop/io/logic/coords/frame_models/XYZFileFrame.py`
+- 仅文件渲染：`src/molop/io/logic/gaussian/log/models/G16LogFile.py`
+- reader 注册：`src/molop/io/logic/gaussian/input/parsers/GJFFileParser.py`
 
 ### 最小插件示例
 
@@ -291,8 +291,8 @@ sequenceDiagram
 
 参考实现：
 
-- `src/molop/io/logic/qminput_models/GJFFile.py`
-- `src/molop/io/logic/QM_models/G16LogFile.py`
+- `src/molop/io/logic/gaussian/input/models/GJFFile.py`
+- `src/molop/io/logic/gaussian/log/models/G16LogFile.py`
 
 #### 帧模型
 
@@ -321,13 +321,13 @@ sequenceDiagram
 
 ### 新格式的注册规范
 
-新的 reader / writer 只有在模块暴露 `register(registry)` 函数之后，才会被 builtin codec loader 延迟注册。
+新的 reader / writer 只有在模块暴露 `register(registry)` 函数之后，才会被 builtin codec loader 延迟注册。Builtin codec loader 会递归扫描 `src/molop/io/logic` 下公开的 `*File.py` 和 `*FileParser.py` 模块，不需要为新增格式维护固定目录列表。
 
 对于 reader：
 
 - 使用 `Registry.reader_factory(...)`
 - 声明 format id、extensions、priority
-- 解析逻辑放在 `src/molop/io/logic/*_parsers`
+- 解析逻辑放在 `src/molop/io/logic` 下对应格式包的 parser 模块中
 
 对于 writer / renderer：
 
@@ -344,9 +344,9 @@ sequenceDiagram
 
 参考注册文件：
 
-- `src/molop/io/logic/qminput_models/GJFFile.py`
-- `src/molop/io/logic/coords_models/XYZFile.py`
-- `src/molop/io/logic/QM_models/G16LogFile.py`
+- `src/molop/io/logic/gaussian/input/models/GJFFile.py`
+- `src/molop/io/logic/coords/models/XYZFile.py`
+- `src/molop/io/logic/gaussian/log/models/G16LogFile.py`
 
 ### 仅文件支持 vs 同时支持帧
 

@@ -10,11 +10,12 @@ from typing import Any, Literal, overload
 
 from molop.io.codec_types import GraphPolicy
 from molop.io.frame_selection import FrameSelector
-from molop.io.logic.qminput_frame_models.GJFFileFrame import (
+from molop.io.logic.gaussian.input.GaussianInput import (
     GJFGICSection,
     GJFLink0Commands,
     GJFModRedundantSection,
     GJFMoleculeSpecifications,
+    GJFNBOSection,
     GJFRouteSection,
     GJFTitleCard,
     GJFUnknownSection,
@@ -128,7 +129,7 @@ class BatchFormatTransformMixin:
 
         Source
         ------
-        src/molop/io/logic/QM_frame_models/G16LogFileFrame.py
+        src/molop/io/logic/gaussian/log/frame_models/G16LogFileFrame.py
         """
         ...
     @overload
@@ -147,7 +148,9 @@ class BatchFormatTransformMixin:
         title_card: str | GJFTitleCard | None = ...,
         molecule_specifications: str | GJFMoleculeSpecifications | None = ...,
         additional_sections: str | None = ...,
-        parsed_additional_sections: list[GJFGICSection | GJFModRedundantSection | GJFUnknownSection]
+        parsed_additional_sections: list[
+            GJFGICSection | GJFModRedundantSection | GJFNBOSection | GJFUnknownSection
+        ]
         | None = ...,
         chk: str | bool | None = ...,
         old_chk: bool | str | None = ...,
@@ -192,7 +195,7 @@ class BatchFormatTransformMixin:
                 Format-specific writer argument (optional).
             additional_sections : str | None
                 Format-specific writer argument (optional).
-            parsed_additional_sections : list[GJFGICSection | GJFModRedundantSection | GJFUnknownSection] | None
+            parsed_additional_sections : list[GJFGICSection | GJFModRedundantSection | GJFNBOSection | GJFUnknownSection] | None
                 Format-specific writer argument (optional).
             chk : str | bool | None
                 Format-specific writer argument (optional).
@@ -376,10 +379,8 @@ class BatchFormatTransformMixin:
         - This is a render-time override interface: supplied arguments affect
           only the current output and are not meant to be permanent field
           updates.
-        - ``chk`` / ``old_chk`` append keywords to the ``link0_commands_to_use``
-          object used for this render. If that object is ``self.link0_commands``,
-          the appended entries may therefore be visible on the instance-backed
-          object as a side effect.
+        - ``chk`` / ``old_chk`` append keywords only to a temporary Link0 copy
+          used for this render.
 
         Returns
         -------
@@ -388,7 +389,7 @@ class BatchFormatTransformMixin:
 
         Source
         ------
-        src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1418
+        src/molop/io/logic/gaussian/input/frame_models/GJFFileFrame.py:102
         """
         ...
     @overload
@@ -450,7 +451,7 @@ class BatchFormatTransformMixin:
 
         Source
         ------
-        src/molop/io/logic/coords_frame_models/SDFFileFrame.py:18
+        src/molop/io/logic/coords/frame_models/SDFFileFrame.py:17
         """
         ...
     @overload
@@ -504,7 +505,7 @@ class BatchFormatTransformMixin:
 
         Source
         ------
-        src/molop/io/logic/coords_frame_models/SMIFileFrame.py:16
+        src/molop/io/logic/coords/frame_models/SMIFileFrame.py:17
         """
         ...
     @overload
@@ -566,7 +567,7 @@ class BatchFormatTransformMixin:
 
         Source
         ------
-        src/molop/io/logic/coords_frame_models/XYZFileFrame.py:20
+        src/molop/io/logic/coords/frame_models/XYZFileFrame.py:21
         """
         ...
     @overload
@@ -636,7 +637,7 @@ class BatchFormatTransformMixin:
                 Format-specific writer argument (optional).
             additional_sections : str | None
                 Format-specific writer argument (optional).
-            parsed_additional_sections : list[GJFGICSection | GJFModRedundantSection | GJFUnknownSection] | None
+            parsed_additional_sections : list[GJFGICSection | GJFModRedundantSection | GJFNBOSection | GJFUnknownSection] | None
                 Format-specific writer argument (optional).
             chk : str | bool | None
                 Format-specific writer argument (optional).
@@ -663,10 +664,10 @@ class BatchFormatTransformMixin:
         Source
         ------
         cml : src/molop/io/codecs/cml_codec.py:42
-        fakeg : src/molop/io/logic/QM_frame_models/G16LogFileFrame.py
-        gjf : src/molop/io/logic/qminput_frame_models/GJFFileFrame.py:1418
-        sdf : src/molop/io/logic/coords_frame_models/SDFFileFrame.py:18
-        smi : src/molop/io/logic/coords_frame_models/SMIFileFrame.py:16
-        xyz : src/molop/io/logic/coords_frame_models/XYZFileFrame.py:20
+        fakeg : src/molop/io/logic/gaussian/log/frame_models/G16LogFileFrame.py
+        gjf : src/molop/io/logic/gaussian/input/frame_models/GJFFileFrame.py:102
+        sdf : src/molop/io/logic/coords/frame_models/SDFFileFrame.py:17
+        smi : src/molop/io/logic/coords/frame_models/SMIFileFrame.py:17
+        xyz : src/molop/io/logic/coords/frame_models/XYZFileFrame.py:21
         """
         ...

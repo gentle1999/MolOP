@@ -8,26 +8,35 @@ from __future__ import annotations
 
 from typing import TypeAlias
 
-from molop.io.logic.coords_frame_models.SDFFileFrame import SDFFileFrameDisk
-from molop.io.logic.coords_frame_models.SMIFileFrame import SMIFileFrameDisk
-from molop.io.logic.coords_frame_models.XYZFileFrame import XYZFileFrameDisk
-from molop.io.logic.coords_models.SDFFile import SDFFileDisk
-from molop.io.logic.coords_models.SMIFile import SMIFileDisk
-from molop.io.logic.coords_models.XYZFile import XYZFileDisk
-from molop.io.logic.QM_frame_models.G16LogFileFrame import G16LogFileFrameDisk
-from molop.io.logic.QM_models.G16LogFile import G16LogFileDisk
-from molop.io.logic.qminput_frame_models.GJFFileFrame import GJFFileFrameDisk
-from molop.io.logic.qminput_frame_models.ORCAInpFileFrame import ORCAInpFileFrameDisk
-from molop.io.logic.qminput_models.GJFFile import GJFFileDisk
-from molop.io.logic.qminput_models.ORCAInpFile import ORCAInpFileDisk
+from molop.io.logic.coords.frame_models.SDFFileFrame import SDFFileFrameDisk
+from molop.io.logic.coords.frame_models.SMIFileFrame import SMIFileFrameDisk
+from molop.io.logic.coords.frame_models.XYZFileFrame import XYZFileFrameDisk
+from molop.io.logic.coords.models.SDFFile import SDFFileDisk
+from molop.io.logic.coords.models.SMIFile import SMIFileDisk
+from molop.io.logic.coords.models.XYZFile import XYZFileDisk
+from molop.io.logic.gaussian.input.frame_models.GJFFileFrame import GJFFileFrameDisk
+from molop.io.logic.gaussian.input.models.GJFFile import GJFFileDisk
+from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import G16LogFileFrameDisk
+from molop.io.logic.gaussian.log.models.G16LogFile import G16LogFileDisk
+from molop.io.logic.orca.input.frame_models.ORCAInpFileFrame import ORCAInpFileFrameDisk
+from molop.io.logic.orca.input.models.ORCAInpFile import ORCAInpFileDisk
+from molop.io.logic.orca.log.frame_models.ORCALogFileFrame import ORCALogFileFrameDisk
+from molop.io.logic.orca.log.models.ORCALogFile import ORCALogFileDisk
 
 FileDiskObj: TypeAlias = (
-    G16LogFileDisk | GJFFileDisk | ORCAInpFileDisk | SDFFileDisk | SMIFileDisk | XYZFileDisk
+    G16LogFileDisk
+    | GJFFileDisk
+    | ORCAInpFileDisk
+    | ORCALogFileDisk
+    | SDFFileDisk
+    | SMIFileDisk
+    | XYZFileDisk
 )
 FrameDiskObj: TypeAlias = (
     G16LogFileFrameDisk
     | GJFFileFrameDisk
     | ORCAInpFileFrameDisk
+    | ORCALogFileFrameDisk
     | SDFFileFrameDisk
     | SMIFileFrameDisk
     | XYZFileFrameDisk

@@ -1,7 +1,54 @@
 import pytest
 
-from molop.io.logic.qminput_frame_parsers.GJFFileFrameParser import GJFFileFrameParserMemory
-from molop.io.logic.qminput_parsers.GJFFileParser import GJFFileParserMemory
+from molop.io.base_models.ParseContainers import ModelParseResult
+from molop.io.logic.gaussian.input.frame_parsers.GJFFileFrameParser import (
+    GJFFileFrameParserMemory,
+    GJFParsePhase,
+)
+from molop.io.logic.gaussian.input.parsers.GJFFileParser import GJFFileParserMemory
+
+
+def test_gjf_file_parser_metadata_result_is_model_ready() -> None:
+    parser = GJFFileParserMemory()
+    result = parser._parse_metadata_result("#p hf/3-21g\n\ntitle\n\n0 1\nH 0 0 0\n")
+
+    assert isinstance(result, ModelParseResult)
+    assert result.model_data() == {
+        "qm_software": "Gaussian",
+        "qm_software_version": "Any",
+    }
+
+
+def test_gjf_frame_parser_result_is_model_ready() -> None:
+    parser = GJFFileFrameParserMemory()
+    block = """%chk=t.chk
+#p hf/3-21g sp
+
+title
+
+0 1
+H 0.0 0.0 0.0
+H 0.0 0.0 0.7
+
+B 1 2 F
+"""
+
+    result = parser._parse_block_to_result(block)
+    payload = result.model_data()
+
+    assert isinstance(result, ModelParseResult)
+    assert [phase.name for phase in GJFParsePhase] == [
+        "PREAMBLE",
+        "TITLE",
+        "MOLECULE",
+        "ADDITIONAL",
+        "DONE",
+    ]
+    assert payload["link0_commands"].link0_keywords[0].key == "chk"
+    assert payload["route_section"].semantic_route.raw_route == "#p hf/3-21g sp"
+    assert payload["title_card"].title_card == "title"
+    assert payload["molecule_specifications"].atomic_numbers() == [1, 1]
+    assert payload["parsed_additional_sections"][0].section_type == "modredundant"
 
 
 def test_gjf_title_card_is_required() -> None:

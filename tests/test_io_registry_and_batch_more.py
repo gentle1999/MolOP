@@ -747,9 +747,9 @@ def test_auto_detection_falls_back_from_orca_to_gaussian_for_shared_out_suffix()
 
 
 def test_simple_coordinate_readers_defer_mismatch_to_parse_phase() -> None:
-    from molop.io.logic.coords_parsers.SDFFileParser import SDFFileParserDisk
-    from molop.io.logic.coords_parsers.SMIFileParser import SMIFileParserDisk
-    from molop.io.logic.coords_parsers.XYZFileParser import XYZFileParserDisk
+    from molop.io.logic.coords.parsers.SDFFileParser import SDFFileParserDisk
+    from molop.io.logic.coords.parsers.SMIFileParser import SMIFileParserDisk
+    from molop.io.logic.coords.parsers.XYZFileParser import XYZFileParserDisk
 
     for parser_cls in (XYZFileParserDisk, SMIFileParserDisk, SDFFileParserDisk):
         parser_cls._quick_check_file_format("/tmp/not-treated-as-a-path")
@@ -858,7 +858,7 @@ def test_filebatchparser_parses_unstatable_files_without_aborting(
 
 
 def test_base_file_parser_finalizes_file_charge_and_multiplicity_from_first_frame() -> None:
-    from molop.io.logic.coords_parsers.XYZFileParser import XYZFileParserMemory
+    from molop.io.logic.coords.parsers.XYZFileParser import XYZFileParserMemory
 
     parsed = XYZFileParserMemory().parse(
         "\n".join(
@@ -875,8 +875,8 @@ def test_base_file_parser_finalizes_file_charge_and_multiplicity_from_first_fram
 
 
 def test_g16_file_parser_finalizes_temperature_from_later_frame() -> None:
-    from molop.io.logic.QM_frame_models.G16LogFileFrame import G16LogFileFrameMemory
-    from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
+    from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import G16LogFileFrameMemory
+    from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
 
     parser = G16LogFileParserMemory()
     frame_data = {
@@ -899,8 +899,8 @@ def test_g16_file_parser_finalizes_temperature_from_later_frame() -> None:
 
 def test_g16_file_parser_finalizes_status_from_last_frame() -> None:
     from molop.io.base_models.DataClasses import Status
-    from molop.io.logic.QM_frame_models.G16LogFileFrame import G16LogFileFrameMemory
-    from molop.io.logic.QM_parsers.G16LogFileParser import G16LogFileParserMemory
+    from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import G16LogFileFrameMemory
+    from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
 
     parser = G16LogFileParserMemory()
     frame_data = {

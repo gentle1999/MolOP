@@ -41,8 +41,11 @@ def _iter_py_files(dir_path: Path) -> list[Path]:
     return sorted(
         [
             p
-            for p in dir_path.glob("*.py")
-            if p.is_file() and p.name != "__init__.py" and not p.stem.startswith("_")
+            for p in dir_path.rglob("*.py")
+            if p.is_file()
+            and p.name != "__init__.py"
+            and not p.stem.startswith("_")
+            and "__pycache__" not in p.parts
         ],
         key=lambda p: p.as_posix(),
     )
@@ -63,10 +66,6 @@ def _extract_import_map(tree: ast.Module) -> dict[str, str]:
     return out
 
 
-def _module_to_dir(src_root: Path, module_name: str) -> Path:
-    return src_root / Path(*module_name.split("."))
-
-
 def _parse_catalog_tree(repo_root: Path) -> ast.Module:
     catalog_path = repo_root / _CATALOG_PATH
     return ast.parse(catalog_path.read_text(encoding="utf-8"), filename=str(catalog_path))
@@ -78,29 +77,6 @@ def _collect_function_defs(tree: ast.Module) -> dict[str, ast.FunctionDef | ast.
         for node in tree.body
         if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
     }
-
-
-def _builtin_scan_package_names(repo_root: Path) -> tuple[str, ...]:
-    tree = _parse_catalog_tree(repo_root)
-    for node in tree.body:
-        value: ast.expr | None = None
-        if isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name):
-            if node.target.id == "_BUILTIN_SCAN_PACKAGE_NAMES":
-                value = node.value
-        elif isinstance(node, ast.Assign) and len(node.targets) == 1:
-            target = node.targets[0]
-            if isinstance(target, ast.Name) and target.id == "_BUILTIN_SCAN_PACKAGE_NAMES":
-                value = node.value
-
-        if not isinstance(value, ast.Tuple):
-            continue
-
-        values: list[str] = []
-        for elt in value.elts:
-            if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
-                values.append(elt.value)
-        return tuple(values)
-    return ()
 
 
 def _explicit_builtin_module_names(repo_root: Path) -> set[str]:
@@ -137,11 +113,9 @@ def _explicit_builtin_module_names(repo_root: Path) -> set[str]:
 def _discover_writer_modules(repo_root: Path, src_root: Path) -> list[str]:
     module_names: set[str] = set()
 
-    for pkg_name in _builtin_scan_package_names(repo_root):
-        pkg_dir = _module_to_dir(src_root, pkg_name)
-        if not pkg_dir.is_dir():
-            continue
-        for py in _iter_py_files(pkg_dir):
+    logic_root = src_root / "molop" / "io" / "logic"
+    if logic_root.is_dir():
+        for py in _iter_py_files(logic_root):
             module_names.add(_module_name(src_root, py))
 
     for explicit_mod in _explicit_builtin_module_names(repo_root):

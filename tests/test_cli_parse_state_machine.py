@@ -433,8 +433,35 @@ def test_parse_summary_frame_all_flatten_columns(tmp_path: Path) -> None:
     assert result.exit_code == 0, result.output
     rows = list(csv.DictReader(out.read_text(encoding="utf-8").splitlines()))
     assert len(rows) > 1
-    assert "General.FrameID" in rows[0]
     assert [row["General.FrameID"] for row in rows] == ["0", "1", "2", "3", "4"]
+
+
+def test_parse_summary_g16_frame_json_terminal_handles_unit_columns() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "-q",
+            "parse",
+            "tests/test_files/g16log/000000000000_000016928457_00_conf_01_ts.107c60f3cfcb.log",
+            "--parser-detection",
+            "g16log",
+            "--n-jobs",
+            "1",
+            "to-summary-df",
+            "--mode",
+            "frame",
+            "--frame",
+            "-1",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    rows = json.loads(result.output)
+    assert rows[0]["('Environment', 'Temperature (kelvin)')"] == 298.15
+    assert rows[0]["('Status', 'IsError')"] is False
+    assert rows[0]["('General', 'FrameID')"] == 33
 
 
 def test_old_flat_command_is_removed() -> None:

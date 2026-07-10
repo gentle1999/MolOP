@@ -38,8 +38,14 @@ from molop.io.base_models.DataClasses import (
     Vibrations,
 )
 from molop.io.base_models.Molecule import Molecule
-from molop.io.logic.qminput_frame_models.GJFFileFrame import GJFFileFrameMemory
-from molop.io.logic.qminput_frame_models.ORCAInpFileFrame import ORCAInpFileFrameMemory
+from molop.io.logic.gaussian.input.frame_models.GJFFileFrame import (
+    GJFFileFrameMemory,
+    GJFMoleculeSpecifications,
+    GJFRouteSection,
+)
+from molop.io.logic.orca.input.frame_models.ORCAInpFileFrame import ORCAInpFileFrameMemory
+from molop.io.logic.orca.log.frame_models.ORCALogFileFrame import ORCALogFileFrameMemory
+from molop.io.logic.orca.log.models.ORCALogFile import ORCALogFileMemory
 from molop.unit import atom_ureg
 
 
@@ -495,12 +501,12 @@ def test_legacy_qm_input_backfill_populates_empty_structured_values() -> None:
     assert frame.resource_request.raw == "%pal nprocs 2 end"
 
 
-def test_gaussian_common_projection_ignores_stale_legacy_functional() -> None:
+def test_gaussian_route_projection_ignores_stale_legacy_functional() -> None:
     frame = GJFFileFrameMemory.model_validate(
         {
-            "route_section": {"route": "#p b3lyp/def2svp em=gd3bj opt"},
+            "route_section": GJFRouteSection.from_str("#p b3lyp/def2svp em=gd3bj opt"),
             "title_card": {"title": "projection"},
-            "molecule_specifications": "0 1\nH 0.0 0.0 0.0",
+            "molecule_specifications": GJFMoleculeSpecifications.from_str("0 1\nH 0.0 0.0 0.0"),
             "functional": "stale-functional",
             "basis_set": "stale-basis",
             "method": "stale-method",
@@ -517,9 +523,9 @@ def test_gaussian_common_projection_ignores_stale_legacy_functional() -> None:
 def test_gaussian_hf_projection_rejects_stale_legacy_functional() -> None:
     frame = GJFFileFrameMemory.model_validate(
         {
-            "route_section": {"route": "#p hf/3-21g sp"},
+            "route_section": GJFRouteSection.from_str("#p hf/3-21g sp"),
             "title_card": {"title": "hf projection"},
-            "molecule_specifications": "0 1\nH 0.0 0.0 0.0",
+            "molecule_specifications": GJFMoleculeSpecifications.from_str("0 1\nH 0.0 0.0 0.0"),
             "functional": "stale-functional",
             "basis_set": "stale-basis",
             "method": "stale-method",
@@ -534,11 +540,21 @@ def test_gaussian_hf_projection_rejects_stale_legacy_functional() -> None:
     assert frame.basis_set == "3-21g"
 
 
-def test_orca_common_projection_keeps_structured_semantics_authoritative() -> None:
+def test_orca_common_projection_uses_parser_supplied_structured_semantics() -> None:
     frame = ORCAInpFileFrameMemory.model_validate(
         {
             "keyword_lines": [{"text": "B3LYP D3BJ def2-SVP"}],
             "blocks": [{"name": "pal", "raw_header": "%pal", "lines": [{"text": "nprocs 4"}]}],
+            "model_chemistry": {
+                "method_family": "DFT",
+                "method": "DFT",
+                "functional": "B3LYP-D3BJ",
+                "basis_set": "def2-SVP",
+                "auxiliary_basis_set": "def2/J",
+                "dispersion_correction": "D3BJ",
+                "raw_keywords": "B3LYP D3BJ def2-SVP def2/J",
+            },
+            "resource_request": {"num_cpu": 4},
             "geometry": {
                 "ctype": "xyz",
                 "charge": 0,
@@ -556,6 +572,8 @@ def test_orca_common_projection_keeps_structured_semantics_authoritative() -> No
             "method": "stale-method",
             "functional": "stale-functional",
             "basis_set": "stale-basis",
+            "auxiliary_basis_set": "stale-aux",
+            "dispersion_correction": "stale-dispersion",
             "request_num_cpu": 99,
         }
     )
@@ -567,5 +585,92 @@ def test_orca_common_projection_keeps_structured_semantics_authoritative() -> No
     assert frame.method == "DFT"
     assert frame.functional == "B3LYP-D3BJ"
     assert frame.basis_set == "def2-SVP"
+    assert frame.auxiliary_basis_set == "def2/J"
+    assert frame.dispersion_correction == "D3BJ"
+    assert frame.keywords == "B3LYP D3BJ def2-SVP def2/J"
     assert frame.request_num_cpu == 4
     assert frame.resource_request.num_cpu == 4
+
+
+def test_orca_output_models_inherit_common_projection_mixin() -> None:
+    payload = {
+        "model_chemistry": {
+            "method_family": "DFT",
+            "method": "DFT",
+            "functional": "PBE",
+            "basis_set": "def2-SVP",
+            "auxiliary_basis_set": "def2/J",
+            "dispersion_correction": "D3BJ",
+            "raw_keywords": "PBE D3BJ def2-SVP def2/J",
+        },
+        "resource_request": {"num_cpu": 4},
+        "method": "stale-method",
+        "functional": "stale-functional",
+        "basis_set": "stale-basis",
+        "auxiliary_basis_set": "stale-aux",
+        "dispersion_correction": "stale-dispersion",
+        "request_num_cpu": 99,
+    }
+
+    file_model = ORCALogFileMemory.model_validate(payload)
+    frame_model = ORCALogFileFrameMemory.model_validate(
+        payload
+        | {
+            "atoms": [1],
+            "coords": np.array([[0.0, 0.0, 0.0]]) * atom_ureg.angstrom,
+        }
+    )
+
+    for model in (file_model, frame_model):
+        assert model.qm_software == "ORCA"
+        assert model.method == "DFT"
+        assert model.functional == "PBE"
+        assert model.basis_set == "def2-SVP"
+        assert model.auxiliary_basis_set == "def2/J"
+        assert model.dispersion_correction == "D3BJ"
+        assert model.request_num_cpu == 4
+        assert model.keywords == "PBE D3BJ def2-SVP def2/J"
+
+
+def test_orca_model_preserves_raw_input_without_model_side_semantic_parsing() -> None:
+    frame = ORCAInpFileFrameMemory.model_validate(
+        {
+            "keyword_lines": [{"text": "B3LYP D3BJ def2-SVP Opt"}],
+            "blocks": [
+                {
+                    "name": "pal",
+                    "raw_header": "%pal",
+                    "lines": [{"text": "nprocs 4"}],
+                }
+            ],
+            "resources_raw": "%pal\n  nprocs 4\nend",
+            "geometry": {
+                "ctype": "xyz",
+                "charge": 0,
+                "multiplicity": 1,
+                "items": [
+                    {
+                        "symbol": "H",
+                        "atomic_number": 1,
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                    }
+                ],
+            },
+        }
+    )
+
+    assert frame.qm_software == "ORCA"
+    assert frame.qm_software_version == "Any"
+    assert frame.keywords == ""
+    assert frame.method == ""
+    assert frame.functional == ""
+    assert frame.basis_set == ""
+    assert frame.task_requests == []
+    assert frame.request_num_cpu is None
+    assert frame.resource_request.num_cpu is None
+    assert frame.resource_request.raw == "%pal\n  nprocs 4\nend"
+    assert frame.model_chemistry.raw_keywords == ""
+    assert frame.atoms == [1]
+    assert tuple(frame.coords.shape) == (1, 3)

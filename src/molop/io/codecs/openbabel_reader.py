@@ -10,8 +10,8 @@ from openbabel import pybel
 
 from molop.io.codec_exceptions import ParseError
 from molop.io.codec_types import ParseResult, ReaderCodec, StructureLevel
-from molop.io.logic.coords_frame_models.XYZFileFrame import XYZFileFrameDisk
-from molop.io.logic.coords_models.XYZFile import XYZFileDisk
+from molop.io.logic.coords.frame_models.XYZFileFrame import XYZFileFrameDisk
+from molop.io.logic.coords.models.XYZFile import XYZFileDisk
 from molop.unit import atom_ureg
 
 

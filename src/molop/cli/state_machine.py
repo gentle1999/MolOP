@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from molop.cli.shared.frames import parse_frame_selection
 from molop.io import AutoParser
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
+from molop.io.frame_selection import FrameSelector
 
 
 ReturnKind = Literal["batch", "terminal"]
@@ -206,7 +207,7 @@ class BatchPlan(CliModel):
     operations: list[OperationCall]
 
 
-def parse_cli_frame_selection(frame: str) -> int | list[int] | Literal["all"]:
+def parse_cli_frame_selection(frame: str) -> FrameSelector:
     try:
         return parse_frame_selection(frame)
     except ValueError as exc:

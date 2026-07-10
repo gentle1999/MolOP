@@ -3,9 +3,16 @@ from typing import Any, cast
 
 import numpy as np
 import pytest
+from pydantic import ValidationError
 
 from molop.io import AutoParser
-from molop.io.logic.qminput_parsers.GJFFileParser import GJFFileParserDisk
+from molop.io.logic.gaussian.input.frame_models.GJFFileFrame import (
+    GJFAtomSpecification,
+    GJFFileFrameMemory,
+    GJFLink0Commands,
+    GJFRouteSection,
+)
+from molop.io.logic.gaussian.input.parsers.GJFFileParser import GJFFileParserDisk
 
 
 _G16GJF_FIXTURE_DIR = Path(__file__).resolve().parent / "test_files" / "g16gjf"
@@ -119,6 +126,44 @@ def test_render_prefers_structured_additional_sections() -> None:
     assert "Atom 2 Freeze" in rendered
 
 
+def test_model_keeps_raw_additional_sections_without_model_side_parsing() -> None:
+    frame = GJFFileFrameMemory.model_validate({"additional_sections": "B 1 2 F\n"})
+
+    assert frame.additional_sections == "B 1 2 F\n"
+    assert frame.parsed_additional_sections == []
+    assert frame.additional_section_diagnostics == []
+    assert "B 1 2 F" in frame._render()
+
+
+def test_model_does_not_derive_gjf_sections_from_legacy_raw_fields() -> None:
+    frame = GJFFileFrameMemory.model_validate(
+        {
+            "resources_raw": "%nprocshared=4\n",
+            "keywords": "#p hf/sto-3g sp",
+            "atoms": [1],
+            "coords": [[0.0, 0.0, 0.0]],
+        }
+    )
+
+    assert frame.link0_commands.link0_keywords == []
+    assert frame.route_section.route == ""
+    assert frame.route_section.semantic_route.raw_route == ""
+    assert frame.molecule_specifications.total_charge == 0
+    assert frame.molecule_specifications.atomic_numbers() == [1]
+
+
+def test_model_rejects_raw_gjf_section_strings_without_parser_payload() -> None:
+    with pytest.raises(ValidationError):
+        GJFFileFrameMemory.model_validate(
+            {
+                "link0_commands": "%nprocshared=4\n",
+                "route_section": "#p hf/sto-3g sp",
+                "title_card": "hydrogen",
+                "molecule_specifications": "0 1\nH 0.0 0.0 0.0",
+            }
+        )
+
+
 def test_render_accepts_structured_override_inputs() -> None:
     frame = _parse_first_frame("spec_gic_structured.gjf")
     rendered = frame._render(
@@ -127,6 +172,37 @@ def test_render_accepts_structured_override_inputs() -> None:
     )
     assert "rOH(active, min=0.8, max=1.2)=R(1, 2)" in rendered
     assert "Atom 2 Freeze" in rendered
+
+
+def test_render_time_chk_overrides_do_not_mutate_link0_models() -> None:
+    frame = _parse_first_frame("spec_gic_structured.gjf")
+    original_link0 = frame.link0_commands.model_copy(deep=True)
+    override_link0 = GJFLink0Commands.from_dict({"mem": "1GB"})
+    original_override = override_link0.model_copy(deep=True)
+
+    rendered = frame._render(chk=True, old_chk="previous.chk")
+    override_rendered = frame._render(link0_commands=override_link0, chk="override.chk")
+
+    assert "%chk=" in rendered
+    assert "%oldchk=previous.chk" in rendered
+    assert "%chk=override.chk" in override_rendered
+    assert frame.link0_commands == original_link0
+    assert override_link0 == original_override
+
+
+def test_render_default_title_does_not_mutate_title_card() -> None:
+    frame = GJFFileFrameMemory.model_validate(
+        {
+            "route_section": GJFRouteSection.from_str("#p hf/sto-3g sp"),
+            "atoms": [1],
+            "coords": [[0.0, 0.0, 0.0]],
+        }
+    )
+
+    rendered = frame._render()
+
+    assert "\ntitle\n\n" in rendered
+    assert frame.title_card.title_card == ""
 
 
 def test_zmat_trailing_marker_0_1_is_preserved_and_rendered_without_units() -> None:
@@ -203,6 +279,43 @@ def test_integer_cartesian_coordinates_are_not_misparsed_as_zmatrix() -> None:
 
     rendered = frame._render()
     assert "H            0.000000       0.000000       0.000000" in rendered
+
+
+@pytest.mark.parametrize(
+    ("element_label", "symbol"),
+    [
+        ("C1", "C"),
+        ("Cl12", "Cl"),
+        ("O", "O"),
+        ("H2O", "H"),
+    ],
+)
+def test_gjf_atom_specification_projects_gaussian_element_labels(
+    element_label: str, symbol: str
+) -> None:
+    atom_spec = GJFAtomSpecification(element_label=element_label, coords_part="0.0 0.0 0.0")
+
+    assert atom_spec.symbol == symbol
+
+
+def test_gjf_frame_builds_molecule_specifications_from_structured_payload() -> None:
+    frame = GJFFileFrameMemory.model_validate(
+        {
+            "atoms": [8, 1, 1],
+            "coords": [[0.0, 0.0, 0.0], [0.0, 0.0, 0.9], [0.8, 0.0, 0.0]],
+            "charge": -1,
+            "multiplicity": 2,
+            "route_section": GJFRouteSection.from_str("#p hf/sto-3g sp"),
+        }
+    )
+
+    molecule = frame.molecule_specifications
+    assert molecule.total_charge == -1
+    assert molecule.spin_multiplicity == 2
+    assert molecule.atomic_numbers() == [8, 1, 1]
+    assert molecule.molecule_fragments[0].atom_specifications[0].coords_part == (
+        "0.000000 0.000000 0.000000"
+    )
 
 
 def test_mixed_gic_and_modredundant_section_falls_back_to_unknown_with_diagnostic() -> None:

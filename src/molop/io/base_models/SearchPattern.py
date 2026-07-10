@@ -7,11 +7,14 @@ Description: 请填写简介
 """
 
 from collections.abc import Generator, Iterator
-from typing import Any
+from typing import TypeAlias
 
 import regex
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 from typing_extensions import Self
+
+
+MolOPMatch: TypeAlias = regex.Match[str]
 
 
 def find_iter_no_regex(
@@ -63,13 +66,18 @@ class MolOPPattern(BaseModel):
     content_repeat: int = Field(
         default=1,
         description="Whether the content pattern should be repeated. 0 means unlimited. "
-        "> 0 means the number of times the content pattern should be repeated.",
+        "Non-zero values cap the number of matches by abs(value); regex flags such "
+        "as (?r) control match direction.",
     )
     description: str = Field(default="", description="The description of the pattern.")
 
     _start_pattern_compiled: regex.Pattern[str] | None = PrivateAttr(None)
     _end_pattern_compiled: regex.Pattern[str] | None = PrivateAttr(None)
     _content_pattern_compiled: regex.Pattern[str] | None = PrivateAttr(None)
+
+    @staticmethod
+    def escape_literal(text: str) -> str:
+        return regex.escape(text)
 
     @model_validator(mode="after")
     def validate_pattern(self) -> Self:
@@ -93,6 +101,32 @@ class MolOPPattern(BaseModel):
     def content_pattern_compiled(self) -> regex.Pattern[str] | None:
         return self._content_pattern_compiled
 
+    @property
+    def group_names(self) -> tuple[str, ...]:
+        if not self.content_pattern_compiled:
+            return ()
+        return tuple(self.content_pattern_compiled.groupindex)
+
+    def has_named_group(self, group_name: str) -> bool:
+        return group_name in self.group_names
+
+    def _ensure_named_group(self, group_name: str) -> None:
+        if not self.has_named_group(group_name):
+            raise IndexError(f"no such group: {group_name}")
+
+    def get_named_group(self, matched: MolOPMatch, group_name: str) -> str | None:
+        self._ensure_named_group(group_name)
+        return matched.group(group_name)
+
+    def require_named_group(self, matched: MolOPMatch, group_name: str) -> str:
+        value = self.get_named_group(matched, group_name)
+        if value is None:
+            raise ValueError(f"group did not match: {group_name}")
+        return value
+
+    def named_group_dict(self, matched: MolOPMatch) -> dict[str, str | None]:
+        return {name: matched.group(name) for name in self.group_names}
+
     def locate_content(self, content: str) -> None | tuple[int, int, int, int]:
         """
         Locate the content of the pattern in the given content.
@@ -113,7 +147,7 @@ class MolOPPattern(BaseModel):
         elif self.start_pattern:
             for idx, match in enumerate(find_iter_no_regex(self.start_pattern, content)):
                 if idx >= self.start_offset:
-                    start_index, start_pos = match[0], match[1]
+                    start_index, start_pos = match
                     break
             else:
                 return None
@@ -131,7 +165,7 @@ class MolOPPattern(BaseModel):
         elif self.end_pattern:
             for idx, match in enumerate(find_iter_no_regex(self.end_pattern, content, start_index)):
                 if idx >= self.end_offset:
-                    end_index, end_pos = match[0], match[1]
+                    end_index, end_pos = match
                     break
             else:
                 return None
@@ -145,7 +179,7 @@ class MolOPPattern(BaseModel):
         )
         return start_index, start_pos, end_index, end_pos
 
-    def match_content(self, content: str) -> None | list[tuple[str | Any, ...]]:
+    def match_content(self, content: str) -> None | list[MolOPMatch]:
         """
         Match the content of the pattern in the given content.
 
@@ -153,48 +187,83 @@ class MolOPPattern(BaseModel):
             content (str): The content to be searched.
 
         Returns:
-            (None | list[tuple[str | Any, ...]]): The matched content.
+            (None | list[MolOPMatch]): The matched content.
         """
         if located_content_index := self.locate_content(content):
             start_start, start_end, end_start, end_end = located_content_index
             located_content = content[start_start:end_end]
-            total_matches = self.get_matches(located_content)
-            return total_matches
+            return self.get_matches(located_content)
         return None
 
-    def get_matches(self, located_content: str) -> None | list[tuple[str | Any, ...]]:
+    def get_matches(self, located_content: str) -> None | list[MolOPMatch]:
         if not self.content_pattern_compiled:
             return None
-        total_matches: list[tuple[str | Any, ...]] = []
-        if self.content_repeat == 0:
-            total_matches = [
-                match.groups() for match in self.content_pattern_compiled.finditer(located_content)
-            ]
-        if self.content_repeat > 0:
-            while (len(total_matches) < self.content_repeat) and (
-                match := self.content_pattern_compiled.search(located_content)
-            ):
-                total_matches.append(match.groups())
-                located_content = located_content[match.end() :]
-        if self.content_repeat < 0:
-            while (len(total_matches) < abs(self.content_repeat)) and (
-                match := self.content_pattern_compiled.search(located_content)
-            ):
-                total_matches.append(match.groups())
-                located_content = located_content[: match.start()]
-        return total_matches
+        return self.find_matches(located_content)
 
-    def find_iter(self, located_content: str) -> None | Iterator[regex.Match[str]]:
+    def find_matches(self, located_content: str) -> list[MolOPMatch]:
+        return list(self.find_iter(located_content) or [])
+
+    def find_named_group_values(self, located_content: str, group_name: str) -> list[str]:
+        self._ensure_named_group(group_name)
+        values: list[str] = []
+        for matched in self.find_matches(located_content):
+            value = matched.group(group_name)
+            if value is not None:
+                values.append(value)
+        return values
+
+    def find_first_named_group_value(self, located_content: str, group_name: str) -> str | None:
+        self._ensure_named_group(group_name)
+        for matched in self.find_matches(located_content):
+            value = matched.group(group_name)
+            if value is not None:
+                return value
+        return None
+
+    def find_named_group_dicts(self, located_content: str) -> list[dict[str, str | None]]:
+        return [self.named_group_dict(matched) for matched in self.find_matches(located_content)]
+
+    def find_group_values(self, located_content: str, group_name: str) -> list[str]:
+        return self.find_named_group_values(located_content, group_name)
+
+    def find_first_group_value(self, located_content: str, group_name: str) -> str | None:
+        return self.find_first_named_group_value(located_content, group_name)
+
+    def get_group(self, matched: MolOPMatch, group_name: str) -> str | None:
+        return self.get_named_group(matched, group_name)
+
+    def require_group(self, matched: MolOPMatch, group_name: str) -> str:
+        return self.require_named_group(matched, group_name)
+
+    def group_dict(self, matched: MolOPMatch) -> dict[str, str | None]:
+        return self.named_group_dict(matched)
+
+    def find_groupdicts(self, located_content: str) -> list[dict[str, str | None]]:
+        return self.find_named_group_dicts(located_content)
+
+    def find_group_dicts(self, located_content: str) -> list[dict[str, str | None]]:
+        return self.find_named_group_dicts(located_content)
+
+    def search(self, content: str, pos: int = 0) -> MolOPMatch | None:
+        if not self.content_pattern_compiled:
+            return None
+        return self.content_pattern_compiled.search(content, pos=pos)
+
+    def match(self, content: str, pos: int = 0) -> MolOPMatch | None:
+        if not self.content_pattern_compiled:
+            return None
+        return self.content_pattern_compiled.match(content, pos=pos)
+
+    def find_iter(self, located_content: str) -> None | Iterator[MolOPMatch]:
         if not self.content_pattern_compiled:
             return None
         if self.content_repeat == 0:
             return self.content_pattern_compiled.finditer(located_content)
-        else:
-            return (
-                match
-                for idx, match in enumerate(self.content_pattern_compiled.finditer(located_content))
-                if idx < abs(self.content_repeat)
-            )
+        return (
+            match
+            for idx, match in enumerate(self.content_pattern_compiled.finditer(located_content))
+            if idx < abs(self.content_repeat)
+        )
 
     def split_content(self, content: str) -> tuple[str, str]:
         """
@@ -210,12 +279,6 @@ class MolOPPattern(BaseModel):
             start_start, start_end, end_start, end_end = located_content_index
             return content[start_start:end_end], content[end_start:]
         return "", content
-
-
-class MolOPPatternV2(MolOPPattern):
-    @classmethod
-    def from_pattern(cls, pattern: MolOPPattern) -> "MolOPPatternV2":
-        return cls.model_validate(pattern.model_dump())
 
     def _locate_nth_start(self, content: str, start_pos: int) -> tuple[int, int] | None:
         if self.start_pattern_compiled:
@@ -280,9 +343,7 @@ class MolOPPatternV2(MolOPPattern):
         )
         return start_index, start_end, end_index, end_end
 
-    def match_content_from(
-        self, content: str, start_pos: int = 0
-    ) -> None | list[tuple[str | Any, ...]]:
+    def match_content_from(self, content: str, start_pos: int = 0) -> None | list[MolOPMatch]:
         if located_content_index := self.locate_content_from(content, start_pos):
             start_start, _start_end, _end_start, end_end = located_content_index
             located_content = content[start_start:end_end]
@@ -294,3 +355,17 @@ class MolOPPatternV2(MolOPPattern):
             start_start, _start_end, end_start, end_end = located_content_index
             return content[start_start:end_end], end_start
         return "", start_pos
+
+    def find_content_matches(self, content: str, start_pos: int = 0) -> None | list[MolOPMatch]:
+        if located_content_index := self.locate_content_from(content, start_pos):
+            start_start, _start_end, _end_start, end_end = located_content_index
+            return self.find_matches(content[start_start:end_end])
+        return None
+
+    @classmethod
+    def from_pattern(cls, pattern: "MolOPPattern") -> Self:
+        return cls.model_validate(pattern.model_dump())
+
+
+# Compatibility alias only. Keep MolOPPattern as the single implementation.
+MolOPPatternV2: TypeAlias = MolOPPattern

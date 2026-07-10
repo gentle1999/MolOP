@@ -93,6 +93,7 @@ def test_g16log_summary_dataframe_contract_for_user_entrypoints() -> None:
     assert ("Energy", "total_energy (hartree)") in full_df.columns
     assert ("Thermal", "G_T (kilocalorie / mole)") in full_df.columns
     assert ("Vibration", "num_imaginary") in full_df.columns
+    assert brief_df.to_json(orient="records")
 
     batch = AutoParser(FIXTURE.as_posix(), parser_detection="g16log", n_jobs=1)
     batch_df = batch.to_summary_df(frameIDs="all", n_jobs=1, flatten_columns=True)
