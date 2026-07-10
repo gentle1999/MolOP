@@ -11,7 +11,7 @@ from molop.io.base_models.Bases import (
     Spectrum,
     TensorProperty,
 )
-from molop.io.base_models.ChemFileFrame import BaseQMInputFrame
+from molop.io.base_models.ChemFileFrame import BaseCalcFrame, BaseQMInputFrame
 from molop.io.base_models.DataClasses import (
     ActiveSpace,
     BondOrders,
@@ -22,6 +22,7 @@ from molop.io.base_models.DataClasses import (
     ElectronicStates,
     Energies,
     ExcitedStateRequest,
+    GeometryOptimizationStatus,
     MolecularOrbitals,
     MultireferenceRequest,
     MultireferenceResult,
@@ -32,6 +33,7 @@ from molop.io.base_models.DataClasses import (
     QMResourceRequest,
     QMTaskRequest,
     SinglePointProperties,
+    Status,
     ThermalInformations,
     TotalSpin,
     Vibration,
@@ -480,6 +482,146 @@ def test_vibrations_keep_matrix_storage_with_lazy_views_and_spectrum_projection(
     assert spectrum.bands[0].intensity is not None
     assert spectrum.bands[0].intensity.units == atom_ureg.Unit("km/mol")
     assert spectrum.bands[0].metadata["mode_index"] == 0
+
+
+def test_geometry_optimization_status_uses_default_multiplier() -> None:
+    status = GeometryOptimizationStatus(max_force=0.0008, max_force_threshold=0.00045)
+
+    assert status.convergence_multiplier == pytest.approx(2.0)
+    assert status.max_force_converged is True
+    assert status.geometry_optimized is True
+
+    strict_status = GeometryOptimizationStatus(max_force=0.0010, max_force_threshold=0.00045)
+
+    assert strict_status.max_force_converged is False
+    assert strict_status.geometry_optimized is False
+
+
+def test_geometry_optimization_status_accepts_custom_multiplier() -> None:
+    status = GeometryOptimizationStatus(
+        max_force=0.0008,
+        max_force_threshold=0.00045,
+        convergence_multiplier=1.0,
+    )
+
+    assert status.max_force_converged is False
+    assert status.geometry_optimized is False
+
+
+def test_geometry_optimization_summary_reports_raw_values_and_thresholds() -> None:
+    status = GeometryOptimizationStatus(max_force=0.0008, max_force_threshold=0.00045)
+
+    summary = status.to_summary_dict()
+
+    assert summary[("GeometryOptimizationStatus", "geometry_optimized", "")] is True
+    assert summary[("GeometryOptimizationStatus", "convergence_multiplier", "")] == pytest.approx(
+        2.0
+    )
+    assert summary[("GeometryOptimizationStatus", "max_force", "")] == pytest.approx(0.0008)
+    assert summary[("GeometryOptimizationStatus", "max_force_threshold", "")] == pytest.approx(
+        0.00045
+    )
+    assert ("GeometryOptimizationStatus", "max_force_converged", "") not in summary
+
+
+def test_calc_frame_is_optimized_accepts_transition_state_frequency_pattern() -> None:
+    status = GeometryOptimizationStatus(max_force=0.0008, max_force_threshold=0.00045)
+    vibrations = Vibrations(
+        frequencies=np.array([-10.0]) * atom_ureg.cm**-1,
+        vibration_modes=[
+            np.array(
+                [
+                    [1.0, 0.0, 0.0],
+                    [-1.0, 0.0, 0.0],
+                ]
+            )
+            * atom_ureg.angstrom
+        ],
+    )
+    frame = BaseCalcFrame(
+        atoms=[1, 1],
+        coords=np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        )
+        * atom_ureg.angstrom,
+        energies=Energies(electronic_energy=-1.0 * atom_ureg.hartree),
+        geometry_optimization_status=status,
+        status=Status(normal_terminated=True),
+        vibrations=vibrations,
+    )
+
+    assert frame.is_TS is True
+    assert frame.is_optimized is True
+
+
+def test_calc_frame_summary_handles_missing_possible_ts_endpoints(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    vibrations = Vibrations(
+        frequencies=np.array([-10.0]) * atom_ureg.cm**-1,
+        vibration_modes=[
+            np.array(
+                [
+                    [1.0, 0.0, 0.0],
+                    [-1.0, 0.0, 0.0],
+                ]
+            )
+            * atom_ureg.angstrom
+        ],
+    )
+    frame = BaseCalcFrame(
+        atoms=[1, 1],
+        coords=np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0],
+            ]
+        )
+        * atom_ureg.angstrom,
+        energies=Energies(electronic_energy=-1.0 * atom_ureg.hartree),
+        status=Status(normal_terminated=True),
+        vibrations=vibrations,
+    )
+
+    def no_endpoints(*_args: object, **_kwargs: object) -> tuple[None, None]:
+        return None, None
+
+    monkeypatch.setattr(BaseCalcFrame, "possible_pre_post_ts", no_endpoints)
+
+    summary = frame.to_summary_dict()
+
+    assert frame.is_TS is True
+    assert summary[("General", "PreCanonicalSMILES", "")] == ""
+    assert summary[("General", "PostCanonicalSMILES", "")] == ""
+
+
+def test_calc_frame_is_optimized_rejects_multiple_imaginary_frequencies() -> None:
+    status = GeometryOptimizationStatus(max_force=0.0008, max_force_threshold=0.00045)
+    vibrations = Vibrations(
+        frequencies=np.array([-10.0, -5.0, 100.0]) * atom_ureg.cm**-1,
+        vibration_modes=[np.zeros((3, 3)) * atom_ureg.angstrom for _ in range(3)],
+    )
+    frame = BaseCalcFrame(
+        atoms=[1, 1, 1],
+        coords=np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0],
+                [0.0, 1.0, 0.0],
+            ]
+        )
+        * atom_ureg.angstrom,
+        energies=Energies(electronic_energy=-1.0 * atom_ureg.hartree),
+        geometry_optimization_status=status,
+        status=Status(normal_terminated=True),
+        vibrations=vibrations,
+    )
+
+    assert frame.is_TS is False
+    assert frame.is_optimized is False
 
 
 def test_legacy_qm_input_backfill_populates_empty_structured_values() -> None:

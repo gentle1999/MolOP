@@ -9,6 +9,12 @@ from pint.facets.plain import PlainQuantity
 from pydantic import ConfigDict, Field, computed_field, model_validator
 from typing_extensions import Self
 
+from molop.io.base_models.summary import (
+    SummaryDict,
+    summary_column,
+    summary_dict_from_fields,
+    summary_item,
+)
 from molop.unit import atom_ureg
 from molop.utils.functions import invert_transform_coords, transform_coords
 
@@ -814,16 +820,8 @@ class Energies(BaseDataClassWithUnit):
         else:
             return None
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            ("Energy", f"{key} ({getattr(self, key).units})")
-            if isinstance(getattr(self, key), PlainQuantity)
-            else ("Energy", key): getattr(self, key).m
-            if isinstance(getattr(self, key), PlainQuantity)
-            else getattr(self, key)
-            for key in self.model_dump(**kwargs)
-            if getattr(self, key) is not None
-        }
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return summary_dict_from_fields(self, "Energy", **kwargs)
 
     def to_property_bundle(self) -> PropertyBundle:
         scalar_properties: dict[str, PropertyScalarValue] = {
@@ -953,16 +951,8 @@ class ThermalInformations(BaseDataClassWithUnit):
         exclude_if=lambda x: x is None,
     )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            ("Thermal", f"{key} ({getattr(self, key).units})")
-            if isinstance(getattr(self, key), PlainQuantity)
-            else ("Thermal", key): getattr(self, key).m
-            if isinstance(getattr(self, key), PlainQuantity)
-            else getattr(self, key)
-            for key in self.model_dump(**kwargs)
-            if getattr(self, key) is not None
-        }
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return summary_dict_from_fields(self, "Thermal", **kwargs)
 
     def to_property_bundle(self) -> PropertyBundle:
         scalar_properties: dict[str, PropertyScalarValue] = {
@@ -1010,16 +1000,8 @@ class MoleculeOrbital(BaseDataClassWithUnit):
     beta_symmetry: str | None = Field(default=None, description="beta orbital symmetry")
     coefficient: np.ndarray | None = Field(default=None, description="coefficient of the orbital")
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            ("Orbital", f"{key} ({getattr(self, key).units})")
-            if isinstance(getattr(self, key), PlainQuantity)
-            else ("Orbital", key): getattr(self, key).m
-            if isinstance(getattr(self, key), PlainQuantity)
-            else getattr(self, key)
-            for key in self.model_dump(**kwargs)
-            if getattr(self, key) is not None
-        }
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return summary_dict_from_fields(self, "Orbital", **kwargs)
 
 
 class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
@@ -1394,15 +1376,19 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
             )
         return self
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            ("Orbitals", "electronic_state"): self.electronic_state,
-            ("Orbitals", "HOMO_energy"): None if self.HOMO_energy is None else self.HOMO_energy.m,
-            ("Orbitals", "LUMO_energy"): None if self.LUMO_energy is None else self.LUMO_energy.m,
-            ("Orbitals", "HOMO-LUMO_gap"): None
-            if self.HOMO_LUMO_gap is None
-            else self.HOMO_LUMO_gap.m,
-        }
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        summary: SummaryDict = {}
+        for field, value in {
+            "electronic_state": self.electronic_state,
+            "HOMO_energy": self.HOMO_energy,
+            "LUMO_energy": self.LUMO_energy,
+            "HOMO-LUMO_gap": self.HOMO_LUMO_gap,
+        }.items():
+            item = summary_item("Orbitals", field, value)
+            if item is not None:
+                column, magnitude = item
+                summary[column] = magnitude
+        return summary
 
 
 # TODO: ready for NaturalAtomicOrbitals
@@ -1445,15 +1431,8 @@ class NaturalAtomicOrbital(BaseDataClassWithUnit):
         exclude_if=lambda x: x is None,
     )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            ("NaturalAtomicOrbital", "element"): self.element,
-            ("NaturalAtomicOrbital", "atom_index"): self.atom_index,
-            ("NaturalAtomicOrbital", "angular_momentum"): self.angular_momentum,
-            ("NaturalAtomicOrbital", "ao_type"): self.ao_type,
-            ("NaturalAtomicOrbital", "occupancy"): self.occupancy,
-            ("NaturalAtomicOrbital", "energy"): None if self.energy is None else self.energy.m,
-        }
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return summary_dict_from_fields(self, "NaturalAtomicOrbital", **kwargs)
 
 
 class NaturalAtomicOrbitals(BaseDataClassWithUnit):
@@ -1473,7 +1452,7 @@ class NaturalAtomicOrbitals(BaseDataClassWithUnit):
         exclude_if=lambda x: len(x) == 0,
     )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
         return {}
 
 
@@ -1518,18 +1497,8 @@ class NaturalBondOrbital(BaseDataClassWithUnit):
         exclude_if=lambda x: len(x) == 0,
     )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            ("NaturalBondOrbital", "orbital_type"): self.orbital_type,
-            ("NaturalBondOrbital", "sub_index"): self.sub_index,
-            ("NaturalBondOrbital", "bonding_atoms_dict"): self.bonding_atoms_dict,
-            ("NaturalBondOrbital", "occupancy"): self.occupancy,
-            ("NaturalBondOrbital", "energy"): None if self.energy is None else self.energy.m,
-            (
-                "NaturalBondOrbital",
-                "principal_elocalizations_dict",
-            ): self.principal_elocalizations_dict,
-        }
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return summary_dict_from_fields(self, "NaturalBondOrbital", **kwargs)
 
 
 class NaturalBondOrbitals(BaseDataClassWithUnit):
@@ -1549,7 +1518,7 @@ class NaturalBondOrbitals(BaseDataClassWithUnit):
         exclude_if=lambda x: len(x) == 0,
     )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
         return {}
 
 
@@ -1594,16 +1563,8 @@ class Vibration(BaseDataClassWithUnit):
     def is_imaginary(self) -> bool:
         return bool(self.frequency is not None and cast(Any, self.frequency) < 0)
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            ("Vibration", f"{key} ({getattr(self, key).units})")
-            if isinstance(getattr(self, key), PlainQuantity)
-            else ("Vibration", key): getattr(self, key).m
-            if isinstance(getattr(self, key), PlainQuantity)
-            else getattr(self, key)
-            for key in self.model_dump(**kwargs)
-            if getattr(self, key) is not None
-        }
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return summary_dict_from_fields(self, "Vibration", **kwargs)
 
     def transform_orientation(
         self, transformation_matrix: np.ndarray, inverse: bool = False
@@ -1763,10 +1724,10 @@ class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
             metadata={"source": "Vibrations"},
         )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
         return {
-            ("Vibration", "num_imaginary"): self.num_imaginary,
-            ("Vibration", "num_vibrations"): len(self),
+            summary_column("Vibration", "num_imaginary"): self.num_imaginary,
+            summary_column("Vibration", "num_vibrations"): len(self),
         }
 
 
@@ -1873,7 +1834,7 @@ class ChargeSpinPopulations(BaseDataClassWithUnit):
         )
         return self
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
         return {}
 
 
@@ -1889,8 +1850,8 @@ class TotalSpin(BaseDataClassWithUnit):
         exclude_if=lambda x: x is None,
     )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {("TotalSpin", key): value for key, value in self.to_unitless_dump(**kwargs).items()}
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return summary_dict_from_fields(self, "TotalSpin", **kwargs)
 
     def to_property_bundle(self) -> PropertyBundle:
         scalar_properties: dict[str, PropertyScalarValue] = {
@@ -1973,16 +1934,8 @@ class Polarizability(BaseDataClassWithUnit):
         exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            ("Polarizability", f"{key} ({getattr(self, key).units})")
-            if isinstance(getattr(self, key), PlainQuantity)
-            else ("Polarizability", key): getattr(self, key).m
-            if isinstance(getattr(self, key), PlainQuantity)
-            else getattr(self, key)
-            for key in self.model_dump(**kwargs)
-            if getattr(self, key) is not None
-        }
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return summary_dict_from_fields(self, "Polarizability", **kwargs)
 
     @staticmethod
     def _has_quantity_payload(value: PlainQuantity | NumpyQuantity | None) -> bool:
@@ -2070,7 +2023,7 @@ class BondOrders(BaseDataClassWithUnit):
         exclude_if=lambda x: x.shape == (0, 0),
     )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
         return {}
 
     @staticmethod
@@ -2115,16 +2068,8 @@ class Dispersions(BaseDataClassWithUnit):
         exclude_if=lambda x: x is None,
     )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            ("Dispersion", f"{key} ({getattr(self, key).units})")
-            if isinstance(getattr(self, key), PlainQuantity)
-            else ("Dispersion", key): getattr(self, key).m
-            if isinstance(getattr(self, key), PlainQuantity)
-            else getattr(self, key)
-            for key in self.model_dump(**kwargs)
-            if getattr(self, key) is not None
-        }
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return summary_dict_from_fields(self, "Dispersion", **kwargs)
 
     def to_property_bundle(self) -> PropertyBundle:
         scalar_properties: dict[str, PropertyScalarValue] = {
@@ -2239,7 +2184,7 @@ class SinglePointProperties(BaseDataClassWithUnit):
             metadata={"source": "SinglePointProperties"},
         )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
         return {}
 
 
@@ -2248,10 +2193,23 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
     Geometry optimization status.
     """
 
+    optimization_metrics: ClassVar[tuple[str, ...]] = (
+        "energy_change",
+        "rms_force",
+        "max_force",
+        "rms_displacement",
+        "max_displacement",
+    )
+
     geometry_optimized: bool | None = Field(
         default=None,
         description="Whether the geometry has been optimized",
         exclude_if=lambda x: x is None,
+    )
+    convergence_multiplier: float = Field(
+        default=2.0,
+        ge=1.0,
+        description="Tolerance multiplier used to judge acceptable geometry optimization convergence.",
     )
     energy_change_threshold: float | None = Field(
         default=None,
@@ -2293,15 +2251,19 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
     rms_displacement: float = Field(default=float("inf"), description="RMS displacement")
     max_displacement: float = Field(default=float("inf"), description="Maximum displacement")
 
+    def _metric_converged(self, metric: str) -> bool | None:
+        threshold = getattr(self, f"{metric}_threshold")
+        if threshold is None:
+            return None
+        return abs(getattr(self, metric)) <= threshold * self.convergence_multiplier
+
     @computed_field()  # type: ignore[prop-decorator]
     @property
     def energy_change_converged(self) -> bool | None:
         """
         Whether the energy change has converged.
         """
-        if self.energy_change_threshold is None:
-            return None
-        return self.energy_change < self.energy_change_threshold
+        return self._metric_converged("energy_change")
 
     @computed_field()  # type: ignore[prop-decorator]
     @property
@@ -2309,9 +2271,7 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
         """
         Whether the RMS force has converged.
         """
-        if self.rms_force_threshold is None:
-            return None
-        return self.rms_force < self.rms_force_threshold
+        return self._metric_converged("rms_force")
 
     @computed_field()  # type: ignore[prop-decorator]
     @property
@@ -2319,9 +2279,7 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
         """
         Whether the maximum force has converged.
         """
-        if self.max_force_threshold is None:
-            return None
-        return self.max_force < self.max_force_threshold
+        return self._metric_converged("max_force")
 
     @computed_field()  # type: ignore[prop-decorator]
     @property
@@ -2329,9 +2287,7 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
         """
         Whether the RMS displacement has converged.
         """
-        if self.rms_displacement_threshold is None:
-            return None
-        return self.rms_displacement < self.rms_displacement_threshold
+        return self._metric_converged("rms_displacement")
 
     @computed_field()  # type: ignore[prop-decorator]
     @property
@@ -2339,9 +2295,7 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
         """
         Whether the maximum displacement has converged.
         """
-        if self.max_displacement_threshold is None:
-            return None
-        return self.max_displacement < self.max_displacement_threshold
+        return self._metric_converged("max_displacement")
 
     def not_converged_num(self) -> int:
         """
@@ -2375,21 +2329,18 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
         )
 
     def to_df(self) -> pd.DataFrame:
-        metrics = (
-            "energy_change",
-            "rms_force",
-            "max_force",
-            "rms_displacement",
-            "max_displacement",
-        )
-        metrics_list = list(metrics)
+        metrics_list = list(self.optimization_metrics)
         df = pd.DataFrame(
             index=pd.Index(metrics_list),
             columns=pd.Index(["value", "threshold", "converged"]),
         )
-        df["value"] = [getattr(self, metric) for metric in metrics]
-        df["threshold"] = [getattr(self, f"{metric}_threshold") for metric in metrics]
-        df["converged"] = [getattr(self, f"{metric}_converged") for metric in metrics]
+        df["value"] = [getattr(self, metric) for metric in self.optimization_metrics]
+        df["threshold"] = [
+            getattr(self, f"{metric}_threshold") for metric in self.optimization_metrics
+        ]
+        df["converged"] = [
+            getattr(self, f"{metric}_converged") for metric in self.optimization_metrics
+        ]
         return df
 
     def __le__(self, other: "GeometryOptimizationStatus"):
@@ -2413,37 +2364,28 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
             self.rms_displacement_converged,
             self.max_displacement_converged,
         )
-        if False not in status and any(status):
-            self.geometry_optimized = True
+        if self.geometry_optimized is True:
+            return self
+        known_statuses = [metric_status for metric_status in status if metric_status is not None]
+        if known_statuses:
+            self.geometry_optimized = all(known_statuses)
         return self
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            (
-                "GeometryOptimizationStatus",
-                "geometry_optimized",
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        summary = {
+            summary_column(
+                "GeometryOptimizationStatus", "geometry_optimized"
             ): self.geometry_optimized,
-            (
-                "GeometryOptimizationStatus",
-                "energy_change_converged",
-            ): self.energy_change_converged,
-            (
-                "GeometryOptimizationStatus",
-                "rms_force_converged",
-            ): self.rms_force_converged,
-            (
-                "GeometryOptimizationStatus",
-                "max_force_converged",
-            ): self.max_force_converged,
-            (
-                "GeometryOptimizationStatus",
-                "rms_displacement_converged",
-            ): self.rms_displacement_converged,
-            (
-                "GeometryOptimizationStatus",
-                "max_displacement_converged",
-            ): self.max_displacement_converged,
+            summary_column(
+                "GeometryOptimizationStatus", "convergence_multiplier"
+            ): self.convergence_multiplier,
         }
+        for metric in self.optimization_metrics:
+            summary[summary_column("GeometryOptimizationStatus", metric)] = getattr(self, metric)
+            summary[summary_column("GeometryOptimizationStatus", f"{metric}_threshold")] = getattr(
+                self, f"{metric}_threshold"
+            )
+        return summary
 
 
 class Status(BaseDataClassWithUnit):
@@ -2452,14 +2394,8 @@ class Status(BaseDataClassWithUnit):
         default=False, description="Whether the calculation has terminated normally"
     )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            ("Status", key): getattr(self, key).m
-            if isinstance(getattr(self, key), PlainQuantity)
-            else getattr(self, key)
-            for key in self.model_dump(**kwargs)
-            if getattr(self, key) is not None
-        }
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return summary_dict_from_fields(self, "Status", **kwargs)
 
 
 class ShieldingTensor(BaseDataClassWithUnit):
@@ -2490,17 +2426,8 @@ class ShieldingTensor(BaseDataClassWithUnit):
         sorted_eigs = sorted(eigenvalues, key=lambda x: abs(x - s_iso), reverse=True)
         return sorted_eigs[0] - (sorted_eigs[1] + sorted_eigs[2]) / 2
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            (
-                "ShieldingTensor",
-                key,
-            ): getattr(self, key).m
-            if isinstance(getattr(self, key), PlainQuantity)
-            else getattr(self, key)
-            for key in self.model_dump(**kwargs)
-            if getattr(self, key) is not None
-        }
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return summary_dict_from_fields(self, "ShieldingTensor", **kwargs)
 
 
 class NMR(BaseDataClassWithUnit):
@@ -2522,14 +2449,8 @@ class NMR(BaseDataClassWithUnit):
         description="Spin-spin coupling constant, unit is `Hz`",
     )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            ("NMR", key): getattr(self, key).m
-            if isinstance(getattr(self, key), PlainQuantity)
-            else getattr(self, key)
-            for key in self.model_dump(**kwargs)
-            if getattr(self, key) is not None
-        }
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return summary_dict_from_fields(self, "NMR", **kwargs)
 
 
 class ImplicitSolvation(BaseDataClassWithUnit):
@@ -2559,11 +2480,5 @@ class ImplicitSolvation(BaseDataClassWithUnit):
         exclude_if=lambda x: x is None,
     )
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {
-            ("ImplicitSolvation", key): getattr(self, key).m
-            if isinstance(getattr(self, key), PlainQuantity)
-            else getattr(self, key)
-            for key in self.model_dump(**kwargs)
-            if getattr(self, key) is not None
-        }
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return summary_dict_from_fields(self, "ImplicitSolvation", **kwargs)

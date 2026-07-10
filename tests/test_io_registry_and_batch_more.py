@@ -627,7 +627,7 @@ def test_filter_custom_reuses_existing_snapshot(monkeypatch: pytest.MonkeyPatch)
     assert filtered.file_paths == ["/tmp/a.xyz", "/tmp/c.xyz"]
 
 
-def test_to_summary_df_frameids_all_returns_every_frame() -> None:
+def test_to_summary_df_frame_all_returns_every_frame() -> None:
     batch = cast(
         Any,
         FileBatchModelDisk(
@@ -641,9 +641,9 @@ def test_to_summary_df_frameids_all_returns_every_frame() -> None:
         ),
     )
 
-    df = batch.to_summary_df(frameIDs="all", n_jobs=1)
+    df = batch.to_summary_df(frame="all", n_jobs=1)
 
-    assert df[("General", "FrameID")].tolist() == [0, 1, 0]
+    assert df[("General", "FrameID", "")].tolist() == [0, 1, 0]
 
 
 def test_to_summary_df_keeps_last_frame_default() -> None:
@@ -662,7 +662,7 @@ def test_to_summary_df_keeps_last_frame_default() -> None:
 
     df = batch.to_summary_df(n_jobs=1)
 
-    assert df[("General", "FrameID")].tolist() == [1, 0]
+    assert df[("General", "FrameID", "")].tolist() == [1, 0]
 
 
 def test_to_summary_df_normalizes_negative_frame_sequence() -> None:
@@ -679,9 +679,9 @@ def test_to_summary_df_normalizes_negative_frame_sequence() -> None:
         ),
     )
 
-    df = batch.to_summary_df(frameIDs=[0, -1], n_jobs=1)
+    df = batch.to_summary_df(frame=[0, -1], n_jobs=1)
 
-    assert df[("General", "FrameID")].tolist() == [0, 2, 0, 1]
+    assert df[("General", "FrameID", "")].tolist() == [0, 2, 0, 1]
 
 
 def test_to_summary_df_brief_and_flatten_columns() -> None:
@@ -690,7 +690,7 @@ def test_to_summary_df_brief_and_flatten_columns() -> None:
         FileBatchModelDisk(cast(Any, [FakeSummaryDiskFile("/tmp/a.log", 1)])),
     )
 
-    df = batch.to_summary_df(frameIDs=0, n_jobs=1, brief=False, flatten_columns=True)
+    df = batch.to_summary_df(frame=0, n_jobs=1, brief=False, flatten_columns=True)
 
     assert df.columns.tolist() == ["General.FrameID", "General.Brief"]
     assert df["General.Brief"].tolist() == [False]
@@ -714,7 +714,7 @@ def test_to_summary_df_missing_frame_error() -> None:
     )
 
     with pytest.raises(IndexError, match="Frame index 3 is out of range"):
-        batch.to_summary_df(frameIDs=3, n_jobs=1, on_missing_frame="error")
+        batch.to_summary_df(frame=3, n_jobs=1, on_missing_frame="error")
 
 
 def test_groupby_uses_generator_results_without_index_skew(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -76,8 +76,9 @@ uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.in
 ```
 
 `to-summary-df` 默认汇总最后一帧（`--frame -1`）。使用 `--frame all`
-可汇总所有帧，`--full` 可输出扩展字段，`--flatten-columns` 会生成更适合
-CSV/JSON 的列名，例如 `General.FrameID`。
+可汇总所有帧，`--full` 可输出扩展字段。摘要 CSV/JSON 默认使用
+`General.FrameID`、`Energy.total_energy.hartree` 这样的扁平列名；如需保留
+三层 `(group, field, unit)` MultiIndex 列，使用 `--multi-index-columns`。
 
 ## 操作参考
 

@@ -130,14 +130,14 @@ class ToSummaryDfParams(OperationParams):
     out: Path | None = None
     format: Literal["csv", "json"] = "csv"
     brief: bool = True
-    flatten_columns: bool = False
+    flatten_columns: bool = True
     on_missing_frame: Literal["skip", "error"] = "skip"
 
     def method_kwargs(self, input_config: BatchInputConfig) -> dict[str, Any]:
         frame_selection = parse_cli_frame_selection(self.frame)
         return {
             "mode": self.mode,
-            "frameIDs": frame_selection,
+            "frame": frame_selection,
             "n_jobs": self.n_jobs if self.n_jobs is not None else input_config.n_jobs,
             "brief": self.brief,
             "flatten_columns": self.flatten_columns,

@@ -81,9 +81,10 @@ uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.in
 ```
 
 `to-summary-df` defaults to the last frame (`--frame -1`). Use
-`--frame all` to summarize every frame, `--full` for expanded fields, and
-`--flatten-columns` for CSV/JSON-friendly column names such as
-`General.FrameID`.
+`--frame all` to summarize every frame and `--full` for expanded fields. Summary
+CSV/JSON output uses flattened column names such as `General.FrameID` and
+`Energy.total_energy.hartree` by default; use `--multi-index-columns` to keep
+the three-level `(group, field, unit)` MultiIndex columns.
 
 ## Operation Reference
 

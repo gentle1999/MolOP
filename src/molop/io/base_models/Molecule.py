@@ -7,7 +7,7 @@ Description: 请填写简介
 """
 
 from collections.abc import Sequence
-from typing import Any, ClassVar, Literal, Optional
+from typing import ClassVar, Literal, Optional
 
 import numpy as np
 from molgr.interface import xyz_to_rdmol
@@ -24,6 +24,7 @@ from molop.descriptor.spms import SPMSCalculator
 from molop.io.base_models._format_transform import (
     FrameFormatTransformMixin,  # pyright: ignore[reportAttributeAccessIssue]
 )
+from molop.io.base_models.summary import SummaryDict, summary_column
 from molop.structure.FormatConverter import rdmol_to_omol
 from molop.structure.GeometryTransformation import get_geometry_info, standard_orient
 from molop.structure.StructureTransformation import (
@@ -602,12 +603,12 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         standard_orient(mol, anchor_list)
         return self.from_rdmol(mol)
 
-    def to_summary_dict(self, brief: bool = True, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, brief: bool = True, **kwargs) -> SummaryDict:
         return {
-            ("General", "Charge"): self.charge,
-            ("General", "Multiplicity"): self.multiplicity,
-            ("General", "CanonicalSMILES"): self.to_canonical_SMILES(),
-            ("General", "NumAtoms"): len(self.atoms),
+            summary_column("General", "Charge"): self.charge,
+            summary_column("General", "Multiplicity"): self.multiplicity,
+            summary_column("General", "CanonicalSMILES"): self.to_canonical_SMILES(),
+            summary_column("General", "NumAtoms"): len(self.atoms),
         }
 
     def _render(self, **kwargs) -> str:

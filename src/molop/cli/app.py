@@ -643,7 +643,7 @@ def format_transform(
 )
 @click.option(
     "--flatten-columns/--multi-index-columns",
-    default=False,
+    default=True,
     show_default=True,
     help="Flatten MultiIndex summary columns with dot-separated names.",
 )
@@ -670,7 +670,7 @@ def to_summary_df(
     frame: str = "-1",
     n_jobs: int | None = None,
     brief: bool = True,
-    flatten_columns: bool = False,
+    flatten_columns: bool = True,
     on_missing_frame: Literal["skip", "error"] = "skip",
     out: Path | None = None,
     output_format: Literal["csv", "json"] = "csv",

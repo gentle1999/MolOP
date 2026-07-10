@@ -18,6 +18,7 @@ from molop.io.base_models.Bases import BaseDataClassWithUnit
 from molop.io.base_models.ChemFile import BaseChemFile
 from molop.io.base_models.ChemFileFrame import BaseChemFileFrame
 from molop.io.base_models.FrameParser import BaseFrameParser
+from molop.io.base_models.summary import SummaryDict, summary_column
 from molop.io.codec_exceptions import FormatMismatchError
 
 
@@ -142,12 +143,12 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         self._update_file_metadata_from_frames(_chem_file, metadata)
         return _chem_file
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
         return {
-            ("FileParser", "forced_charge"): self.forced_charge,
-            ("FileParser", "forced_multiplicity"): self.forced_multiplicity,
-            ("FileParser", "only_extract_structure"): self.only_extract_structure,
-            ("FileParser", "only_last_frame"): self.only_last_frame,
+            summary_column("FileParser", "forced_charge"): self.forced_charge,
+            summary_column("FileParser", "forced_multiplicity"): self.forced_multiplicity,
+            summary_column("FileParser", "only_extract_structure"): self.only_extract_structure,
+            summary_column("FileParser", "only_last_frame"): self.only_last_frame,
         }
 
 

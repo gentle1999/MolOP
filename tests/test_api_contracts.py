@@ -20,6 +20,7 @@ from molop.io.base_models._format_transform import (
     FormatTransformMixin,
     FrameFormatTransformMixin,
 )
+from molop.io.base_models.ChemFile import BaseChemFile
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
 from molop.io.frame_selection import normalize_frame_selector
 
@@ -70,10 +71,18 @@ def test_format_transform_public_signature_contract() -> None:
 
 
 def test_to_summary_df_public_signature_contract() -> None:
+    file_sig = signature(BaseChemFile.to_summary_df)
+    assert file_sig.parameters["frame"].kind is Parameter.KEYWORD_ONLY
+    assert file_sig.parameters["frame"].default == -1
+    assert "frameIDs" not in file_sig.parameters
+    assert file_sig.parameters["flatten_columns"].default is False
+    assert file_sig.parameters["on_missing_frame"].default == "skip"
+
     sig = signature(FileBatchModelDisk.to_summary_df)
 
     assert sig.parameters["mode"].default == "frame"
-    assert sig.parameters["frameIDs"].default == -1
+    assert sig.parameters["frame"].default == -1
+    assert "frameIDs" not in sig.parameters
     assert sig.parameters["n_jobs"].default == 1
     assert sig.parameters["brief"].kind is Parameter.KEYWORD_ONLY
     assert sig.parameters["brief"].default is True

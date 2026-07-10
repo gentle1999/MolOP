@@ -18,6 +18,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing_extensions import Self
 
 from molop.config import molopconfig, moloplogger
+from molop.io.base_models.summary import SummaryDict, normalize_summary_series
 from molop.unit import unit_transform
 
 
@@ -79,9 +80,9 @@ class BaseDataClassWithUnit(BaseModel):
                 setattr(self, key, unit_transform(getattr(self, key), unit))
 
     def to_summary_series(self, **kwargs) -> pd.Series:
-        return pd.Series(self.to_summary_dict(**kwargs))
+        return normalize_summary_series(pd.Series(self.to_summary_dict(**kwargs)))
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
         return {}
 
     @classmethod

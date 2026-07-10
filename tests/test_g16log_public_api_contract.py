@@ -80,26 +80,44 @@ def test_g16log_internal_component_state_is_not_serialized_as_public_model_data(
 
 def test_g16log_summary_dataframe_contract_for_user_entrypoints() -> None:
     parsed_file = _parse_fixture()
-    brief_df = parsed_file.to_summary_df()
-    full_df = parsed_file.to_summary_df(brief=False)
+    default_df = parsed_file.to_summary_df()
+    brief_df = parsed_file.to_summary_df(frame="all")
+    full_df = parsed_file.to_summary_df(frame="all", brief=False)
 
+    assert len(default_df) == 1
+    assert default_df[("General", "FrameID", "")].tolist() == [len(parsed_file) - 1]
     assert len(brief_df) == len(parsed_file)
-    assert ("General", "FrameID") in brief_df.columns
-    assert ("Calc Parameter", "Software") in brief_df.columns
-    assert ("Status", "IsError") in brief_df.columns
-    assert ("Energy", "total_energy (hartree)") not in brief_df.columns
+    assert ("General", "FrameID", "") in brief_df.columns
+    assert ("Calc Parameter", "Software", "") in brief_df.columns
+    assert ("Status", "IsError", "") in brief_df.columns
+    assert ("Energy", "total_energy", "hartree") not in brief_df.columns
 
-    assert ("Energy", "reference_energy (hartree)") in full_df.columns
-    assert ("Energy", "total_energy (hartree)") in full_df.columns
-    assert ("Thermal", "G_T (kilocalorie / mole)") in full_df.columns
-    assert ("Vibration", "num_imaginary") in full_df.columns
+    assert ("Energy", "reference_energy", "hartree") in full_df.columns
+    assert ("Energy", "total_energy", "hartree") in full_df.columns
+    assert ("Thermal", "G_T", "kilocalorie / mole") in full_df.columns
+    assert ("Vibration", "num_imaginary", "") in full_df.columns
     assert brief_df.to_json(orient="records")
 
     batch = AutoParser(FIXTURE.as_posix(), parser_detection="g16log", n_jobs=1)
-    batch_df = batch.to_summary_df(frameIDs="all", n_jobs=1, flatten_columns=True)
+    batch_df = batch.to_summary_df(frame="all", n_jobs=1, flatten_columns=True)
     assert len(batch_df) == len(parsed_file)
     assert "General.FrameID" in batch_df.columns
     assert "Status.IsError" in batch_df.columns
+
+
+def test_g16log_summary_keeps_ts_smiles_when_rdkit_canon_smiles_cannot_reparse() -> None:
+    parsed_file = AutoParser(
+        "tests/test_files/g16log/2-modfreq.log",
+        parser_detection="g16log",
+        n_jobs=1,
+        only_last_frame=True,
+    )[0]
+
+    summary = parsed_file[-1].to_summary_dict(brief=False)
+
+    assert parsed_file[-1].is_TS is True
+    assert summary[("General", "PreCanonicalSMILES", "")]
+    assert summary[("General", "PostCanonicalSMILES", "")]
 
 
 def test_g16log_fakeg_file_transform_is_file_level_and_reparseable() -> None:

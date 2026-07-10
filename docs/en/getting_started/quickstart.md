@@ -50,7 +50,7 @@ df_brief
 
 ### 2. Get a richer summary
 
-Use `brief=False` for a more complete file-level summary:
+Use `brief=False` for a more complete last-frame summary:
 
 ```python
 df_full = parsed_file.to_summary_df(brief=False)

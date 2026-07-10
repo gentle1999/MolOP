@@ -13,6 +13,7 @@ from typing import Any, Literal, Protocol, cast, overload
 from pydantic import Field, computed_field
 from typing_extensions import Self
 
+from molop.io.base_models.summary import SummaryDict, summary_column
 from molop.io.frame_selection import FrameSelector, normalize_frame_selector
 
 
@@ -92,10 +93,10 @@ class DiskStorageMixin:
         )
         return self.file_path == other.file_path
 
-    def to_summary_dict(self, brief: bool = True, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, brief: bool = True, **kwargs) -> SummaryDict:
         return {
-            ("DiskStorage", "FilePath"): self.file_path,
-            ("DiskStorage", "FileFormat"): self.file_format,
+            summary_column("DiskStorage", "FilePath"): self.file_path,
+            summary_column("DiskStorage", "FileFormat"): self.file_format,
             **super().to_summary_dict(brief=brief, **kwargs),  # type: ignore
         }
 
@@ -124,15 +125,15 @@ class FileMixin:
         **kwargs,
     ) -> str | list[str]:
         typed_self = cast(_HasRenderableFrames, self)
-        frameIDs = normalize_frame_selector(
+        frame_ids = normalize_frame_selector(
             frameID,
             len(typed_self.frames),
             parameter_name="frameID",
         )
         if embed_in_one_file:
-            return typed_self._render_frames_in_one_file(frameIDs, **kwargs)
+            return typed_self._render_frames_in_one_file(frame_ids, **kwargs)
         else:
-            return typed_self._render_frames(frameIDs, **kwargs)
+            return typed_self._render_frames(frame_ids, **kwargs)
 
     def _render_frames_in_one_file(self, frameID: Sequence[int], **kwargs) -> str:
         return self.file_frame_separator.join(self._render_frames(frameID, **kwargs))

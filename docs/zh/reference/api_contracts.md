@@ -11,7 +11,7 @@ MolOP 公开转换与汇总 API 统一使用一个 frame selector 概念：
 | 入口 | 参数 | 默认值 | 返回映射 | 错误策略 |
 | --- | --- | --- | --- | --- |
 | Python 转换 | `frameID` | `-1` | 渲染前归一化为 frame index；负整数从末尾计数。 | 序列中非整数抛出 `TypeError`；除 `"all"` 外的字符串抛出 `ValueError`。 |
-| Python 汇总 | `frameIDs` | `-1` | 按文件归一化；`"all"` 展开为每个文件的全部 frame。 | selector 类型错误立即抛出；缺失 frame 由 `on_missing_frame` 控制。 |
+| Python 汇总 | `frame` | `-1` | 按文件归一化；`"all"` 展开为每个文件的全部 frame。 | selector 类型错误立即抛出；缺失 frame 由 `on_missing_frame` 控制。 |
 | CLI | `--frame` | `-1` | 从 `"all"`、单个整数或逗号分隔整数解析，再传给 Python API。 | 非法文本在执行 chain 前抛出 CLI 用法错误。 |
 
 `slice` 不属于公开 frame selector 契约。文件对象自身的 Python 序列切片行为保留。
@@ -45,10 +45,10 @@ MolOP 公开转换与汇总 API 统一使用一个 frame selector 概念：
 | 参数 | 默认值 | 含义 | 错误策略 |
 | --- | --- | --- | --- |
 | `mode` | `"frame"` | `"frame"` 汇总选中 frame；`"file"` 汇总每个文件。 | 其他值抛出 `ValueError`。 |
-| `frameIDs` | `-1` | frame selector：`int | Sequence[int] | "all"`；仅 frame mode 使用。 | selector 类型错误在汇总前抛出。 |
+| `frame` | `-1` | frame selector：`int | Sequence[int] | "all"`；仅 frame mode 使用。 | selector 类型错误在汇总前抛出。 |
 | `n_jobs` | `1` | 汇总提取并行度。 | joblib 与 worker 异常向上传播。 |
 | `brief` | `True` | 传给 `to_summary_series`；`False` 请求扩展字段。 | 字段级错误由 summary 实现向上传播。 |
-| `flatten_columns` | `False` | 将 MultiIndex 列转为 `General.FrameID` 这样的点分列名。 | 非 MultiIndex 列无影响。 |
+| `flatten_columns` | `False` | 将三层 MultiIndex 列转为 `General.FrameID`、`Energy.total_energy.hartree` 这样的点分列名；空单位层会跳过。 | 非 MultiIndex 列无影响。 |
 | `on_missing_frame` | `"skip"` | `"skip"` 跳过缺失 frame；`"error"` 抛错。 | 非法策略抛出 `ValueError`；`"error"` 下缺失 frame 抛出 `IndexError`。 |
 | `**kwargs` | 无 | 额外 summary-series 选项。 | 转发错误向上传播。 |
 
@@ -102,10 +102,10 @@ CLI 入口为 `molop parse PATTERN [parse options] OPERATION ...`。返回
 | 参数 | 默认值 | 返回/效果 | 错误策略 |
 | --- | --- | --- | --- |
 | `--mode` | `"frame"` | 汇总模式；终止操作。 | 非法选项由 Click 拒绝。 |
-| `--frame` | `"-1"` | CLI frame selector，转发为 `frameIDs`。 | 非法 selector 文本抛出 CLI 用法错误。 |
+| `--frame` | `"-1"` | CLI frame selector，转发为 `frame`。 | 非法 selector 文本抛出 CLI 用法错误。 |
 | `--n-jobs` | parse 级 `--n-jobs` | 覆盖汇总并行度。 | joblib 错误向上传播。 |
 | `--brief / --full` | `--brief` | 控制紧凑或扩展 summary 字段。 | summary 错误向上传播。 |
-| `--flatten-columns / --multi-index-columns` | `--multi-index-columns` | 控制是否输出 CSV/JSON 友好的扁平列名。 | 非 MultiIndex 列无影响。 |
+| `--flatten-columns / --multi-index-columns` | `--flatten-columns` | 控制是否输出 CSV/JSON 友好的扁平列名。 | 非 MultiIndex 列无影响。 |
 | `--on-missing-frame` | `"skip"` | 缺失 frame 策略。 | `"error"` 下选中 frame 缺失时抛出 `IndexError`。 |
 | `--out` | `None` | 将 summary 写到文件，否则输出到 stdout。 | 自动创建父目录；写文件错误向上传播。 |
 | `--format` | `"csv"` | `--out` 或 stdout 的序列化格式。 | 非法选项由 Click 拒绝。 |

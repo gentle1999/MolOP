@@ -48,7 +48,7 @@ df_brief
 
 ### 2. 获取更丰富的摘要
 
-使用 `brief=False` 可以得到更完整的文件级摘要：
+使用 `brief=False` 可以得到更完整的最后一帧摘要：
 
 ```python
 df_full = parsed_file.to_summary_df(brief=False)

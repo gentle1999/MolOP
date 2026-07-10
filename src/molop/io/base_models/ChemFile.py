@@ -9,7 +9,7 @@ Description: 请填写简介
 import importlib
 from collections.abc import Iterator, Sequence
 from sys import getsizeof
-from typing import Any, ClassVar, Generic, Protocol, TypeVar, cast, overload
+from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, cast, overload
 
 import pandas as pd
 from pint._typing import UnitLike
@@ -39,6 +39,8 @@ from molop.io.base_models.DataClasses import (
     QMTaskRequest,
     Status,
 )
+from molop.io.base_models.summary import SummaryDict, build_summary_df, summary_column, summary_item
+from molop.io.frame_selection import FrameSelector, normalize_frame_selector
 from molop.unit import atom_ureg
 
 
@@ -157,19 +159,40 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
         """
         return self._frames_
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
         return {
-            ("General", "NumberOfFrames"): len(self),
-            ("General", "FileSize"): self._format_file_size(),
+            summary_column("General", "NumberOfFrames"): len(self),
+            summary_column("General", "FileSize"): self._format_file_size(),
         }
 
-    def to_summary_df(self, brief: bool = True, **kwargs) -> pd.DataFrame:
-        df = pd.concat(
-            [frame.to_summary_series(brief=brief, **kwargs) for frame in self._frames_],
-            axis=1,
-        ).T
-        top_level_order = df.columns.get_level_values(0).unique()
-        return df.loc[:, top_level_order]
+    def to_summary_df(
+        self,
+        brief: bool = True,
+        *,
+        frame: FrameSelector = -1,
+        flatten_columns: bool = False,
+        on_missing_frame: Literal["skip", "error"] = "skip",
+        **kwargs,
+    ) -> pd.DataFrame:
+        if on_missing_frame not in ["skip", "error"]:
+            raise ValueError(f"Invalid on_missing_frame: {on_missing_frame}")
+        try:
+            frame_ids = normalize_frame_selector(
+                frame,
+                len(self),
+                parameter_name="frame",
+                validate_range=on_missing_frame == "error",
+            )
+        except IndexError as exc:
+            raise IndexError(
+                f"{exc} for {getattr(self, 'file_path', '<memory>')} with {len(self)} frames"
+            ) from exc
+        if on_missing_frame == "skip":
+            frame_ids = [fid for fid in frame_ids if 0 <= fid < len(self)]
+        return build_summary_df(
+            (self._frames_[fid].to_summary_series(brief=brief, **kwargs) for fid in frame_ids),
+            flatten_columns=flatten_columns,
+        )
 
     def release_file_content(self) -> None:
         self.file_content = ""
@@ -395,33 +418,32 @@ class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):
         )
         return sns.lineplot(x="frame_id", y=f"total_energy ({unit})", data=temp_df)
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
         brief_dict = super().to_summary_dict(**kwargs) | {
-            ("Calc Parameter", "Software"): self.qm_software,
-            ("Calc Parameter", "Version"): self.qm_software_version,
-            ("Calc Parameter", "Method"): self.method,
-            ("Calc Parameter", "BasisSet"): self.basis_set,
-            ("Calc Parameter", "Functional"): self.functional,
-            ("Calc Parameter", "Keywords"): self.keywords,
-            ("Environment", "SolventModel"): self.solvent.solvent_model if self.solvent else None,
-            ("Status", "IsError"): self.is_error,
+            summary_column("Calc Parameter", "Software"): self.qm_software,
+            summary_column("Calc Parameter", "Version"): self.qm_software_version,
+            summary_column("Calc Parameter", "Method"): self.method,
+            summary_column("Calc Parameter", "BasisSet"): self.basis_set,
+            summary_column("Calc Parameter", "Functional"): self.functional,
+            summary_column("Calc Parameter", "Keywords"): self.keywords,
+            summary_column("Environment", "SolventModel"): (
+                self.solvent.solvent_model if self.solvent else None
+            ),
+            summary_column("Status", "IsError"): self.is_error,
         }
         if self.temperature:
-            brief_dict = brief_dict | {
-                (
-                    "Environment",
-                    f"Temperature ({self.temperature.units})",
-                ): self.temperature.m
-            }
+            item = summary_item("Environment", "Temperature", self.temperature)
+            if item is not None:
+                column, value = item
+                brief_dict[column] = value
         if self.pressure:
-            brief_dict = brief_dict | {
-                ("Environment", f"Pressure ({self.pressure.units})"): self.pressure.m
-            }
+            item = summary_item("Environment", "Pressure", self.pressure)
+            if item is not None:
+                column, value = item
+                brief_dict[column] = value
         if self.running_time:
-            brief_dict = brief_dict | {
-                (
-                    "Status",
-                    f"RuningTime ({self.running_time.units})",
-                ): self.running_time.m
-            }
+            item = summary_item("Status", "RuningTime", self.running_time)
+            if item is not None:
+                column, value = item
+                brief_dict[column] = value
         return brief_dict

@@ -14,6 +14,7 @@ from pydantic import Field, PrivateAttr
 
 from molop.io.base_models.Bases import BaseDataClassWithUnit
 from molop.io.base_models.ChemFileFrame import BaseChemFileFrame
+from molop.io.base_models.summary import SummaryDict, summary_column
 
 
 FrameT = TypeVar("FrameT", bound=BaseChemFileFrame)
@@ -43,8 +44,10 @@ class BaseFrameParser(BaseDataClassWithUnit, Generic[FrameT]):
     def _parse_frame(self) -> Mapping[str, Any]:
         raise NotImplementedError()
 
-    def to_summary_dict(self, **kwargs) -> dict[tuple[str, str], Any]:
-        return {("FrameParser", "only_extract_structure"): self.only_extract_structure}
+    def to_summary_dict(self, **kwargs) -> SummaryDict:
+        return {
+            summary_column("FrameParser", "only_extract_structure"): self.only_extract_structure
+        }
 
 
 FrameParser = TypeVar("FrameParser", bound="BaseFrameParser[Any]")

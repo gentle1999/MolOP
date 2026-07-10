@@ -39,8 +39,8 @@ Gaussian 输出文件对象，文件对象中包含多个 frame。解析器会�
 | 布居 | `frame.charge_spin_populations` | Mulliken、Lowdin、Hirshfeld、CM5、NPA 和自旋布居字段，取决于 Gaussian 输出。 |
 | 响应性质 | `frame.polarizability` | dipole、polarizability、electronic spatial extent 和多极矩。 |
 | 力与 Hessian | `frame.forces`, `frame.hessian` | 归一化单位后的 Cartesian 数组。 |
-| 几何优化 | `frame.geometry_optimization_status` | Berny 收敛数值和布尔收敛标记。 |
-| 状态 | `frame.status`, `frame.is_error`, `frame.is_normal`, `frame.is_TS`, `frame.is_optimized` | 用于常见过滤和判断的公开状态字段。 |
+| 几何优化 | `frame.geometry_optimization_status` | Berny 收敛数值、原始阈值和派生优化结果。 |
+| 状态 | `frame.status`, `frame.is_error`, `frame.is_normal`, `frame.is_TS`, `frame.is_optimized` | 用于常见过滤和判断的公开状态字段。`is_optimized` 接受已优化的极小值和过渡态，但会拒绝超过一个虚频的 frame。 |
 | 运行时间 | `frame.running_time` | 该帧 timing 信息，存在时为 `pint` quantity。 |
 
 ### 能量选择
@@ -52,9 +52,19 @@ Gaussian 输出文件对象，文件对象中包含多个 frame。解析器会�
 如果需要明确能量来源，应读取具体方法字段；如果只需要“当前最佳可用标量能量”，使用
 `total_energy`。
 
+### 优化状态
+
+当解析输出没有提供更强的结果时，`frame.geometry_optimization_status.geometry_optimized`
+会从已有收敛指标推导。每个指标按
+`convergence_multiplier * threshold` 判定，默认倍率为 `2.0`，比较时使用指标绝对值。
+
+对于带频率结果的 frame，`frame.is_optimized` 接受极小值的零个虚频，也接受过渡态的
+恰好一个虚频；超过一个虚频会被视为未优化。
+
 ### Summary 表
 
-`file.to_summary_df()` 返回每个 frame 一行。默认 `brief=True` 时，稳定列覆盖存储信息、
+`file.to_summary_df()` 与 `batch.to_summary_df()` 默认汇总最后一帧（`frame=-1`）。
+使用 `frame="all"` 时返回每个 frame 一行。默认 `brief=True` 时，稳定列覆盖存储信息、
 电荷/多重度、结构摘要、route 元数据、环境和状态：
 
 | 列组 | 示例 |
@@ -62,14 +72,20 @@ Gaussian 输出文件对象，文件对象中包含多个 frame。解析器会�
 | `DiskStorage` | `FilePath`, `FileFormat` |
 | `General` | `Charge`, `Multiplicity`, `CanonicalSMILES`, `NumAtoms`, `FrameID` |
 | `Calc Parameter` | `Software`, `Version`, `Method`, `BasisSet`, `Functional`, `Keywords` |
-| `Environment` | `SolventModel`, `Solvent`, `Temperature (...)`, `Pressure (...)` |
+| `Environment` | `SolventModel`, `Solvent`, `Temperature`, `Pressure` |
 | `Status` | `IsError`, `IsNormal`, `IsTS`, `IsOptimized` |
 
-使用 `brief=False` 会额外加入结果密集字段，例如 `Energy`、`Thermal`、
-`GeometryOptimizationStatus` 和 `Vibration`。
+Summary DataFrame 的列使用三层 `MultiIndex`：`(group, field, unit)`。无单位字段的
+第三层为空；带单位字段把归一化单位放在第三层，例如
+`("Energy", "total_energy", "hartree")`。
 
-Batch 入口可使用 `batch.to_summary_df(frameIDs="all", flatten_columns=True)` 获取所有选中
-frame，并将列名展开为 `General.FrameID`、`Status.IsError` 这样的点分形式。
+使用 `brief=False` 会额外加入结果密集字段，例如 `Energy`、`Thermal`、
+`GeometryOptimizationStatus` 和 `Vibration`。优化 summary 列包含原始指标数值和原始阈值，
+而不是只输出经过倍率处理后的收敛布尔值。
+
+Batch 入口可使用 `batch.to_summary_df(frame="all", flatten_columns=True)` 获取所有选中
+frame，并将列名展开为 `General.FrameID`、`Status.IsError`、
+`Energy.total_energy.hartree` 这样的点分形式。
 
 ### fakeG 渲染
 

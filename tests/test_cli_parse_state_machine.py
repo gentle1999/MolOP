@@ -260,7 +260,7 @@ def test_to_summary_df_params_preserve_all_frame_and_options() -> None:
 
     assert kwargs == {
         "mode": "frame",
-        "frameIDs": "all",
+        "frame": "all",
         "n_jobs": 2,
         "brief": False,
         "flatten_columns": True,
@@ -406,7 +406,9 @@ def test_parse_summary_terminal_writes_csv(tmp_path: Path) -> None:
 
     assert result.exit_code == 0
     assert out.exists()
-    assert out.read_text(encoding="utf-8").strip()
+    header = out.read_text(encoding="utf-8").splitlines()[0]
+    assert "General.FrameID" in header
+    assert "('General', 'FrameID')" not in header
 
 
 def test_parse_summary_frame_all_flatten_columns(tmp_path: Path) -> None:
@@ -459,9 +461,9 @@ def test_parse_summary_g16_frame_json_terminal_handles_unit_columns() -> None:
 
     assert result.exit_code == 0, result.output
     rows = json.loads(result.output)
-    assert rows[0]["('Environment', 'Temperature (kelvin)')"] == 298.15
-    assert rows[0]["('Status', 'IsError')"] is False
-    assert rows[0]["('General', 'FrameID')"] == 33
+    assert rows[0]["Environment.Temperature.kelvin"] == 298.15
+    assert rows[0]["Status.IsError"] is False
+    assert rows[0]["General.FrameID"] == 33
 
 
 def test_old_flat_command_is_removed() -> None:

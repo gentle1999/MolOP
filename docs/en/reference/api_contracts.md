@@ -11,7 +11,7 @@ MolOP uses one frame selector concept for public transform and summary APIs:
 | Surface | Parameter | Default | Return mapping | Error strategy |
 | --- | --- | --- | --- | --- |
 | Python transform | `frameID` | `-1` | Normalized to frame indices before rendering. Negative integers count from the end. | Non-integer sequence items raise `TypeError`; strings other than `"all"` raise `ValueError`. |
-| Python summary | `frameIDs` | `-1` | Normalized per file. `"all"` expands to every frame in each file. | Same selector errors; missing frames are controlled by `on_missing_frame`. |
+| Python summary | `frame` | `-1` | Normalized per file. `"all"` expands to every frame in each file. | Same selector errors; missing frames are controlled by `on_missing_frame`. |
 | CLI | `--frame` | `-1` | Parsed from `"all"`, one integer, or comma-separated integers, then forwarded to the Python API. | Invalid text raises a CLI usage error before executing the chain. |
 
 `slice` is not part of the public frame selector contract. Sequence slicing on
@@ -46,10 +46,10 @@ Returns:
 | Parameter | Default | Meaning | Error strategy |
 | --- | --- | --- | --- |
 | `mode` | `"frame"` | `"frame"` summarizes selected frames; `"file"` summarizes each file. | Any other value raises `ValueError`. |
-| `frameIDs` | `-1` | Frame selector: `int | Sequence[int] | "all"`. Used only in frame mode. | Selector type errors are raised before summary generation. |
+| `frame` | `-1` | Frame selector: `int | Sequence[int] | "all"`. Used only in frame mode. | Selector type errors are raised before summary generation. |
 | `n_jobs` | `1` | Parallel jobs for summary extraction. | Joblib and worker exceptions propagate. |
 | `brief` | `True` | Forwarded to `to_summary_series`; `False` requests expanded fields. | Field-specific errors propagate from the summary implementation. |
-| `flatten_columns` | `False` | Convert MultiIndex columns to dot-separated strings such as `General.FrameID`. | No effect for non-MultiIndex columns. |
+| `flatten_columns` | `False` | Convert three-level MultiIndex columns to dot-separated strings such as `General.FrameID` and `Energy.total_energy.hartree`; empty unit levels are skipped. | No effect for non-MultiIndex columns. |
 | `on_missing_frame` | `"skip"` | `"skip"` drops missing frame indices; `"error"` raises. | Invalid policy raises `ValueError`; missing frames with `"error"` raise `IndexError`. |
 | `**kwargs` | None | Extra summary-series options. | Forwarded errors propagate. |
 
@@ -106,10 +106,10 @@ prints the returned mapping.
 | Parameter | Default | Return/effect | Error strategy |
 | --- | --- | --- | --- |
 | `--mode` | `"frame"` | Summary mode. Terminal operation. | Invalid choices are rejected by Click. |
-| `--frame` | `"-1"` | CLI frame selector forwarded as `frameIDs`. | Invalid selector text raises CLI usage error. |
+| `--frame` | `"-1"` | CLI frame selector forwarded as `frame`. | Invalid selector text raises CLI usage error. |
 | `--n-jobs` | Parse-level `--n-jobs` | Overrides summary parallelism. | Joblib errors propagate. |
 | `--brief / --full` | `--brief` | Controls compact versus expanded summary fields. | Summary errors propagate. |
-| `--flatten-columns / --multi-index-columns` | `--multi-index-columns` | Controls CSV/JSON-friendly flat columns. | No effect on non-MultiIndex columns. |
+| `--flatten-columns / --multi-index-columns` | `--flatten-columns` | Controls CSV/JSON-friendly flat columns. | No effect on non-MultiIndex columns. |
 | `--on-missing-frame` | `"skip"` | Missing frame policy. | `"error"` raises `IndexError` when selected frames are absent. |
 | `--out` | `None` | Writes summary to a file instead of stdout. | Parent directory is created; write errors propagate. |
 | `--format` | `"csv"` | Output serialization for `--out` or stdout. | Invalid choices are rejected by Click. |

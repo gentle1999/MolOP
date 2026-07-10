@@ -45,6 +45,7 @@ from molop.io.base_models.DataClasses import (
     Vibrations,
 )
 from molop.io.base_models.Molecule import Molecule
+from molop.io.base_models.summary import SummaryDict, summary_column, summary_item
 from molop.structure.StructureTransformation import check_crowding
 from molop.unit import atom_ureg
 from molop.utils.types import OMol, RdMol
@@ -98,6 +99,18 @@ def _legacy_method_from_model_chemistry(model: QMModelChemistry) -> str:
     if model.method:
         return model.method
     return ""
+
+
+def _canonical_smiles_from_rdmol(rdmol: RdMol | None) -> str:
+    if rdmol is None:
+        return ""
+    smiles = Chem.MolToSmiles(rdmol)
+    if not smiles:
+        return ""
+    try:
+        return Chem.CanonSmiles(smiles)
+    except Exception:
+        return smiles
 
 
 def _method_family_allows_functional(method_family: str | None) -> bool:
@@ -255,10 +268,10 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
         Check if the molecule is optimized.
         """
 
-    def to_summary_dict(self, brief: bool = True, **kwargs) -> dict[tuple[str, str], Any]:
+    def to_summary_dict(self, brief: bool = True, **kwargs) -> SummaryDict:
         return {
             **super().to_summary_dict(brief=brief, **kwargs),
-            ("General", "FrameID"): self.frame_id,
+            summary_column("General", "FrameID"): self.frame_id,
         }
 
     def log_with_file_info(self, content: str, level: str = "info"):
@@ -665,12 +678,14 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             temp_moleculues = self.ts_vibration(ratio=r, steps=steps)
             mols: list[Chem.rdchem.Mol] = []
             for mol in temp_moleculues:
-                if mol.rdmol is not None:
-                    mols.append(mol.rdmol)
+                rdmol = mol.rdmol
+                if rdmol is not None:
+                    mols.append(rdmol)
                     break
             for mol in temp_moleculues[::-1]:
-                if mol.rdmol is not None:
-                    mols.append(mol.rdmol)
+                rdmol = mol.rdmol
+                if rdmol is not None:
+                    mols.append(rdmol)
                     break
             if len(mols) > 1:
                 mols = sorted(mols, key=lambda x: len(Chem.GetMolFrags(x)), reverse=True)
@@ -793,67 +808,65 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         """
         if self.geometry_optimization_status is None:
             return False
-        return self.geometry_optimization_status.geometry_optimized
+        if not self.geometry_optimization_status.geometry_optimized:
+            return False
+        return self.vibrations is None or self.vibrations.num_imaginary <= 1
 
-    def to_summary_dict(self, brief: bool = True, **kwargs) -> dict[tuple[str, str], Any]:
-        try:
-            brief_dict = super().to_summary_dict(brief=brief, **kwargs) | {
-                ("Calc Parameter", "Software"): self.qm_software,
-                ("Calc Parameter", "Version"): self.qm_software_version,
-                ("Calc Parameter", "Method"): self.method,
-                ("Calc Parameter", "BasisSet"): self.basis_set,
-                ("Calc Parameter", "Functional"): self.functional,
-                ("Calc Parameter", "Keywords"): self.keywords,
-                ("Environment", "SolventModel"): (
-                    self.solvent.solvent_model if self.solvent else None
-                ),
-                ("Environment", "Solvent"): (self.solvent.solvent if self.solvent else None),
-                ("Status", "IsError"): self.is_error,
-                ("Status", "IsNormal"): self.is_normal,
-                ("Status", "IsTS"): self.is_TS,
-                ("Status", "IsOptimized"): self.is_optimized,
+    def to_summary_dict(self, brief: bool = True, **kwargs) -> SummaryDict:
+        brief_dict = super().to_summary_dict(brief=brief, **kwargs) | {
+            summary_column("Calc Parameter", "Software"): self.qm_software,
+            summary_column("Calc Parameter", "Version"): self.qm_software_version,
+            summary_column("Calc Parameter", "Method"): self.method,
+            summary_column("Calc Parameter", "BasisSet"): self.basis_set,
+            summary_column("Calc Parameter", "Functional"): self.functional,
+            summary_column("Calc Parameter", "Keywords"): self.keywords,
+            summary_column("Environment", "SolventModel"): (
+                self.solvent.solvent_model if self.solvent else None
+            ),
+            summary_column("Environment", "Solvent"): (
+                self.solvent.solvent if self.solvent else None
+            ),
+            summary_column("Status", "IsError"): self.is_error,
+            summary_column("Status", "IsNormal"): self.is_normal,
+            summary_column("Status", "IsTS"): self.is_TS,
+            summary_column("Status", "IsOptimized"): self.is_optimized,
+        }
+        if self.is_TS:
+            try:
+                pre, post = self.possible_pre_post_ts(ratio_attempts=[0.75, 1.0, 1.25, 1.5])
+                pre_smiles = _canonical_smiles_from_rdmol(pre)
+                post_smiles = _canonical_smiles_from_rdmol(post)
+            except Exception as e:
+                moloplogger.error(f"Error in possible_pre_post_ts: {e}")
+                pre_smiles, post_smiles = "", ""
+            brief_dict |= {
+                summary_column("General", "PreCanonicalSMILES"): pre_smiles,
+                summary_column("General", "PostCanonicalSMILES"): post_smiles,
             }
-            if self.is_TS:
-                try:
-                    pre, post = self.possible_pre_post_ts(ratio_attempts=[0.75, 1.0, 1.25, 1.5])
-                    pre_smiles = Chem.CanonSmiles(Chem.MolToSmiles(pre))
-                    post_smiles = Chem.CanonSmiles(Chem.MolToSmiles(post))
-                except Exception as e:
-                    moloplogger.error(f"Error in possible_pre_post_ts: {e}")
-                    pre_smiles, post_smiles = "", ""
-                brief_dict |= {
-                    ("General", "PreCanonicalSMILES"): pre_smiles,
-                    ("General", "PostCanonicalSMILES"): post_smiles,
-                }
-            if self.temperature:
-                brief_dict = brief_dict | {
-                    (
-                        "Environment",
-                        f"Temperature ({self.temperature.units})",
-                    ): self.temperature.m
-                }
-            if self.pressure:
-                brief_dict = brief_dict | {
-                    ("Environment", f"Pressure ({self.pressure.units})"): self.pressure.m
-                }
+        if self.temperature:
+            item = summary_item("Environment", "Temperature", self.temperature)
+            if item is not None:
+                column, value = item
+                brief_dict[column] = value
+        if self.pressure:
+            item = summary_item("Environment", "Pressure", self.pressure)
+            if item is not None:
+                column, value = item
+                brief_dict[column] = value
 
-            if not brief:
-                brief_dict |= self.energies.to_summary_dict() if self.energies else {}
-                brief_dict |= (
-                    self.thermal_informations.to_summary_dict() if self.thermal_informations else {}
-                )
-                brief_dict |= (
-                    self.geometry_optimization_status.to_summary_dict()
-                    if self.geometry_optimization_status
-                    else {}
-                )
-                brief_dict |= self.vibrations.to_summary_dict() if self.vibrations else {}
+        if not brief:
+            brief_dict |= self.energies.to_summary_dict() if self.energies else {}
+            brief_dict |= (
+                self.thermal_informations.to_summary_dict() if self.thermal_informations else {}
+            )
+            brief_dict |= (
+                self.geometry_optimization_status.to_summary_dict()
+                if self.geometry_optimization_status
+                else {}
+            )
+            brief_dict |= self.vibrations.to_summary_dict() if self.vibrations else {}
 
-            return brief_dict
-
-        except Exception as e:
-            moloplogger.error(f"Error in to_summary_dict: {e}")
-            return {}
+        return brief_dict
 
     @model_validator(mode="after")
     def physical_check(self) -> Self:

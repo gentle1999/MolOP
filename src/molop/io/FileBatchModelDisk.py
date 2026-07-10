@@ -22,6 +22,7 @@ import pandas as pd
 
 from molop.config import molopconfig, moloplogger
 from molop.io._batch_format_transform import BatchFormatTransformMixin
+from molop.io.base_models.summary import build_summary_df
 from molop.io.frame_selection import FrameSelector, normalize_frame_selector
 from molop.utils.progressbar import parallel_map
 
@@ -638,7 +639,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
     def to_summary_df(
         self,
         mode: Literal["file", "frame"] = "frame",
-        frameIDs: FrameSelector = -1,
+        frame: FrameSelector = -1,
         n_jobs: int = 1,
         *,
         brief: bool = True,
@@ -651,7 +652,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
 
         Parameters:
             mode (Literal["file", "frame"]): Whether to generate file-level or frame-level summary.
-            frameIDs (FrameSelector): Frame IDs to process.
+            frame (FrameSelector): Frame IDs to process.
                 Use -1 for the last frame or "all" for every frame.
             n_jobs (int): Number of parallel jobs.
             brief (bool): Whether to use the compact summary payload.
@@ -671,9 +672,9 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         def selected_frame_ids(diskfile: FileDiskObj) -> Sequence[int]:
             try:
                 frame_ids = normalize_frame_selector(
-                    frameIDs,
+                    frame,
                     len(diskfile),
-                    parameter_name="frameIDs",
+                    parameter_name="frame",
                     validate_range=on_missing_frame == "error",
                 )
             except IndexError as exc:
@@ -699,18 +700,10 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         nested_results = self.parallel_execute(
             process_file_summary, desc, n_jobs, return_results=True
         )
-        series_list: list[pd.Series] = [s for sublist in nested_results for s in sublist]
-        if not series_list:
-            return pd.DataFrame()
-        df: pd.DataFrame = pd.concat(series_list, axis=1).T
-        top_level_order = df.columns.get_level_values(0).unique()
-        df = pd.DataFrame(df[top_level_order])
-        if flatten_columns and isinstance(df.columns, pd.MultiIndex):
-            df.columns = [
-                ".".join(str(level) for level in column if level not in ("", None))
-                for column in df.columns.to_flat_index()
-            ]
-        return df
+        return build_summary_df(
+            (series for sublist in nested_results for series in sublist),
+            flatten_columns=flatten_columns,
+        )
 
     def release_file_content(self) -> None:
         """

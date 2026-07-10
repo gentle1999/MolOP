@@ -52,7 +52,7 @@ def to_summary_df(
     frame: str = "-1",
     n_jobs: int | None = None,
     brief: bool = True,
-    flatten_columns: bool = False,
+    flatten_columns: bool = True,
     on_missing_frame: Literal["skip", "error"] = "skip",
     out: Path | None = None,
     output_format: Literal["csv", "json"] = "csv",

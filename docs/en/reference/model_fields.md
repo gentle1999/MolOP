@@ -42,8 +42,8 @@ Use frame-level fields for structures and per-step QM results.
 | Populations | `frame.charge_spin_populations` | Mulliken, Lowdin, Hirshfeld, CM5, NPA, and spin population fields when printed and recognized. |
 | Response properties | `frame.polarizability` | Dipole, polarizability tensor/scalars, electronic spatial extent, and multipoles where present. |
 | Forces and Hessian | `frame.forces`, `frame.hessian` | Cartesian arrays with normalized units. |
-| Optimization | `frame.geometry_optimization_status` | Berny convergence values and boolean convergence flags. |
-| Status | `frame.status`, `frame.is_error`, `frame.is_normal`, `frame.is_TS`, `frame.is_optimized` | Public status helpers for common workflow filters. |
+| Optimization | `frame.geometry_optimization_status` | Berny convergence values, raw thresholds, and the derived optimization result. |
+| Status | `frame.status`, `frame.is_error`, `frame.is_normal`, `frame.is_TS`, `frame.is_optimized` | Public status helpers for common workflow filters. `is_optimized` accepts optimized minima and transition states, but rejects frames with more than one imaginary frequency. |
 | Running time | `frame.running_time` | Per-frame timing when present. |
 
 ### Energy Selection
@@ -56,9 +56,21 @@ the most specific available energy in this order:
 Use method-specific fields when the exact source matters. Use `total_energy` for
 summary tables and filtering when “best available scalar energy” is sufficient.
 
+### Optimization Status
+
+`frame.geometry_optimization_status.geometry_optimized` is derived from the
+available convergence metrics when parser output does not provide a stronger
+result. Each metric is accepted when its absolute value is within
+`convergence_multiplier * threshold`; the default multiplier is `2.0`.
+
+For frequency-checked frames, `frame.is_optimized` accepts zero imaginary
+frequencies for minima and exactly one imaginary frequency for transition
+states. More than one imaginary frequency is treated as not optimized.
+
 ### Summary Tables
 
-`file.to_summary_df()` returns one row per frame. With the default
+`file.to_summary_df()` and `batch.to_summary_df()` default to the last frame
+(`frame=-1`). Use `frame="all"` to return one row per frame. With the default
 `brief=True`, the stable columns cover storage, charge/multiplicity, structure
 summary, route metadata, environment, and status:
 
@@ -67,15 +79,22 @@ summary, route metadata, environment, and status:
 | `DiskStorage` | `FilePath`, `FileFormat` |
 | `General` | `Charge`, `Multiplicity`, `CanonicalSMILES`, `NumAtoms`, `FrameID` |
 | `Calc Parameter` | `Software`, `Version`, `Method`, `BasisSet`, `Functional`, `Keywords` |
-| `Environment` | `SolventModel`, `Solvent`, `Temperature (...)`, `Pressure (...)` |
+| `Environment` | `SolventModel`, `Solvent`, `Temperature`, `Pressure` |
 | `Status` | `IsError`, `IsNormal`, `IsTS`, `IsOptimized` |
 
-Use `brief=False` to add result-heavy columns such as `Energy`,
-`Thermal`, `GeometryOptimizationStatus`, and `Vibration`.
+Summary DataFrame columns use a three-level `MultiIndex`:
+`(group, field, unit)`. Unitless fields keep the third level empty; unit-bearing
+fields put normalized units there, for example
+`("Energy", "total_energy", "hartree")`.
 
-For batches, `batch.to_summary_df(frameIDs="all", flatten_columns=True)` returns
+Use `brief=False` to add result-heavy columns such as `Energy`,
+`Thermal`, `GeometryOptimizationStatus`, and `Vibration`. Optimization summary
+columns include raw metric values and raw thresholds, not only the
+multiplier-adjusted convergence booleans.
+
+For batches, `batch.to_summary_df(frame="all", flatten_columns=True)` returns
 one row per selected frame and uses dot-separated column names such as
-`General.FrameID` and `Status.IsError`.
+`General.FrameID`, `Status.IsError`, and `Energy.total_energy.hartree`.
 
 ### fakeG Rendering
 
