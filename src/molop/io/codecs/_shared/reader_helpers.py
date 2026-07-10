@@ -22,6 +22,9 @@ class ParserDiskReader:
     parser_cls: type[BaseFileParserDisk[Any, Any, Any]]
     priority: int
 
+    def probe_file_format(self, path: str | Path) -> bool:
+        return self.parser_cls.probe_file_format(path)
+
     def read(self, path: str | Path, **kwargs: Any) -> ParseResult[object]:
         total_charge = kwargs.pop("total_charge", None)
         total_multiplicity = kwargs.pop("total_multiplicity", None)

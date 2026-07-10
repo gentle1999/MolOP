@@ -176,6 +176,17 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             diskfile for diskfile, keep in zip(diskfiles, keep_flags, strict=True) if keep
         )
 
+    def _add_sorted_diskfiles(self, diskfiles: Iterable[TFileDisk]) -> None:
+        for diskfile in diskfiles:
+            if not _looks_like_disk_file(diskfile):
+                raise TypeError(f"diskfiles must be MolOP file-like objects, got {type(diskfile)}")
+            if diskfile.file_path not in self.__diskfiles:
+                self.__diskfiles[diskfile.file_path] = diskfile
+            else:
+                moloplogger.warning(
+                    f"File {diskfile.file_path} already exists in the batch, skipped"
+                )
+
     def add_diskfiles(self, diskfiles: Iterable[TFileDisk]) -> None:
         """
         Add disk files to the batch.
@@ -183,20 +194,20 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         Parameters:
             diskfiles (Iterable[FileDiscObj]): The disk files to add.
         """
-        for diskfile in sorted(diskfiles, key=lambda d: d.file_path):
-            if not _looks_like_disk_file(diskfile):
-                raise TypeError(f"diskfiles must be MolOP file-like objects, got {type(diskfile)}")
-            if diskfile.file_path not in self.__diskfiles:
-                self[diskfile.file_path] = diskfile
-            else:
-                moloplogger.warning(
-                    f"File {diskfile.file_path} already exists in the batch, skipped"
-                )
+        self._add_sorted_diskfiles(sorted(diskfiles, key=lambda d: d.file_path))
 
     @classmethod
     def new_batch(cls, diskfiles: Iterable[TFileDisk]):
         new_batch: FileBatchModelDisk[TFileDisk] = cls()
         new_batch.add_diskfiles(diskfiles)
+        return new_batch
+
+    @classmethod
+    def _new_batch_from_sorted_diskfiles(
+        cls, diskfiles: Iterable[TFileDisk]
+    ) -> FileBatchModelDisk[TFileDisk]:
+        new_batch: FileBatchModelDisk[TFileDisk] = cls()
+        new_batch._add_sorted_diskfiles(diskfiles)
         return new_batch
 
     def __repr__(self) -> str:

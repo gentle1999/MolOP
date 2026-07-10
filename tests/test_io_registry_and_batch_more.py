@@ -17,6 +17,7 @@ from molop.io.FileBatchParserDisk import FileBatchParserDisk
 from molop.unit import atom_ureg
 
 
+io_module = importlib.import_module("molop.io")
 filebatchparserdisk_module = importlib.import_module("molop.io.FileBatchParserDisk")
 
 
@@ -29,6 +30,23 @@ class DummyReader:
     def read(self, path: str | Path, **_kwargs: Any) -> ParseResult[object]:
         return ParseResult(
             value={"path": str(path)},
+            level=StructureLevel.COORDS,
+            detected_format=self.format_id,
+        )
+
+
+@dataclass
+class ProbingReader:
+    format_id: str
+    probe_result: bool
+
+    def probe_file_format(self, path: str | Path) -> bool:
+        _ = path
+        return self.probe_result
+
+    def read(self, path: str | Path, **_kwargs: Any) -> ParseResult[object]:
+        return ParseResult(
+            value=FakeDiskFile(str(path), Path(path).suffix.lstrip("."), self.format_id),
             level=StructureLevel.COORDS,
             detected_format=self.format_id,
         )
@@ -413,6 +431,24 @@ def test_filebatch_add_and_slice_semantics_with_fake_diskfiles() -> None:
     sliced = merged[1:]
     assert isinstance(sliced, FileBatchModelDisk)
     assert sliced.file_paths == ["/tmp/b.xyz", "/tmp/c.xyz"]
+
+
+def test_filebatch_internal_sorted_constructor_preserves_sorted_order() -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk._new_batch_from_sorted_diskfiles(
+            cast(
+                Any,
+                [
+                    FakeDiskFile("/tmp/a.xyz", "xyz", "xyz"),
+                    FakeDiskFile("/tmp/b.xyz", "xyz", "xyz"),
+                    FakeDiskFile("/tmp/c.xyz", "xyz", "xyz"),
+                ],
+            )
+        ),
+    )
+
+    assert batch.file_paths == ["/tmp/a.xyz", "/tmp/b.xyz", "/tmp/c.xyz"]
 
 
 def test_filebatch_iteration_is_reentrant_for_nested_loops() -> None:
@@ -825,21 +861,220 @@ def test_filebatchparser_parallel_generator_path_filters_results_safely(
     assert batch.file_paths == ["/tmp/b.xyz", "/tmp/c.xyz"]
 
 
-def test_filebatchparser_parses_unstatable_files_without_aborting(
+def test_filebatchparser_progress_updates_after_parse_completion(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     parser = FileBatchParserDisk(n_jobs=1)
-    file_paths = ["/tmp/good.xyz", "/tmp/unstatable.xyz"]
+    file_paths = ["/tmp/a.xyz", "/tmp/b.xyz"]
+    events: list[str] = []
+    original_new_batch_from_sorted = (
+        filebatchparserdisk_module.FileBatchModelDisk._new_batch_from_sorted_diskfiles
+    )
+
+    class FakeProgress:
+        total: int | None
+
+        def __init__(self, desc: str, total: int | None = None) -> None:
+            self.desc = desc
+            self.total = total
+            events.append(f"start:{desc}")
+
+        def update(self, value: int) -> None:
+            events.append(f"progress:{self.desc}:{value}")
+
+        def refresh(self) -> None:
+            return None
+
+        def close(self) -> None:
+            events.append(f"closed:{self.desc}")
+
+    def fake_progress(iterable: Any = None, **kwargs: Any) -> Any:
+        if iterable is not None:
+            raise AssertionError("FileBatchParserDisk should track completion manually")
+        return FakeProgress(desc=kwargs["desc"], total=kwargs.get("total"))
+
+    def fake_parse(**task: Any) -> FakeDiskFile:
+        events.append(f"parse:{task['file_path']}")
+        return FakeDiskFile(task["file_path"], "xyz", "xyz")
+
+    def fake_new_batch_from_sorted(cls: Any, diskfiles: Any) -> FileBatchModelDisk[Any]:
+        events.append("new_batch_from_sorted:start")
+        batch = original_new_batch_from_sorted(list(diskfiles))
+        events.append("new_batch_from_sorted:end")
+        return batch
+
+    monkeypatch.setattr(filebatchparserdisk_module, "AdaptiveProgress", fake_progress)
+    monkeypatch.setattr(
+        filebatchparserdisk_module.FileBatchModelDisk,
+        "_new_batch_from_sorted_diskfiles",
+        classmethod(fake_new_batch_from_sorted),
+    )
+    monkeypatch.setattr(filebatchparserdisk_module.os.path, "isfile", lambda path: True)
+    monkeypatch.setattr(filebatchparserdisk_module.os.path, "abspath", lambda path: cast(str, path))
+    monkeypatch.setattr(
+        filebatchparserdisk_module.codec_registry,
+        "select_reader",
+        lambda _path, hint_format=None: (DummyReader("xyz", frozenset({".xyz"}), 1),),
+    )
+    monkeypatch.setattr(filebatchparserdisk_module, "single_file_parser", fake_parse)
+
+    batch = parser.parse(file_paths)
+
+    assert batch.file_paths == file_paths
+    assert events == [
+        "start:MolOP parsing with single process",
+        "parse:/tmp/a.xyz",
+        "progress:MolOP parsing with single process:1",
+        "parse:/tmp/b.xyz",
+        "progress:MolOP parsing with single process:1",
+        "closed:MolOP parsing with single process",
+        "new_batch_from_sorted:start",
+        "new_batch_from_sorted:end",
+    ]
+
+
+def test_autoparser_glob_materializes_paths_for_progress_total(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    (tmp_path / "a.log").write_text("", encoding="utf-8")
+    (tmp_path / "b.log").write_text("", encoding="utf-8")
+    captured: dict[str, Any] = {}
+
+    class StubFileBatchParserDisk:
+        def __init__(self, n_jobs: int) -> None:
+            captured["n_jobs"] = n_jobs
+
+        def parse(self, file_paths: Any, **_kwargs: Any) -> FileBatchModelDisk[Any]:
+            captured["is_list"] = isinstance(file_paths, list)
+            captured["path_count"] = len(file_paths)
+            return FileBatchModelDisk()
+
+    monkeypatch.setattr(io_module, "FileBatchParserDisk", StubFileBatchParserDisk)
+
+    io_module.AutoParser(str(tmp_path / "*.log"), n_jobs=3)
+
+    assert captured == {
+        "n_jobs": 3,
+        "is_list": True,
+        "path_count": 2,
+    }
+
+
+def test_filebatchparser_parallel_orders_dispatch_buffer_by_file_size(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parser = FileBatchParserDisk(n_jobs=2)
+    file_paths = [
+        "/tmp/tiny.xyz",
+        "/tmp/large.xyz",
+        "/tmp/small.xyz",
+        "/tmp/medium.xyz",
+        "/tmp/larger.xyz",
+    ]
+    file_sizes = {
+        "/tmp/tiny.xyz": 1,
+        "/tmp/large.xyz": 100,
+        "/tmp/small.xyz": 10,
+        "/tmp/medium.xyz": 50,
+        "/tmp/larger.xyz": 80,
+    }
+    parsed_order: list[str] = []
 
     monkeypatch.setattr(filebatchparserdisk_module.os.path, "isfile", lambda path: True)
     monkeypatch.setattr(filebatchparserdisk_module.os.path, "abspath", lambda path: cast(str, path))
+    monkeypatch.setattr(
+        filebatchparserdisk_module.os.path,
+        "getsize",
+        lambda path: file_sizes[cast(str, path)],
+    )
+    monkeypatch.setattr(
+        filebatchparserdisk_module.codec_registry,
+        "select_reader",
+        lambda _path, hint_format=None: (DummyReader("xyz", frozenset({".xyz"}), 1),),
+    )
 
-    def fake_getsize(path: str) -> int:
-        if path == "/tmp/unstatable.xyz":
-            raise OSError("permission denied")
-        return 10
+    def fake_parse(**task: Any) -> FakeDiskFile:
+        parsed_order.append(task["file_path"])
+        return FakeDiskFile(task["file_path"], "xyz", "xyz")
 
-    monkeypatch.setattr(filebatchparserdisk_module.os.path, "getsize", fake_getsize)
+    monkeypatch.setattr(filebatchparserdisk_module, "single_file_parser", fake_parse)
+    monkeypatch.setattr(
+        filebatchparserdisk_module, "delayed", lambda func: lambda **task: lambda: func(**task)
+    )
+
+    class StubParallel:
+        def __init__(self, **_kwargs: Any) -> None:
+            pass
+
+        def __call__(self, iterable: Any) -> Any:
+            return (callable_obj() for callable_obj in iterable)
+
+    monkeypatch.setattr(filebatchparserdisk_module, "Parallel", StubParallel)
+
+    batch = parser.parse(file_paths)
+
+    assert parsed_order == [
+        "/tmp/large.xyz",
+        "/tmp/larger.xyz",
+        "/tmp/medium.xyz",
+        "/tmp/small.xyz",
+        "/tmp/tiny.xyz",
+    ]
+    assert batch.file_paths == parsed_order
+
+
+def test_filebatchparser_tunes_parallel_jobs_when_task_count_matches_requested_jobs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parser = FileBatchParserDisk(n_jobs=3)
+    file_paths = ["/tmp/a.xyz", "/tmp/b.xyz", "/tmp/c.xyz"]
+    captured: dict[str, Any] = {}
+
+    monkeypatch.setattr(filebatchparserdisk_module.os.path, "isfile", lambda path: True)
+    monkeypatch.setattr(filebatchparserdisk_module.os.path, "abspath", lambda path: cast(str, path))
+    monkeypatch.setattr(
+        filebatchparserdisk_module.codec_registry,
+        "select_reader",
+        lambda _path, hint_format=None: (DummyReader("xyz", frozenset({".xyz"}), 1),),
+    )
+    monkeypatch.setattr(
+        filebatchparserdisk_module,
+        "single_file_parser",
+        lambda **task: FakeDiskFile(task["file_path"], "xyz", "xyz"),
+    )
+    monkeypatch.setattr(
+        filebatchparserdisk_module, "delayed", lambda func: lambda **task: lambda: func(**task)
+    )
+
+    class StubParallel:
+        def __init__(self, **kwargs: Any) -> None:
+            captured.update(kwargs)
+
+        def __call__(self, iterable: Any) -> Any:
+            return (callable_obj() for callable_obj in iterable)
+
+    monkeypatch.setattr(filebatchparserdisk_module, "Parallel", StubParallel)
+
+    batch = parser.parse(file_paths)
+
+    assert captured["n_jobs"] == 2
+    assert batch.file_paths == ["/tmp/a.xyz", "/tmp/b.xyz", "/tmp/c.xyz"]
+
+
+def test_filebatchparser_does_not_stat_file_sizes_during_scheduling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parser = FileBatchParserDisk(n_jobs=1)
+    file_paths = ["/tmp/good.xyz", "/tmp/no-size-scan.xyz"]
+
+    monkeypatch.setattr(filebatchparserdisk_module.os.path, "isfile", lambda path: True)
+    monkeypatch.setattr(filebatchparserdisk_module.os.path, "abspath", lambda path: cast(str, path))
+    monkeypatch.setattr(
+        filebatchparserdisk_module.os.path,
+        "getsize",
+        lambda _path: pytest.fail("FileBatchParserDisk should not stat file sizes"),
+    )
     monkeypatch.setattr(
         filebatchparserdisk_module.codec_registry,
         "select_reader",
@@ -854,7 +1089,47 @@ def test_filebatchparser_parses_unstatable_files_without_aborting(
 
     batch = parser.parse(file_paths)
 
-    assert batch.file_paths == ["/tmp/good.xyz", "/tmp/unstatable.xyz"]
+    assert batch.file_paths == ["/tmp/good.xyz", "/tmp/no-size-scan.xyz"]
+
+
+def test_filebatchparser_auto_detection_filters_candidates_with_reader_probe(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    parser = FileBatchParserDisk(n_jobs=1)
+
+    monkeypatch.setattr(filebatchparserdisk_module.os.path, "isfile", lambda path: True)
+    monkeypatch.setattr(filebatchparserdisk_module.os.path, "abspath", lambda path: cast(str, path))
+    monkeypatch.setattr(
+        filebatchparserdisk_module.codec_registry,
+        "select_reader",
+        lambda _path, hint_format=None: (
+            ProbingReader("orcaout", False),
+            ProbingReader("g16log", True),
+        ),
+    )
+
+    def fake_parse(**task: Any) -> FakeDiskFile:
+        reader_ids = [reader.format_id for reader in task["possible_readers"]]
+        assert reader_ids == ["g16log"]
+        return FakeDiskFile(task["file_path"], "log", "g16log")
+
+    monkeypatch.setattr(filebatchparserdisk_module, "single_file_parser", fake_parse)
+
+    batch = parser.parse(["/tmp/shared.log"], parser_detection="auto")
+
+    assert batch.file_paths == ["/tmp/shared.log"]
+    assert batch[0].detected_format_id == "g16log"
+
+
+def test_base_file_parser_disk_probe_uses_parser_quick_check() -> None:
+    from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserDisk
+
+    assert G16LogFileParserDisk.probe_file_format(
+        "tests/test_files/g16log/000000000000_000016928457_00_conf_01_ts.107c60f3cfcb.log"
+    )
+    assert not G16LogFileParserDisk.probe_file_format(
+        "tests/test_files/xyz/dsgdb9nsd_125600-5/0.xyz"
+    )
 
 
 def test_base_file_parser_finalizes_file_charge_and_multiplicity_from_first_frame() -> None:

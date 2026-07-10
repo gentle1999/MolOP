@@ -9,6 +9,7 @@ Description: 请填写简介
 import os
 from abc import abstractmethod
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, cast
 
 from pydantic import Field, PrivateAttr
@@ -17,6 +18,7 @@ from molop.io.base_models.Bases import BaseDataClassWithUnit
 from molop.io.base_models.ChemFile import BaseChemFile
 from molop.io.base_models.ChemFileFrame import BaseChemFileFrame
 from molop.io.base_models.FrameParser import BaseFrameParser
+from molop.io.codec_exceptions import FormatMismatchError
 
 
 FileT = TypeVar("FileT", bound=BaseChemFile)
@@ -170,6 +172,7 @@ class BaseFileParserMemory(BaseFileParser[FileT, FrameT, FrameParserT]):
 
 class BaseFileParserDisk(BaseFileParser[FileT, FrameT, FrameParserT]):
     allowed_formats: ClassVar[tuple[str, ...]] = ()
+    probe_bytes: ClassVar[int] = 20_000
 
     @classmethod
     def _check_file_path(cls, file_path: str) -> str:
@@ -213,3 +216,15 @@ class BaseFileParserDisk(BaseFileParser[FileT, FrameT, FrameParserT]):
         if release_file_content:
             _chem_file.release_file_content()
         return _chem_file
+
+    @classmethod
+    def probe_file_format(cls, file_path: str | Path) -> bool:
+        """Return whether the file prefix matches this parser's own quick check."""
+
+        try:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
+                file_content = f.read(cls.probe_bytes)
+            cls._quick_check_file_format(file_content)
+        except FormatMismatchError:
+            return False
+        return True

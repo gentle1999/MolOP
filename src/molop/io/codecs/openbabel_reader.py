@@ -84,6 +84,10 @@ class _OpenBabelFallbackReader:
     extensions: frozenset[str] = frozenset()
     priority: int = -10_000
 
+    def probe_file_format(self, path: str | Path) -> bool:
+        _ = path
+        return True
+
     def read(self, path: str | Path, **kwargs: Any) -> ParseResult[object]:
         path_str = str(path)
         for infmt in _candidate_formats(path_str):

@@ -97,6 +97,13 @@ class _LazyReaderCodec:
     priority: int
     _factory: ReaderFactory
 
+    def probe_file_format(self, path: str | Path) -> bool:
+        reader = self._factory()
+        probe = getattr(reader, "probe_file_format", None)
+        if callable(probe):
+            return bool(probe(path))
+        return True
+
     def read(self, path: str | Path, **kwargs: Any) -> ParseResult[object]:
         return self._factory().read(path, **kwargs)
 
