@@ -7,7 +7,7 @@ Description: 请填写简介
 """
 
 from collections.abc import Sequence
-from typing import ClassVar, Literal, Optional
+from typing import ClassVar, Optional
 
 import numpy as np
 from molgr.interface import xyz_to_rdmol
@@ -20,7 +20,6 @@ from rdkit.Chem.rdMolAlign import GetBestRMS
 from rdkit.Chem.rdMolDescriptors import CalcMolFormula
 
 from molop.config import molopconfig, moloplogger
-from molop.descriptor.spms import SPMSCalculator
 from molop.io.base_models._format_transform import (
     FrameFormatTransformMixin,  # pyright: ignore[reportAttributeAccessIssue]
 )
@@ -261,65 +260,6 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
             return inchi  # type: ignore
         moloplogger.error("InChI building failed.")
         return ""
-
-    def calc_spms_descriptor(
-        self,
-        anchor_list: Sequence[int] | None = None,
-        sphere_radius: float | None = None,
-        atom_radius: Literal["vdw", "covalent"] = "vdw",
-        latitudinal_resolution: int = 40,
-        longitude_resolution: int = 40,
-        precision: int = 8,
-        *,
-        custom_first_anchors: Sequence[int] | None = None,
-        custom_second_anchors: Sequence[int] | None = None,
-        custom_third_anchors: Sequence[int] | None = None,
-    ) -> SPMSCalculator:
-        """
-        Re-implementation of SPMS descriptor [A Molecular Stereostructure Descriptor based on
-        Spherical Projection](https://www.thieme-connect.de/products/ejournals/abstract/10.1055/s-0040-1705977).
-        GitHub repository: https://github.com/licheng-xu-echo/SPMS.git
-
-        Parameters:
-            anchor_list (Sequence[int]):
-                List of anchor atom ids to keep the invariance of 3D geometry. Default is None, which means using Centroid to
-                origin and the atom nearest to the centroid to Z axis, and the atom farthest from the centroid to ZY face. If
-                user provides a list of anchor atom ids, use the center of those atoms as the anchor, and do the same rotation -
-                the atom nearest to the centroid to Z axis, and the atom farthest from the centroid to ZY face.
-            sphere_radius (Union[float, None]):
-                Sphere radius. Default is None to use the largest possible radius for each input molecule.
-                If you want to use a fixed radius, set this parameter to a float value.
-            atom_radius (Literal["vdw", "covalent"]):
-                Atom radius type. Default is 'vdw', which means using Van der Waals radii as atom radii. If you want to use
-                covalent radii, set this parameter to 'covalent'.
-            latitudinal_resolution (int):
-                Number of splits on the latitudinal axis. Default is 40.
-            longitude_resolution (int):
-                Number of splits on the longitude axis. Default is 40.
-            precision (int):
-                Precision of the SPMS descriptor. Default is 8.
-            custom_first_anchors (Union[Sequence[int], None]):
-                List of atom ids to use as the first anchor. Default is None.
-            custom_second_anchors (Union[Sequence[int], None]):
-                List of atom ids to use as the second anchor. Default is None.
-            custom_third_anchors (Union[Sequence[int], None]):
-                List of atom ids to use as the third anchor. Default is None.
-
-        Returns:
-            SPMSCalculator: The SPMS calculator object.
-        """
-        return SPMSCalculator(
-            rdmol=self.rdmol,
-            anchor_list=anchor_list,
-            sphere_radius=sphere_radius,
-            atom_radius=atom_radius,
-            latitudinal_resolution=latitudinal_resolution,
-            longitude_resolution=longitude_resolution,
-            precision=precision,
-            custom_first_anchors=custom_first_anchors,
-            custom_second_anchors=custom_second_anchors,
-            custom_third_anchors=custom_third_anchors,
-        )
 
     def __hash__(self) -> int:
         return hash(str(self))

@@ -75,7 +75,6 @@ plugins:
             molop.cli: molop.cli
             molop.config: molop.config
             molop.structure: molop.structure
-            molop.descriptor: molop.descriptor
             molop.unit: molop.unit
             molop.utils: molop.utils
             参考: Reference
@@ -143,7 +142,6 @@ nav:
       - molop.cli: reference/api/cli.md
       - molop.config: reference/api/config.md
       - molop.structure: reference/api/structure.md
-      - molop.descriptor: reference/api/descriptor.md
       - molop.unit: reference/api/unit.md
       - molop.utils: reference/api/utils.md
 

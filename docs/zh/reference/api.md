@@ -22,7 +22,6 @@
 - [molop.cli](api/cli.md)
 - [molop.config](api/config.md)
 - [molop.structure](api/structure.md)
-- [molop.descriptor](api/descriptor.md)
 - [molop.unit](api/unit.md)
 - [molop.utils](api/utils.md)
 
