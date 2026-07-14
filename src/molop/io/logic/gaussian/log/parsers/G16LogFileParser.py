@@ -141,8 +141,9 @@ class G16LogFileParserMixin:
         return G16MetadataParsePhase.TIMING_STATUS
 
     def _run_timing_status_metadata_phase(
-        self, context: TextParseContext, result: ModelParseResult
+        self, segment_content: str, result: ModelParseResult
     ) -> G16MetadataParsePhase:
+        context = TextParseContext(segment_content)
         if running_time := extract_g16_running_time(context):
             result.set("running_time", running_time)
         if status := extract_g16_termination_status(context):
@@ -163,7 +164,7 @@ class G16LogFileParserMixin:
             elif phase is G16MetadataParsePhase.ARCHIVE:
                 phase = self._run_archive_metadata_phase(segment_content, result)
             elif phase is G16MetadataParsePhase.TIMING_STATUS:
-                phase = self._run_timing_status_metadata_phase(context, result)
+                phase = self._run_timing_status_metadata_phase(segment_content, result)
             else:
                 raise AssertionError(f"Unexpected G16 metadata parse phase: {phase!r}")
         return result

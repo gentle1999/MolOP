@@ -15,6 +15,14 @@ ORCA_SINGLE_POINT = (
     / "local"
     / "H2_sp_orca.out"
 )
+ORCA_OPTIMIZATION = (
+    Path(__file__).resolve().parent
+    / "test_files"
+    / "orca"
+    / "output_files"
+    / "local"
+    / "opt_orca.out"
+)
 
 
 def _multi_job_output() -> str:
@@ -139,3 +147,24 @@ def test_orca_multi_job_retains_final_segment_without_parseable_coordinates() ->
         diagnostic.code == "MOL.PARSE.SEGMENT_FRAMES_ABSENT"
         for diagnostic in failed_segment.diagnostics
     )
+
+
+def test_orca_single_point_request_rejects_optimization_evidence() -> None:
+    source = ORCA_OPTIMIZATION.read_text(encoding="utf-8").replace(
+        "! Opt PBE0 RIJCOSX D3BJ def2-SVP def2/J CPCM(Water)",
+        "! SP PBE0 RIJCOSX D3BJ def2-SVP def2/J CPCM(Water)",
+    )
+
+    parsed = ORCALogFileParserMemory(capture_source_evidence=True).parse(source)
+
+    assert parsed.source_segments[0].task_types == ["sp"]
+    optimized_frames = [frame for frame in parsed if frame.geometry_optimization_status is not None]
+    assert optimized_frames
+    for frame in optimized_frames:
+        diagnostic = next(
+            diagnostic
+            for diagnostic in frame.parse_diagnostics
+            if diagnostic.code == "MOL.CALC.UNEXPECTED_OPTIMIZATION"
+        )
+        assert diagnostic.severity == "error"
+        assert diagnostic.scope == "frame"

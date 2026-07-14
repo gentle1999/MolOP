@@ -1,6 +1,9 @@
 from pathlib import Path
 
+import pytest
+
 from molop.io.base_models.ParseContainers import ModelParseResult, TextParseContext
+from molop.io.logic.gaussian.log.locators import locate_g16_sections
 from molop.io.logic.gaussian.log.parsers._g16_log_file_extractors import (
     extract_g16_termination_status,
 )
@@ -15,6 +18,10 @@ DFT_FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "H2O.l
 GEN_INHERITANCE_FIXTURE = (
     Path(__file__).resolve().parent / "test_files" / "g16log" / "dsgdb9nsd_000696-4.log"
 )
+MINIMUM_FREQ_FIXTURE = (
+    Path(__file__).resolve().parent / "test_files" / "g16log" / "3-m-Py_anion_Opt.log"
+)
+TS_FREQ_FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "5-TS2-Opt.log"
 
 
 def test_g16log_file_parser_uses_shared_parse_lifecycle() -> None:
@@ -131,6 +138,27 @@ def test_g16log_segment_metadata_result_is_canonical_model_data() -> None:
     file_model = parser._chem_file.model_validate(metadata)
     assert file_model.qm_software == "Gaussian"
     assert file_model.method == "DFT"
+
+
+@pytest.mark.parametrize("fixture", [MINIMUM_FREQ_FIXTURE, TS_FREQ_FIXTURE])
+def test_g16log_generated_freq_link1_scans_full_segment_for_scf_status(
+    fixture: Path,
+) -> None:
+    source = fixture.read_text()
+    parsed = G16LogFileParserMemory(capture_source_evidence=True).parse(source)
+    segment = next(segment for segment in parsed.source_segments if segment.task_types == ["freq"])
+    segment_content = locate_g16_sections(source)[segment.segment_index].text(source)
+
+    assert "Geom=AllCheck" in segment_content
+    assert "SCF Done" in segment_content
+    status = (
+        G16LogFileParserMemory()
+        ._parse_segment_metadata_result(segment_content)
+        .model_data()["status"]
+    )
+    assert status.scf_converged is True
+    assert segment.parse_presence["scf_status"] == "parsed"
+    assert segment.scf_status is True
 
 
 def test_g16log_entering_link1_sections_propagate_section_metadata_to_later_frames() -> None:
