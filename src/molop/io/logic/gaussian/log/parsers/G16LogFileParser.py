@@ -2,15 +2,15 @@
 Author: TMJ
 Date: 2025-08-01 16:13:58
 LastEditors: TMJ
-LastEditTime: 2026-05-11 14:17:37
+LastEditTime: 2026-07-14 14:34:59
 Description: 请填写简介
 """
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from enum import Enum, auto
-from typing import TYPE_CHECKING, Any, Literal, Protocol, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast
 
 from molop.io.base_models.FileParser import (
     BaseFileParserDisk,
@@ -18,6 +18,11 @@ from molop.io.base_models.FileParser import (
     _HasFileParseMethod,
 )
 from molop.io.base_models.ParseContainers import ModelParseResult, TextParseContext
+from molop.io.base_models.source import LocatedSourceSegment
+from molop.io.logic.gaussian.input.GaussianRoute import (
+    build_gaussian_model_chemistry,
+    build_gaussian_task_requests,
+)
 from molop.io.logic.gaussian.input.GaussianRouteParsing import parse_gaussian_route_semantic
 from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
@@ -27,13 +32,14 @@ from molop.io.logic.gaussian.log.frame_parsers.G16LogFileFrameParser import (
     G16LogFileFrameParserDisk,
     G16LogFileFrameParserMemory,
 )
-from molop.io.logic.gaussian.log.models.G16LogFile import (
-    BaseCalcFile,
-    G16LogFileDisk,
-    G16LogFileMemory,
+from molop.io.logic.gaussian.log.locators import (
+    locate_g16_section_frames,
+    locate_g16_sections,
 )
+from molop.io.logic.gaussian.log.models.G16LogFile import G16LogFileDisk, G16LogFileMemory
 from molop.io.logic.gaussian.log.parsers._g16_log_file_extractors import (
     ensure_g16_output_content,
+    extract_g16_artifact_version,
     extract_g16_charge_multiplicity,
     extract_g16_keywords,
     extract_g16_options,
@@ -46,27 +52,12 @@ from molop.io.logic.gaussian.log.parsers._g16_log_file_extractors import (
     extract_g16_version,
     first_frame_value,
     last_frame_value,
-    split_g16_section_frames,
-    split_g16_sections,
 )
 from molop.io.logic.gaussian.log.parsers._g16log_archive_tail import parse_archive_tail
 
 
 if TYPE_CHECKING:
     from molop.io.codec_registry import Registry
-
-
-class _HasParseMethod(Protocol):
-    forced_charge: int | None = None
-    forced_multiplicity: int | None = None
-    only_extract_structure: bool = False
-    only_last_frame: bool = False
-
-    _chem_file: type[BaseCalcFile]
-
-    def _parse_frame(
-        self, frame_content: str, additional_data: dict[str, Any]
-    ) -> G16LogFileFrameDisk | G16LogFileFrameMemory: ...
 
 
 class _HasMetadataFinalizeMethod(Protocol):
@@ -89,6 +80,9 @@ class G16MetadataParsePhase(Enum):
 
 
 class G16LogFileParserMixin:
+    format_id: ClassVar[str] = "g16log"
+    _assess_segment_calculation_status = True
+
     @classmethod
     def _quick_check_file_format(cls, file_content: str) -> None:
         ensure_g16_output_content(file_content)
@@ -137,7 +131,13 @@ class G16LogFileParserMixin:
         self, file_content: str, result: ModelParseResult
     ) -> G16MetadataParsePhase:
         if tail := parse_archive_tail(file_content):
-            result.update(tail[0])
+            archive_metadata = tail[0]
+            result.update(archive_metadata)
+            if archive_keywords := archive_metadata.get("keywords"):
+                result.set(
+                    "semantic_route",
+                    parse_gaussian_route_semantic(archive_keywords),
+                )
         return G16MetadataParsePhase.TIMING_STATUS
 
     def _run_timing_status_metadata_phase(
@@ -149,8 +149,8 @@ class G16LogFileParserMixin:
             result.set("status", status)
         return G16MetadataParsePhase.DONE
 
-    def _parse_metadata_result(self, file_content: str) -> ModelParseResult:
-        context = TextParseContext(file_content)
+    def _parse_segment_metadata_result(self, segment_content: str) -> ModelParseResult:
+        context = TextParseContext(segment_content)
         result = ModelParseResult({"qm_software": "Gaussian"})
         phase = G16MetadataParsePhase.ROUTE
         while phase is not G16MetadataParsePhase.DONE:
@@ -159,27 +159,106 @@ class G16LogFileParserMixin:
             elif phase is G16MetadataParsePhase.STRUCTURE:
                 phase = self._run_structure_metadata_phase(context, result)
             elif phase is G16MetadataParsePhase.CONDITIONS:
-                phase = self._run_conditions_metadata_phase(file_content, context, result)
+                phase = self._run_conditions_metadata_phase(segment_content, context, result)
             elif phase is G16MetadataParsePhase.ARCHIVE:
-                phase = self._run_archive_metadata_phase(file_content, result)
+                phase = self._run_archive_metadata_phase(segment_content, result)
             elif phase is G16MetadataParsePhase.TIMING_STATUS:
                 phase = self._run_timing_status_metadata_phase(context, result)
             else:
                 raise AssertionError(f"Unexpected G16 metadata parse phase: {phase!r}")
         return result
 
-    def _parse_metadata(self, file_content: str) -> dict[str, Any]:
-        return self._parse_metadata_result(file_content).model_data()
+    def _locate_segments(self, file_content: str) -> Sequence[LocatedSourceSegment]:
+        return tuple(
+            LocatedSourceSegment(
+                segment=section,
+                frames=locate_g16_section_frames(file_content, section),
+            )
+            for section in locate_g16_sections(file_content)
+        )
 
-    def _split_sections(self, file_content: str) -> list[str]:
-        return split_g16_sections(file_content)
+    def _parse_artifact_metadata(self, file_content: str) -> dict[str, Any]:
+        metadata: dict[str, Any] = {"qm_software": "Gaussian"}
+        if version := extract_g16_artifact_version(file_content):
+            metadata["qm_software_version"] = version
+        return metadata
 
-    def _split_section_frames(self, section_content: str) -> list[str]:
-        return split_g16_section_frames(section_content)
+    def _parse_segment_metadata(
+        self,
+        segment_content: str,
+        *,
+        artifact_metadata: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        _ = artifact_metadata
+        metadata = self._parse_segment_metadata_result(segment_content).model_data()
+        metadata.pop("qm_software", None)
+        metadata.pop("qm_software_version", None)
+        semantic_route = metadata.get("semantic_route")
+        if semantic_route is not None:
+            metadata["model_chemistry"] = build_gaussian_model_chemistry(
+                semantic_route,
+                keywords=str(metadata.get("keywords") or ""),
+                legacy_method=str(metadata.get("method") or ""),
+                legacy_basis_set=str(metadata.get("basis_set") or ""),
+                legacy_functional=str(metadata.get("functional") or ""),
+            )
+            metadata["task_requests"] = build_gaussian_task_requests(semantic_route)
+        return {key: value for key, value in metadata.items() if value is not None}
 
-    def _split_file(self, file_content: str) -> Sequence[str]:
-        sections = self._split_sections(file_content)
-        return [frame for section in sections for frame in self._split_section_frames(section)]
+    def _prepare_file_metadata(
+        self,
+        artifact_metadata: Mapping[str, Any],
+        segment_metadata: Sequence[Mapping[str, Any]],
+    ) -> dict[str, Any]:
+        metadata = dict(artifact_metadata)
+        if segment_metadata:
+            metadata.update(segment_metadata[0])
+        running_times = [
+            running_time
+            for segment in segment_metadata
+            if (running_time := segment.get("running_time")) is not None
+        ]
+        if running_times:
+            metadata["running_time"] = sum(running_times[1:], running_times[0])
+        for segment in reversed(segment_metadata):
+            if (status := segment.get("status")) is not None:
+                metadata["status"] = status
+                break
+        return metadata
+
+    def _postprocess_parsed_frame(
+        self,
+        frame: G16LogFileFrameDisk | G16LogFileFrameMemory,
+        chem_file: Any,
+        *,
+        segment_index: int | None,
+        segment_frame_index: int,
+        segment_frame_count: int,
+    ) -> None:
+        _ = segment_index, segment_frame_index, segment_frame_count
+        if (
+            frame.basis_set.lower() == "gen"
+            and chem_file
+            and chem_file[-1].basis_set.lower() != "gen"
+        ):
+            frame.basis_set = chem_file[-1].basis_set
+
+    def _source_frame_role(
+        self,
+        frame: G16LogFileFrameDisk | G16LogFileFrameMemory,
+        *,
+        frame_index: int,
+        frame_count: int,
+    ) -> str:
+        _ = self
+        task_types = {task.task_type for task in frame.task_requests if task.enabled}
+        if "sp" in task_types and "opt" not in task_types and frame_count == 1:
+            return "single_point"
+        if frame_count == 1 or frame_index == frame_count - 1:
+            return "terminal"
+        if frame_index == 0:
+            return "initial"
+        return "intermediate"
 
     def _update_file_metadata_from_frames(self, chem_file: Any, metadata: dict[str, Any]) -> None:
         base_parser = cast(
@@ -199,97 +278,17 @@ class G16LogFileParserMixin:
                 metadata[field] = value
                 setattr(chem_file, field, value)
 
-        for field in ("status", "geometry_optimization_status"):
+        if metadata.get("status") is None:
+            value = last_frame_value(frames, "status")
+            if value is not None:
+                metadata["status"] = value
+                chem_file.status = value
+
+        for field in ("geometry_optimization_status",):
             value = last_frame_value(frames, field)
             if value is not None:
                 metadata[field] = value
                 setattr(chem_file, field, value)
-
-    # override the _parse method
-    def _parse(
-        self,
-        source: str,
-        source_type: Literal["file_path", "string"] = "file_path",
-        *,
-        total_charge: int | None = None,
-        total_multiplicity: int | None = None,
-    ) -> Any:
-        self._file_path: str | None
-        metadata_base: dict[str, Any]
-        if source_type == "file_path":
-            self._file_path = source
-            with open(source) as f:
-                file_content = f.read()
-            metadata_base = {"file_path": source, "file_content": file_content}
-        elif source_type == "string":
-            self._file_path = None
-            file_content = source
-            metadata_base = {"file_content": file_content}
-        else:
-            raise ValueError(f"Invalid source_type: {source_type}")
-        self._quick_check_file_format(file_content)
-
-        typed_self = cast(_HasParseMethod, self)
-        final_charge = total_charge if total_charge is not None else typed_self.forced_charge
-        final_multiplicity = (
-            total_multiplicity if total_multiplicity is not None else typed_self.forced_multiplicity
-        )
-        if final_charge is not None:
-            metadata_base["charge"] = final_charge
-        if final_multiplicity is not None:
-            metadata_base["multiplicity"] = final_multiplicity
-        if typed_self.only_last_frame:
-            sections = self._split_sections(file_content)
-            if sections:
-                section = sections[-1]
-            else:
-                raise ValueError("No section found in the file content.")
-            metadata = self._parse_metadata(section)
-            file_metadata = metadata | metadata_base
-            _chem_file = typed_self._chem_file.model_validate(file_metadata)
-            frame_contents = self._split_section_frames(section)
-            if frame_contents:
-                last_frame_content = frame_contents[-1]
-            else:
-                raise ValueError("No frame found in the section.")
-            frame = typed_self._parse_frame(last_frame_content, additional_data=file_metadata)
-            if final_charge is not None:
-                frame.charge = final_charge
-            if final_multiplicity is not None:
-                frame.multiplicity = final_multiplicity
-            _chem_file.append(frame)
-        else:
-            sections = self._split_sections(file_content)
-            metadata_list = [self._parse_metadata(section) for section in sections]
-            if not metadata_list:
-                raise ValueError("No metadata found in the file content.")
-            file_metadata = metadata_list[0] | metadata_base
-            running_times = [
-                running_time
-                for metadata in metadata_list
-                if (running_time := metadata.get("running_time")) is not None
-            ]
-            if running_times:
-                file_metadata["running_time"] = sum(running_times[1:], running_times[0])
-            _chem_file = typed_self._chem_file.model_validate(file_metadata)
-            for metadata, section in zip(metadata_list, sections, strict=True):
-                section_metadata = metadata | metadata_base
-                for frame_content in self._split_section_frames(section):
-                    frame = typed_self._parse_frame(frame_content, additional_data=section_metadata)
-                    if final_charge is not None:
-                        frame.charge = final_charge
-                    if final_multiplicity is not None:
-                        frame.multiplicity = final_multiplicity
-                    if (
-                        frame.basis_set.lower() == "gen"
-                        and _chem_file
-                        and _chem_file[-1].basis_set.lower() != "gen"
-                    ):
-                        frame.basis_set = _chem_file[-1].basis_set
-                    _chem_file.append(frame)
-
-        self._update_file_metadata_from_frames(_chem_file, file_metadata)
-        return _chem_file
 
 
 class G16LogFileParserMemory(
@@ -327,12 +326,16 @@ def register(registry: Registry) -> None:
     extensions = frozenset(extensions_for_parser(G16LogFileParserDisk))
     priority = 100
 
-    @registry.reader_factory(format_id="g16log", extensions=extensions, priority=priority)
+    @registry.reader_factory(
+        format_id=G16LogFileParserDisk.format_id,
+        extensions=extensions,
+        priority=priority,
+    )
     def _factory() -> ReaderCodec:
         return cast(
             ReaderCodec,
             ParserDiskReader(
-                format_id="g16log",
+                format_id=G16LogFileParserDisk.format_id,
                 extensions=extensions,
                 level=StructureLevel.COORDS,
                 parser_cls=G16LogFileParserDisk,

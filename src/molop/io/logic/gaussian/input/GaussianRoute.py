@@ -385,8 +385,20 @@ def build_gaussian_model_chemistry(
     legacy_functional: str = "",
 ) -> QMModelChemistry:
     semantic_model = semantic_route.model_chemistry
+    concrete_method = semantic_model.method_token or legacy_method or None
+    if semantic_model.functional:
+        concrete_method = semantic_model.functional
+    elif concrete_method and semantic_model.spin_qualifier == "RO":
+        concrete_method = concrete_method[2:]
+    elif concrete_method and semantic_model.spin_qualifier in {"R", "U"}:
+        concrete_method = concrete_method[1:]
+    if concrete_method:
+        concrete_method = concrete_method.upper()
+    base_functional = _semantic_or_legacy_functional(
+        semantic_model, legacy_functional, legacy_method
+    )
     functional = _with_dispersion_suffix(
-        _semantic_or_legacy_functional(semantic_model, legacy_functional, legacy_method),
+        base_functional.upper() if base_functional else None,
         semantic_route.empirical_dispersion,
     )
     basis_set = semantic_model.basis_set or legacy_basis_set or None
@@ -394,7 +406,7 @@ def build_gaussian_model_chemistry(
         basis_set = legacy_basis_set
     return QMModelChemistry(
         method_family=semantic_model.method_family or legacy_method or None,
-        method=semantic_model.method_token or legacy_method or None,
+        method=concrete_method,
         functional=functional,
         basis_set=basis_set,
         auxiliary_basis_set=semantic_model.auxiliary_basis_set,

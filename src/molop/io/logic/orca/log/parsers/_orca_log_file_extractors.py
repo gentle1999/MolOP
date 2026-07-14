@@ -51,22 +51,6 @@ def parse_orca_printed_input_metadata(input_text: str) -> dict[str, Any]:
     return parse_orca_input_metadata(input_text)
 
 
-def split_orca_output_frames(file_content: str) -> list[str]:
-    matches = orca_log_patterns.COORD_HEADER.find_matches(file_content)
-    if not matches:
-        return [file_content]
-    frames: list[str] = []
-    prefix = file_content[: matches[0].start()]
-    for idx, matched in enumerate(matches):
-        next_start = matches[idx + 1].start() if idx + 1 < len(matches) else len(file_content)
-        start = matched.start()
-        if idx == 0:
-            frames.append(file_content[:next_start])
-        else:
-            frames.append(prefix + file_content[start:next_start])
-    return [frame for frame in frames if frame.strip()]
-
-
 def last_frame_value(frames: Sequence[Any], field: str) -> Any:
     for frame in reversed(frames):
         value = getattr(frame, field, None)

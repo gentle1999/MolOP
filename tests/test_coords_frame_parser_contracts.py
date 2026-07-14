@@ -60,7 +60,7 @@ def test_smi_frame_parser_builds_model_parse_result_from_first_token() -> None:
     assert len(data["bonds"]) == 2
 
 
-def test_coords_file_parsers_expose_metadata_parse_result() -> None:
+def test_coords_file_parsers_need_no_empty_metadata_hook() -> None:
     parsers = [
         XYZFileParserMemory(),
         SDFFileParserMemory(),
@@ -68,7 +68,6 @@ def test_coords_file_parsers_expose_metadata_parse_result() -> None:
     ]
 
     for parser in parsers:
-        result = parser._parse_metadata_result("")
-        assert isinstance(result, ModelParseResult)
-        assert result.model_data() == {}
-        assert parser._parse_metadata("") == {}
+        assert parser._parse_artifact_metadata("") is None
+        assert not hasattr(parser, "_parse_metadata")
+        assert not hasattr(parser, "_split_file")

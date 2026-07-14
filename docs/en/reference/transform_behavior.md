@@ -22,6 +22,8 @@ For parameter defaults, return values, and error policy, see
 - **File Output**: Python callers must pass `write_to_disk=True` to write rendered
   content to disk. When writing, `file_path` or batch `output_dir` selects the
   output location; if no path is provided, MolOP writes beside the source file.
+  Output names replace only the final suffix, so `name.hash.log` becomes
+  `name.hash.xyz` when converting to XYZ.
   When `write_to_disk=False`, `file_path` and `output_dir` are ignored and the
   transform only returns the rendered string or list of strings.
 - **Structure Level**:

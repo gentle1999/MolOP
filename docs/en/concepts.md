@@ -7,7 +7,10 @@ This page introduces the core design philosophy and architectural components of 
 MolOP adopts a **parser/model separation** design pattern. Parsers are responsible for extracting data from raw text.
 
 - **AutoParser**: The recommended entry point for users. It automatically identifies and selects the appropriate parser based on file extensions.
-- **Unified Interface**: Whether handling a single file or multiple files via wildcards, `AutoParser` returns a consistent batch model object.
+- **Unified Interface**: `AutoParser` accepts one path or glob pattern, or an
+  iterable mixing multiple paths and patterns, and always returns the same batch
+  model object. Expanded paths are de-duplicated and the returned batch is sorted
+  by absolute file path.
 
 ## 2. Data Models (Pydantic Models)
 

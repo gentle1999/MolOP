@@ -11,6 +11,13 @@ class ORCALogPatterns:
 
     FLOAT = MolOPPattern(content_pattern=rf"(?P<value>{ORCA_FLOAT_PATTERN})", content_repeat=0)
     BANNER = MolOPPattern(content_pattern=r"(?i)\*\s+O\s+R\s+C\s+A\s+\*")
+    JOB_NUMBER_LINE = MolOPPattern(
+        content_pattern=(
+            r"^[^\S\r\n]*\*+[^\S\r\n]*JOB\s+NUMBER\s+(?P<number>\d+)"
+            r"[^\S\r\n]*\*+[^\S\r\n]*\r?$"
+        ),
+        content_repeat=0,
+    )
     VERSION = MolOPPattern(content_pattern=r"Program Version\s+(?P<version>[0-9][^\s]*)")
     INPUT_BLOCK = MolOPPattern(
         content_pattern=r"(?s)=+\s*\n\s*INPUT FILE\s*\n=+\s*\n(?P<body>.*?)\n=+",
@@ -40,15 +47,61 @@ class ORCALogPatterns:
     )
     MP2_ENERGY = MolOPPattern(
         content_pattern=rf"(?i)(?:MP2 TOTAL ENERGY:\s*(?P<mp2_total>{ORCA_FLOAT_PATTERN})\s*Eh|"
-        rf"E\(MP2\)\s*=\s*(?P<mp2_corr>{ORCA_FLOAT_PATTERN}))",
+        rf"E\(MP2\)\s*=\s*(?P<mp2_equation_total>{ORCA_FLOAT_PATTERN}))",
+        content_repeat=0,
+    )
+    MP2_CORRELATION_ENERGY = MolOPPattern(
+        content_pattern=(
+            rf"(?i)(?:MP2 CORRELATION ENERGY\s*:\s*"
+            rf"(?P<labeled>{ORCA_FLOAT_PATTERN})\s*Eh|"
+            rf"EC\(MP2\)\s*=\s*(?P<equation>{ORCA_FLOAT_PATTERN})|"
+            rf"E\(MP2\)\s*\.{{3}}\s*(?P<component>{ORCA_FLOAT_PATTERN}))"
+        ),
         content_repeat=0,
     )
     MP3_ENERGY = MolOPPattern(
         content_pattern=rf"(?i)E\(MP3\)\s*=\s*(?P<energy>{ORCA_FLOAT_PATTERN})",
         content_repeat=0,
     )
+    MP3_CORRELATION_ENERGY = MolOPPattern(
+        content_pattern=rf"(?i)EC\(MP3\)\s*=\s*(?P<energy>{ORCA_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
+    MP3_COMPONENT_ENERGY = MolOPPattern(
+        content_pattern=rf"(?i)\bE3\s*=\s*(?P<energy>{ORCA_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
     CCSD_ENERGY = MolOPPattern(
-        content_pattern=rf"(?i)E\(CCSD(?:\(T\))?\)\s*=\s*(?P<energy>{ORCA_FLOAT_PATTERN})",
+        content_pattern=rf"(?i)E\(CCSD\)\s*(?:=|\.{{3}})\s*(?P<energy>{ORCA_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
+    CCSD_TOTAL_ENERGY = MolOPPattern(
+        content_pattern=rf"(?i)^E\(TOT\)\s*(?:=|\.{{3}})\s*"
+        rf"(?P<energy>{ORCA_FLOAT_PATTERN})\s*$",
+        content_repeat=0,
+    )
+    CCSD_CORRELATION_ENERGY = MolOPPattern(
+        content_pattern=rf"(?i)^E\(CORR\)\s*(?:=|\.{{3}})\s*"
+        rf"(?P<energy>{ORCA_FLOAT_PATTERN})\s*$",
+        content_repeat=0,
+    )
+    CCSD_T_ENERGY = MolOPPattern(
+        content_pattern=rf"(?i)E\(CCSD\(T\)\)\s*(?:=|\.{{3}})\s*(?P<energy>{ORCA_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
+    TRIPLES_CORRECTION = MolOPPattern(
+        content_pattern=rf"(?i)^\s*triples correction \(T\)\s*\.{{3}}\s*"
+        rf"(?P<energy>{ORCA_FLOAT_PATTERN})\s*$",
+        content_repeat=0,
+    )
+    SCALED_TRIPLES_CORRECTION = MolOPPattern(
+        content_pattern=rf"(?i)^\s*scaled triples correction \(T\)\s*\.{{3}}\s*"
+        rf"(?P<energy>{ORCA_FLOAT_PATTERN})\s*$",
+        content_repeat=0,
+    )
+    FINAL_CORRELATION_ENERGY = MolOPPattern(
+        content_pattern=rf"(?i)Final correlation energy\s*\.{{3}}\s*"
+        rf"(?P<energy>{ORCA_FLOAT_PATTERN})",
         content_repeat=0,
     )
     GRADIENT_HEADER = MolOPPattern(
@@ -60,6 +113,39 @@ class ORCALogPatterns:
         rf"(?P<x>{ORCA_FLOAT_PATTERN})\s+"
         rf"(?P<y>{ORCA_FLOAT_PATTERN})\s+"
         rf"(?P<z>{ORCA_FLOAT_PATTERN})\s*$",
+        content_repeat=0,
+    )
+    MP2_GRADIENT_HEADER = MolOPPattern(
+        content_pattern=r"^\s*The final MP2 gradient\s*$",
+        content_repeat=0,
+    )
+    MP2_GRADIENT_ROW = MolOPPattern(
+        content_pattern=rf"^\s*\d+\s*:\s*"
+        rf"(?P<x>{ORCA_FLOAT_PATTERN})\s+"
+        rf"(?P<y>{ORCA_FLOAT_PATTERN})\s+"
+        rf"(?P<z>{ORCA_FLOAT_PATTERN})\s*$",
+        content_repeat=0,
+    )
+    SCF_CONVERGED = MolOPPattern(
+        content_pattern=r"(?i)\bSCF\s+CONVERGED(?:\s+AFTER\s+\d+\s+CYCLES?)?",
+        content_repeat=0,
+    )
+    SCF_FAILED = MolOPPattern(
+        content_pattern=(
+            r"(?i)(?:\bSCF\s+NOT\s+CONVERGED(?:\s+AFTER\s+\d+\s+CYCLES?)?|"
+            r"\bSCF\s+DID\s+NOT\s+CONVERGE|"
+            r"\bSCF\s+CONVERGENCE(?:\s+HAS)?\s+FAIL(?:ED|URE)|"
+            r"\bSCF\s+HAS\s+NOT\s+CONVERGED)"
+        ),
+        content_repeat=0,
+    )
+    OPTIMIZATION_CONVERGENCE_METRIC = MolOPPattern(
+        content_pattern=(
+            rf"^\s*(?P<label>Energy change|RMS gradient|MAX gradient|RMS step|MAX step)\s+"
+            rf"(?P<value>{ORCA_FLOAT_PATTERN})\s+"
+            rf"(?P<threshold>{ORCA_FLOAT_PATTERN})\s+"
+            r"(?P<converged>YES|NO)\s*$"
+        ),
         content_repeat=0,
     )
     MULLIKEN_CHARGE_ROW = MolOPPattern(

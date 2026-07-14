@@ -5,7 +5,7 @@ from enum import Enum, auto
 from typing import Any, cast
 
 from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
-from molop.io.base_models.ParseContainers import ModelParseResult
+from molop.io.base_models.ParseContainers import ModelParseResult, TextParseContext
 from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
     G16LogFileFrameMemory,
@@ -25,10 +25,14 @@ from molop.io.logic.gaussian.log.frame_parsers._g16_extractors import (
     extract_standard_coords_from_state,
     extract_thermal_infos_from_state,
     extract_vibrations_from_state,
+    merge_g16_energy_payloads,
 )
 from molop.io.logic.gaussian.log.frame_parsers._g16_shared import (
     _parse_running_time,
     _temperature_and_pressure_from_block,
+)
+from molop.io.logic.gaussian.log.parsers._g16_log_file_extractors import (
+    extract_g16_termination_status,
 )
 from molop.io.logic.gaussian.log.parsers._g16_log_patterns import g16_log_patterns
 
@@ -96,6 +100,13 @@ class G16LogFileFrameParserMixin:
             result.set("multiplicity", int(matched.group("multiplicity")))
         if running_time := _parse_running_time(block):
             result.set("running_time", running_time)
+        if not cast(_HasParseMethod, self).only_extract_structure:
+            status = extract_g16_termination_status(
+                TextParseContext(block),
+                include_termination=False,
+            )
+            if status is not None:
+                result.set("status", status)
         return G16ParsePhase.ORIENTATION
 
     def _run_orientation_phase(self, state: ParseState, result: ModelParseResult) -> G16ParsePhase:
@@ -128,7 +139,10 @@ class G16LogFileFrameParserMixin:
 
     def _run_scf_phase(self, state: ParseState, result: ModelParseResult) -> G16ParsePhase:
         """Parse SCF/energy and spin-state information from the current cursor position."""
-        energies_dict, total_spin_dict = extract_energies_and_total_spin_from_state(state)
+        energies_dict, total_spin_dict = extract_energies_and_total_spin_from_state(
+            state,
+            capture_source_evidence=cast(_HasParseMethod, self).capture_source_evidence,
+        )
         if energies_dict:
             result.set("energies", energies_dict)
         if total_spin_dict:
@@ -159,6 +173,21 @@ class G16LogFileFrameParserMixin:
         """Parse thermochemistry summaries that often follow frequency sections."""
         cursor_before = state.cursor
         if (thermal_info := extract_thermal_infos_from_state(state)) is not None:
+            vibrations = result.fields.get("vibrations")
+            frequencies = vibrations.get("frequencies") if isinstance(vibrations, Mapping) else None
+            temperatures = thermal_info.get("vibrational_temperatures")
+            if frequencies is not None and temperatures is not None:
+                positive_mode_indices = [
+                    mode_index
+                    for mode_index, frequency in enumerate(frequencies)
+                    if float(frequency.magnitude) > 0
+                ]
+                if len(positive_mode_indices) == len(temperatures):
+                    thermal_info["vibrational_temperature_mode_indices"] = positive_mode_indices
+                elif len(frequencies) == len(temperatures):
+                    thermal_info["vibrational_temperature_mode_indices"] = list(
+                        range(len(frequencies))
+                    )
             result.set("thermal_informations", thermal_info)
         if temp_pressure := _temperature_and_pressure_from_block(state.content[cursor_before:]):
             result.update(temp_pressure)
@@ -168,17 +197,28 @@ class G16LogFileFrameParserMixin:
         """Parse Cartesian forces when present."""
         if (forces := extract_forces_from_state(state)) is not None:
             result.set("forces", forces)
+            result.set("forces_axis_order", ("atom", "cartesian"))
+            result.set("forces_atom_order", "source")
+            result.set("forces_orientation", "unknown")
         return G16ParsePhase.HESSIAN
 
     def _run_hessian_phase(self, state: ParseState, result: ModelParseResult) -> G16ParsePhase:
         """Parse Hessian / second-derivative blocks."""
         if (hessian := extract_hessian_from_state(state)) is not None:
             result.set("hessian", hessian)
+            result.set("hessian_axis_order", ("atom_cartesian", "atom_cartesian"))
+            result.set("hessian_atom_order", "source")
+            result.set("hessian_orientation", "unknown")
         return G16ParsePhase.OPTIMIZATION
 
     def _run_optimization_phase(self, state: ParseState, result: ModelParseResult) -> G16ParsePhase:
         """Parse Berny optimization state summaries."""
-        if (berny := extract_berny_from_state(state)) is not None:
+        if (
+            berny := extract_berny_from_state(
+                state,
+                capture_source_evidence=cast(_HasParseMethod, self).capture_source_evidence,
+            )
+        ) is not None:
             result.set("geometry_optimization_status", berny)
         return G16ParsePhase.ELECTRIC_RESPONSE
 
@@ -194,12 +234,22 @@ class G16LogFileFrameParserMixin:
 
     def _run_archive_tail_phase(self, state: ParseState, result: ModelParseResult) -> G16ParsePhase:
         """Use archive-tail data as the final fallback/augmentation stage."""
-        archive_payload = extract_archive_tail_payload_from_state(state)
+        archive_payload = extract_archive_tail_payload_from_state(
+            state,
+            capture_source_evidence=cast(_HasParseMethod, self).capture_source_evidence,
+        )
         if tail := archive_payload.get("metadata"):
             result.set_missing_from(tail)
 
         if tail_energies := archive_payload.get("energies"):
-            result.merge_payload_field("energies", tail_energies)
+            live_energies = result.fields.get("energies")
+            result.set(
+                "energies",
+                merge_g16_energy_payloads(
+                    live_energies if isinstance(live_energies, Mapping) else None,
+                    tail_energies,
+                ),
+            )
 
         if tail_thermal_info := archive_payload.get("thermal_informations"):
             result.merge_payload_field("thermal_informations", tail_thermal_info)
@@ -211,6 +261,9 @@ class G16LogFileFrameParserMixin:
             "hessian"
         ):
             result.set("hessian", tail_hessian)
+            result.set("hessian_axis_order", ("atom_cartesian", "atom_cartesian"))
+            result.set("hessian_atom_order", "source")
+            result.set("hessian_orientation", "unknown")
 
         return G16ParsePhase.DONE
 
@@ -256,7 +309,15 @@ class G16LogFileFrameParserMixin:
 
     def _parse_frame(self) -> Mapping[str, Any]:
         """Return model-ready frame fields from the canonical state-machine result."""
-        return self._parse_block_to_result(cast(_HasParseMethod, self)._block).model_data()
+        typed_self = cast(_HasParseMethod, self)
+        result = self._parse_block_to_result(typed_self._block)
+        if typed_self.capture_source_evidence:
+            result.set("coordinate_source", "observed")
+            result.set("coordinate_provenance", "Gaussian source geometry via frame.coords")
+            if result.has_value("forces"):
+                result.set("force_source_field", "forces")
+                result.set("force_transformation", "Gaussian Cartesian forces in source atom order")
+        return result.model_data()
 
 
 class G16LogFileFrameParserMemory(

@@ -462,7 +462,7 @@ def test_parse_summary_g16_frame_json_terminal_handles_unit_columns() -> None:
     assert result.exit_code == 0, result.output
     rows = json.loads(result.output)
     assert rows[0]["Environment.Temperature.kelvin"] == 298.15
-    assert rows[0]["Status.IsError"] is False
+    assert rows[0]["Status.IsError"] is None
     assert rows[0]["General.FrameID"] == 33
 
 

@@ -65,6 +65,23 @@ FORBIDDEN_GAUSSIAN_HELPER_IMPORTS = (
     "molop.io.logic.qminput_frame_parsers._gjf_patterns",
     "molop.io.logic.qminput_frame_parsers._gjf_sections",
 )
+FORBIDDEN_BASE_MODEL_IMPORT_PREFIXES = (
+    "molop.io.logic",
+    "molop.io.calculation",
+    "molop.io.locators",
+)
+FORBIDDEN_PARALLEL_CALCULATION_MODELS = (
+    "CalculationArtifactEvidence",
+    "CalculationFrameEvidence",
+    "CalculationSegmentEvidence",
+    "EnergyObservation",
+    "OptimizationMetricEvidence",
+    "ParsedCalculationRecord",
+    "ParsedFrame",
+    "ParsedScientificArray",
+    "ParsedSegment",
+    "ParsedThermochemistry",
+)
 
 
 def _project_python_files() -> list[Path]:
@@ -96,6 +113,15 @@ def _rel(path: Path) -> str:
 
 def _module_name_from_path(path: Path) -> str:
     return path.relative_to(ROOT / "src").with_suffix("").as_posix().replace("/", ".")
+
+
+def _top_level_definition_names(path: Path) -> set[str]:
+    tree = ast.parse(_read(path), filename=_rel(path))
+    return {
+        node.name
+        for node in tree.body
+        if isinstance(node, (ast.ClassDef, ast.FunctionDef, ast.AsyncFunctionDef))
+    }
 
 
 def _molop_pattern_module_names() -> list[str]:
@@ -308,15 +334,42 @@ def test_base_models_do_not_depend_on_logic_layer() -> None:
             if (
                 isinstance(node, ast.ImportFrom)
                 and node.module is not None
-                and node.module.startswith("molop.io.logic")
+                and node.module.startswith(FORBIDDEN_BASE_MODEL_IMPORT_PREFIXES)
             ):
                 violations.append(f"{_rel(path)} imports {node.module}")
             if isinstance(node, ast.Import):
                 for alias in node.names:
-                    if alias.name.startswith("molop.io.logic"):
+                    if alias.name.startswith(FORBIDDEN_BASE_MODEL_IMPORT_PREFIXES):
                         violations.append(f"{_rel(path)} imports {alias.name}")
 
     assert violations == []
+
+
+def test_parallel_calculation_dto_layer_stays_removed() -> None:
+    calculation_root = BASE_MODELS_ROOT / "calculation"
+    definitions = {
+        name
+        for path in calculation_root.rglob("*.py")
+        for name in _top_level_definition_names(path)
+    }
+
+    assert sorted(set(FORBIDDEN_PARALLEL_CALCULATION_MODELS) & definitions) == []
+    assert not calculation_root.exists()
+    assert not (SRC_ROOT / "molop" / "io" / "calculation.py").exists()
+    assert not (SRC_ROOT / "molop" / "io" / "contracts").exists()
+
+
+def test_format_independent_locator_stays_in_base_models() -> None:
+    source_helpers = BASE_MODELS_ROOT / "source.py"
+    root_io_locators = SRC_ROOT / "molop" / "io" / "locators.py"
+
+    assert {
+        "DecodedSource",
+        "LocatedSourceSegment",
+        "LocatedTextBlock",
+        "SourceSpan",
+    } <= _top_level_definition_names(source_helpers)
+    assert not root_io_locators.exists()
 
 
 def test_format_specific_containers_do_not_live_in_base_models() -> None:
@@ -508,8 +561,21 @@ def test_complex_frame_parsers_use_explicit_phase_machine() -> None:
     assert violations == []
 
 
-def test_file_parsers_use_metadata_result_boundary() -> None:
+def test_file_parsers_use_locator_only_lifecycle() -> None:
     violations: list[str] = []
+
+    base_file_parser = BASE_MODELS_ROOT / "FileParser.py"
+    base_text = _read(base_file_parser)
+    base_tree = ast.parse(base_text, filename=_rel(base_file_parser))
+    base_class = next(
+        node
+        for node in base_tree.body
+        if isinstance(node, ast.ClassDef) and node.name == "BaseFileParser"
+    )
+    base_methods = {item.name for item in base_class.body if isinstance(item, ast.FunctionDef)}
+    for retired_method in ("_parse_metadata", "_split_file"):
+        if retired_method in base_methods:
+            violations.append(f"{_rel(base_file_parser)} still defines {retired_method}")
 
     for path in _logic_file_parser_files():
         text = _read(path)
@@ -518,28 +584,11 @@ def test_file_parsers_use_metadata_result_boundary() -> None:
             if not isinstance(node, ast.ClassDef) or not node.name.endswith("ParserMixin"):
                 continue
             methods = {item.name: item for item in node.body if isinstance(item, ast.FunctionDef)}
-            parse_metadata_result = methods.get("_parse_metadata_result")
-            parse_metadata = methods.get("_parse_metadata")
-            if parse_metadata_result is None:
-                violations.append(f"{_rel(path)}:{node.name} missing _parse_metadata_result")
-                continue
-            returns = (
-                ast.unparse(parse_metadata_result.returns)
-                if parse_metadata_result.returns is not None
-                else ""
-            )
-            if returns != "ModelParseResult":
-                violations.append(
-                    f"{_rel(path)}:{node.name} _parse_metadata_result returns {returns!r}"
-                )
-            if parse_metadata is None:
-                violations.append(f"{_rel(path)}:{node.name} missing _parse_metadata")
-                continue
-            source = ast.get_source_segment(text, parse_metadata) or ""
-            if "._parse_metadata_result(" not in source or ".model_data()" not in source:
-                violations.append(
-                    f"{_rel(path)}:{node.name} _parse_metadata must project ModelParseResult"
-                )
+            if "_locate_segments" not in methods:
+                violations.append(f"{_rel(path)}:{node.name} missing _locate_segments")
+            for retired_method in ("_parse_metadata", "_split_file"):
+                if retired_method in methods:
+                    violations.append(f"{_rel(path)}:{node.name} still defines {retired_method}")
 
     assert violations == []
 
@@ -572,8 +621,11 @@ def test_complex_file_parsers_use_explicit_metadata_phase_machine() -> None:
             if not isinstance(node, ast.ClassDef) or not node.name.endswith("ParserMixin"):
                 continue
             methods = {item.name: item for item in node.body if isinstance(item, ast.FunctionDef)}
-            parse_metadata_result = methods.get("_parse_metadata_result")
+            parse_metadata_result = methods.get("_parse_segment_metadata_result")
             if parse_metadata_result is None:
+                violations.append(
+                    f"{_rel(path)}:{node.name} missing _parse_segment_metadata_result"
+                )
                 continue
             source = ast.get_source_segment(text, parse_metadata_result) or ""
             run_phase_methods = [
@@ -590,57 +642,6 @@ def test_complex_file_parsers_use_explicit_metadata_phase_machine() -> None:
             if "raise AssertionError" not in source:
                 violations.append(
                     f"{_rel(path)}:{node.name} does not reject unexpected metadata phases"
-                )
-
-    assert violations == []
-
-
-def test_complex_file_splitters_use_explicit_phase_machine() -> None:
-    violations: list[str] = []
-
-    for path in _state_machine_file_split_parser_files():
-        text = _read(path)
-        tree = ast.parse(text, filename=_rel(path))
-        phase_classes = [
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef)
-            and node.name.endswith("FileSplitPhase")
-            and any(ast.unparse(base) == "Enum" for base in node.bases)
-        ]
-        if not phase_classes:
-            violations.append(f"{_rel(path)} missing *FileSplitPhase Enum")
-            continue
-        if not any(
-            isinstance(item, ast.Assign)
-            and any(isinstance(target, ast.Name) and target.id == "DONE" for target in item.targets)
-            for phase_class in phase_classes
-            for item in phase_class.body
-        ):
-            violations.append(f"{_rel(path)} *FileSplitPhase missing DONE member")
-
-        for node in tree.body:
-            if not isinstance(node, ast.ClassDef) or not node.name.endswith("ParserMixin"):
-                continue
-            methods = {item.name: item for item in node.body if isinstance(item, ast.FunctionDef)}
-            split_file = methods.get("_split_file")
-            if split_file is None:
-                continue
-            source = ast.get_source_segment(text, split_file) or ""
-            run_phase_methods = [
-                name
-                for name in methods
-                if name.startswith("_run_") and name.endswith("_split_phase")
-            ]
-            if len(run_phase_methods) < 2:
-                violations.append(f"{_rel(path)}:{node.name} has too few split phase runners")
-            if "while phase is not" not in source or ".DONE" not in source:
-                violations.append(f"{_rel(path)}:{node.name} does not loop split until DONE")
-            if not any(f"self.{name}(" in source for name in run_phase_methods):
-                violations.append(f"{_rel(path)}:{node.name} does not dispatch split runners")
-            if "raise AssertionError" not in source:
-                violations.append(
-                    f"{_rel(path)}:{node.name} does not reject unexpected split phases"
                 )
 
     assert violations == []
@@ -1074,9 +1075,8 @@ def test_orca_input_file_parser_uses_extractor_boundary() -> None:
     retired_file_split_helpers = ORCA_INPUT_ROOT / "frame_parsers" / "_orca_inp_file_split.py"
     file_split_helpers = ORCA_INPUT_ROOT / "parsers" / "_orca_inp_file_extractors.py"
     required_calls = {
-        "build_orca_input_file_lines",
         "ensure_orca_input_content",
-        "split_orca_input_frames",
+        "locate_orca_input_frames",
     }
 
     if not file_split_helpers.exists():
@@ -1192,12 +1192,16 @@ def test_gjf_input_file_parser_uses_extractor_boundary() -> None:
     parser = GAUSSIAN_INPUT_ROOT / "parsers" / "GJFFileParser.py"
     frame_extractor = GAUSSIAN_INPUT_ROOT / "frame_parsers" / "_gjf_extractors.py"
     file_extractor = GAUSSIAN_INPUT_ROOT / "parsers" / "_gjf_file_extractors.py"
-    required_calls = {
+    required_parser_calls = {
         "ensure_gjf_content",
-        "expand_gjf_at_includes",
+        "locate_gjf_link1_frames",
+    }
+    required_file_helpers = {
+        "ensure_gjf_content",
+        "ensure_gjf_single_artifact_source",
         "find_gjf_link1_matches",
         "validate_gjf_link1_boundaries",
-        "split_gjf_link1_frames",
+        "locate_gjf_link1_frames",
     }
 
     if not frame_extractor.exists():
@@ -1221,18 +1225,18 @@ def test_gjf_input_file_parser_uses_extractor_boundary() -> None:
         if f"def {helper_name}" in text:
             violations.append(f"{_rel(parser)} still defines {helper_name}")
 
-    missing_calls = sorted(name for name in required_calls if name not in text)
+    missing_calls = sorted(name for name in required_parser_calls if name not in text)
     if missing_calls:
         violations.append(f"{_rel(parser)} missing GJF extractor calls: {missing_calls}")
     missing_file_helpers = sorted(
-        name for name in required_calls if f"def {name}" not in file_extractor_text
+        name for name in required_file_helpers if f"def {name}" not in file_extractor_text
     )
     if missing_file_helpers:
         violations.append(
             f"{_rel(file_extractor)} missing GJF file extractor helpers: {missing_file_helpers}"
         )
     misplaced_file_helpers = sorted(
-        name for name in required_calls if f"def {name}" in frame_extractor_text
+        name for name in required_file_helpers if f"def {name}" in frame_extractor_text
     )
     if misplaced_file_helpers:
         violations.append(
@@ -1359,10 +1363,16 @@ def test_orca_output_parser_uses_extractor_boundary() -> None:
         "extract_orca_output_version",
         "extract_orca_printed_input",
         "parse_orca_printed_input_metadata",
-        "split_orca_output_frames",
     ):
         if extractor_name not in file_text:
             violations.append(f"{_rel(file_parser)} does not call {extractor_name}")
+    for legacy_method in ("_parse_metadata", "_split_file"):
+        if f"def {legacy_method}" in file_text:
+            violations.append(f"{_rel(file_parser)} still defines {legacy_method}")
+    if "locate_orca_jobs" not in file_text or "locate_orca_job_frames" not in file_text:
+        violations.append(f"{_rel(file_parser)} does not use ORCA source locators")
+    if "def split_orca_output_frames" in _read(file_extractor):
+        violations.append(f"{_rel(file_extractor)} still defines split_orca_output_frames")
 
     assert violations == []
 
@@ -1383,8 +1393,6 @@ def test_g16_output_file_parser_uses_extractor_boundary() -> None:
         "extract_g16_termination_status",
         "extract_g16_title",
         "extract_g16_version",
-        "split_g16_section_frames",
-        "split_g16_sections",
     }
 
     if not file_extractor.exists():
@@ -1429,6 +1437,11 @@ def test_g16_output_file_parser_uses_extractor_boundary() -> None:
     )
     if missing_helpers:
         violations.append(f"{_rel(file_extractor)} missing G16 extractors: {missing_helpers}")
+    if "locate_g16_sections" not in file_text or "locate_g16_section_frames" not in file_text:
+        violations.append(f"{_rel(file_parser)} does not use G16 source locators")
+    for retired_splitter in ("split_g16_sections", "split_g16_section_frames"):
+        if f"def {retired_splitter}" in extractor_text:
+            violations.append(f"{_rel(file_extractor)} still defines {retired_splitter}")
 
     assert violations == []
 
@@ -1484,9 +1497,9 @@ def test_orca_printed_input_metadata_uses_orca_projection_helper() -> None:
 def test_coords_file_parsers_use_extractor_boundary() -> None:
     violations: list[str] = []
     parser_extractors = {
-        COORDS_LOGIC_ROOT / "parsers" / "XYZFileParser.py": "split_xyz_frames",
-        COORDS_LOGIC_ROOT / "parsers" / "SDFFileParser.py": "split_sdf_frames",
-        COORDS_LOGIC_ROOT / "parsers" / "SMIFileParser.py": "split_smi_frames",
+        COORDS_LOGIC_ROOT / "parsers" / "XYZFileParser.py": "locate_xyz_frames",
+        COORDS_LOGIC_ROOT / "parsers" / "SDFFileParser.py": "locate_sdf_frames",
+        COORDS_LOGIC_ROOT / "parsers" / "SMIFileParser.py": "locate_smi_frames",
     }
     frame_extractor = COORDS_LOGIC_ROOT / "frame_parsers" / "_coords_extractors.py"
     file_extractor = COORDS_LOGIC_ROOT / "parsers" / "_coords_file_extractors.py"

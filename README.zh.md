@@ -66,6 +66,9 @@ from molop.io import AutoParser
 # 解析指定路径下的所有 Gaussian log 文件
 batch = AutoParser("path/to/*.log", n_jobs=-1)
 
+# 可在一次调用中混合多个路径和通配符
+batch = AutoParser(["reactants/*.log", "products/product.log"], n_jobs=-1)
+
 # 获取第一个文件的摘要 DataFrame
 df = batch[0].to_summary_df()
 print(df)

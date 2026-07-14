@@ -39,25 +39,178 @@ MolOP 的 IO 栈刻意分成三层：**解析（parsing）**、**存储（storag
 - `src/molop/io/base_models/_format_transform.py`
 - `src/molop/io/codec_registry.py`
 
-### 插件类必须实现的行为
+### 解析插件的最低契约
 
-当你新增 parser 或 renderer 插件时，下面这些就是插件在 MolOP 中真正可用所必须具备的行为。
+本节首先约束直接加入 MolOP 仓库、位于 `src/molop/io/logic/` 下的内置 reader。一个新格式的完整 reader 需要实现三个 parser 方法和一个模块级注册函数：
 
-- **插件模块必须暴露 `register(registry)`。** builtin 与第三方 codec 的发现都依赖这个函数。
-- **Reader 插件必须至少注册一个 `Registry.reader_factory(...)` 条目。** 对应 reader 需要能通过 `read(...)` 路径返回解析后的文件对象。
-- **如果插件注册 file-domain writer，那么文件模型必须实现 `FileMixin._render_frames_in_one_file(...)`。** 这是 `embed_in_one_file=True` 时的标准入口。
-- **如果插件注册 file-domain writer，那么文件模型必须实现 `FileMixin._render_frames(...)`。** 这是需要逐帧输出时的标准入口。
+| 所属类 | 必需成员 | 职责 |
+| --- | --- | --- |
+| file parser mixin | `format_id` | 声明小写、去空格后的规范格式标识。 |
+| file parser mixin | `_quick_check_file_format()` | 检查文件前部可用的稳定指纹；不执行完整解析。 |
+| file parser mixin | `_locate_segments()` | 返回原文中所有 segment 及其 frame 的精确字符区间。 |
+| frame parser mixin | `_parse_frame()` | 将一个 locator 原文切片解析成目标 frame model 的字段 mapping。 |
+| `*FileParser.py` 模块 | `register(registry)` | 向 registry 注册 disk reader。 |
+
+只计算 file parser 本身时是两个必需方法；把 frame parser 计算在内时，完整 reader 是三个必需方法。`register(registry)` 是模块集成函数，不是 parser 方法。
+
+还必须完成以下类绑定，但不需要增加方法：
+
+- disk file parser 声明 `allowed_formats`、`_frame_parser` 和 `_chem_file`
+- disk frame parser 声明 `_file_frame_class_`
+- 为格式选择 `BaseCoordsFile` / `BaseQMInputFile` / `BaseCalcFile` 及对应 frame 基类
+- 格式专用数据直接定义在专用 file/frame model 上；parser 返回值的 key 必须与模型字段一致
+- memory file/frame parser 不是 `AutoParser` 注册所必需的，但推荐提供，便于字符串解析和 locator 单元测试
+
+不得实现或重新引入 `_split_file()`、`_parse_metadata()`。`_locate_segments()` 是 segment/frame 边界和送入 frame parser 的原文内容的唯一事实源。
+
+#### Locator 约束
+
+`_locate_segments()` 必须返回非空的 `Sequence[LocatedSourceSegment]`，并遵守以下规则：
+
+- `LocatedTextBlock(start_char, end_char)` 使用原始 `file_content` 上的非空半开字符区间 `[start_char, end_char)`。
+- segment 必须按原文顺序排列且互不重叠；每个 frame 必须完全包含在所属 segment 内，并在该 segment 内有序且互不重叠。
+- segment 包含 frame 时，这些 frame 区间必须覆盖 segment 内全部非空白字符。允许纯空白间隙，例如 SMILES 记录之间的空行；零帧 segment 可以保留任意 job metadata。
+- 不得先 `.strip()`、规范化换行或 split/rejoin 再计算区间。优先使用正则 `match.span()`，或 `splitlines(keepends=True)` 配合累计字符偏移。
+- 普通多构象文件通常用“整个 artifact 一个 segment、内部多个 frame”；多 job 输入通常每个 job 一个 segment；计算输出通常每个 job 一个 segment、内部包含多个几何 frame。
+- segment 可以没有 frame，例如没有打印坐标的计算 job；不得伪造空 frame 或把相邻 job 的坐标归入该 segment。
+- 找不到合法 segment，或格式语义要求 frame 但未找到 frame 时，抛出 `FormatMismatchError` 或明确的解析错误；不得返回重建后的文本。
+
+插件只返回字符区间，不自行创建 `SourceSpan`。基类使用同一次严格解码把字符区间转换为 byte/character/line span，并计算原文块 SHA-256。locator 始终参与解析；`capture_source_evidence` 只控制是否把 span 和 hash 写入输出模型。
+
+`_quick_check_file_format()` 同时用于完整解析前检查和自动探测。自动探测默认只读取文件前 `20_000` 个字符，因此有稳定头部指纹时应在这里检查，并在不匹配时抛出 `FormatMismatchError`；不要依赖文件尾终止标志。没有廉价、稳定指纹的格式可以有意识地使用空实现，但 locator 或 frame extractor 必须最终拒绝不匹配内容。
+
+#### 最小 reader 骨架
+
+以下骨架假定 `MyFmtFileDisk`、`MyFmtFrameDisk` 以及格式专用 extractor 已经定义。复杂提取逻辑应放进 extractor 模块，不要堆积在 parser 类中。
+
+```python
+from __future__ import annotations
+
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any, ClassVar, cast
+
+from molop.io.base_models.FileParser import BaseFileParserDisk
+from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
+from molop.io.base_models.source import LocatedSourceSegment, LocatedTextBlock
+from molop.io.codec_exceptions import FormatMismatchError
+from molop.io.logic.myfmt.frame_models.MyFmtFrame import MyFmtFrameDisk
+from molop.io.logic.myfmt.frame_parsers._myfmt_extractors import (
+    extract_myfmt_frame_payload,
+)
+from molop.io.logic.myfmt.models.MyFmtFile import MyFmtFileDisk
+from molop.io.logic.myfmt.parsers._myfmt_file_extractors import (
+    has_myfmt_header,
+    locate_myfmt_frames,
+)
+
+if TYPE_CHECKING:
+    from molop.io.codec_registry import Registry
+
+
+class MyFmtFrameParserMixin:
+    def _parse_frame(self) -> Mapping[str, Any]:
+        block = cast(_HasParseMethod, self)._block
+        return extract_myfmt_frame_payload(block)
+
+
+class MyFmtFrameParserDisk(MyFmtFrameParserMixin, BaseFrameParser[MyFmtFrameDisk]):
+    _file_frame_class_ = MyFmtFrameDisk
+
+
+class MyFmtFileParserMixin:
+    format_id: ClassVar[str] = "myfmt"
+
+    @classmethod
+    def _quick_check_file_format(cls, file_content: str) -> None:
+        if not has_myfmt_header(file_content):
+            raise FormatMismatchError("Not a myfmt file.")
+
+    def _locate_segments(
+        self,
+        file_content: str,
+    ) -> Sequence[LocatedSourceSegment]:
+        frames: tuple[LocatedTextBlock, ...] = locate_myfmt_frames(file_content)
+        return (
+            LocatedSourceSegment(
+                segment=LocatedTextBlock(0, len(file_content)),
+                frames=frames,
+            ),
+        )
+
+
+class MyFmtFileParserDisk(
+    MyFmtFileParserMixin,
+    BaseFileParserDisk[MyFmtFileDisk, MyFmtFrameDisk, MyFmtFrameParserDisk],
+):
+    allowed_formats = (".myfmt",)
+    _frame_parser = MyFmtFrameParserDisk
+    _chem_file = MyFmtFileDisk
+
+
+def register(registry: Registry) -> None:
+    from molop.io.codecs._shared.reader_helpers import (
+        ParserDiskReader,
+        ReaderCodec,
+        StructureLevel,
+        extensions_for_parser,
+    )
+
+    extensions = frozenset(extensions_for_parser(MyFmtFileParserDisk))
+
+    @registry.reader_factory(
+        format_id=MyFmtFileParserDisk.format_id,
+        extensions=extensions,
+        priority=100,
+    )
+    def _reader() -> ReaderCodec:
+        return cast(
+            ReaderCodec,
+            ParserDiskReader(
+                format_id=MyFmtFileParserDisk.format_id,
+                extensions=extensions,
+                level=StructureLevel.COORDS,
+                parser_cls=MyFmtFileParserDisk,
+                priority=100,
+            ),
+        )
+```
+
+`StructureLevel.COORDS` 用于以原子和坐标为最低保证的 reader；只有能够保证合法分子图时才声明 `StructureLevel.GRAPH`。
+
+#### 可选 file parser 钩子
+
+| 钩子 | 适用场景 |
+| --- | --- |
+| `_parse_artifact_metadata()` | 软件名称、版本等对整个 artifact 生效的 metadata。 |
+| `_parse_segment_metadata()` | route、运行时间、终止状态等单个 job/segment metadata。 |
+| `_prepare_file_metadata()` | 聚合多个 segment 后生成文件级 metadata。 |
+| `_postprocess_parsed_frame()` | frame append 前执行格式拥有的跨帧修正。 |
+| `_source_frame_role()` | 标记 `initial`、`intermediate`、`terminal`、`single_point` 等 frame role。 |
+| `_source_frame_fields()` | 填充 `coordinate_source` 等格式专用来源字段。 |
+| `_update_file_metadata_from_frames()` | 在所有 frame 解析后，从首帧或末帧回填文件字段。 |
+
+没有对应语义时不要覆盖这些钩子。文件级 metadata 只放 `_parse_artifact_metadata()`，segment-scoped metadata 只放 `_parse_segment_metadata()`；不要把终止状态等 segment 事实无条件复制成每帧事实。
+
+#### 内置与外部注册边界
+
+- **MolOP 仓库内置格式**：将公开模块放在 `src/molop/io/logic/` 下，并以 `*File.py` 或 `*FileParser.py` 结尾；模块暴露 `register(registry)` 后，builtin catalog 会自动扫描并延迟注册。无需修改 MolOP 的 `pyproject.toml`，也不需要 entry point。
+- **独立发行的第三方包**：不在 builtin 扫描范围内，必须通过其自身 `pyproject.toml` 的 `molop.codecs` entry point 暴露可调用的 `register(registry)`，除非宿主应用显式手工注册。
+
+参考实现：
+
+- 最小坐标 reader：`src/molop/io/logic/coords/parsers/XYZFileParser.py`
+- 多 job 输入 locator：`src/molop/io/logic/gaussian/input/parsers/GJFFileParser.py`
+- 多 segment 计算输出：`src/molop/io/logic/gaussian/log/parsers/G16LogFileParser.py`
+- 第三方加载边界：`src/molop/io/codecs/catalog.py`
+
+### Renderer 插件必须实现的行为
+
+- **如果插件注册 file-domain writer，那么文件模型必须提供 `FileMixin` 的文件组合语义。** 默认实现会调用每个 frame 的 `_render()`；只有全文格式需要覆盖 `_render_frames_in_one_file(...)` 或 `_render_frames(...)`。
 - **如果插件注册 `domain="frame"`，那么帧模型必须实现 `frame._render(**kwargs)`。** `FrameRendererWriter` 依赖 frame 类自己定义单帧渲染语义。
 - **如果格式只支持全文语义，就必须只注册 `domain="file"`。** 如果没有合法的单帧语义，就不要额外增加 frame writer。
 - **如果原始格式里有重要的指令或输出区块，插件应尽量保留 raw text。** 这样才能支持 round-trip 和格式特定渲染。
 
-参考实现：
-
-- 同时支持 file/frame 渲染：`src/molop/io/logic/coords/models/XYZFile.py` 与 `src/molop/io/logic/coords/frame_models/XYZFileFrame.py`
-- 仅文件渲染：`src/molop/io/logic/gaussian/log/models/G16LogFile.py`
-- reader 注册：`src/molop/io/logic/gaussian/input/parsers/GJFFileParser.py`
-
-### 最小插件示例
+### 最小 renderer 示例
 
 下面的例子展示了一个同时支持 file 和 frame 渲染的最小可用插件骨架。如果你的格式只支持全文输出，那么就像 `G16LogFile.py` 里的 fakeG 一样，直接省略 frame writer factory。
 
@@ -249,7 +402,8 @@ sequenceDiagram
         Registry-->>API: 按优先级排序的 ReaderCodec
         API->>Reader: read(path)
         Reader->>FileParser: 解析原始文件内容
-        FileParser->>FrameParser: 切分文件并解析帧 payload
+        FileParser->>FileParser: 定位原文 segment/frame span
+        FileParser->>FrameParser: 解析 locator 原文切片
         FrameParser->>FrameModel: 构建结构化帧对象
         FileParser->>FileModel: 组装文件对象并 append 帧
         FileModel-->>API: 返回解析后的文件模型
@@ -327,6 +481,8 @@ sequenceDiagram
 
 新的 reader / writer 只有在模块暴露 `register(registry)` 函数之后，才会被 builtin codec loader 延迟注册。Builtin codec loader 会递归扫描 `src/molop/io/logic` 下公开的 `*File.py` 和 `*FileParser.py` 模块，不需要为新增格式维护固定目录列表。
 
+这里描述的是 MolOP 仓库内置格式。它们不需要在 `pyproject.toml` 中声明 `molop.codecs` entry point。entry point 仅用于 builtin 扫描范围之外、作为独立 Python 包安装的第三方插件。
+
 对于 reader：
 
 - 使用 `Registry.reader_factory(...)`
@@ -362,7 +518,7 @@ sequenceDiagram
 
 ### 需要同步的生成面
 
-reader / writer 注册变化会影响生成的 typing，因此在同一工作会话里要同步检查或生成：
+MolOP 内置 reader / writer 的注册变化会影响生成的 typing，因此在同一工作会话里要同步检查或生成：
 
 - `uv run python scripts/generate_io_typing_catalog.py`
 - `uv run python scripts/generate_chemfile_format_transform_stubs.py`
@@ -378,9 +534,12 @@ reader / writer 注册变化会影响生成的 typing，因此在同一工作会
 在提交新的 parser / renderer 插件前，请确认：
 
 1. 文件模型与帧模型职责分离清晰
-2. 原始输入/输出文本在需要时被保留
-3. 文件容器可以稳定重复遍历
-4. 注册时 `domain` 选择正确
-5. 仅文件格式不会意外暴露 frame writer
-6. 生成的 stubs 与 CLI typing 已同步更新
-7. 至少有一个有针对性的测试证明新格式确实可解析或可渲染
+2. file parser 只实现 locator-only 生命周期，没有 `_split_file()` 或 `_parse_metadata()`
+3. LF、CRLF、非 ASCII、多 frame 和 `only_last_frame` 测试验证了原文 slice、byte span 与 SHA-256
+4. `_quick_check_file_format()` 只依赖探测前缀；有稳定指纹时以 `FormatMismatchError` 拒绝不匹配内容
+5. 原始输入/输出文本在需要时被保留
+6. 文件容器可以稳定重复遍历
+7. 内置格式通过模块级 `register(registry)` 注册，没有不必要的 `pyproject.toml` entry point
+8. writer 注册使用正确 `domain`，仅文件格式不会意外暴露 frame writer
+9. 生成的 stubs 与 CLI typing 已同步更新
+10. 至少有一个有针对性的测试证明新格式确实可解析或可渲染

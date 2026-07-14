@@ -26,6 +26,10 @@ The legacy `refresh_common_qm_containers()` method is kept for existing callers 
 
 `QMModelChemistry` describes model chemistry:
 
+- `method` is the stable concrete electronic-structure method used for matching
+  and protocol identity. Gaussian `R`, `U`, and `RO` prefixes are removed from
+  this value and retained separately in `spin_treatment`; the original route
+  token remains available in Gaussian's semantic route evidence.
 - Functionals and dispersion belong to the same model-chemistry expression. Gaussian and ORCA both append the dispersion suffix to `functional`, such as `B3LYP-GD3BJ`.
 - `dispersion_correction` also stores the normalized dispersion label, such as `GD3BJ` or `D4`.
 - `basis_sets` stores mixed basis sets, auxiliary basis sets, ECPs, and atom-scoped overrides. `basis_set` stores only the primary global orbital basis.
@@ -47,10 +51,14 @@ The legacy `refresh_common_qm_containers()` method is kept for existing callers 
 
 New parser logic should follow this flow:
 
-1. Parse program-specific syntax into program-specific semantic models.
-2. Build common structured containers.
-3. If resource or keyword data was initially parsed into legacy fields, use `backfill_common_qm_containers_from_legacy()` only to fill empty structured fields.
-4. Call `project_common_qm_fields()` to update compatibility fields.
-5. Test structured fields and compatibility-field projections together.
+1. Declare a canonical `format_id`, implement `_quick_check_file_format()` and `_locate_segments()` on the file parser, and locate original source ranges directly.
+2. Implement `_parse_artifact_metadata()` or `_parse_segment_metadata()` only when that scope has metadata.
+3. Parse program-specific syntax into semantic models and build common structured containers.
+4. If resource or keyword data was initially parsed into legacy fields, use `backfill_common_qm_containers_from_legacy()` only to fill empty structured fields.
+5. Call `project_common_qm_fields()` and test structured fields and compatibility projections together.
+
+Do not reintroduce `_split_file()` or `_parse_metadata()`. The locator is the
+only source of truth for segment/frame boundaries and the source slices sent to
+the frame parser.
 
 Do not store new semantics only in `keywords`, `resources_raw`, or `options`. `options` is reserved for program-specific details that do not yet have a common field.

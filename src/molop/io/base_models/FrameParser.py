@@ -22,22 +22,26 @@ FrameT = TypeVar("FrameT", bound=BaseChemFileFrame)
 
 class _HasParseMethod(Protocol):
     only_extract_structure: bool
+    capture_source_evidence: bool
     _block: str
+    _additional_data: Mapping[str, Any]
 
     def parse(self, block: str, *, additional_data: dict[str, Any] | None = None) -> Any: ...
 
 
 class BaseFrameParser(BaseDataClassWithUnit, Generic[FrameT]):
     only_extract_structure: bool = Field(default=False, exclude=True, repr=False)
+    capture_source_evidence: bool = Field(default=False, exclude=True, repr=False)
     _file_frame_class_: type[FrameT] = PrivateAttr()
     _block: str = ""
+    _additional_data: Mapping[str, Any] = PrivateAttr(default_factory=dict)
 
     def parse(self, block: str, *, additional_data: dict[str, Any] | None = None) -> FrameT:
         self._block = block
+        self._additional_data = additional_data if additional_data is not None else {}
         temp_dict = {"frame_content": block}
         temp_dict.update(self._parse_frame())
-        if additional_data is not None:
-            temp_dict.update(additional_data)
+        temp_dict.update(self._additional_data)
         return cast(FrameT, self._file_frame_class_.model_validate(temp_dict))
 
     @abstractmethod
@@ -46,7 +50,10 @@ class BaseFrameParser(BaseDataClassWithUnit, Generic[FrameT]):
 
     def to_summary_dict(self, **kwargs) -> SummaryDict:
         return {
-            summary_column("FrameParser", "only_extract_structure"): self.only_extract_structure
+            summary_column("FrameParser", "only_extract_structure"): self.only_extract_structure,
+            summary_column("FrameParser", "capture_source_evidence"): (
+                self.capture_source_evidence
+            ),
         }
 
 

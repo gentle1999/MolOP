@@ -15,8 +15,6 @@ from molop.unit import atom_ureg
 from molop.utils.functions import find_rigid_transform
 
 
-SPLIT_PATTERN = "Input orientation:"
-SPLIT_PATTERN_2 = "Standard orientation:"
 _GAUSSIAN_PROBE_BYTES = 20000
 _GAUSSIAN_FINGERPRINTS = (
     "Entering Gaussian System",
@@ -32,34 +30,13 @@ def ensure_g16_output_content(file_content: str) -> None:
         raise FormatMismatchError("Not a Gaussian output file.")
 
 
-def split_g16_sections(file_content: str) -> list[str]:
-    matches = g16_log_patterns.LINK1_SECTION.find_matches(file_content)
-    if not matches:
-        return [file_content]
-    sections: list[str] = []
-    for idx, matched in enumerate(matches):
-        next_start = matches[idx + 1].start() if idx + 1 < len(matches) else len(file_content)
-        sections.append(file_content[matched.start() : next_start])
-    return [section for section in sections if section.strip()]
+def extract_g16_artifact_version(file_content: str) -> str | None:
+    """Extract the stable Gaussian version token from the bounded file prefix."""
 
-
-def split_g16_section_frames(section_content: str) -> list[str]:
-    split_ = SPLIT_PATTERN
-    if SPLIT_PATTERN in section_content:
-        split_ = SPLIT_PATTERN
-    elif SPLIT_PATTERN_2 in section_content:
-        split_ = SPLIT_PATTERN_2
-    else:
-        return []
-    fragments = section_content.split(split_)
-    header = fragments[0]
-    frame_contents: list[str] = []
-    for idx, fragment in enumerate(fragments[1:]):
-        frame_block = f"{split_}\n{fragment}"
-        if idx == 0 and header.strip():
-            frame_block = f"{header}{frame_block}"
-        frame_contents.append(frame_block)
-    return frame_contents
+    prefix = file_content[:_GAUSSIAN_PROBE_BYTES]
+    if matches := g16_log_patterns.VERSION_TOKEN.find_matches(prefix):
+        return matches[0].group("version")
+    return None
 
 
 def first_frame_value(frames: Sequence[Any], field: str) -> Any:
@@ -200,15 +177,32 @@ def extract_g16_running_time(context: TextParseContext) -> PlainQuantity | None:
     return None
 
 
-def extract_g16_termination_status(context: TextParseContext) -> Status | None:
+def extract_g16_termination_status(
+    context: TextParseContext,
+    *,
+    include_termination: bool = True,
+) -> Status | None:
     status_dict: dict[str, Any] = {}
-    if matches := g16_log_patterns.TERMINATION_STATUS.find_matches(context.content):
+    if include_termination and (
+        matches := g16_log_patterns.TERMINATION_STATUS.find_matches(context.content)
+    ):
         status = matches[-1].group("status")
-        if status == "Normal":
-            status_dict["normal_terminated"] = True
-            status_dict["scf_converged"] = True
-        else:
-            status_dict["normal_terminated"] = False
+        status_dict["normal_terminated"] = status == "Normal"
+
+    scf_evidence = [
+        (matched.start(), True)
+        for matched in g16_log_patterns.SCF_ENERGY_AND_FUNCTIONAL.find_matches(context.content)
+    ]
+    for marker in (
+        "Convergence failure -- run terminated.",
+        "SCF has not converged",
+        "SCF failed to converge",
+    ):
+        marker_start = context.content.rfind(marker)
+        if marker_start >= 0:
+            scf_evidence.append((marker_start, False))
+    if scf_evidence:
+        status_dict["scf_converged"] = max(scf_evidence, key=lambda evidence: evidence[0])[1]
     if status_dict:
         return Status.model_validate(status_dict)
     return None

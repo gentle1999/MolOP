@@ -30,12 +30,16 @@ class ParserDiskReader:
         total_multiplicity = kwargs.pop("total_multiplicity", None)
         only_extract_structure = kwargs.pop("only_extract_structure", False)
         only_last_frame = kwargs.pop("only_last_frame", False)
+        capture_source_evidence = kwargs.pop("capture_source_evidence", False)
+        source_encoding = kwargs.pop("source_encoding", "utf-8")
         release_file_content = kwargs.pop("release_file_content", True)
         parser = self.parser_cls(
             forced_charge=total_charge,
             forced_multiplicity=total_multiplicity,
             only_extract_structure=only_extract_structure,
             only_last_frame=only_last_frame,
+            capture_source_evidence=capture_source_evidence,
+            source_encoding=source_encoding,
         )
         value = parser.parse(
             str(path),

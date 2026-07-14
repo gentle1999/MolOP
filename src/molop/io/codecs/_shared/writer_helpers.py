@@ -112,7 +112,7 @@ class FileRendererWriter:
             return None
         normalized_file_path = os.fspath(file_path)
         dir_path = os.path.dirname(normalized_file_path)
-        base = os.path.basename(normalized_file_path).split(".")[0]
+        base = os.path.splitext(os.path.basename(normalized_file_path))[0]
         return os.path.join(dir_path, f"{base}.{self.format_id}")
 
     def _derive_frame_file_paths(
@@ -131,7 +131,7 @@ class FileRendererWriter:
                 for frame in typed_value.frames
             }
         dir_path = os.path.dirname(derived_file_path)
-        base = os.path.basename(derived_file_path).split(".")[0]
+        base = os.path.splitext(os.path.basename(derived_file_path))[0]
         return {
             frame.frame_id: os.path.join(
                 dir_path,
@@ -166,7 +166,7 @@ class FrameRendererWriter:
             return None
         normalized_file_path = os.fspath(file_path)
         dir_path = os.path.dirname(normalized_file_path)
-        base = os.path.basename(normalized_file_path).split(".")[0]
+        base = os.path.splitext(os.path.basename(normalized_file_path))[0]
         return os.path.join(dir_path, f"{base}.{self.format_id}")
 
 

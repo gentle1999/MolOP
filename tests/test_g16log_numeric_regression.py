@@ -8,6 +8,10 @@ from molop.io.logic.gaussian.log.frame_parsers._g16_extractors import (
     extract_archive_tail_payload_from_state,
 )
 from molop.io.logic.gaussian.log.frame_parsers._g16_shared import _extract_labeled_float_tokens
+from molop.io.logic.gaussian.log.locators import (
+    locate_g16_section_frames,
+    locate_g16_sections,
+)
 from molop.io.logic.gaussian.log.parsers._g16_log_patterns import g16_log_patterns
 from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
 
@@ -21,6 +25,14 @@ TERMINAL_ARCHIVE_ENERGY_FIXTURE = (
     / "g16log"
     / "000000000000_000016928457_00_conf_01_ts.107c60f3cfcb.log"
 )
+
+
+def _located_frame_texts(file_content: str) -> list[str]:
+    return [
+        frame.text(file_content)
+        for section in locate_g16_sections(file_content)
+        for frame in locate_g16_section_frames(file_content, section)
+    ]
 
 
 def test_g16log_patterns_expose_named_groups_for_parser_fields() -> None:
@@ -52,6 +64,32 @@ def test_default_g16log_parser_handles_concatenated_frequency_values() -> None:
     assert len(vibrations.reduced_masses) == 51
     assert len(vibrations.force_constants) == 51
     assert len(vibrations.IR_intensities) == 51
+    assert vibrations.axis_order == ("mode", "atom", "cartesian")
+    assert vibrations.atom_order == "source"
+    assert vibrations.normalization == "unknown"
+    assert vibrations.mass_weighting == "unknown"
+
+
+def test_g16log_vibrational_temperatures_reference_frequency_mode_indices() -> None:
+    frame = AutoParser(
+        str(TERMINAL_ARCHIVE_ENERGY_FIXTURE),
+        parser_detection="g16log",
+        n_jobs=1,
+    )[0][-1]
+
+    assert frame.vibrations is not None
+    assert frame.thermal_informations is not None
+    temperatures = frame.thermal_informations.vibrational_temperatures
+    mode_indices = frame.thermal_informations.vibrational_temperature_mode_indices
+    assert temperatures is not None
+    assert mode_indices is not None
+    expected_indices = [
+        mode_index
+        for mode_index, frequency in enumerate(frame.vibrations.frequencies)
+        if frequency.magnitude > 0
+    ]
+    assert mode_indices == expected_indices
+    assert len(mode_indices) == len(temperatures)
 
 
 def test_extract_labeled_float_tokens_handles_concatenated_polarizability_values() -> None:
@@ -101,14 +139,15 @@ def test_default_g16log_parser_uses_archive_energy_for_terminal_frequency_frame(
     last_frame = file_model[-1]
 
     assert file_model.is_error is False
-    assert last_frame.is_error is False
+    assert last_frame.status is None
+    assert last_frame.is_error is None
     assert last_frame.energies is not None
     assert last_frame.energies.reference_energy is not None
     assert last_frame.energies.reference_energy.to("hartree").m == pytest.approx(-502.1233491)
 
 
 def test_g16log_archive_tail_payload_extracts_thermal_and_polar_fields() -> None:
-    frames = G16LogFileParserMemory()._split_file(TERMINAL_ARCHIVE_ENERGY_FIXTURE.read_text())
+    frames = _located_frame_texts(TERMINAL_ARCHIVE_ENERGY_FIXTURE.read_text())
 
     optimization_tail = extract_archive_tail_payload_from_state(ParseState(frames[25]))
     optimization_polar = optimization_tail["polarizability"]

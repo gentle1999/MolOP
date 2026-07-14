@@ -39,6 +39,12 @@ from molop.io.base_models.DataClasses import (
     QMTaskRequest,
     Status,
 )
+from molop.io.base_models.source import (
+    ParseCompleteness,
+    ParseDiagnostic,
+    ParserProvenance,
+    SourceSegmentEvidence,
+)
 from molop.io.base_models.summary import SummaryDict, build_summary_df, summary_column, summary_item
 from molop.io.frame_selection import FrameSelector, normalize_frame_selector
 from molop.unit import atom_ureg
@@ -59,8 +65,64 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
     _frames_: list[FrameT] = PrivateAttr(default_factory=list)
 
     file_content: str = Field(default="", description="File content.", repr=False, exclude=True)
+    schema_version: Literal["molop-calculation-export-v1"] = Field(
+        default="molop-calculation-export-v1",
+        frozen=True,
+        description="Version of the public calculation-export field semantics",
+    )
+    parser_provenance: ParserProvenance | None = Field(
+        default=None,
+        description="Parser versions and effective configuration captured for this parse",
+        exclude_if=lambda value: value is None,
+    )
+    source_format: str | None = Field(
+        default=None,
+        min_length=1,
+        description="Canonical parser format identifier for the source artifact",
+        exclude_if=lambda value: value is None,
+    )
     charge: int = Field(default=0, description="charge")
     multiplicity: int = Field(default=1, description="multiplicity")
+    artifact_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        description="SHA-256 digest of the parsed source artifact",
+        exclude_if=lambda value: value is None,
+    )
+    artifact_size_bytes: int | None = Field(
+        default=None,
+        ge=0,
+        description="Size of the parsed source artifact in bytes",
+        exclude_if=lambda value: value is None,
+    )
+    source_encoding: str | None = Field(
+        default=None,
+        description="Encoding used to decode the source artifact",
+        exclude_if=lambda value: value is None,
+    )
+    source_segments: list[SourceSegmentEvidence] = Field(
+        default_factory=list,
+        description="Typed source identity and segment-scoped calculation evidence",
+        exclude_if=lambda value: len(value) == 0,
+    )
+    source_complete: bool | None = Field(
+        default=None,
+        description=(
+            "Whether every locator-provided source frame is retained. This is source coverage, "
+            "not scientific parse completeness."
+        ),
+        exclude_if=lambda value: value is None,
+    )
+    source_diagnostics: list[ParseDiagnostic] = Field(
+        default_factory=list,
+        description="Structured diagnostics captured by the normal parser lifecycle",
+        exclude_if=lambda value: len(value) == 0,
+    )
+    parse_completeness: ParseCompleteness = Field(
+        default=ParseCompleteness.NOT_ASSESSED,
+        description="Completeness of the requested scientific parsing work",
+        exclude_if=lambda value: value is ParseCompleteness.NOT_ASSESSED,
+    )
 
     @property
     def file_size(self) -> int:

@@ -9,17 +9,17 @@ Description: 请填写简介
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, ClassVar
 
 from molop.io.base_models.FileParser import BaseFileParserDisk, BaseFileParserMemory
-from molop.io.base_models.ParseContainers import ModelParseResult
+from molop.io.base_models.source import LocatedSourceSegment, LocatedTextBlock
 from molop.io.logic.coords.frame_models.SMIFileFrame import SMIFileFrameDisk, SMIFileFrameMemory
 from molop.io.logic.coords.frame_parsers.SMIFileFrameParser import (
     SMIFileFrameParserDisk,
     SMIFileFrameParserMemory,
 )
 from molop.io.logic.coords.models.SMIFile import SMIFileDisk, SMIFileMemory
-from molop.io.logic.coords.parsers._coords_file_extractors import split_smi_frames
+from molop.io.logic.coords.parsers._coords_file_extractors import locate_smi_frames
 
 
 if TYPE_CHECKING:
@@ -27,19 +27,20 @@ if TYPE_CHECKING:
 
 
 class SMIFileParserMixin:
+    format_id: ClassVar[str] = "smi"
+
     @classmethod
     def _quick_check_file_format(cls, file_content: str) -> None:
         _ = file_content
 
-    def _parse_metadata_result(self, file_content: str) -> ModelParseResult:
-        _ = file_content
-        return ModelParseResult()
-
-    def _parse_metadata(self, file_content: str) -> dict[str, Any]:
-        return self._parse_metadata_result(file_content).model_data()
-
-    def _split_file(self, file_content: str) -> Sequence[str]:
-        return split_smi_frames(file_content)
+    def _locate_segments(self, file_content: str) -> Sequence[LocatedSourceSegment]:
+        frames = locate_smi_frames(file_content)
+        return (
+            LocatedSourceSegment(
+                segment=LocatedTextBlock(0, len(file_content)),
+                frames=frames,
+            ),
+        )
 
 
 class SMIFileParserMemory(
@@ -77,12 +78,16 @@ def register(registry: Registry) -> None:
     extensions = frozenset(extensions_for_parser(SMIFileParserDisk))
     priority = 100
 
-    @registry.reader_factory(format_id="smi", extensions=extensions, priority=priority)
+    @registry.reader_factory(
+        format_id=SMIFileParserDisk.format_id,
+        extensions=extensions,
+        priority=priority,
+    )
     def _factory() -> ReaderCodec:
         return cast(
             ReaderCodec,
             ParserDiskReader(
-                format_id="smi",
+                format_id=SMIFileParserDisk.format_id,
                 extensions=extensions,
                 level=StructureLevel.COORDS,
                 parser_cls=SMIFileParserDisk,

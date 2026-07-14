@@ -21,7 +21,7 @@ def test_g16log_autoparser_exposes_stable_file_and_frame_fields() -> None:
     assert parsed_file.qm_software_version == "ES64L-G16RevC.01"
     assert parsed_file.method == frame.method == "DFT"
     assert parsed_file.basis_set == frame.basis_set == "pseudopotential"
-    assert parsed_file.functional == frame.functional == "RB3LYP"
+    assert parsed_file.functional == frame.functional == "B3LYP"
     assert parsed_file.charge == frame.charge == 0
     assert parsed_file.multiplicity == frame.multiplicity == 1
 
@@ -32,8 +32,11 @@ def test_g16log_autoparser_exposes_stable_file_and_frame_fields() -> None:
     assert frame.standard_coords.shape == (101, 3)
     assert frame.standard_orientation_transformation_matrix is not None
 
+    assert parsed_file.status.normal_terminated is True
+    assert parsed_file.is_error is False
     assert frame.status is not None
-    assert frame.status.normal_terminated is True
+    assert frame.status.scf_converged is True
+    assert frame.status.normal_terminated is None
     assert frame.is_error is False
     assert frame.is_normal is True
 
@@ -63,10 +66,29 @@ def test_g16log_public_qm_result_fields_are_available() -> None:
     assert len(frame.molecular_orbitals.alpha_energies) == 1050
     assert frame.forces is not None
     assert frame.forces.shape == (101, 3)
+    assert frame.forces_axis_order == ("atom", "cartesian")
+    assert frame.forces_atom_order == "source"
+    assert frame.forces_orientation == "unknown"
     assert frame.hessian is not None
     assert frame.hessian.shape == (303, 303)
+    assert frame.hessian_axis_order == ("atom_cartesian", "atom_cartesian")
+    assert frame.hessian_atom_order == "source"
+    assert frame.hessian_orientation == "unknown"
     assert frame.polarizability is not None
     assert frame.polarizability.dipole is not None
+
+
+def test_g16log_force_and_hessian_conventions_are_machine_readable() -> None:
+    frame = _parse_fixture()[-1]
+
+    assert frame.forces is not None
+    assert frame.forces_axis_order == ("atom", "cartesian")
+    assert frame.forces_atom_order == "source"
+    assert frame.forces_orientation == "unknown"
+    assert frame.hessian is not None
+    assert frame.hessian_axis_order == ("atom_cartesian", "atom_cartesian")
+    assert frame.hessian_atom_order == "source"
+    assert frame.hessian_orientation == "unknown"
 
 
 def test_g16log_internal_component_state_is_not_serialized_as_public_model_data() -> None:

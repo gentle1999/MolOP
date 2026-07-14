@@ -8,12 +8,11 @@ from molop.io.logic.gaussian.input.frame_parsers.GJFFileFrameParser import (
 from molop.io.logic.gaussian.input.parsers.GJFFileParser import GJFFileParserMemory
 
 
-def test_gjf_file_parser_metadata_result_is_model_ready() -> None:
+def test_gjf_file_parser_artifact_metadata_is_model_ready() -> None:
     parser = GJFFileParserMemory()
-    result = parser._parse_metadata_result("#p hf/3-21g\n\ntitle\n\n0 1\nH 0 0 0\n")
+    metadata = parser._parse_artifact_metadata("#p hf/3-21g\n\ntitle\n\n0 1\nH 0 0 0\n")
 
-    assert isinstance(result, ModelParseResult)
-    assert result.model_data() == {
+    assert metadata == {
         "qm_software": "Gaussian",
         "qm_software_version": "Any",
     }

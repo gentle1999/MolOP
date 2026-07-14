@@ -230,28 +230,27 @@ def _is_basis_like(token: str) -> bool:
 def _normalize_spin_and_method(token: str) -> tuple[str, str | None, str | None]:
     lowered = token.lower()
     spin_qualifier = None
-    for prefix in ("ro", "ru", "rh", "uh", "u", "r"):
-        if (
-            lowered.startswith(prefix)
-            and lowered not in _DFT_FUNCTIONALS
-            and lowered not in _METHOD_FAMILY_MAP
-        ):
-            continue
+    semi_empirical_methods = {semi.lower() for semi in SEMI_EMPIRICAL_METHODS}
     for prefix, tag in (("ro", "RO"), ("u", "U"), ("r", "R")):
+        unprefixed = lowered[len(prefix) :]
         if (
             lowered.startswith(prefix)
             and lowered not in _DFT_FUNCTIONALS
-            and lowered[len(prefix) :] in _METHOD_FAMILY_MAP
+            and (
+                unprefixed in _DFT_FUNCTIONALS
+                or unprefixed in _METHOD_FAMILY_MAP
+                or unprefixed in semi_empirical_methods
+            )
         ):
             spin_qualifier = tag
-            lowered = lowered[len(prefix) :]
+            lowered = unprefixed
             break
 
     if lowered in _DFT_FUNCTIONALS:
         return token, spin_qualifier, "DFT"
     if lowered in _METHOD_FAMILY_MAP:
         return token, spin_qualifier, _METHOD_FAMILY_MAP[lowered]
-    if lowered in {semi.lower() for semi in SEMI_EMPIRICAL_METHODS}:
+    if lowered in semi_empirical_methods:
         return token, spin_qualifier, "SEMI-EMPIRICAL"
     return token, spin_qualifier, None
 
@@ -263,9 +262,21 @@ def _method_family_allows_functional(method_family: str | None) -> bool:
     return normalized in {"DFT", "DOUBLE-HYBRID", "DOUBLE-HYBRID-DFT"}
 
 
-def _functional_from_method_token(method_token: str, method_family: str | None) -> str | None:
+def _without_spin_prefix(method_token: str, spin_qualifier: str | None) -> str:
+    if spin_qualifier == "RO":
+        return method_token[2:]
+    if spin_qualifier in {"R", "U"}:
+        return method_token[1:]
+    return method_token
+
+
+def _functional_from_method_token(
+    method_token: str,
+    method_family: str | None,
+    spin_qualifier: str | None,
+) -> str | None:
     if _method_family_allows_functional(method_family):
-        return method_token
+        return _without_spin_prefix(method_token, spin_qualifier)
     return None
 
 
@@ -281,7 +292,7 @@ def _build_model_chemistry(
         method_token=method_token_norm,
         spin_qualifier=spin_qualifier,
         method_family=method_family,
-        functional=_functional_from_method_token(method_token_norm, method_family),
+        functional=_functional_from_method_token(method_token_norm, method_family, spin_qualifier),
         basis_set=basis_token,
         auxiliary_basis_set=auxiliary_basis,
         basis_family=_classify_basis_family(basis_token),
@@ -715,7 +726,7 @@ def parse_gaussian_route_semantic(route: str) -> GaussianRouteSemantic:
                 model_chemistry.spin_qualifier = spin_qualifier
                 model_chemistry.method_family = method_family
                 model_chemistry.functional = _functional_from_method_token(
-                    method_token, method_family
+                    method_token, method_family, spin_qualifier
                 )
                 token_kind = "method"
             elif model_chemistry.basis_set is None and _is_basis_like(normalized):

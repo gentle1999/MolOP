@@ -6,10 +6,12 @@ LastEditTime: 2026-05-05 19:27:03
 Description: 请填写简介
 """
 
+from __future__ import annotations
+
 import os
 from collections.abc import Sequence
 from io import StringIO
-from typing import Any, ClassVar, Generic, Protocol, TypeVar, cast
+from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -45,6 +47,12 @@ from molop.io.base_models.DataClasses import (
     Vibrations,
 )
 from molop.io.base_models.Molecule import Molecule
+from molop.io.base_models.source import (
+    ParseCompleteness,
+    ParseDiagnostic,
+    ParsePresence,
+    SourceSpan,
+)
 from molop.io.base_models.summary import SummaryDict, summary_column, summary_item
 from molop.structure.StructureTransformation import check_crowding
 from molop.unit import atom_ureg
@@ -233,6 +241,48 @@ ChemFileFrame = TypeVar("ChemFileFrame", bound="BaseChemFileFrame")
 class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
     frame_id: int = Field(default=0, description="Frame ID")
     frame_content: str = Field(default="", repr=False, exclude=True)
+    source_span: SourceSpan | None = Field(
+        default=None,
+        description="Optional half-open source byte, character, and line offsets",
+        exclude_if=lambda value: value is None,
+    )
+    source_block_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        description="Optional SHA-256 digest of the source block",
+        exclude_if=lambda value: value is None,
+    )
+    segment_index: int | None = Field(
+        default=None,
+        ge=0,
+        exclude_if=lambda value: value is None,
+    )
+    segment_frame_index: int | None = Field(
+        default=None,
+        ge=0,
+        exclude_if=lambda value: value is None,
+    )
+    file_frame_index: int | None = Field(
+        default=None,
+        ge=0,
+        description="Stable frame ordinal in the complete located source artifact",
+        exclude_if=lambda value: value is None,
+    )
+    parse_presence: dict[str, ParsePresence] = Field(
+        default_factory=dict,
+        description="Presence state for optional scientific fields assessed during parsing",
+        exclude_if=lambda value: len(value) == 0,
+    )
+    parse_diagnostics: list[ParseDiagnostic] = Field(
+        default_factory=list,
+        description="Structured frame-scoped parser diagnostics",
+        exclude_if=lambda value: len(value) == 0,
+    )
+    parse_completeness: ParseCompleteness = Field(
+        default=ParseCompleteness.NOT_ASSESSED,
+        description="Completeness of the requested scientific parsing work for this frame",
+        exclude_if=lambda value: value is ParseCompleteness.NOT_ASSESSED,
+    )
     _frame_type: str = PrivateAttr(default="")
     _next_frame: ChemFileFrame | None = PrivateAttr(default=None)
     _prev_frame: ChemFileFrame | None = PrivateAttr(default=None)
@@ -282,7 +332,18 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
         self.frame_content = ""
 
 
-class BaseCoordsFrame(BaseChemFileFrame[ChemFileFrame]): ...
+class BaseCoordsFrame(BaseChemFileFrame[ChemFileFrame]):
+    coordinate_source: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    coordinate_provenance: str | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+    coordinate_decimal_places: int | None = Field(
+        default=None,
+        ge=0,
+        le=18,
+        exclude_if=lambda value: value is None,
+    )
 
 
 class BaseQMInputFrame(BaseCoordsFrame[ChemFileFrame]):
@@ -406,6 +467,36 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         "In Gaussian, the extracted hessian data are all calculated using the "
         "input coordinates as a reference.",
     )
+    forces_axis_order: tuple[Literal["atom"], Literal["cartesian"]] | None = Field(
+        default=None,
+        description="Axis order of forces, with Cartesian components ordered x, y, z",
+        exclude_if=lambda value: value is None,
+    )
+    forces_atom_order: Literal["source"] | None = Field(
+        default=None,
+        description="Atom ordering used by forces",
+        exclude_if=lambda value: value is None,
+    )
+    forces_orientation: Literal["input", "standard", "source", "unknown"] | None = Field(
+        default=None,
+        description="Cartesian orientation used by forces",
+        exclude_if=lambda value: value is None,
+    )
+    hessian_axis_order: tuple[Literal["atom_cartesian"], Literal["atom_cartesian"]] | None = Field(
+        default=None,
+        description="Axis order of the flattened atom-major Cartesian Hessian",
+        exclude_if=lambda value: value is None,
+    )
+    hessian_atom_order: Literal["source"] | None = Field(
+        default=None,
+        description="Atom ordering used by the Hessian",
+        exclude_if=lambda value: value is None,
+    )
+    hessian_orientation: Literal["input", "standard", "source", "unknown"] | None = Field(
+        default=None,
+        description="Cartesian orientation used by the Hessian",
+        exclude_if=lambda value: value is None,
+    )
     rotation_constants: NumpyQuantity | None = Field(
         default=np.array([[]]) * atom_ureg.gigahertz,
         description="Rotational constants, unit is `gigahertz`",
@@ -455,6 +546,47 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         default=None,
         description="Running time of the QM calculation, unit is `second`",
     )
+    frame_role: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    force_source_field: str | None = Field(default=None, exclude_if=lambda value: value is None)
+    force_transformation: str | None = Field(default=None, exclude_if=lambda value: value is None)
+
+    @model_validator(mode="after")
+    def validate_cartesian_array_conventions(self) -> Self:
+        atom_count = len(self.atoms)
+        force_metadata = (
+            self.forces_axis_order,
+            self.forces_atom_order,
+            self.forces_orientation,
+        )
+        if self.forces is None:
+            if any(value is not None for value in force_metadata):
+                raise ValueError("forces convention metadata require forces")
+        else:
+            if tuple(self.forces.shape) != (atom_count, 3):
+                raise ValueError("forces must have shape (N, 3) in source atom order")
+            self.forces_axis_order = self.forces_axis_order or ("atom", "cartesian")
+            self.forces_atom_order = self.forces_atom_order or "source"
+            self.forces_orientation = self.forces_orientation or "unknown"
+
+        hessian_metadata = (
+            self.hessian_axis_order,
+            self.hessian_atom_order,
+            self.hessian_orientation,
+        )
+        if self.hessian is None:
+            if any(value is not None for value in hessian_metadata):
+                raise ValueError("Hessian convention metadata require hessian")
+        else:
+            cartesian_size = atom_count * 3
+            if tuple(self.hessian.shape) != (cartesian_size, cartesian_size):
+                raise ValueError("hessian must have shape (3N, 3N) in source atom order")
+            self.hessian_axis_order = self.hessian_axis_order or (
+                "atom_cartesian",
+                "atom_cartesian",
+            )
+            self.hessian_atom_order = self.hessian_atom_order or "source"
+            self.hessian_orientation = self.hessian_orientation or "unknown"
+        return self
 
     def qm_embedded_rdmol(
         self, embed_populations: bool = True, embed_bond_orders: bool = True
@@ -773,18 +905,23 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         """
         Abstrcact method to check if the current frame is an error. The details are implemented in the derived classes.
         """
-        if self.status is None:
-            return True
         if self.energies is None:
             return True
         if self.energies.total_energy is None:
             return True
-        return not self.status.normal_terminated
+        if self.status is None:
+            return None
+        if self.status.scf_converged is False or self.status.normal_terminated is False:
+            return True
+        if self.status.scf_converged is True or self.status.normal_terminated is True:
+            return False
+        return None
 
     @computed_field()  # type: ignore[prop-decorator]
     @property
-    def is_normal(self) -> bool:
-        return not self.is_error
+    def is_normal(self) -> bool | None:
+        is_error = self.is_error
+        return None if is_error is None else not is_error
 
     @computed_field()  # type: ignore[prop-decorator]
     @property

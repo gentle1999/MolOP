@@ -10,7 +10,9 @@
 - **合并输出**：如果 `embed_in_one_file=True`（默认），多个帧将合并到一个输出文件中（如果格式支持，如 SDF 或多帧 XYZ）。
 - **文件输出**：Python API 需要显式传入 `write_to_disk=True` 才会写盘。写盘时，
   `file_path` 或 batch 的 `output_dir` 用于选择输出位置；如果没有提供路径，则写到
-  源文件所在目录。`write_to_disk=False` 时，`file_path` 和 `output_dir` 会被忽略，
+  源文件所在目录。输出文件名仅替换最后一个后缀，例如转换为 XYZ 时，
+  `name.hash.log` 会变为 `name.hash.xyz`。`write_to_disk=False` 时，`file_path` 和
+  `output_dir` 会被忽略，
   转换只返回渲染字符串或字符串列表。
 - **结构层级**：
   - **COORDS (坐标级)**：`xyz` 和 `gjf` 等格式主要保留原子坐标和元素信息。`orcainp` 当前只提供结构化 reader。

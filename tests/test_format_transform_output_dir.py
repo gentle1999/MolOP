@@ -57,6 +57,49 @@ def test_format_transform_batch_output_dir_writes_under_requested_dir(tmp_path, 
     assert not leak.exists()
 
 
+def test_pure_filename_and_batch_output_preserve_hash_before_last_suffix(tmp_path):
+    fixture_path = tmp_path / "source.abc123.xyz"
+    fixture_path.write_text(
+        "2\ncomment\nH 0.0 0.0 0.0\nH 0.0 0.0 0.7\n",
+        encoding="utf-8",
+    )
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    batch = AutoParser(fixture_path)
+
+    assert batch[0].pure_filename == "source.abc123"
+
+    batch.format_transform(
+        "gjf",
+        output_dir=str(out_dir),
+        write_to_disk=True,
+        graph_policy="prefer",
+        n_jobs=1,
+    )
+
+    assert (out_dir / "source.abc123.gjf").is_file()
+    assert not (out_dir / "source.gjf").exists()
+
+
+def test_format_transform_explicit_multi_suffix_output_preserves_hash(tmp_path):
+    fixture_path = tmp_path / "source.xyz"
+    fixture_path.write_text(
+        "2\ncomment\nH 0.0 0.0 0.0\nH 0.0 0.0 0.7\n",
+        encoding="utf-8",
+    )
+    file_model = AutoParser(fixture_path)[0]
+
+    file_model.format_transform(
+        "gjf",
+        file_path=tmp_path / "target.abc123.placeholder",
+        write_to_disk=True,
+        graph_policy="prefer",
+    )
+
+    assert (tmp_path / "target.abc123.gjf").is_file()
+    assert not (tmp_path / "target.gjf").exists()
+
+
 def test_format_transform_multi_output_stays_in_output_dir(tmp_path, monkeypatch):
     out_dir = tmp_path / "out"
     cwd_dir = tmp_path / "cwd"
@@ -79,6 +122,28 @@ def test_format_transform_multi_output_stays_in_output_dir(tmp_path, monkeypatch
 
     assert len(list(out_dir.glob("*.xyz"))) >= 2
     assert len(list(cwd_dir.glob("*.xyz"))) == 0
+
+
+def test_format_transform_multi_output_preserves_hash_before_last_suffix(tmp_path):
+    source_fixture = Path(__file__).resolve().parent / "test_files" / "g16log" / "1.log"
+    fixture_path = tmp_path / "source.abc123.log"
+    fixture_path.write_bytes(source_fixture.read_bytes())
+    out_dir = tmp_path / "out"
+    out_dir.mkdir()
+    batch = AutoParser(fixture_path)
+
+    batch.format_transform(
+        "xyz",
+        output_dir=str(out_dir),
+        embed_in_one_file=False,
+        write_to_disk=True,
+        frame=[0, 1],
+        n_jobs=1,
+    )
+
+    assert (out_dir / "source.abc123000.xyz").is_file()
+    assert (out_dir / "source.abc123001.xyz").is_file()
+    assert not (out_dir / "source000.xyz").exists()
 
 
 def test_format_transform_gjf_chk_propagation_single_file(tmp_path):

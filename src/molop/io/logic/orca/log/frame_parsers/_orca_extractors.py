@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from rdkit import Chem
@@ -10,6 +10,7 @@ from molop.io.base_models.DataClasses import (
     ElectronicState,
     ElectronicStates,
     Energies,
+    EnergyObservation,
     GeometryOptimizationStatus,
     ImplicitSolvation,
     Polarizability,
@@ -21,6 +22,67 @@ from molop.unit import atom_ureg
 
 def _as_float(value: str) -> float:
     return float(value.replace("D", "E").replace("d", "e"))
+
+
+def _decimal_places(value: str) -> int:
+    exponent_positions = [
+        position for marker in ("E", "e", "D", "d") if (position := value.find(marker)) >= 0
+    ]
+    mantissa = value[: min(exponent_positions)] if exponent_positions else value
+    return len(mantissa.partition(".")[2])
+
+
+def _normalized_optional_text(value: Any, *, upper: bool = False) -> str | None:
+    if value is None:
+        return None
+    normalized = str(value).strip()
+    if not normalized:
+        return None
+    return normalized.upper() if upper else normalized
+
+
+def _orca_concrete_method(model_chemistry: Any) -> str:
+    method_family = _normalized_optional_text(
+        getattr(model_chemistry, "method_family", None), upper=True
+    )
+    method = _normalized_optional_text(getattr(model_chemistry, "method", None), upper=True)
+    functional = _normalized_optional_text(getattr(model_chemistry, "functional", None))
+    dispersion = _normalized_optional_text(
+        getattr(model_chemistry, "dispersion_correction", None), upper=True
+    )
+    if method_family == "DFT" and functional is not None:
+        if dispersion is not None and functional.upper().endswith(f"-{dispersion}"):
+            functional = functional[: -(len(dispersion) + 1)]
+        return functional
+    return method or method_family or "electronic"
+
+
+def _orca_coupled_cluster_methods(model_chemistry: Any) -> tuple[str, str]:
+    concrete_method = _orca_concrete_method(model_chemistry)
+    upper_method = concrete_method.upper()
+    if upper_method == "CCSD(T)" or upper_method.startswith("DLPNO-CCSD(T)"):
+        triples_position = upper_method.index("(T)")
+        ccsd_method = (
+            concrete_method[:triples_position] + concrete_method[triples_position + len("(T)") :]
+        )
+        return ccsd_method, concrete_method
+    if upper_method == "CCSD" or upper_method.startswith("DLPNO-CCSD"):
+        return concrete_method, f"{concrete_method}(T)"
+    return "CCSD", "CCSD(T)"
+
+
+def _energy_observation(
+    method: str,
+    quantity_semantics: Literal["total_energy", "correlation_correction", "component"],
+    value: str,
+    source_label: str,
+) -> EnergyObservation:
+    return EnergyObservation(
+        method=method,
+        quantity_semantics=quantity_semantics,
+        value=_as_float(value) * atom_ureg.hartree,
+        source_label=source_label,
+    )
 
 
 def _extract_until_blank_or_rule(text: str, start: int) -> str:
@@ -71,12 +133,17 @@ def _parse_hirshfeld(text: str) -> tuple[list[float], list[float]]:
     return charges, spins
 
 
-def extract_orca_coords(text: str) -> tuple[list[int], Any] | tuple[None, None]:
+def extract_orca_coords(
+    text: str,
+    *,
+    capture_source_evidence: bool = False,
+) -> tuple[list[int] | None, Any | None, int | None]:
     matches = orca_log_patterns.COORD_HEADER.find_matches(text)
     if not matches:
-        return None, None
+        return None, None, None
     start = matches[-1].end()
     rows: list[tuple[int, list[float]]] = []
+    decimal_places: list[int] | None = [] if capture_source_evidence else None
     pt = Chem.GetPeriodicTable()
     for line in text[start:].splitlines():
         if not line.strip():
@@ -96,6 +163,8 @@ def extract_orca_coords(text: str) -> tuple[list[int], Any] | tuple[None, None]:
         atomic_number = pt.GetAtomicNumber(symbol)
         if atomic_number <= 0:
             continue
+        if decimal_places is not None:
+            decimal_places.extend(_decimal_places(matched.group(axis)) for axis in ("x", "y", "z"))
         rows.append(
             (
                 atomic_number,
@@ -107,55 +176,177 @@ def extract_orca_coords(text: str) -> tuple[list[int], Any] | tuple[None, None]:
             )
         )
     if not rows:
-        return None, None
+        return None, None, None
     atoms = [row[0] for row in rows]
     coords = np.asarray([row[1] for row in rows], dtype=float) * atom_ureg.angstrom
-    return atoms, coords
+    coordinate_decimal_places = min(decimal_places) if decimal_places else None
+    return atoms, coords, coordinate_decimal_places
 
 
-def extract_orca_energies(text: str) -> Energies | None:
+def extract_orca_energies(
+    text: str,
+    *,
+    capture_source_evidence: bool = False,
+    model_chemistry: Any = None,
+) -> Energies | None:
     energy_dict: dict[str, Any] = {}
-    if matches := orca_log_patterns.SCF_ENERGY.find_matches(text):
-        energy_dict["reference_energy"] = _as_float(matches[-1].group("energy")) * atom_ureg.hartree
+    observations: list[EnergyObservation] = []
+
+    def observe(
+        method: str,
+        quantity_semantics: Literal["total_energy", "correlation_correction", "component"],
+        value: str,
+        source_label: str,
+    ) -> None:
+        if capture_source_evidence:
+            observations.append(
+                _energy_observation(method, quantity_semantics, value, source_label)
+            )
+
+    if scf_matches := orca_log_patterns.SCF_ENERGY.find_matches(text):
+        value = scf_matches[-1].group("energy")
+        energy_dict["reference_energy"] = _as_float(value) * atom_ureg.hartree
+        observe("reference", "total_energy", value, "Total Energy")
+
+    mp2_value: str | None = None
+    mp2_source_label: str | None = None
     for matched in orca_log_patterns.MP2_ENERGY.find_matches(text):
-        value = matched.group("mp2_total") or matched.group("mp2_corr")
+        value = matched.group("mp2_total") or matched.group("mp2_equation_total")
         if value is not None:
             energy_dict["mp2_energy"] = _as_float(value) * atom_ureg.hartree
-    if matches := orca_log_patterns.MP3_ENERGY.find_matches(text):
-        energy_dict["mp3_energy"] = _as_float(matches[-1].group("energy")) * atom_ureg.hartree
-    if matches := orca_log_patterns.CCSD_ENERGY.find_matches(text):
-        energy_dict["ccsd_energy"] = _as_float(matches[-1].group("energy")) * atom_ureg.hartree
-    if matches := orca_log_patterns.FINAL_ENERGY.find_matches(text):
-        final_energy = _as_float(matches[-1].group("energy")) * atom_ureg.hartree
-        if "ccsd_energy" in energy_dict:
-            energy_dict["ccsd_energy"] = final_energy
-        elif "mp3_energy" in energy_dict:
-            energy_dict["mp3_energy"] = final_energy
-        elif "mp2_energy" in energy_dict:
-            energy_dict["mp2_energy"] = final_energy
-        elif "reference_energy" in energy_dict:
-            energy_dict["reference_energy"] = final_energy
-        else:
-            energy_dict["electronic_energy"] = final_energy
+            mp2_value = value
+            mp2_source_label = (
+                "MP2 TOTAL ENERGY" if matched.group("mp2_total") is not None else "E(MP2)"
+            )
+    if mp2_value is not None and mp2_source_label is not None:
+        observe("MP2", "total_energy", mp2_value, mp2_source_label)
+
+    if capture_source_evidence and (
+        matches := orca_log_patterns.MP2_CORRELATION_ENERGY.find_matches(text)
+    ):
+        matched = matches[-1]
+        for group_name, source_label in (
+            ("labeled", "MP2 CORRELATION ENERGY"),
+            ("equation", "EC(MP2)"),
+            ("component", "E(MP2)"),
+        ):
+            if value := matched.group(group_name):
+                observe("MP2", "correlation_correction", value, source_label)
+                break
+
+    if mp3_matches := orca_log_patterns.MP3_ENERGY.find_matches(text):
+        value = mp3_matches[-1].group("energy")
+        energy_dict["mp3_energy"] = _as_float(value) * atom_ureg.hartree
+        observe("MP3", "total_energy", value, "E(MP3)")
+    if capture_source_evidence:
+        if matches := orca_log_patterns.MP3_CORRELATION_ENERGY.find_matches(text):
+            observe(
+                "MP3",
+                "correlation_correction",
+                matches[-1].group("energy"),
+                "EC(MP3)",
+            )
+        if matches := orca_log_patterns.MP3_COMPONENT_ENERGY.find_matches(text):
+            observe("MP3", "component", matches[-1].group("energy"), "E3")
+
+    ccsd_method, ccsd_t_method = (
+        _orca_coupled_cluster_methods(model_chemistry)
+        if capture_source_evidence
+        else ("CCSD", "CCSD(T)")
+    )
+    ccsd_matches = orca_log_patterns.CCSD_ENERGY.find_matches(text)
+    ccsd_total_matches = (
+        orca_log_patterns.CCSD_TOTAL_ENERGY.find_matches(text)
+        if capture_source_evidence or not ccsd_matches
+        else []
+    )
+    selected_ccsd_matches = ccsd_matches or ccsd_total_matches
+    if selected_ccsd_matches:
+        energy_dict["ccsd_energy"] = (
+            _as_float(selected_ccsd_matches[-1].group("energy")) * atom_ureg.hartree
+        )
+    if ccsd_matches:
+        observe(ccsd_method, "total_energy", ccsd_matches[-1].group("energy"), "E(CCSD)")
+    if ccsd_total_matches:
+        observe(
+            ccsd_method,
+            "total_energy",
+            ccsd_total_matches[-1].group("energy"),
+            "E(TOT)",
+        )
+
+    if ccsd_t_matches := orca_log_patterns.CCSD_T_ENERGY.find_matches(text):
+        value = ccsd_t_matches[-1].group("energy")
+        energy_dict["ccsd_t_energy"] = _as_float(value) * atom_ureg.hartree
+        observe(ccsd_t_method, "total_energy", value, "E(CCSD(T))")
+
+    if capture_source_evidence:
+        if matches := orca_log_patterns.CCSD_CORRELATION_ENERGY.find_matches(text):
+            observe(
+                ccsd_method,
+                "correlation_correction",
+                matches[-1].group("energy"),
+                "E(CORR)",
+            )
+        if matches := orca_log_patterns.TRIPLES_CORRECTION.find_matches(text):
+            observe(
+                ccsd_t_method,
+                "component",
+                matches[-1].group("energy"),
+                "Triples Correction (T)",
+            )
+        if matches := orca_log_patterns.SCALED_TRIPLES_CORRECTION.find_matches(text):
+            observe(
+                ccsd_t_method,
+                "component",
+                matches[-1].group("energy"),
+                "Scaled triples correction (T)",
+            )
+        if matches := orca_log_patterns.FINAL_CORRELATION_ENERGY.find_matches(text):
+            concrete_method = _orca_concrete_method(model_chemistry).upper()
+            observe(
+                ccsd_t_method if "CCSD(T)" in concrete_method else ccsd_method,
+                "correlation_correction",
+                matches[-1].group("energy"),
+                "Final correlation energy",
+            )
+
+    if final_matches := orca_log_patterns.FINAL_ENERGY.find_matches(text):
+        value = final_matches[-1].group("energy")
+        energy_dict["electronic_energy"] = _as_float(value) * atom_ureg.hartree
+        if capture_source_evidence:
+            observe(
+                _orca_concrete_method(model_chemistry),
+                "total_energy",
+                value,
+                "FINAL SINGLE POINT ENERGY",
+            )
+    if observations:
+        energy_dict["observations"] = observations
     if not energy_dict:
         return None
     return Energies.model_validate(energy_dict)
 
 
 def extract_orca_forces(text: str, num_atoms: int | None) -> Any | None:
-    matches = orca_log_patterns.GRADIENT_HEADER.find_matches(text)
-    if not matches:
-        if "NORM OF THE MP2 GRADIENT" in text and num_atoms:
-            return np.zeros((num_atoms, 3), dtype=float) * atom_ureg.Unit("hartree / bohr")
+    candidates = [
+        (matched.start(), matched.end(), orca_log_patterns.GRADIENT_ROW)
+        for matched in orca_log_patterns.GRADIENT_HEADER.find_matches(text)
+    ]
+    candidates.extend(
+        (matched.start(), matched.end(), orca_log_patterns.MP2_GRADIENT_ROW)
+        for matched in orca_log_patterns.MP2_GRADIENT_HEADER.find_matches(text)
+    )
+    if not candidates:
         return None
-    start = matches[-1].end()
+    _, start, row_pattern = max(candidates, key=lambda candidate: candidate[0])
     rows: list[list[float]] = []
     for line in text[start:].splitlines():
         if not line.strip():
             if rows:
                 break
             continue
-        matched = orca_log_patterns.GRADIENT_ROW.match(line)
+        matched = row_pattern.match(line)
         if matched is None:
             if rows:
                 break
@@ -169,7 +360,9 @@ def extract_orca_forces(text: str, num_atoms: int | None) -> Any | None:
         )
     if not rows:
         return None
-    return np.asarray(rows, dtype=float) * atom_ureg.Unit("hartree / bohr")
+    if num_atoms is not None and len(rows) != num_atoms:
+        return None
+    return -np.asarray(rows, dtype=float) * atom_ureg.Unit("hartree / bohr")
 
 
 def extract_orca_vibrations(text: str, num_atoms: int | None) -> Vibrations | None:
@@ -178,6 +371,7 @@ def extract_orca_vibrations(text: str, num_atoms: int | None) -> Vibrations | No
         return None
     block = text[start:]
     frequencies: list[float] = []
+    mode_indices: list[int] = []
     for line in block.splitlines():
         if frequencies and line.strip().startswith("NORMAL MODES"):
             break
@@ -185,6 +379,7 @@ def extract_orca_vibrations(text: str, num_atoms: int | None) -> Vibrations | No
         if matched is None:
             continue
         frequencies.append(_as_float(matched.group("frequency")))
+        mode_indices.append(int(matched.group("idx")))
     if not frequencies:
         return None
     if num_atoms is not None and num_atoms > 1:
@@ -194,8 +389,12 @@ def extract_orca_vibrations(text: str, num_atoms: int | None) -> Vibrations | No
                 leading = frequencies[: len(frequencies) - expected_count]
                 if all(abs(value) < 1.0e-6 for value in leading):
                     frequencies = frequencies[-expected_count:]
+                    mode_indices = mode_indices[-expected_count:]
                     break
-    return Vibrations(frequencies=np.asarray(frequencies, dtype=float) * atom_ureg.cm_1)
+    return Vibrations(
+        frequencies=np.asarray(frequencies, dtype=float) * atom_ureg.cm_1,
+        mode_indices=mode_indices,
+    )
 
 
 def extract_orca_populations(text: str) -> ChargeSpinPopulations | None:
@@ -268,12 +467,18 @@ def _parse_polarizability_tensor(text: str) -> Any | None:
     return np.asarray(tensor, dtype=float) * atom_ureg.bohr**3
 
 
-def extract_orca_geometry_optimization_status(text: str) -> GeometryOptimizationStatus | None:
-    if "THE OPTIMIZATION HAS CONVERGED" in text or "OPTIMIZATION RUN DONE" in text:
-        return GeometryOptimizationStatus(geometry_optimized=True)
-    if "GEOMETRY OPTIMIZATION CYCLE" not in text:
+def extract_orca_geometry_optimization_status(
+    text: str,
+    *,
+    capture_source_evidence: bool = False,
+) -> GeometryOptimizationStatus | None:
+    geometry_optimized = "THE OPTIMIZATION HAS CONVERGED" in text or "OPTIMIZATION RUN DONE" in text
+    metric_matches = orca_log_patterns.OPTIMIZATION_CONVERGENCE_METRIC.find_matches(text)
+    if not geometry_optimized and "GEOMETRY OPTIMIZATION CYCLE" not in text and not metric_matches:
         return None
-    status_dict: dict[str, Any] = {"geometry_optimized": False}
+    status_dict: dict[str, Any] = {"geometry_optimized": geometry_optimized}
+    source_converged: dict[str, bool | None] = {}
+    source_labels: dict[str, str] = {}
     metric_map = {
         "Energy change": "energy_change",
         "RMS gradient": "rms_force",
@@ -281,10 +486,26 @@ def extract_orca_geometry_optimization_status(text: str) -> GeometryOptimization
         "RMS step": "rms_displacement",
         "MAX step": "max_displacement",
     }
-    for label, field in metric_map.items():
-        metric_pattern = orca_log_patterns.optimization_metric(label)
-        if matches := metric_pattern.find_matches(text):
-            status_dict[field] = abs(_as_float(matches[-1].group("value")))
+    metric_units = {
+        "energy_change": atom_ureg.hartree,
+        "rms_force": atom_ureg.hartree / atom_ureg.bohr,
+        "max_force": atom_ureg.hartree / atom_ureg.bohr,
+        "rms_displacement": atom_ureg.bohr,
+        "max_displacement": atom_ureg.bohr,
+    }
+    for matched in metric_matches:
+        label = matched.group("label")
+        field = metric_map[label]
+        unit = metric_units[field]
+        status_dict[field] = abs(_as_float(matched.group("value"))) * unit
+        status_dict[f"{field}_threshold"] = abs(_as_float(matched.group("threshold"))) * unit
+        if capture_source_evidence:
+            source_converged[field] = matched.group("converged") == "YES"
+            source_labels[field] = label
+    if source_converged:
+        status_dict["source_converged"] = source_converged
+    if source_labels:
+        status_dict["source_labels"] = source_labels
     return GeometryOptimizationStatus.model_validate(status_dict)
 
 

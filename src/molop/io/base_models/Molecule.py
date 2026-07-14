@@ -7,14 +7,18 @@ Description: 请填写简介
 """
 
 from collections.abc import Sequence
-from typing import ClassVar, Optional
+from copy import deepcopy
+from dataclasses import asdict
+from typing import ClassVar, Literal, Optional
 
 import numpy as np
+from molgr.config import MolGRConfig
+from molgr.config import get_config as get_molgr_config
 from molgr.interface import xyz_to_rdmol
 from openbabel import pybel
 from pint._typing import UnitLike
 from pint.facets.numpy.quantity import NumpyQuantity
-from pydantic import Field, PrivateAttr, computed_field
+from pydantic import Field, PrivateAttr, computed_field, model_validator
 from rdkit import Chem
 from rdkit.Chem.rdMolAlign import GetBestRMS
 from rdkit.Chem.rdMolDescriptors import CalcMolFormula
@@ -42,6 +46,7 @@ from molop.utils.types import RdMol
 
 from .Bases import BaseDataClassWithUnit
 from .DataClasses import InternalCoords
+from .source import canonical_json_sha256
 
 
 pt = Chem.GetPeriodicTable()
@@ -76,6 +81,30 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
     def canonical_smiles(self) -> str:
         return self.to_canonical_SMILES()
 
+    @computed_field()  # type: ignore[prop-decorator]
+    @property
+    def topology_v3000_molblock(self) -> str | None:
+        """Return a map-free V3000 graph carrier for a trusted topology."""
+
+        if (
+            self.rdmol is None
+            or self.source_to_topology_atom_permutation is None
+            or self.topology_reconstruction_status in {"failed", "suspicious_fallback"}
+        ):
+            return None
+        topology = self.rdmol_no_conformer
+        if topology.HasProp("_Name"):
+            topology.ClearProp("_Name")
+        for atom in topology.GetAtoms():
+            atom.SetAtomMapNum(0)
+        return Chem.MolToMolBlock(
+            topology,
+            includeStereo=True,
+            confId=-1,
+            kekulize=True,
+            forceV3000=True,
+        )
+
     bonds: list[tuple[int, int, int, int]] = Field(
         default_factory=list,
         description="Bond information, each bond is represented by a tuple of three integers, "
@@ -91,9 +120,55 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         default_factory=list,
         description="Number of radical electrons of each atom",
     )
+    source_to_topology_atom_permutation: list[int] | None = Field(
+        default=None,
+        description=(
+            "Mapping from each source atom index to its topology atom index; identity is "
+            "recorded only after source-order verification"
+        ),
+        exclude_if=lambda value: value is None,
+    )
+    topology_reconstruction_backend: Literal["cpp", "python"] | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+    topology_make_dative_bonds: bool | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
+    topology_reconstruction_config_sha256: str | None = Field(
+        default=None,
+        pattern=r"^[0-9a-f]{64}$",
+        exclude_if=lambda value: value is None,
+    )
+    topology_reconstruction_status: (
+        Literal["provided", "succeeded", "failed", "suspicious_fallback"] | None
+    ) = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
     _rdmol: RdMol | None = PrivateAttr(default=None)
     _smiles_cache: str | None = PrivateAttr(default=None)
     _canonical_smiles_cache: str | None = PrivateAttr(default=None)
+    _topology_molgr_config: MolGRConfig = PrivateAttr(
+        default_factory=lambda: deepcopy(get_molgr_config())
+    )
+    _topology_reconstruction_backend: Literal["cpp", "python"] = PrivateAttr(
+        default_factory=lambda: molopconfig.graph_reconstruction_backend
+    )
+    _topology_make_dative_bonds: bool = PrivateAttr(
+        default_factory=lambda: molopconfig.make_dative_bonds
+    )
+    _topology_reconstruction_attempted: bool = PrivateAttr(default=False)
+
+    @model_validator(mode="after")
+    def validate_source_to_topology_atom_permutation(self) -> "Molecule":
+        permutation = self.source_to_topology_atom_permutation
+        if permutation is not None and sorted(permutation) != list(range(len(self.atoms))):
+            raise ValueError(
+                "source_to_topology_atom_permutation must be a permutation of atom indices"
+            )
+        return self
 
     @property
     def atom_symbols(self) -> list[str]:
@@ -143,12 +218,55 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
             ]
         )
 
-    def __get_topology(self):
-        if self._rdmol is None:
+    def _record_topology_reconstruction_provenance(self) -> None:
+        config = {
+            "backend": self._topology_reconstruction_backend,
+            "make_dative_bonds": self._topology_make_dative_bonds,
+            "molgr": asdict(self._topology_molgr_config),
+        }
+        self.topology_reconstruction_backend = self._topology_reconstruction_backend
+        self.topology_make_dative_bonds = self._topology_make_dative_bonds
+        self.topology_reconstruction_config_sha256 = canonical_json_sha256(config)
+
+    def _record_source_to_topology_atom_permutation(self) -> None:
+        rdmol = self._rdmol
+        self.source_to_topology_atom_permutation = None
+        if rdmol is None or self.topology_reconstruction_status == "suspicious_fallback":
             return
-        self.bonds = get_bond_pairs(self.rdmol)
-        self.formal_charges = get_formal_charges(self.rdmol)
-        self.formal_num_radicals = get_formal_num_radicals(self.rdmol)
+        topology_atoms = [atom.GetAtomicNum() for atom in rdmol.GetAtoms()]
+        if topology_atoms != self.atoms or rdmol.GetNumConformers() == 0:
+            return
+        source_coords = np.asarray(
+            self.coords.to(atom_ureg.angstrom).magnitude,
+            dtype=float,
+        )
+        topology_coords = np.asarray(rdmol.GetConformer().GetPositions(), dtype=float)
+        # The Python MolGR backend round-trips coordinates through five-decimal XYZ text.
+        if source_coords.shape != topology_coords.shape or not np.allclose(
+            source_coords,
+            topology_coords,
+            rtol=0.0,
+            atol=1e-5,
+        ):
+            return
+        self.source_to_topology_atom_permutation = list(range(len(self.atoms)))
+
+    def __get_topology(self) -> None:
+        rdmol = self._rdmol
+        if rdmol is None:
+            return
+        self._record_source_to_topology_atom_permutation()
+        if self.source_to_topology_atom_permutation is None:
+            return
+        self.bonds = get_bond_pairs(rdmol)
+        self.formal_charges = get_formal_charges(rdmol)
+        self.formal_num_radicals = get_formal_num_radicals(rdmol)
+
+    def _materialize_unitless_dump_with_unit_keys(self) -> None:
+        """Build lazy topology before Pydantic snapshots regular fields."""
+
+        super()._materialize_unitless_dump_with_unit_keys()
+        _ = self.rdmol
 
     @property
     def omol(self) -> pybel.Molecule:
@@ -175,15 +293,30 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
             if len(self.bonds) == 0:
                 if not self.atoms:
                     return None
+                if self._topology_reconstruction_attempted:
+                    return None
+                self._topology_reconstruction_attempted = True
+                self._record_topology_reconstruction_provenance()
                 try:
-                    self._rdmol = xyz_to_rdmol(
+                    reconstructed = xyz_to_rdmol(
                         self.to_XYZ(),
                         self.charge,
                         self.multiplicity,
-                        backend=molopconfig.graph_reconstruction_backend,
-                        make_dative_bonds=molopconfig.make_dative_bonds,
+                        backend=self._topology_reconstruction_backend,
+                        make_dative_bonds=self._topology_make_dative_bonds,
+                        config=self._topology_molgr_config,
                     )
+                    if reconstructed is None:
+                        raise ValueError("MolGR topology reconstruction returned no molecule")
+                    self._rdmol = reconstructed
+                    if reconstructed.HasProp("_MolGRReconstructionStatus") and (
+                        reconstructed.GetProp("_MolGRReconstructionStatus") == "suspicious_fallback"
+                    ):
+                        self.topology_reconstruction_status = "suspicious_fallback"
+                    else:
+                        self.topology_reconstruction_status = "succeeded"
                 except Exception as e:
+                    self.topology_reconstruction_status = "failed"
                     moloplogger.error(f"{e}")
                 finally:
                     self.__get_topology()
@@ -198,6 +331,8 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
                     self.formal_num_radicals,
                     coords=self.coords.m,
                 )
+                self.topology_reconstruction_status = "provided"
+                self.__get_topology()
         return self._rdmol
 
     @property

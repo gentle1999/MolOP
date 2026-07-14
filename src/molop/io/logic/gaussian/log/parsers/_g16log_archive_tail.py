@@ -77,8 +77,10 @@ def parse_archive_tail_energies(content: str) -> dict[str, Any] | None:
                 energy_dict["mp3_energy"] = energies_value
             if "MP4" in energy_name:
                 energy_dict["mp4_energy"] = energies_value
-            if "CCSD" in energy_name:
+            if energy_name == "CCSD":
                 energy_dict["ccsd_energy"] = energies_value
+            if energy_name == "CCSD(T)":
+                energy_dict["ccsd_t_energy"] = energies_value
     return energy_dict or None
 
 

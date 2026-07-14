@@ -13,6 +13,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Protocol, cast
 
 import numpy as np
+from pint.facets.plain import PlainQuantity
 from pydantic import Field
 
 from molop.io.base_models.ChemFile import BaseCalcFile
@@ -136,16 +137,24 @@ class G16LogFileMixin(GaussianRouteSemanticFieldsMixin):
     @staticmethod
     def _format_fakeg_convergence_line(
         label: str,
-        value: float,
-        threshold: float | None,
+        value: PlainQuantity | float,
+        threshold: PlainQuantity | float | None,
         converged: bool | None,
     ) -> str:
-        if threshold is None or not math.isfinite(threshold):
+        value_float = float(value.magnitude) if isinstance(value, PlainQuantity) else float(value)
+        threshold_float = None
+        if threshold is not None:
+            threshold_float = (
+                float(threshold.magnitude)
+                if isinstance(threshold, PlainQuantity)
+                else float(threshold)
+            )
+        if threshold_float is None or not math.isfinite(threshold_float):
             threshold_str = " " * 13
         else:
-            threshold_str = f"{threshold:13.6f}"
+            threshold_str = f"{threshold_float:13.6f}"
         state = "YES" if converged is True else "NO"
-        return f" {label:<20}{value:13.6f}{threshold_str}     {state}"
+        return f" {label:<20}{value_float:13.6f}{threshold_str}     {state}"
 
     @classmethod
     def _render_fakeg_optimization_summary(
@@ -161,32 +170,36 @@ class G16LogFileMixin(GaussianRouteSemanticFieldsMixin):
             " GradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGrad",
             f" Step number{step_number:4d}",
             "         Item               Value     Threshold  Converged?",
-            cls._format_fakeg_convergence_line(
+        ]
+        for label, value, threshold, converged in (
+            (
                 "Maximum Force",
-                float(opt.max_force),
+                opt.max_force,
                 opt.max_force_threshold,
                 opt.max_force_converged,
             ),
-            cls._format_fakeg_convergence_line(
+            (
                 "RMS     Force",
-                float(opt.rms_force),
+                opt.rms_force,
                 opt.rms_force_threshold,
                 opt.rms_force_converged,
             ),
-            cls._format_fakeg_convergence_line(
+            (
                 "Maximum Displacement",
-                float(opt.max_displacement),
+                opt.max_displacement,
                 opt.max_displacement_threshold,
                 opt.max_displacement_converged,
             ),
-            cls._format_fakeg_convergence_line(
+            (
                 "RMS     Displacement",
-                float(opt.rms_displacement),
+                opt.rms_displacement,
                 opt.rms_displacement_threshold,
                 opt.rms_displacement_converged,
             ),
-            " GradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGrad",
-        ]
+        ):
+            if value is not None:
+                lines.append(cls._format_fakeg_convergence_line(label, value, threshold, converged))
+        lines.append(" GradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGrad")
         return "\n".join(lines)
 
     @classmethod
@@ -346,15 +359,15 @@ class _HasG16FileMetadata(Protocol):
 
 
 class _HasFakeGOptimizationStatus(Protocol):
-    max_force: float
-    max_force_threshold: float | None
+    max_force: PlainQuantity | float | None
+    max_force_threshold: PlainQuantity | float | None
     max_force_converged: bool | None
-    rms_force: float
-    rms_force_threshold: float | None
+    rms_force: PlainQuantity | float | None
+    rms_force_threshold: PlainQuantity | float | None
     rms_force_converged: bool | None
-    max_displacement: float
-    max_displacement_threshold: float | None
+    max_displacement: PlainQuantity | float | None
+    max_displacement_threshold: PlainQuantity | float | None
     max_displacement_converged: bool | None
-    rms_displacement: float
-    rms_displacement_threshold: float | None
+    rms_displacement: PlainQuantity | float | None
+    rms_displacement_threshold: PlainQuantity | float | None
     rms_displacement_converged: bool | None

@@ -66,6 +66,9 @@ from molop.io import AutoParser
 # Parse all Gaussian log files in the specified path
 batch = AutoParser("path/to/*.log", n_jobs=-1)
 
+# Paths and glob patterns can be mixed in one call
+batch = AutoParser(["reactants/*.log", "products/product.log"], n_jobs=-1)
+
 # Get the summary DataFrame of the first file
 df = batch[0].to_summary_df()
 print(df)

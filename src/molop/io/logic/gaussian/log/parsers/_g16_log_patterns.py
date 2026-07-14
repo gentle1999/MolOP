@@ -46,6 +46,10 @@ class G16LogPatterns:
         r"\d+-[A-Za-z]{3}-\d{4}\n\s+\d+-[A-Za-z]{3}-\d{4})",
         description="The exact version of Gaussian used. link 1",
     )
+    VERSION_TOKEN = MolOPPattern(
+        content_pattern=r"\b(?P<version>[A-Za-z0-9]+-G16Rev[A-Za-z0-9.]+)\b",
+        description="The normalized Gaussian 16 version token from the banner.",
+    )
     OPTIONS = MolOPPattern(
         start_pattern=r"^\s\*+\n",
         end_pattern=r"^\s*-+\n",

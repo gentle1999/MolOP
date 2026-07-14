@@ -55,14 +55,31 @@ class ORCALogFileFrameParserMixin:
         return None
 
     def _run_structure_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
-        atoms, coords = extract_orca_coords(text)
+        capture_source_evidence = cast(_HasParseMethod, self).capture_source_evidence
+        atoms, coords, coordinate_decimal_places = extract_orca_coords(
+            text,
+            capture_source_evidence=capture_source_evidence,
+        )
         if atoms is not None and coords is not None:
             result.set("atoms", atoms)
             result.set("coords", coords)
+            if capture_source_evidence:
+                result.set("coordinate_source", "observed")
+                result.set(
+                    "coordinate_provenance",
+                    "ORCA CARTESIAN COORDINATES (ANGSTROEM) in source atom order",
+                )
+                if coordinate_decimal_places is not None:
+                    result.set("coordinate_decimal_places", coordinate_decimal_places)
         return ORCALogParsePhase.ENERGY
 
     def _run_energy_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
-        energies = extract_orca_energies(text)
+        typed_self = cast(_HasParseMethod, self)
+        energies = extract_orca_energies(
+            text,
+            capture_source_evidence=typed_self.capture_source_evidence,
+            model_chemistry=typed_self._additional_data.get("model_chemistry"),
+        )
         if energies is not None:
             result.set("energies", energies)
         return ORCALogParsePhase.STRUCTURE_ONLY_CHECK
@@ -78,6 +95,15 @@ class ORCALogFileFrameParserMixin:
         forces = extract_orca_forces(text, self._num_atoms_from_result(result))
         if forces is not None:
             result.set("forces", forces)
+            result.set("forces_axis_order", ("atom", "cartesian"))
+            result.set("forces_atom_order", "source")
+            result.set("forces_orientation", "source")
+            if cast(_HasParseMethod, self).capture_source_evidence:
+                result.set("force_source_field", "gradient")
+                result.set(
+                    "force_transformation",
+                    "Elementwise negation of the ORCA Cartesian gradient in source atom order",
+                )
         return ORCALogParsePhase.VIBRATION
 
     def _run_vibration_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
@@ -99,7 +125,7 @@ class ORCALogFileFrameParserMixin:
         return ORCALogParsePhase.STATUS
 
     def _run_status_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
-        status = extract_orca_status(text)
+        status = extract_orca_status(text, include_termination=False)
         if status is not None:
             result.set("status", status)
         running_time = extract_orca_running_time(text)
@@ -108,7 +134,10 @@ class ORCALogFileFrameParserMixin:
         return ORCALogParsePhase.OPTIMIZATION
 
     def _run_optimization_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
-        opt_status = extract_orca_geometry_optimization_status(text)
+        opt_status = extract_orca_geometry_optimization_status(
+            text,
+            capture_source_evidence=cast(_HasParseMethod, self).capture_source_evidence,
+        )
         if opt_status is not None:
             result.set("geometry_optimization_status", opt_status)
         return ORCALogParsePhase.SOLVENT

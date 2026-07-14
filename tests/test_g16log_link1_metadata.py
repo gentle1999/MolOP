@@ -1,11 +1,49 @@
 from pathlib import Path
 
-from molop.io.base_models.ParseContainers import ModelParseResult
-from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
+from molop.io.base_models.ParseContainers import ModelParseResult, TextParseContext
+from molop.io.logic.gaussian.log.parsers._g16_log_file_extractors import (
+    extract_g16_termination_status,
+)
+from molop.io.logic.gaussian.log.parsers.G16LogFileParser import (
+    G16LogFileParserMemory,
+    G16LogFileParserMixin,
+)
 
 
 CCSD_FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "1.log"
 DFT_FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "H2O.log"
+GEN_INHERITANCE_FIXTURE = (
+    Path(__file__).resolve().parent / "test_files" / "g16log" / "dsgdb9nsd_000696-4.log"
+)
+
+
+def test_g16log_file_parser_uses_shared_parse_lifecycle() -> None:
+    assert "_parse" not in G16LogFileParserMixin.__dict__
+
+
+def test_g16log_artifact_metadata_does_not_run_segment_parser(monkeypatch) -> None:
+    def fail_segment_parse(*_args, **_kwargs):
+        raise AssertionError("artifact metadata must not parse segment metadata")
+
+    monkeypatch.setattr(
+        G16LogFileParserMixin,
+        "_parse_segment_metadata_result",
+        fail_segment_parse,
+    )
+
+    metadata = G16LogFileParserMemory()._parse_artifact_metadata(DFT_FIXTURE.read_text())
+
+    assert metadata == {
+        "qm_software": "Gaussian",
+        "qm_software_version": "ES64L-G16RevA.03",
+    }
+
+
+def test_g16log_shared_lifecycle_preserves_gen_basis_inheritance() -> None:
+    parsed = G16LogFileParserMemory().parse(GEN_INHERITANCE_FIXTURE.read_text())
+
+    assert parsed[-2].basis_set == "6-311+G(d,p)"
+    assert parsed[-1].basis_set == parsed[-2].basis_set
 
 
 def _split_raw_gaussian_blocks(file_content: str) -> tuple[str, list[str]]:
@@ -45,9 +83,33 @@ def test_g16log_link1_sections_propagate_section_metadata_to_later_frames() -> N
         assert frame.title_card.strip() == "opt and freq in PhCl/MeOH=20/1"
 
 
-def test_g16log_file_metadata_result_is_canonical_model_data() -> None:
+def test_g16log_link1_segments_export_distinct_protocol_evidence() -> None:
+    ccsd_header, ccsd_frames = _split_raw_gaussian_blocks(CCSD_FIXTURE.read_text())
+    dft_header, dft_frames = _split_raw_gaussian_blocks(DFT_FIXTURE.read_text())
+    combined = "\n".join(
+        [
+            ccsd_header + ccsd_frames[0],
+            "Link1:  Proceeding to internal job step number  2.\n"
+            + dft_header
+            + dft_frames[0]
+            + dft_frames[1],
+        ]
+    )
+
+    parsed = G16LogFileParserMemory(capture_source_evidence=True).parse(combined)
+
+    assert [frame.file_frame_index for frame in parsed.frames] == [0, 1, 2]
+    first, second = [segment for segment in parsed.source_segments if segment.protocol is not None]
+    assert first.protocol is not None
+    assert first.protocol["method_family"] == "CCSD"
+    assert second.protocol is not None
+    assert second.protocol["method_family"] == "DFT"
+    assert [request["task_type"] for request in second.task_requests] == ["opt", "freq"]
+
+
+def test_g16log_segment_metadata_result_is_canonical_model_data() -> None:
     parser = G16LogFileParserMemory()
-    result = parser._parse_metadata_result(DFT_FIXTURE.read_text())
+    result = parser._parse_segment_metadata_result(DFT_FIXTURE.read_text())
     metadata = result.model_data()
 
     assert isinstance(result, ModelParseResult)
@@ -91,3 +153,26 @@ def test_g16log_entering_link1_sections_propagate_section_metadata_to_later_fram
         assert "b3lyp/6-31g(d)" in frame.keywords.lower()
         assert "ccsd/aug-cc-pvtz" not in frame.keywords.lower()
         assert frame.title_card.strip() == "opt and freq in PhCl/MeOH=20/1"
+
+
+def test_gaussian_normal_termination_does_not_fabricate_scf_convergence() -> None:
+    status = extract_g16_termination_status(
+        TextParseContext(" Normal termination of Gaussian 16 at Mon Jan  1 00:00:00 2024.\n")
+    )
+
+    assert status is not None
+    assert status.normal_terminated is True
+    assert status.scf_converged is None
+
+
+def test_gaussian_explicit_scf_failure_is_preserved_independently_of_termination() -> None:
+    status = extract_g16_termination_status(
+        TextParseContext(
+            " Convergence failure -- run terminated.\n"
+            " Error termination via Lnk1e in /tmp/l502.exe at Mon Jan  1 00:00:00 2024.\n"
+        )
+    )
+
+    assert status is not None
+    assert status.normal_terminated is False
+    assert status.scf_converged is False

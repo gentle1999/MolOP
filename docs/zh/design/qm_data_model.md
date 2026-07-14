@@ -26,6 +26,9 @@
 
 `QMModelChemistry` 描述模型化学级别：
 
+- `method` 是用于匹配和计算协议 identity 的稳定、具体电子结构方法名。Gaussian
+  的 `R`、`U`、`RO` 前缀不写入该值，而是单独保存在 `spin_treatment`；原始 route
+  token 仍保留在 Gaussian semantic route evidence 中。
 - 泛函与色散属于同一模型化学表达。Gaussian 和 ORCA 都应把色散后缀写进 `functional`，例如 `B3LYP-GD3BJ`。
 - `dispersion_correction` 同时保留规范化的色散标识，例如 `GD3BJ` 或 `D4`。
 - `basis_sets` 用于混合基组、辅助基组、ECP 和原子级覆盖；`basis_set` 只表示主全局轨道基组。
@@ -47,10 +50,13 @@
 
 新增解析逻辑应遵守以下流程：
 
-1. 解析程序特有语法，得到程序特有语义模型。
-2. 构造公共结构化容器。
-3. 如仍有旧字段上解析出的资源或关键词，只用 `backfill_common_qm_containers_from_legacy()` 补空字段。
-4. 调用 `project_common_qm_fields()` 投影兼容字段。
-5. 测试同时断言结构化字段与兼容字段一致。
+1. file parser 声明规范 `format_id`，实现 `_quick_check_file_format()` 和 `_locate_segments()`，直接定位原文区间。
+2. 仅在需要时实现 `_parse_artifact_metadata()` 或 `_parse_segment_metadata()`。
+3. 解析程序特有语法，得到程序特有语义模型并构造公共结构化容器。
+4. 如仍有旧字段上解析出的资源或关键词，只用 `backfill_common_qm_containers_from_legacy()` 补空字段。
+5. 调用 `project_common_qm_fields()` 投影兼容字段，并同时测试结构化字段与投影一致。
+
+不得重新引入 `_split_file()` 或 `_parse_metadata()`。locator 是 segment/frame 边界和送入
+frame parser 的原文内容的唯一事实源。
 
 不要把新语义只塞进 `keywords`、`resources_raw` 或 `options`。`options` 只保存尚未抽象成公共字段的程序特有细节。

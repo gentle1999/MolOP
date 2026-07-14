@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import numpy as np
+import pytest
 
 from molop.io import AutoParser
 from molop.io.base_models.ParseContainers import ModelParseResult
@@ -15,7 +16,10 @@ from molop.io.logic.gaussian.input.GaussianLink0 import (
     GaussianLink0Commands,
     render_gaussian_link0_shared_memory_line,
 )
-from molop.io.logic.gaussian.input.GaussianRoute import GaussianRouteSemantic
+from molop.io.logic.gaussian.input.GaussianRoute import (
+    GaussianRouteSemantic,
+    build_gaussian_model_chemistry,
+)
 from molop.io.logic.gaussian.input.GaussianRouteParsing import parse_gaussian_route_semantic
 from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import G16LogFileFrameMemory
 from molop.io.logic.gaussian.log.models.G16LogFile import G16LogFileMemory
@@ -192,16 +196,58 @@ def test_hf_route_does_not_populate_functional() -> None:
     assert semantic.model_chemistry.basis_set == "3-21g"
 
 
+def test_spin_prefixed_dft_route_keeps_raw_token_and_normalizes_model_chemistry() -> None:
+    semantic = parse_gaussian_route_semantic("#p RB3LYP/6-31G(d) freq")
+
+    assert semantic.model_chemistry.method_token == "rb3lyp"
+    assert semantic.model_chemistry.method_family == "DFT"
+    assert semantic.model_chemistry.functional == "b3lyp"
+    assert semantic.model_chemistry.spin_qualifier == "R"
+
+    model = build_gaussian_model_chemistry(
+        semantic,
+        keywords=semantic.raw_route,
+        legacy_method="DFT",
+        legacy_functional="RB3LYP",
+    )
+    assert model.method == "B3LYP"
+    assert model.functional == "B3LYP"
+    assert model.spin_treatment == "R"
+
+
+@pytest.mark.parametrize(
+    ("route_method", "expected_method", "expected_spin", "expected_functional"),
+    [
+        ("UHF", "HF", "U", None),
+        ("ROHF", "HF", "RO", None),
+        ("R2SCAN", "R2SCAN", None, "R2SCAN"),
+    ],
+)
+def test_gaussian_method_normalization_does_not_confuse_spin_prefixes(
+    route_method: str,
+    expected_method: str,
+    expected_spin: str | None,
+    expected_functional: str | None,
+) -> None:
+    semantic = parse_gaussian_route_semantic(f"#p {route_method}/def2svp sp")
+    model = build_gaussian_model_chemistry(semantic, keywords=semantic.raw_route)
+
+    assert model.method == expected_method
+    assert model.spin_treatment == expected_spin
+    assert model.functional == expected_functional
+
+
 def test_gjf_frame_populates_qm_metadata_from_shared_semantic_route() -> None:
     fixture_path = Path(__file__).resolve().parent / "test_files" / "g16gjf" / "test_solvent.gjf"
     batch = AutoParser(str(fixture_path))
     frame = cast(Any, batch[0][0])
     assert frame.method == "DFT"
     assert frame.basis_set.lower() == "def2svp"
-    assert frame.functional == "b3lyp-GD3BJ"
+    assert frame.functional == "B3LYP-GD3BJ"
     assert frame.route_section.semantic_route.model_chemistry.basis_set == "def2svp"
     assert frame.model_chemistry.method_family == "DFT"
-    assert frame.model_chemistry.functional == "b3lyp-GD3BJ"
+    assert frame.model_chemistry.method == "B3LYP"
+    assert frame.model_chemistry.functional == "B3LYP-GD3BJ"
     assert frame.model_chemistry.dispersion_correction == "GD3BJ"
     assert frame.model_chemistry.basis_set == "def2svp"
     assert {"opt", "freq", "population_analysis"} <= {
@@ -221,15 +267,25 @@ def test_g16log_frame_exposes_shared_semantic_route() -> None:
     assert frame.dieze_tag == semantic.dieze_tag
 
 
-def test_g16log_file_parser_populates_semantic_route_metadata() -> None:
+def test_g16log_segment_metadata_result_populates_semantic_route() -> None:
     fixture_path = Path(__file__).resolve().parent / "test_files" / "g16log" / "1.log"
 
-    result = G16LogFileParserMemory()._parse_metadata_result(fixture_path.read_text())
+    result = G16LogFileParserMemory()._parse_segment_metadata_result(fixture_path.read_text())
     semantic = result.model_data()["semantic_route"]
 
     assert isinstance(semantic, GaussianRouteSemantic)
     assert semantic.model_chemistry.method_family == "CCSD"
     assert semantic.model_chemistry.basis_set == "aug-cc-pvtz"
+
+
+def test_g16log_link1_frames_use_stable_concrete_method_names() -> None:
+    fixture_path = Path(__file__).resolve().parent / "test_files" / "g16log" / "H2O.log"
+    parsed_file = AutoParser(str(fixture_path))[0]
+
+    assert {frame.model_chemistry.method for frame in parsed_file} == {"B3LYP"}
+    assert parsed_file[-1].semantic_route.model_chemistry.method_token == "rb3lyp"
+    assert parsed_file[-1].model_chemistry.functional == "B3LYP"
+    assert parsed_file[-1].model_chemistry.spin_treatment == "R"
 
 
 def test_g16log_models_do_not_parse_semantic_route_from_raw_keywords() -> None:

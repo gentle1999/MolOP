@@ -1043,7 +1043,7 @@ def _build_orca_task_requests(
     if gradient_tokens and not tasks:
         tasks.append(
             QMTaskRequest(
-                task_type="sp",
+                task_type="gradient",
                 derivative_order=1,
                 properties=["gradient"],
                 source_keywords=gradient_tokens,

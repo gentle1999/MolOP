@@ -23,12 +23,11 @@ def _write_orcainp(tmp_path: Path, content: str, name: str = "input.inp") -> Pat
     return path
 
 
-def test_orcainp_file_parser_metadata_result_is_model_ready() -> None:
+def test_orcainp_file_parser_artifact_metadata_is_model_ready() -> None:
     parser = ORCAInpFileParserMemory()
-    result = parser._parse_metadata_result("! SP HF def2-SVP\n* xyz 0 1\nH 0 0 0\n*\n")
+    metadata = parser._parse_artifact_metadata("! SP HF def2-SVP\n* xyz 0 1\nH 0 0 0\n*\n")
 
-    assert isinstance(result, ModelParseResult)
-    assert result.model_data() == {
+    assert metadata == {
         "qm_software": "ORCA",
         "qm_software_version": "Any",
     }

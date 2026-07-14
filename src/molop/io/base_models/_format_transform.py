@@ -35,7 +35,7 @@ def _resolve_format_output_path(
         raise ValueError("file_path is required when writing a memory-only object to disk")
     assert not os.path.isdir(source_path), "file_path should be a file path or None"
     dir_path = os.path.dirname(source_path)
-    base = os.path.basename(source_path).split(".")[0]
+    base = os.path.splitext(os.path.basename(source_path))[0]
     return os.path.join(dir_path, f"{base}.{format}")
 
 
@@ -126,7 +126,7 @@ class FormatTransformMixin:
         if write_to_disk:
             output_file_path = cast(str, writer_file_path)
             dir_path = os.path.dirname(output_file_path)
-            base = os.path.basename(output_file_path).split(".")[0]
+            base = os.path.splitext(os.path.basename(output_file_path))[0]
             if isinstance(rendered, str):
                 output_path = os.path.join(dir_path, f"{base}.{format}")
                 with open(output_path, "w") as f:

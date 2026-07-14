@@ -915,7 +915,14 @@ class G16L716ThermochemistryComponent(G16BaseComponent):
             specs.append(
                 G16SyntheticChildSpec(
                     component_cls=G16L716ThermochemistryVibTempComponent,
-                    payload={"vibrational_temperatures": thermal_info.vibrational_temperatures},
+                    payload={
+                        "vibrational_temperatures": thermal_info.vibrational_temperatures,
+                        "vibrational_temperature_mode_indices": getattr(
+                            thermal_info,
+                            "vibrational_temperature_mode_indices",
+                            None,
+                        ),
+                    },
                 )
             )
         return tuple(specs)

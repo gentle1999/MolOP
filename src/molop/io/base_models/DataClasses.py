@@ -1,5 +1,5 @@
-from collections.abc import Iterator, Sequence
-from typing import Any, ClassVar, Generic, TypeVar, cast, overload
+from collections.abc import Iterator, Mapping, Sequence
+from typing import Any, ClassVar, Generic, Literal, TypeVar, cast, overload
 
 import numpy as np
 import pandas as pd
@@ -756,6 +756,22 @@ class MultireferenceResult(BaseDataClassWithUnit):
         return bundle
 
 
+class EnergyObservation(BaseDataClassWithUnit):
+    """One source-labeled energy observation retained by the core energy model."""
+
+    default_units: ClassVar[dict[str, UnitLike]] = {"value": atom_ureg.hartree}
+    set_default_units: ClassVar[bool] = True
+
+    method: str = Field(min_length=1, description="Energy method or reference label")
+    quantity_semantics: Literal[
+        "total_energy",
+        "correlation_correction",
+        "component",
+    ] = Field(description="Physical meaning of the observed energy")
+    value: PlainQuantity = Field(description="Observed energy, normalized to hartree")
+    source_label: str = Field(min_length=1, description="Label printed by the source program")
+
+
 class Energies(BaseDataClassWithUnit):
     model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
     default_units: ClassVar[dict[str, UnitLike]] = {
@@ -766,8 +782,15 @@ class Energies(BaseDataClassWithUnit):
         "mp4_energy": atom_ureg.hartree,
         "mp5_energy": atom_ureg.hartree,
         "ccsd_energy": atom_ureg.hartree,
+        "ccsd_t_energy": atom_ureg.hartree,
     }
     set_default_units: ClassVar[bool] = True
+
+    observations: list[EnergyObservation] = Field(
+        default_factory=list,
+        description="Optional source-labeled energy observations captured during parsing",
+        exclude_if=lambda observations: not observations,
+    )
 
     # energies
     electronic_energy: PlainQuantity | None = Field(
@@ -793,16 +816,20 @@ class Energies(BaseDataClassWithUnit):
     ccsd_energy: PlainQuantity | None = Field(
         default=None, description="CCSD energy of the molecule, unit is `hartree`"
     )
+    ccsd_t_energy: PlainQuantity | None = Field(
+        default=None, description="CCSD(T) energy of the molecule, unit is `hartree`"
+    )
 
     @property
     def energy(self) -> dict[str, PlainQuantity]:
         energy_fields = (
+            "electronic_energy",
+            "ccsd_t_energy",
             "ccsd_energy",
             "mp5_energy",
             "mp4_energy",
             "mp3_energy",
             "mp2_energy",
-            "electronic_energy",
             "reference_energy",
         )
         return {
@@ -950,6 +977,31 @@ class ThermalInformations(BaseDataClassWithUnit):
         description="vibrational temperatures, unit is `K`",
         exclude_if=lambda x: x is None,
     )
+    vibrational_temperature_mode_indices: list[int] | None = Field(
+        default=None,
+        description="Frequency-mode indices corresponding to vibrational_temperatures",
+        exclude_if=lambda x: x is None,
+    )
+
+    @model_validator(mode="after")
+    def validate_vibrational_temperature_mode_indices(self) -> Self:
+        if self.vibrational_temperature_mode_indices is None:
+            return self
+        if self.vibrational_temperatures is None:
+            raise ValueError(
+                "vibrational_temperature_mode_indices require vibrational_temperatures"
+            )
+        if len(self.vibrational_temperature_mode_indices) != len(self.vibrational_temperatures):
+            raise ValueError(
+                "vibrational_temperature_mode_indices must match vibrational_temperatures"
+            )
+        if len(set(self.vibrational_temperature_mode_indices)) != len(
+            self.vibrational_temperature_mode_indices
+        ) or any(index < 0 for index in self.vibrational_temperature_mode_indices):
+            raise ValueError(
+                "vibrational_temperature_mode_indices must be unique non-negative indices"
+            )
+        return self
 
     def to_summary_dict(self, **kwargs) -> SummaryDict:
         return summary_dict_from_fields(self, "Thermal", **kwargs)
@@ -1612,6 +1664,54 @@ class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
         description="Vibration mode of each mode, unit is `angstrom`",
         exclude_if=lambda x: len(x) == 0,
     )
+    mode_indices: list[int] = Field(
+        default_factory=list,
+        description="Source frequency-mode index for each stored mode",
+        exclude_if=lambda x: len(x) == 0,
+    )
+    axis_order: tuple[Literal["mode"], Literal["atom"], Literal["cartesian"]] | None = Field(
+        default=None,
+        description="Axis order of the conceptual stacked vibration_modes array",
+        exclude_if=lambda x: x is None,
+    )
+    atom_order: Literal["source"] | None = Field(
+        default=None,
+        description="Atom ordering used by vibration_modes",
+        exclude_if=lambda x: x is None,
+    )
+    normalization: Literal["unknown", "source_program"] | None = Field(
+        default=None,
+        description="Normalization convention of vibration_modes",
+        exclude_if=lambda x: x is None,
+    )
+    mass_weighting: Literal["unknown", "mass_weighted", "not_mass_weighted"] | None = Field(
+        default=None,
+        description="Mass-weighting convention of vibration_modes",
+        exclude_if=lambda x: x is None,
+    )
+
+    @model_validator(mode="after")
+    def validate_mode_metadata(self) -> Self:
+        mode_count = len(self.frequencies)
+        if not self.mode_indices and mode_count:
+            self.mode_indices = list(range(mode_count))
+        if self.mode_indices and len(self.mode_indices) != mode_count:
+            raise ValueError("mode_indices must match frequencies")
+        if len(set(self.mode_indices)) != len(self.mode_indices) or any(
+            index < 0 for index in self.mode_indices
+        ):
+            raise ValueError("mode_indices must be unique non-negative indices")
+        if self.vibration_modes:
+            if len(self.vibration_modes) != mode_count:
+                raise ValueError("vibration_modes must match frequencies")
+            mode_shapes = {tuple(mode.shape) for mode in self.vibration_modes}
+            if len(mode_shapes) != 1 or next(iter(mode_shapes))[-1:] != (3,):
+                raise ValueError("vibration_modes must share an (atom, 3) shape")
+            self.axis_order = self.axis_order or ("mode", "atom", "cartesian")
+            self.atom_order = self.atom_order or "source"
+            self.normalization = self.normalization or "unknown"
+            self.mass_weighting = self.mass_weighting or "unknown"
+        return self
 
     def __iter__(self) -> Iterator[Vibration]:  # type: ignore[override]
         for i in range(len(self)):
@@ -1682,6 +1782,11 @@ class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
                     if len(self.vibration_modes)
                     else []
                 ),
+                "mode_indices": [self.mode_indices[i] for i in imaginary_idxs],
+                "axis_order": self.axis_order,
+                "atom_order": self.atom_order,
+                "normalization": self.normalization,
+                "mass_weighting": self.mass_weighting,
             }
         )
 
@@ -1713,7 +1818,7 @@ class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
                     label=f"mode {mode_idx + 1}",
                     center=frequency,
                     intensity=intensity,
-                    metadata={"mode_index": mode_idx},
+                    metadata={"mode_index": self.mode_indices[mode_idx]},
                 )
             )
         return Spectrum(
@@ -2200,6 +2305,30 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
         "rms_displacement",
         "max_displacement",
     )
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "energy_change": atom_ureg.hartree,
+        "energy_change_threshold": atom_ureg.hartree,
+        "rms_force": atom_ureg.Unit("hartree/bohr"),
+        "rms_force_threshold": atom_ureg.Unit("hartree/bohr"),
+        "max_force": atom_ureg.Unit("hartree/bohr"),
+        "max_force_threshold": atom_ureg.Unit("hartree/bohr"),
+        "rms_displacement": atom_ureg.bohr,
+        "rms_displacement_threshold": atom_ureg.bohr,
+        "max_displacement": atom_ureg.bohr,
+        "max_displacement_threshold": atom_ureg.bohr,
+    }
+    set_default_units: ClassVar[bool] = True
+
+    source_converged: dict[str, bool | None] | None = Field(
+        default=None,
+        description="Optional source-reported convergence decisions keyed by metric",
+        exclude_if=lambda value: value is None,
+    )
+    source_labels: dict[str, str] | None = Field(
+        default=None,
+        description="Optional source labels keyed by normalized optimization metric",
+        exclude_if=lambda value: value is None,
+    )
 
     geometry_optimized: bool | None = Field(
         default=None,
@@ -2211,51 +2340,75 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
         ge=1.0,
         description="Tolerance multiplier used to judge acceptable geometry optimization convergence.",
     )
-    energy_change_threshold: float | None = Field(
+    energy_change_threshold: PlainQuantity | None = Field(
         default=None,
         description="Energy change threshold",
         exclude_if=lambda x: x is None,
     )
-    rms_force_threshold: float | None = Field(
+    rms_force_threshold: PlainQuantity | None = Field(
         default=None,
         description="RMS force threshold in internal some programs use gradient, which has the same absolute value",
         exclude_if=lambda x: x is None,
     )
-    max_force_threshold: float | None = Field(
+    max_force_threshold: PlainQuantity | None = Field(
         default=None,
         description="Maximum force threshold in internal some programs use gradient, which has the same absolute value",
         exclude_if=lambda x: x is None,
     )
-    rms_displacement_threshold: float | None = Field(
+    rms_displacement_threshold: PlainQuantity | None = Field(
         default=None,
         description="RMS displacement threshold in internal",
         exclude_if=lambda x: x is None,
     )
-    max_displacement_threshold: float | None = Field(
+    max_displacement_threshold: PlainQuantity | None = Field(
         default=None,
         description="Maximum displacement threshold in internal",
         exclude_if=lambda x: x is None,
     )
-    energy_change: float = Field(
-        default=float("inf"),
+    energy_change: PlainQuantity | None = Field(
+        default=None,
         description="Energy change",
+        exclude_if=lambda x: x is None,
     )
-    rms_force: float = Field(
-        default=float("inf"),
+    rms_force: PlainQuantity | None = Field(
+        default=None,
         description="RMS force some programs use gradient, which has the same absolute value",
+        exclude_if=lambda x: x is None,
     )
-    max_force: float = Field(
-        default=float("inf"),
+    max_force: PlainQuantity | None = Field(
+        default=None,
         description="Maximum force some programs use gradient, which has the same absolute value",
+        exclude_if=lambda x: x is None,
     )
-    rms_displacement: float = Field(default=float("inf"), description="RMS displacement")
-    max_displacement: float = Field(default=float("inf"), description="Maximum displacement")
+    rms_displacement: PlainQuantity | None = Field(
+        default=None,
+        description="RMS displacement",
+        exclude_if=lambda x: x is None,
+    )
+    max_displacement: PlainQuantity | None = Field(
+        default=None,
+        description="Maximum displacement",
+        exclude_if=lambda x: x is None,
+    )
+
+    @model_validator(mode="before")
+    @classmethod
+    def attach_default_metric_units(cls, data: Any) -> Any:
+        if not isinstance(data, Mapping):
+            return data
+        normalized = dict(data)
+        for field, unit in cls.default_units.items():
+            value = normalized.get(field)
+            if value is not None and not hasattr(value, "units"):
+                normalized[field] = value * unit
+        return normalized
 
     def _metric_converged(self, metric: str) -> bool | None:
+        value = getattr(self, metric)
         threshold = getattr(self, f"{metric}_threshold")
-        if threshold is None:
+        if value is None or threshold is None:
             return None
-        return abs(getattr(self, metric)) <= threshold * self.convergence_multiplier
+        return bool(abs(value) <= threshold * self.convergence_multiplier)
 
     @computed_field()  # type: ignore[prop-decorator]
     @property
@@ -2313,19 +2466,15 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
             if metric is False
         )
 
-    def __vector__(
-        self,
-    ) -> np.ndarray[Any, np.dtype[np.bool_]] | np.ndarray[Any, np.dtype[np.floating[Any]]]:
-        return np.abs(
-            np.array(
-                [
-                    self.energy_change,
-                    self.rms_force,
-                    self.max_force,
-                    self.rms_displacement,
-                    self.max_displacement,
-                ]
-            )
+    def __vector__(self) -> np.ndarray[Any, np.dtype[np.floating[Any]]]:
+        return np.array(
+            [
+                abs(getattr(self, metric).magnitude)
+                if getattr(self, metric) is not None
+                else np.nan
+                for metric in self.optimization_metrics
+            ],
+            dtype=float,
         )
 
     def to_df(self) -> pd.DataFrame:
@@ -2349,8 +2498,12 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
             raise NotImplementedError
         if self.not_converged_num() > other.not_converged_num():
             return False
-        else:
-            return sum(self.__vector__() <= other.__vector__()) >= 4
+        self_vector = self.__vector__()
+        other_vector = other.__vector__()
+        shared = np.isfinite(self_vector) & np.isfinite(other_vector)
+        if not shared.any():
+            return True
+        return bool(np.all(self_vector[shared] <= other_vector[shared]))
 
     def __gt__(self, other: "GeometryOptimizationStatus"):
         return not self.__le__(other)
@@ -2381,17 +2534,34 @@ class GeometryOptimizationStatus(BaseDataClassWithUnit):
             ): self.convergence_multiplier,
         }
         for metric in self.optimization_metrics:
-            summary[summary_column("GeometryOptimizationStatus", metric)] = getattr(self, metric)
-            summary[summary_column("GeometryOptimizationStatus", f"{metric}_threshold")] = getattr(
-                self, f"{metric}_threshold"
-            )
+            if (value := getattr(self, metric)) is not None:
+                item = summary_item("GeometryOptimizationStatus", metric, value)
+                if item is not None:
+                    column, summary_value = item
+                    summary[column] = summary_value
+            if (threshold := getattr(self, f"{metric}_threshold")) is not None:
+                item = summary_item(
+                    "GeometryOptimizationStatus",
+                    f"{metric}_threshold",
+                    threshold,
+                )
+                if item is not None:
+                    column, summary_value = item
+                    summary[column] = summary_value
         return summary
 
 
 class Status(BaseDataClassWithUnit):
-    scf_converged: bool = Field(default=False, description="Whether the SCF has converged")
-    normal_terminated: bool = Field(
-        default=False, description="Whether the calculation has terminated normally"
+    scf_converged: bool | None = Field(
+        default=None,
+        description="Whether the SCF has converged, or None when the output has no SCF evidence",
+    )
+    normal_terminated: bool | None = Field(
+        default=None,
+        description=(
+            "Whether the calculation segment terminated normally, or None when no "
+            "segment-termination evidence is attached to this object"
+        ),
     )
 
     def to_summary_dict(self, **kwargs) -> SummaryDict:

@@ -3,6 +3,131 @@
 本页固定 `format_transform`、`to_summary_df`、`parallel_execute` 和 CLI chain
 的公开契约。
 
+## `AutoParser`
+
+Python API 可接收单个 `str` 或 `os.PathLike`，也可接收由路径和通配符组成的一维
+iterable。每个通配符分别展开，全部结果物化后按规范化绝对路径去重，并以绝对路径顺序
+返回一个 `FileBatchModelDisk`；不保留输入分组与输入顺序。
+
+未匹配的通配符不贡献文件，空 iterable 返回空 batch。不存在的普通路径会交给 batch
+parser 告警并跳过。嵌套 iterable 或非路径成员会抛出带成员索引的 `TypeError`。所有解析
+选项统一应用于展开后的每条路径。
+
+```python
+from pathlib import Path
+
+batch = AutoParser(["inputs/a.log", "inputs/set_b/*.log", Path("c.log")])
+```
+
+## 计算数据库视图
+
+`ChemFile` 和 `ChemFileFrame` 是权威的计算数据模型。MolOP 不维护平行的
+`Parsed*` DTO 对象树，也不提供第二套计算解析入口。数据库录入直接使用相同对象的
+序列化视图：
+
+```python
+from molop import AutoParser
+
+chem_file = AutoParser(
+    "calculation.out",
+    capture_source_evidence=True,
+    release_file_content=True,
+)[0]
+file_payload = chem_file.to_unitless_dump_with_unit_keys(exclude_none=True)
+frame_payloads = (
+    frame.to_unitless_dump_with_unit_keys(exclude_none=True)
+    for frame in chem_file
+)
+```
+
+文件 payload 与帧 payload 有意分离。`ChemFile` dump 只包含 artifact、segment 和其他
+文件级 metadata，不内嵌 `frames` 或私有 `_frames_` 集合。调用方应增量消费
+`frame_payloads`，自行附加文件 identity 与顺序上下文，再交给自己的 Pydantic 接收模型
+逐帧校验。接收模型只选择所需字段，通常对格式专用扩展使用 `extra="ignore"`。传输层可以
+临时包装一个文件 payload 和一页帧 payload，但该包装不是 MolOP DTO，也不要求构造一个
+巨型 JSON 文档。
+
+开启 source evidence 后，每个 frame payload 包含三个不同作用域的序号：`frame_id` 是
+当前 `ChemFile` 中的追加序号，`segment_frame_index` 是原文 segment 内序号，
+`file_frame_index` 是完整原文件中按 locator 顺序展平后的稳定序号。即使
+`only_last_frame=True`，后两者仍保留原文序号；未开启 evidence 时不输出这些 source
+序号。数据库持久化原文顺序时必须使用 `file_frame_index`，不得使用可能因筛选而重置的
+`frame_id`。
+
+每个正常 parser 生命周期生成的文件 payload 都包含固定的
+`schema_version="molop-calculation-export-v1"`、规范 `source_format` 和文件级
+`parser_provenance`。
+provenance 记录具体 parser、MolOP、MolGR、RDKit 版本，以及本次解析实际使用的 parser、
+MolOP 和 MolGR 配置快照；`effective_config_sha256` 是该快照的严格 canonical JSON
+SHA-256。provenance 不复制到 frame payload。
+
+`to_unitless_dump_with_unit_keys()` 会递归地把 quantity 转为 magnitude，并将规范化
+单位写入对应 key，格式为 `field (unit)`。嵌套 MolOP 模型、数组、序列和 mapping
+都由 `BaseDataClassWithUnit` 的通用实现处理。其结果只是 dump，不是另一套需要独立
+校验、转换或维护生命周期的数据模型。
+
+单位 label 是该公开序列化视图的一部分。MolOP 根据 Pint 规范单位名使用自身的确定性
+语法生成 label，不依赖用于展示的 `str(unit)`：乘积项排序后用 `*` 连接，幂使用 `^`，
+多项分母使用括号。例如稳定 label 为 `hartree`、`kilocalorie/mole`、
+`bohr^2*unified_atomic_mass_unit` 和 `calorie/(kelvin*mole)`。
+
+数组默认转为 JSON-safe list。数据库录入可选择保留数值 ndarray 的独立副本，以便写入
+确定性 NPY 或其他二进制 sidecar，而无需构造巨型 JSON：
+
+```python
+frame_payload = frame.to_unitless_dump_with_unit_keys(
+    exclude_none=True,
+    array_mode="ndarray",
+)
+```
+
+`ndarray` 模式下，非数值数组仍转为 list；返回的数值数组不会与模型内部数组共享内存。
+调用方用引用替换这些数组或选择编码前，返回值有意不保证可 JSON 序列化。其他关键字参数
+会在递归转换前原样传给 Pydantic `model_dump()`，因此 `include`、`exclude`、
+`exclude_none`、alias 以及其他字段筛选规则保持原有语义。
+
+export 路径会在 Pydantic 生成快照前物化惰性的公开 topology。因此首个 frame payload
+已经包含 `bonds`、`formal_charges` 和 `formal_num_radicals`，未修改 frame 的连续两次
+dump 相等。bond 端点和逐原子 topology 数组与导出的 `atoms`、`coords` 使用相同的原文
+原子顺序。该准备动作仅由此 export 方法触发；普通 `model_dump()` 保持既有的惰性行为与
+成本。
+
+可信重建还会输出 map-free `topology_v3000_molblock`、
+`source_to_topology_atom_permutation` 和重建配置 provenance。当前 MolGR 后端经元素与坐标
+核验为保序时，permutation 明确记录 identity；发生失败或无法无歧义确认原子顺序时不猜测
+映射，并以 `parse_presence["topology"]="parse_failed"` 和稳定 diagnostic code 报告。
+
+Source identity、location、semantics 和 evidence 都是现有模型上的可选字段。默认关闭
+evidence 捕获；数据库
+录入或审计场景可通过 `capture_source_evidence=True` 显式开启。支持的 parser 会在正常
+解析与 byte offset 计算中统一使用 `source_encoding` 指定的严格解码器，默认值为
+`utf-8`。支持的 parser 会在正常
+解析路径中、释放保留原文之前填充这些字段，不会在解析结束后再运行一套 scientific
+extractor。与格式无关的协议位于 `molop.io.base_models.source`：`DecodedSource` 保留
+精确解码偏移，`LocatedTextBlock` 和 `LocatedSourceSegment` 表达 parser 提供的边界，
+`SourceSpan` 保存 byte/character/line 范围。artifact 字段属于 `BaseChemFile`，位置字段
+属于 `BaseChemFileFrame`，坐标来源字段属于 `BaseCoordsFrame`，因此坐标、输入和计算文件
+都使用同一套生命周期。
+
+每个 `SourceSegmentEvidence` 还包含 portable `protocol` 和 `task_requests`。
+`protocol` 是通用 `model_chemistry` 的纯 mapping 投影，`task_requests` 是通用
+`QMTaskRequest` 的纯 mapping 列表，不暴露 Gaussian/ORCA 专用 semantic model。证据来自
+segment metadata，因此即使某段没有可解析 frame，也能保留其请求协议。正式数据库导入
+必须设置 `capture_source_evidence=True`；此时 `SourceSpan` 的 byte、character 和 line
+半开区间以及对应 SHA-256 都属于录入核验字段。
+
+文件分段只有一个事实源。每个专用 file parser 必须声明规范 `format_id`，并实现
+`_quick_check_file_format()` 和 `_locate_segments()`；locator 直接返回原文上的
+segment/frame 半开区间。有 frame 的 segment 中，这些 frame 区间必须覆盖全部非空白
+字符；纯空白间隙和零帧 segment 仍然合法。文件级与段级 metadata 可分别通过
+`_parse_artifact_metadata()` 和 `_parse_segment_metadata()` 提供，
+两者均为可选钩子。不存在 `_split_file()` 或 `_parse_metadata()` fallback，也不得先重建
+frame 文本再反向搜索 span。
+
+MolOP 负责输出解析事实与可选证据。存储系统仍需独立核验 artifact bytes，自行选择数组
+持久化编码，完成数据库 identity canonicalization、admission/QC，以及 Reaction 或
+ReactionPath 创建。
+
 ## Frame Selector
 
 MolOP 公开转换与汇总 API 统一使用一个 frame selector 概念：

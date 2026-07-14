@@ -7,7 +7,10 @@ Description: 请填写简介
 """
 
 from collections.abc import Iterator, Mapping, Sequence
-from typing import Any, ClassVar, TypeAlias, cast, overload
+from fractions import Fraction
+from math import isfinite
+from numbers import Integral, Real
+from typing import Any, ClassVar, Literal, TypeAlias, cast, overload
 
 import numpy as np
 import pandas as pd
@@ -26,6 +29,88 @@ PropertyScalarValue: TypeAlias = str | int | float | bool | PlainQuantity | Nump
 PropertyColumnValue: TypeAlias = (
     list[str | int | float | bool | None] | np.ndarray | PlainQuantity | NumpyQuantity
 )
+UnitlessDumpArrayMode: TypeAlias = Literal["list", "ndarray"]
+
+
+_CANONICAL_UNIT_NAME_ALIASES: dict[str, str] = {
+    "atomic_mass_unit": "unified_atomic_mass_unit",
+    "dalton": "unified_atomic_mass_unit",
+}
+
+
+def _format_unit_exponent(exponent: Any) -> str:
+    """Return a stable, ASCII exponent for a canonical unit label."""
+
+    if isinstance(exponent, Integral):
+        return str(int(exponent))
+    if isinstance(exponent, Fraction):
+        if exponent.denominator == 1:
+            return str(exponent.numerator)
+        return f"{exponent.numerator}/{exponent.denominator}"
+    if isinstance(exponent, Real):
+        numeric_exponent = float(exponent)
+        if numeric_exponent.is_integer():
+            return str(int(numeric_exponent))
+        return format(numeric_exponent, ".15g")
+    raise TypeError(f"Unsupported unit exponent type: {type(exponent).__name__}")
+
+
+def _format_unit_term(unit_name: str, exponent: Any) -> str:
+    normalized_name = _CANONICAL_UNIT_NAME_ALIASES.get(unit_name, unit_name)
+    exponent_label = _format_unit_exponent(exponent)
+    if exponent_label == "1":
+        return normalized_name
+    if "/" in exponent_label:
+        exponent_label = f"({exponent_label})"
+    return f"{normalized_name}^{exponent_label}"
+
+
+def _canonical_unit_label(unit: Any) -> str:
+    """Build a deterministic label without relying on Pint's display formatter."""
+
+    units = getattr(unit, "_units", None)
+    if units is None:
+        raise TypeError(f"Expected a Pint unit, got {type(unit).__name__}")
+    if not units:
+        return "dimensionless"
+
+    numerator: list[str] = []
+    denominator: list[str] = []
+    for unit_name, exponent in units.items():
+        numeric_exponent = float(exponent)
+        if numeric_exponent == 0:
+            continue
+        target = numerator if numeric_exponent > 0 else denominator
+        target.append(_format_unit_term(str(unit_name), abs(exponent)))
+
+    numerator_label = "*".join(sorted(numerator)) or "1"
+    denominator = sorted(denominator)
+    if not denominator:
+        return numerator_label
+    denominator_label = "*".join(denominator)
+    if len(denominator) > 1:
+        denominator_label = f"({denominator_label})"
+    return f"{numerator_label}/{denominator_label}"
+
+
+def _dump_ndarray(item: np.ndarray, array_mode: UnitlessDumpArrayMode) -> Any:
+    if array_mode == "ndarray" and item.dtype.kind in "biufc":
+        return item.copy()
+    if item.dtype.kind == "O":
+        raise ValueError("object-dtype arrays are not supported by the public dump")
+    if item.dtype.kind == "c":
+        raise ValueError("complex arrays require array_mode='ndarray'")
+    if item.dtype.kind == "f" and not np.isfinite(item).all():
+        raise ValueError("non-finite array values are not valid JSON")
+    return item.tolist()
+
+
+def _dump_scalar(item: Any) -> Any:
+    if isinstance(item, complex):
+        raise ValueError("complex scalar values are not valid JSON")
+    if isinstance(item, float) and not isfinite(item):
+        raise ValueError("non-finite scalar values are not valid JSON")
+    return item
 
 
 class BaseDataClassWithUnit(BaseModel):
@@ -34,25 +119,72 @@ class BaseDataClassWithUnit(BaseModel):
     set_default_units: ClassVar[bool] = False
 
     @staticmethod
-    def __unitless_dump__(item: Any, **kwargs) -> Any:
+    def __unitless_dump__(
+        item: Any,
+        *,
+        _include_units_in_keys: bool = False,
+        _array_mode: UnitlessDumpArrayMode = "list",
+        **kwargs,
+    ) -> Any:
         if hasattr(item, "m") and hasattr(item, "units"):
             if isinstance(item.m, np.ndarray):
-                return item.m.tolist()
+                return _dump_ndarray(item.m, _array_mode)
+            if isinstance(item.m, np.generic):
+                return _dump_scalar(item.m.item())
             else:
-                return item.m
+                return _dump_scalar(item.m)
         if isinstance(item, np.ndarray):
-            return item.tolist()
+            return _dump_ndarray(item, _array_mode)
+        if isinstance(item, np.generic):
+            return _dump_scalar(item.item())
         if isinstance(item, list):
-            return [BaseDataClassWithUnit.__unitless_dump__(i, **kwargs) for i in item]
+            return [
+                BaseDataClassWithUnit.__unitless_dump__(
+                    i,
+                    _include_units_in_keys=_include_units_in_keys,
+                    _array_mode=_array_mode,
+                    **kwargs,
+                )
+                for i in item
+            ]
         if isinstance(item, tuple):
-            return tuple(BaseDataClassWithUnit.__unitless_dump__(i, **kwargs) for i in item)
+            return tuple(
+                BaseDataClassWithUnit.__unitless_dump__(
+                    i,
+                    _include_units_in_keys=_include_units_in_keys,
+                    _array_mode=_array_mode,
+                    **kwargs,
+                )
+                for i in item
+            )
         if isinstance(item, Mapping):
-            return {
-                k: BaseDataClassWithUnit.__unitless_dump__(v, **kwargs) for k, v in item.items()
-            }
+            result: dict[Any, Any] = {}
+            for key, value in item.items():
+                unit = None
+                if _include_units_in_keys:
+                    if hasattr(value, "units"):
+                        unit = _canonical_unit_label(value.units)
+                    elif (
+                        isinstance(value, list | tuple)
+                        and value
+                        and all(hasattr(element, "units") for element in value)
+                    ):
+                        units = {_canonical_unit_label(element.units) for element in value}
+                        if len(units) == 1:
+                            unit = next(iter(units))
+                dumped_key = f"{key} ({unit})" if unit is not None else key
+                result[dumped_key] = BaseDataClassWithUnit.__unitless_dump__(
+                    value,
+                    _include_units_in_keys=_include_units_in_keys,
+                    _array_mode=_array_mode,
+                    **kwargs,
+                )
+            return result
         if isinstance(item, BaseDataClassWithUnit):
+            if _include_units_in_keys:
+                return item.to_unitless_dump_with_unit_keys(array_mode=_array_mode, **kwargs)
             return item.to_unitless_dump(**kwargs)
-        return item
+        return _dump_scalar(item)
 
     def to_unitless_dump(self, **kwargs) -> dict[str, Any]:
         """
@@ -65,6 +197,34 @@ class BaseDataClassWithUnit(BaseModel):
             k: BaseDataClassWithUnit.__unitless_dump__(getattr(self, k), **kwargs)
             for k, v in self.model_dump(**kwargs).items()
         }
+
+    def _materialize_unitless_dump_with_unit_keys(self) -> None:
+        """Materialize lazy public fields needed by the export dump."""
+
+    def to_unitless_dump_with_unit_keys(
+        self,
+        *,
+        array_mode: UnitlessDumpArrayMode = "list",
+        **kwargs,
+    ) -> dict[str, Any]:
+        """Dump magnitudes and include each quantity's unit in its mapping key.
+
+        Keys use ``field (unit)`` with deterministic canonical unit labels.
+        Numeric arrays become JSON-safe lists by default. Pass
+        ``array_mode="ndarray"`` to retain independent ndarray copies for
+        binary sidecars. ``kwargs`` are forwarded unchanged to
+        :meth:`pydantic.BaseModel.model_dump` before quantities are converted,
+        preserving its ``include`` and ``exclude`` semantics.
+        """
+
+        if array_mode not in {"list", "ndarray"}:
+            raise ValueError("array_mode must be 'list' or 'ndarray'")
+        self._materialize_unitless_dump_with_unit_keys()
+        return BaseDataClassWithUnit.__unitless_dump__(
+            self.model_dump(**kwargs),
+            _include_units_in_keys=True,
+            _array_mode=array_mode,
+        )
 
     @model_validator(mode="after")
     def __unit_transform__(self) -> Self:

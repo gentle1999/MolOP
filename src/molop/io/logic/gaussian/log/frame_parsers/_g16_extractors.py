@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -8,6 +9,7 @@ from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity, PlainUnit
 
 from molop.config import moloplogger
+from molop.io.base_models.DataClasses import EnergyObservation
 from molop.io.base_models.SearchPattern import MolOPPattern
 from molop.io.logic.gaussian.log.frame_parsers._g16_shared import (
     ARCHIVE_TAIL,
@@ -91,37 +93,53 @@ def extract_standard_coords_from_state(
 
 def extract_energies_and_total_spin_from_state(
     state: ParseState,
+    *,
+    capture_source_evidence: bool = False,
 ) -> tuple[dict[str, Any] | None, dict[str, Any] | None]:
-    scf_energies_dict: dict[str, PlainQuantity | None] = {}
+    scf_energies_dict: dict[str, Any] = {}
     total_spin_dict: dict[str, float | None] = {}
+    observations: dict[str, EnergyObservation] = {}
+
+    def observe(method: str, value: PlainQuantity, source_label: str) -> None:
+        if capture_source_evidence:
+            observations[method] = EnergyObservation(
+                method=method,
+                quantity_semantics="total_energy",
+                value=value,
+                source_label=source_label,
+            )
+
     focus_content, next_cursor = _focus_from_state(SCF_ENERGIES, state)
     if focus_content == "":
         return None, None
     state.advance_to(next_cursor)
     if matches := g16_log_patterns.SCF_ENERGY_AND_FUNCTIONAL.find_matches(focus_content):
-        scf_energies_dict["reference_energy"] = (
-            float(matches[0].group("energy")) * atom_ureg.hartree
-        )
+        reference_energy = float(matches[0].group("energy")) * atom_ureg.hartree
+        scf_energies_dict["reference_energy"] = reference_energy
+        observe("reference", reference_energy, "SCF Done")
     if matches := g16_log_patterns.SPIN_SPIN_SQUERE.find_matches(focus_content):
         total_spin_dict["spin_square"] = float(matches[0].group("spin_square"))
         total_spin_dict["spin_quantum_number"] = float(matches[0].group("spin_quantum_number"))
     if matches := g16_log_patterns.ENERGY_MP2_4.find_matches(focus_content):
         for matched in matches:
-            scf_energies_dict[f"{matched.group('method').lower()}_energy"] = (
-                float(matched.group("energy").replace("D", "E")) * atom_ureg.hartree
-            )
+            method = matched.group("method").upper()
+            energy = float(matched.group("energy").replace("D", "E")) * atom_ureg.hartree
+            scf_energies_dict[f"{method.lower()}_energy"] = energy
+            observe(method, energy, f"EU{method}")
     if matches := g16_log_patterns.ENERGY_MP5.find_matches(focus_content):
-        scf_energies_dict["mp5_energy"] = (
-            float(matches[0].group("energy").replace("D", "E")) * atom_ureg.hartree
-        )
+        mp5_energy = float(matches[0].group("energy").replace("D", "E")) * atom_ureg.hartree
+        scf_energies_dict["mp5_energy"] = mp5_energy
+        observe("MP5", mp5_energy, "MP5")
     if matches := g16_log_patterns.ENERGY_CCSD.find_matches(focus_content):
-        scf_energies_dict["ccsd_energy"] = (
-            float(matches[0].group("energy").replace("D", "E")) * atom_ureg.hartree
-        )
+        ccsd_energy = float(matches[0].group("energy").replace("D", "E")) * atom_ureg.hartree
+        scf_energies_dict["ccsd_energy"] = ccsd_energy
+        observe("CCSD", ccsd_energy, "Wavefunction amplitudes converged. E(Corr)")
     if matches := g16_log_patterns.ENERGY_CCSD_T.find_matches(focus_content):
-        scf_energies_dict["ccsd_energy"] = (
-            float(matches[0].group("energy").replace("D", "E")) * atom_ureg.hartree
-        )
+        ccsd_t_energy = float(matches[0].group("energy").replace("D", "E")) * atom_ureg.hartree
+        scf_energies_dict["ccsd_t_energy"] = ccsd_t_energy
+        observe("CCSD(T)", ccsd_t_energy, "CCSD(T)")
+    if observations:
+        scf_energies_dict["observations"] = list(observations.values())
     return scf_energies_dict or None, total_spin_dict or None
 
 
@@ -323,6 +341,14 @@ def extract_vibrations_from_state(state: ParseState) -> dict[str, Any] | None:
         vib_dict["vibration_modes"] = [
             vn[i * L : i * L + L] for i in range(length // 3) for vn in [v1, v2, v3]
         ] * atom_ureg.angstrom
+        vib_dict.update(
+            {
+                "axis_order": ("mode", "atom", "cartesian"),
+                "atom_order": "source",
+                "normalization": "unknown",
+                "mass_weighting": "unknown",
+            }
+        )
     return vib_dict or None
 
 
@@ -360,6 +386,18 @@ def extract_thermal_infos_from_state(state: ParseState) -> dict[str, Any] | None
         ]
         if numeric_tokens:
             thermal_dict["vibrational_temperatures"] = np.array(numeric_tokens) * atom_ureg.K
+            frequencies = [
+                value
+                for matched in g16_log_patterns.FREQUENCIES.find_matches(source_content)
+                for value in _extract_float_tokens(matched.group("values"))
+            ]
+            positive_mode_indices = [
+                mode_index for mode_index, frequency in enumerate(frequencies) if frequency > 0
+            ]
+            if len(positive_mode_indices) == len(numeric_tokens):
+                thermal_dict["vibrational_temperature_mode_indices"] = positive_mode_indices
+            elif len(frequencies) == len(numeric_tokens):
+                thermal_dict["vibrational_temperature_mode_indices"] = list(range(len(frequencies)))
     if matches := g16_log_patterns.THERMOCHEMISTRY_CORRECTION.find_matches(focus_content):
         correction_mapping: dict[tuple[str, str], str] = {
             ("Zero-point", ""): "ZPVE",
@@ -434,8 +472,14 @@ def extract_hessian_from_state(state: ParseState) -> NumpyQuantity | None:
     return None
 
 
-def extract_berny_from_state(state: ParseState) -> dict[str, Any] | None:
-    berny_dict: dict[str, float | bool] = {}
+def extract_berny_from_state(
+    state: ParseState,
+    *,
+    capture_source_evidence: bool = False,
+) -> dict[str, Any] | None:
+    berny_dict: dict[str, Any] = {}
+    source_converged: dict[str, bool | None] = {}
+    source_labels: dict[str, str] = {}
     start_index = state.content.find(
         "Item               Value     Threshold  Converged?", state.cursor
     )
@@ -460,15 +504,33 @@ def extract_berny_from_state(state: ParseState) -> dict[str, Any] | None:
             "Maximum Displacement": "max_displacement",
             "RMS     Displacement": "rms_displacement",
         }
+        units = {
+            "max_force": atom_ureg.hartree / atom_ureg.bohr,
+            "rms_force": atom_ureg.hartree / atom_ureg.bohr,
+            "max_displacement": atom_ureg.bohr,
+            "rms_displacement": atom_ureg.bohr,
+        }
         for matched in matches:
             key = mapping[matched.group("label")]
-            berny_dict[key] = float(matched.group("value"))
-            berny_dict[f"{key}_threshold"] = float(matched.group("threshold"))
+            berny_dict[key] = float(matched.group("value")) * units[key]
+            berny_dict[f"{key}_threshold"] = float(matched.group("threshold")) * units[key]
+            if capture_source_evidence:
+                source_converged[key] = matched.group("converged") == "YES"
+                source_labels[key] = " ".join(matched.group("label").split())
     if matches := g16_log_patterns.ENERGY_CHANGE.find_matches(focus_content):
-        berny_dict["energy_change"] = float(matches[0].group("value").replace("D", "E"))
+        berny_dict["energy_change"] = (
+            float(matches[0].group("value").replace("D", "E")) * atom_ureg.hartree
+        )
+        if capture_source_evidence:
+            source_converged["energy_change"] = None
+            source_labels["energy_change"] = "Predicted change in Energy"
     berny_dict["geometry_optimized"] = bool(
         g16_log_patterns.BERNY_CONCLUSION.find_matches(focus_content)
     )
+    if source_converged:
+        berny_dict["source_converged"] = source_converged
+    if source_labels:
+        berny_dict["source_labels"] = source_labels
     return berny_dict or None
 
 
@@ -512,7 +574,96 @@ def extract_tail_metadata_from_state(state: ParseState) -> dict[str, Any]:
     return payload.get("metadata", {})
 
 
-def extract_archive_tail_payload_from_state(state: ParseState) -> dict[str, Any]:
+def _energy_observations(payload: Mapping[str, Any]) -> tuple[EnergyObservation, ...]:
+    raw_observations = payload.get("observations")
+    if raw_observations is None:
+        return ()
+    if not isinstance(raw_observations, Sequence) or isinstance(raw_observations, (str, bytes)):
+        raise TypeError("energy observations must be a sequence")
+    return tuple(
+        observation
+        if isinstance(observation, EnergyObservation)
+        else EnergyObservation.model_validate(observation)
+        for observation in raw_observations
+    )
+
+
+def _energy_observation_identity(
+    observation: EnergyObservation,
+) -> tuple[str, str, str, str]:
+    """Return the complete observation identity in a canonical energy unit."""
+
+    magnitude = float(observation.value.to("hartree").magnitude)
+    return (
+        observation.method,
+        observation.quantity_semantics,
+        observation.source_label,
+        magnitude.hex(),
+    )
+
+
+def merge_g16_energy_payloads(
+    primary: Mapping[str, Any] | None,
+    fallback: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Merge G16 energies while retaining all distinct typed observations.
+
+    Scalar fields keep the first non-None value, so live frame extraction stays
+    authoritative and the archive tail only fills missing values. Observations
+    preserve primary-then-fallback order and deduplicate by their full contract
+    identity after normalizing values to hartree.
+    """
+
+    payloads = tuple(payload for payload in (primary, fallback) if payload is not None)
+    merged: dict[str, Any] = {}
+    for payload in payloads:
+        for key, value in payload.items():
+            if key == "observations" or value is None or key in merged:
+                continue
+            merged[key] = value
+
+    observations: list[EnergyObservation] = []
+    seen_observations: set[tuple[str, str, str, str]] = set()
+    for payload in payloads:
+        for observation in _energy_observations(payload):
+            identity = _energy_observation_identity(observation)
+            if identity in seen_observations:
+                continue
+            seen_observations.add(identity)
+            observations.append(observation)
+    if observations:
+        merged["observations"] = observations
+    return merged
+
+
+def _archive_energy_observations(energies: dict[str, Any]) -> list[EnergyObservation]:
+    method_by_field = {
+        "electronic_energy": "electronic",
+        "reference_energy": "reference",
+        "mp2_energy": "MP2",
+        "mp3_energy": "MP3",
+        "mp4_energy": "MP4",
+        "mp5_energy": "MP5",
+        "ccsd_energy": "CCSD",
+        "ccsd_t_energy": "CCSD(T)",
+    }
+    return [
+        EnergyObservation(
+            method=method,
+            quantity_semantics="total_energy",
+            value=energies[field_name],
+            source_label=f"Gaussian archive {method}",
+        )
+        for field_name, method in method_by_field.items()
+        if energies.get(field_name) is not None
+    ]
+
+
+def extract_archive_tail_payload_from_state(
+    state: ParseState,
+    *,
+    capture_source_evidence: bool = False,
+) -> dict[str, Any]:
     focus_content, next_cursor = _focus_from_state(ARCHIVE_TAIL, state)
     if focus_content == "":
         return {}
@@ -522,6 +673,11 @@ def extract_archive_tail_payload_from_state(state: ParseState) -> dict[str, Any]
     # skipped on terminal frequency frames without a live "SCF Done" line.
     state.advance_to(next_cursor)
     payload, _tail_remaining = parse_archive_tail_payload(focus_content, include_coords=True)
+    energies = payload.get("energies")
+    if capture_source_evidence and isinstance(energies, dict):
+        observations = _archive_energy_observations(energies)
+        if observations:
+            energies["observations"] = observations
     return payload
 
 

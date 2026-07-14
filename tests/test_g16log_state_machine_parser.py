@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -6,6 +7,10 @@ from molop.io.base_models.ParseContainers import ModelParseResult
 from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import G16LogFileFrameMemory
 from molop.io.logic.gaussian.log.frame_parsers.G16LogFileFrameParser import (
     G16LogFileFrameParserMemory,
+)
+from molop.io.logic.gaussian.log.locators import (
+    locate_g16_section_frames,
+    locate_g16_sections,
 )
 from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
 
@@ -21,8 +26,52 @@ CCSD_FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "CH3-
 
 def _last_frame_block(fixture: Path) -> str:
     file_content = fixture.read_text()
-    parser = G16LogFileParserMemory()
-    return parser._split_file(file_content)[-1]
+    frame_blocks = [
+        frame
+        for section in locate_g16_sections(file_content)
+        for frame in locate_g16_section_frames(file_content, section)
+    ]
+    return frame_blocks[-1].text(file_content)
+
+
+def test_g16log_locator_lifecycle_retains_a_zero_frame_segment() -> None:
+    source = "Gaussian 16:\n Error termination via Lnk1e.\n"
+
+    parsed = G16LogFileParserMemory(capture_source_evidence=True).parse(source)
+
+    assert len(parsed) == 0
+    assert parsed.parse_completeness == "partial"
+    assert len(parsed.source_segments) == 1
+    segment = parsed.source_segments[0]
+    assert segment.frame_count == 0
+    assert segment.captured_frame_indices == []
+    assert segment.parse_presence["geometry"] == "absent_in_source"
+    assert segment.parse_completeness == "partial"
+
+
+def test_g16log_zero_frame_segment_retains_portable_protocol_evidence() -> None:
+    source = (
+        FIXTURES[0]
+        .read_text()
+        .replace("Input orientation:", "Input geometry omitted:")
+        .replace("Standard orientation:", "Standard geometry omitted:")
+    )
+
+    parsed = G16LogFileParserMemory(capture_source_evidence=True).parse(source)
+
+    assert len(parsed) == 0
+    assert all(segment.frame_count == 0 for segment in parsed.source_segments)
+    segment = next(segment for segment in parsed.source_segments if segment.protocol is not None)
+    assert segment.protocol is not None
+    assert segment.protocol["method_family"]
+    assert segment.task_requests
+    dump = parsed.to_unitless_dump_with_unit_keys(exclude_none=True)
+    dumped_segment = next(
+        segment for segment in dump["source_segments"] if segment.get("protocol") is not None
+    )
+    assert isinstance(dumped_segment["protocol"], dict)
+    assert isinstance(dumped_segment["task_requests"], list)
+    json.dumps(dumped_segment)
 
 
 def test_g16log_state_machine_frame_parser_matches_file_parser_frames():
@@ -148,7 +197,7 @@ def test_g16log_state_machine_rejects_unexpected_phase(
         parser._parse_block_to_result("")
 
 
-def test_g16log_metadata_state_machine_rejects_unexpected_phase(
+def test_g16log_segment_metadata_state_machine_rejects_unexpected_phase(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     parser = G16LogFileParserMemory()
@@ -156,4 +205,4 @@ def test_g16log_metadata_state_machine_rejects_unexpected_phase(
     monkeypatch.setattr(parser, "_run_route_metadata_phase", lambda _context, _result: object())
 
     with pytest.raises(AssertionError, match="Unexpected G16 metadata parse phase"):
-        parser._parse_metadata_result("")
+        parser._parse_segment_metadata_result("")

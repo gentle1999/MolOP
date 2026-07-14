@@ -961,6 +961,130 @@ def test_autoparser_glob_materializes_paths_for_progress_total(
     }
 
 
+def _capture_autoparser_parse_call(monkeypatch: pytest.MonkeyPatch) -> dict[str, Any]:
+    captured: dict[str, Any] = {}
+
+    class StubFileBatchParserDisk:
+        def __init__(self, n_jobs: int) -> None:
+            captured["n_jobs"] = n_jobs
+
+        def parse(self, file_paths: Any, **kwargs: Any) -> FileBatchModelDisk[Any]:
+            captured["file_paths"] = file_paths
+            captured["parse_kwargs"] = kwargs
+            return FileBatchModelDisk()
+
+    monkeypatch.setattr(io_module, "FileBatchParserDisk", StubFileBatchParserDisk)
+    return captured
+
+
+def test_autoparser_expands_mixed_path_and_glob_iterable_to_sorted_unique_absolute_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    explicit_string = tmp_path / "c.xyz"
+    explicit_path = tmp_path / "b.log"
+    glob_only = tmp_path / "a.log"
+    for path in (explicit_string, explicit_path, glob_only):
+        path.write_text("", encoding="utf-8")
+    captured = _capture_autoparser_parse_call(monkeypatch)
+
+    result = io_module.AutoParser(
+        [str(explicit_string), explicit_path, str(tmp_path / "*.log")],
+        n_jobs=2,
+    )
+
+    file_paths = captured["file_paths"]
+    assert isinstance(file_paths, list)
+    assert [Path(path) for path in file_paths] == sorted(
+        [glob_only.resolve(), explicit_path.resolve(), explicit_string.resolve()]
+    )
+    assert all(Path(path).is_absolute() for path in file_paths)
+    assert captured["n_jobs"] == 2
+    assert isinstance(result, FileBatchModelDisk)
+
+
+def test_autoparser_materializes_generator_inputs_before_parsing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    explicit = tmp_path / "b.xyz"
+    globbed = tmp_path / "a.log"
+    explicit.write_text("", encoding="utf-8")
+    globbed.write_text("", encoding="utf-8")
+    yielded: list[str | Path] = []
+    inputs = [explicit, str(tmp_path / "*.log")]
+
+    def generate_inputs():
+        for value in inputs:
+            yielded.append(value)
+            yield value
+
+    captured = _capture_autoparser_parse_call(monkeypatch)
+
+    io_module.AutoParser(generate_inputs(), n_jobs=1)
+
+    assert yielded == inputs
+    assert isinstance(captured["file_paths"], list)
+    assert [Path(path) for path in captured["file_paths"]] == sorted(
+        [globbed.resolve(), explicit.resolve()]
+    )
+
+
+def test_autoparser_deduplicates_equivalent_relative_and_absolute_paths(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "sample.log"
+    path.write_text("", encoding="utf-8")
+    monkeypatch.chdir(tmp_path)
+    captured = _capture_autoparser_parse_call(monkeypatch)
+
+    io_module.AutoParser(["sample.log", path.resolve(), Path("sample.log")], n_jobs=1)
+
+    file_paths = captured["file_paths"]
+    assert isinstance(file_paths, list)
+    assert [Path(value) for value in file_paths] == [path.resolve()]
+
+
+def test_autoparser_empty_and_unmatched_inputs_produce_empty_path_list(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _capture_autoparser_parse_call(monkeypatch)
+
+    for value in ([], [str(tmp_path / "*.missing")], str(tmp_path / "*.missing")):
+        io_module.AutoParser(value, n_jobs=1)
+        assert captured["file_paths"] == []
+
+
+def test_autoparser_passes_missing_literal_paths_to_batch_parser(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    missing = tmp_path / "missing.log"
+    captured = _capture_autoparser_parse_call(monkeypatch)
+
+    for value in (missing, [missing]):
+        io_module.AutoParser(value, n_jobs=1)
+        assert [Path(path) for path in captured["file_paths"]] == [missing.resolve()]
+
+
+def test_autoparser_invalid_iterable_member_reports_its_index(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    valid = tmp_path / "valid.log"
+    valid.write_text("", encoding="utf-8")
+    captured = _capture_autoparser_parse_call(monkeypatch)
+
+    with pytest.raises(TypeError) as exc_info:
+        io_module.AutoParser([valid, object()], n_jobs=1)
+
+    assert "[1]" in str(exc_info.value)
+    assert "object" in str(exc_info.value)
+    assert "file_paths" not in captured
+
+
 def test_filebatchparser_parallel_orders_dispatch_buffer_by_file_size(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1172,7 +1296,7 @@ def test_g16_file_parser_finalizes_temperature_from_later_frame() -> None:
     assert parsed.temperature.to("K").m == 350
 
 
-def test_g16_file_parser_finalizes_status_from_last_frame() -> None:
+def test_g16_file_parser_preserves_segment_status_over_frame_status() -> None:
     from molop.io.base_models.DataClasses import Status
     from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import G16LogFileFrameMemory
     from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
@@ -1198,7 +1322,7 @@ def test_g16_file_parser_finalizes_status_from_last_frame() -> None:
 
     parser._update_file_metadata_from_frames(parsed, {"status": Status(normal_terminated=True)})
 
-    assert parsed.status.normal_terminated is False
+    assert parsed.status.normal_terminated is True
 
 
 def test_frame_format_transform_routes_single_frame_through_codec_registry(

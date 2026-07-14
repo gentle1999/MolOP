@@ -39,7 +39,7 @@ Gaussian 输出语法。
 | <!-- feature-area:Cartesian Hessian -->Cartesian Hessian | 部分支持 | Gaussian second-derivative 区段中的 Cartesian Hessian 数据。 | 契约是归一化 Hessian 字段，不是每个 second-derivative 诊断项。 |
 | <!-- feature-area:Geometry optimization convergence -->几何优化收敛 | 部分支持 | Berny 优化摘要，包括收敛阈值、force/displacement、energy change 和 optimized-state 标记。 | 测试样例外的 optimizer diagnostics 可能仍是非结构化。 |
 | <!-- feature-area:Gaussian archive section -->Gaussian archive section | 部分支持 | Archive-tail 中的 metadata、坐标、能量、热力学、polarizability 和 Hessian fallback/补充字段。 | 已从主 log 解析出的字段优先；archive-tail 不会凭空生成 live status、temperature 或 pressure。 |
-| <!-- feature-area:Termination status -->终止状态 | 部分支持 | Gaussian 正常/异常终止信息，并由最后一帧更新文件级 status。 | Status 仍是聚合信号；更细失败分类不在当前声明范围内。 |
+| <!-- feature-area:Termination status -->终止状态 | 部分支持 | Gaussian 终止证据属于 segment，并参与文件级聚合，不复制到 frame。 | Frame status 只保留 frame-local SCF 证据；结构化解析诊断之外的失败分类不做推断。 |
 | <!-- feature-area:CPU and elapsed time -->CPU 与 elapsed time | 样例覆盖 | Job CPU / elapsed-time 风格记录会累计到运行时间字段。 | Per-link timing rows 不作为独立 timing record 暴露。 |
 | <!-- feature-area:Link1 multi-step jobs -->Link1 多步任务 | 部分支持 | Link1 section 元数据会传播到后续帧，使多步 Gaussian 任务保留逐帧上下文。 | 低层 link 边界行不作为用户级记录暴露。 |
 | <!-- feature-area:Registry conversion -->Registry conversion | 已支持 | 已解析 Gaussian 输出可以通过 registry 转换为坐标格式和 graph 格式。 | 转换质量取决于结构和 graph 的成功恢复。 |

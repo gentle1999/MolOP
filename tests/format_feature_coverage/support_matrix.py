@@ -239,12 +239,19 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="Link1, includes, and writer options",
                 support="partial",
-                scope="Link1 splitting with blank-line validation; Geom=AllCheck; disk @include expansion; checkpoint propagation during transform.",
-                limitations="@include expansion requires source-path context; not every Gaussian writer option is covered.",
+                scope=(
+                    "Link1 uses exact source spans with blank-line validation; Geom=AllCheck "
+                    "and checkpoint propagation during transform are supported."
+                ),
+                limitations=(
+                    "@include crosses source artifacts and is rejected with "
+                    "MOL.PARSE.GJF_INCLUDE_PROVENANCE_UNSUPPORTED; not every Gaussian writer "
+                    "option is covered."
+                ),
                 tests=(
                     "tests/test_gjf_spec_strictness.py::test_link1_requires_blank_line_before_separator",
                     "tests/test_gjf_spec_strictness.py::test_geom_allcheck_allows_missing_title_and_molecule_sections",
-                    "tests/test_gjf_include_handling.py::test_gjf_disk_parser_expands_at_include",
+                    "tests/test_gjf_include_handling.py::test_gjf_disk_parser_rejects_include_without_multi_artifact_spans",
                     "tests/test_format_transform_output_dir.py::test_format_transform_gjf_chk_propagation_single_file",
                 ),
             ),
@@ -414,10 +421,16 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="Termination status",
                 support="partial",
-                scope="Final termination data exposes Gaussian status information and file-level status finalization from the last parsed frame.",
-                limitations="Status remains a legacy aggregate signal; detailed failure taxonomy is outside this coverage row.",
+                scope=(
+                    "Gaussian termination evidence is segment-scoped and contributes to the "
+                    "file-level aggregate without being copied into frames."
+                ),
+                limitations=(
+                    "Frame status retains frame-local SCF evidence; detailed failure taxonomy "
+                    "outside the structured parse diagnostics is not inferred."
+                ),
                 tests=(
-                    "tests/test_io_registry_and_batch_more.py::test_g16_file_parser_finalizes_status_from_last_frame",
+                    "tests/test_io_registry_and_batch_more.py::test_g16_file_parser_preserves_segment_status_over_frame_status",
                     "tests/test_g16log_component_tree_payloads.py::test_g16log_component_tree_major_components_expose_model_payloads",
                     "tests/test_g16log_fakeg_render.py::test_g16log_file_model_can_render_fakeg_for_all_frames",
                 ),

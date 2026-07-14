@@ -470,9 +470,15 @@ def test_vibrations_keep_matrix_storage_with_lazy_views_and_spectrum_projection(
     assert isinstance(first_mode, Vibration)
     assert first_mode.is_imaginary is True
     assert vibrations.frequencies.shape == (2,)
+    assert vibrations.mode_indices == [0, 1]
+    assert vibrations.axis_order == ("mode", "atom", "cartesian")
+    assert vibrations.atom_order == "source"
+    assert vibrations.normalization == "unknown"
+    assert vibrations.mass_weighting == "unknown"
     assert vibrations.num_imaginary == 1
     assert isinstance(vibrations.imaginary_vibrations, Vibrations)
     assert len(vibrations.imaginary_vibrations) == 1
+    assert vibrations.imaginary_vibrations.mode_indices == [0]
 
     spectrum = vibrations.to_ir_spectrum()
     assert isinstance(spectrum, Spectrum)
@@ -484,10 +490,29 @@ def test_vibrations_keep_matrix_storage_with_lazy_views_and_spectrum_projection(
     assert spectrum.bands[0].metadata["mode_index"] == 0
 
 
+def test_thermal_vibrational_temperature_indices_validate_mode_mapping() -> None:
+    thermal = ThermalInformations(
+        vibrational_temperatures=np.array([100.0, 200.0]) * atom_ureg.K,
+        vibrational_temperature_mode_indices=[1, 2],
+    )
+
+    assert thermal.vibrational_temperature_mode_indices == [1, 2]
+
+    with pytest.raises(ValueError, match="must match vibrational_temperatures"):
+        ThermalInformations(
+            vibrational_temperatures=np.array([100.0, 200.0]) * atom_ureg.K,
+            vibrational_temperature_mode_indices=[1],
+        )
+
+
 def test_geometry_optimization_status_uses_default_multiplier() -> None:
     status = GeometryOptimizationStatus(max_force=0.0008, max_force_threshold=0.00045)
 
     assert status.convergence_multiplier == pytest.approx(2.0)
+    assert status.max_force is not None
+    assert status.max_force.units == atom_ureg.hartree / atom_ureg.bohr
+    assert status.max_force_threshold is not None
+    assert status.max_force_threshold.units == atom_ureg.hartree / atom_ureg.bohr
     assert status.max_force_converged is True
     assert status.geometry_optimized is True
 
@@ -495,6 +520,21 @@ def test_geometry_optimization_status_uses_default_multiplier() -> None:
 
     assert strict_status.max_force_converged is False
     assert strict_status.geometry_optimized is False
+
+
+def test_geometry_optimization_status_omits_missing_metrics_instead_of_using_infinity() -> None:
+    status = GeometryOptimizationStatus(geometry_optimized=False)
+
+    assert status.energy_change is None
+    assert status.rms_force is None
+    assert status.max_force is None
+    assert status.rms_displacement is None
+    assert status.max_displacement is None
+    assert status.energy_change_converged is None
+    assert status.model_dump(exclude_computed_fields=True) == {
+        "geometry_optimized": False,
+        "convergence_multiplier": 2.0,
+    }
 
 
 def test_geometry_optimization_status_accepts_custom_multiplier() -> None:
@@ -517,11 +557,39 @@ def test_geometry_optimization_summary_reports_raw_values_and_thresholds() -> No
     assert summary[("GeometryOptimizationStatus", "convergence_multiplier", "")] == pytest.approx(
         2.0
     )
-    assert summary[("GeometryOptimizationStatus", "max_force", "")] == pytest.approx(0.0008)
-    assert summary[("GeometryOptimizationStatus", "max_force_threshold", "")] == pytest.approx(
-        0.00045
+    assert summary[("GeometryOptimizationStatus", "max_force", "hartree / bohr")] == (
+        pytest.approx(0.0008)
     )
+    assert summary[
+        ("GeometryOptimizationStatus", "max_force_threshold", "hartree / bohr")
+    ] == pytest.approx(0.00045)
     assert ("GeometryOptimizationStatus", "max_force_converged", "") not in summary
+
+
+def test_calc_frame_validates_force_and_hessian_conventions() -> None:
+    frame = BaseCalcFrame(
+        atoms=[1, 1],
+        coords=np.zeros((2, 3)) * atom_ureg.angstrom,
+        forces=np.zeros((2, 3)) * atom_ureg.hartree / atom_ureg.bohr,
+        hessian=np.eye(6) * atom_ureg.hartree / atom_ureg.bohr**2,
+    )
+
+    assert frame.forces_axis_order == ("atom", "cartesian")
+    assert frame.forces_atom_order == "source"
+    assert frame.forces_orientation == "unknown"
+    assert frame.hessian_axis_order == ("atom_cartesian", "atom_cartesian")
+    assert frame.hessian_atom_order == "source"
+    assert frame.hessian_orientation == "unknown"
+
+    with pytest.raises(ValueError, match="forces must have shape"):
+        BaseCalcFrame(
+            atoms=[1, 1],
+            coords=np.zeros((2, 3)) * atom_ureg.angstrom,
+            forces=np.zeros((3, 2)) * atom_ureg.hartree / atom_ureg.bohr,
+        )
+
+    with pytest.raises(ValueError, match="metadata require forces"):
+        BaseCalcFrame(forces_atom_order="source")
 
 
 def test_calc_frame_is_optimized_accepts_transition_state_frequency_pattern() -> None:
@@ -655,9 +723,9 @@ def test_gaussian_route_projection_ignores_stale_legacy_functional() -> None:
         }
     )
 
-    assert frame.model_chemistry.functional == "b3lyp-GD3BJ"
+    assert frame.model_chemistry.functional == "B3LYP-GD3BJ"
     assert frame.model_chemistry.basis_set == "def2svp"
-    assert frame.functional == "b3lyp-GD3BJ"
+    assert frame.functional == "B3LYP-GD3BJ"
     assert frame.basis_set == "def2svp"
     assert frame.method == "DFT"
 
@@ -674,7 +742,7 @@ def test_gaussian_hf_projection_rejects_stale_legacy_functional() -> None:
         }
     )
 
-    assert frame.model_chemistry.method == "hf"
+    assert frame.model_chemistry.method == "HF"
     assert frame.model_chemistry.method_family == "HF"
     assert frame.model_chemistry.functional is None
     assert frame.method == "HF"

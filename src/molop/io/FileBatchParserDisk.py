@@ -38,6 +38,8 @@ def single_file_parser(
     total_multiplicity: int | None = None,
     only_extract_structure: bool = False,
     only_last_frame: bool = False,
+    capture_source_evidence: bool = False,
+    source_encoding: str = "utf-8",
     release_file_content: bool = False,
 ) -> FileDiskObj | None:
     for idx, reader in enumerate(possible_readers):
@@ -48,6 +50,8 @@ def single_file_parser(
                 total_multiplicity=total_multiplicity,
                 only_extract_structure=only_extract_structure,
                 only_last_frame=only_last_frame,
+                capture_source_evidence=capture_source_evidence,
+                source_encoding=source_encoding,
                 release_file_content=release_file_content,
             )
             value = result.value
@@ -189,6 +193,8 @@ class FileBatchParserDisk:
         total_multiplicity: int | None = None,
         only_extract_structure: bool = False,
         only_last_frame: bool = False,
+        capture_source_evidence: bool = False,
+        source_encoding: str = "utf-8",
         release_file_content: bool = True,
         parser_detection: str = "auto",
     ) -> FileBatchModelDisk[FileDiskObj]:
@@ -206,6 +212,10 @@ class FileBatchParserDisk:
                 if True, only extract the structure, else extract the whole file.
             only_last_frame (bool):
                 if True, only extract the last frame, else extract all frames.
+            capture_source_evidence (bool):
+                if True, capture format-supported source evidence while parsing.
+            source_encoding (str):
+                Text encoding used for strict source decoding and byte offsets.
             parser_detection (str):
                 if "auto", use the file extension to detect the parser, else use the given format id.
         """
@@ -241,6 +251,8 @@ class FileBatchParserDisk:
                 "total_multiplicity": total_multiplicity,
                 "only_extract_structure": only_extract_structure,
                 "only_last_frame": only_last_frame,
+                "capture_source_evidence": capture_source_evidence,
+                "source_encoding": source_encoding,
                 "release_file_content": release_file_content,
             }
 
