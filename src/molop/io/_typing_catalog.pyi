@@ -22,6 +22,8 @@ from molop.io.logic.orca.input.frame_models.ORCAInpFileFrame import ORCAInpFileF
 from molop.io.logic.orca.input.models.ORCAInpFile import ORCAInpFileDisk
 from molop.io.logic.orca.log.frame_models.ORCALogFileFrame import ORCALogFileFrameDisk
 from molop.io.logic.orca.log.models.ORCALogFile import ORCALogFileDisk
+from molop.io.logic.xtb.output.frame_models.XTBOutputFileFrame import XTBOutputFileFrameDisk
+from molop.io.logic.xtb.output.models.XTBOutputFile import XTBOutputFileDisk
 
 FileDiskObj: TypeAlias = (
     G16LogFileDisk
@@ -30,6 +32,7 @@ FileDiskObj: TypeAlias = (
     | ORCALogFileDisk
     | SDFFileDisk
     | SMIFileDisk
+    | XTBOutputFileDisk
     | XYZFileDisk
 )
 FrameDiskObj: TypeAlias = (
@@ -39,5 +42,6 @@ FrameDiskObj: TypeAlias = (
     | ORCALogFileFrameDisk
     | SDFFileFrameDisk
     | SMIFileFrameDisk
+    | XTBOutputFileFrameDisk
     | XYZFileFrameDisk
 )

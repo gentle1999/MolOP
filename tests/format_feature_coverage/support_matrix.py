@@ -37,6 +37,7 @@ BUILTIN_READER_FORMATS = frozenset(
         "gjf",
         "orcainp",
         "orcaout",
+        "xtbout",
         "sdf",
         "smi",
         "xyz",
@@ -48,7 +49,7 @@ SPECIAL_CODEC_IDS = frozenset({"openbabel-fallback"})
 FORMAT_GROUPS: dict[FormatGroup, tuple[str, ...]] = {
     "structure": ("xyz", "sdf", "smi", "cml"),
     "qm-input": ("gjf", "orcainp"),
-    "qm-output": ("g16log", "orcaout", "fakeg"),
+    "qm-output": ("g16log", "orcaout", "xtbout", "fakeg"),
     "special": ("openbabel-fallback",),
 }
 
@@ -709,6 +710,82 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
                     "tests/test_orca_output_fixtures.py::test_orca_output_fixture_manifest_inventory_is_broad",
                     "tests/test_orca_output_fixtures.py::test_orca_output_structured_parse_contract",
                     "tests/test_orca_output_fixtures.py::test_orca_output_fixture_feature_counts",
+                ),
+            ),
+        ),
+    ),
+    "xtbout": FormatSupport(
+        format_id="xtbout",
+        group="qm-output",
+        title="xTB output",
+        extensions=(".out", ".log", ".xtbout"),
+        read=True,
+        write=False,
+        registry_role="reader",
+        data_level="QM results; coordinates when printed in the output",
+        summary="xTB 5/6 command-line output parsing across legacy and modern print families.",
+        features=(
+            FeatureSupport(
+                area="Version scope, setup, tasks, and status",
+                support="partial",
+                scope="Recognizes xTB major versions 5 and 6, parses version, program call, coordinate-file name, method, charge, multiplicity, OMP threads, task requests, termination, SCC status, and total wall time.",
+                limitations="Versions before 5 and after 6 are intentionally rejected. The xTB 5 regression is a compact legacy-format contract rather than a complete vendor output capture.",
+                tests=(
+                    "tests/test_xtbout_parser.py::test_xtbout_all_maintained_fixtures_parse_with_supported_major_versions",
+                    "tests/test_xtbout_parser.py::test_xtbout_legacy_v5_contract_parses_metadata_geometry_and_results",
+                    "tests/test_xtbout_parser.py::test_xtbout_explicitly_rejects_versions_outside_five_and_six",
+                ),
+            ),
+            FeatureSupport(
+                area="Geometry availability",
+                support="partial",
+                scope="Parses legacy Bohr $coord blocks, legacy setup coordinates, modern XYZ final structures, and embedded V2000 SDF final structures.",
+                limitations="Single-point xTB stdout often references an external coordinate file without printing coordinates. Such logs retain a property frame with empty geometry; the parser does not read adjacent files implicitly.",
+                tests=(
+                    "tests/test_xtbout_parser.py::test_xtbout_legacy_v5_contract_parses_metadata_geometry_and_results",
+                    "tests/test_xtbout_parser.py::test_xtbout_modern_single_point_keeps_results_without_embedded_geometry",
+                    "tests/test_xtbout_parser.py::test_xtbout_modern_optimization_parses_xyz_and_sdf_final_structures",
+                ),
+            ),
+            FeatureSupport(
+                area="Energies and geometry optimization",
+                support="partial",
+                scope="Exposes final total energy in Hartree, source-labeled energy evidence, optimization convergence, energy-change criteria, and xTB gradient norm fields.",
+                limitations="Energy decomposition rows and full optimization trajectories are not structured; only the final geometry printed by stdout is represented.",
+                tests=(
+                    "tests/test_xtbout_parser.py::test_xtbout_modern_optimization_parses_xyz_and_sdf_final_structures",
+                    "tests/test_xtbout_parser.py::test_autoparser_detects_xtbout_and_preserves_source_evidence",
+                ),
+            ),
+            FeatureSupport(
+                area="Orbitals, populations, and dipole",
+                support="partial",
+                scope="Parses legacy and modern orbital energies/occupancies, GFN1 Mulliken/CM5 charges, GFN2 Mulliken charges, molecular dipole, and rotational constants where printed.",
+                limitations="Wiberg bond-order tables, quadrupoles, dispersion-property tables, and omitted orbital ranges are not fully reconstructed.",
+                tests=(
+                    "tests/test_xtbout_parser.py::test_xtbout_legacy_v5_contract_parses_metadata_geometry_and_results",
+                    "tests/test_xtbout_parser.py::test_xtbout_modern_single_point_keeps_results_without_embedded_geometry",
+                    "tests/test_xtbout_parser.py::test_xtbout_modern_optimization_parses_xyz_and_sdf_final_structures",
+                ),
+            ),
+            FeatureSupport(
+                area="Vibrations and thermochemistry",
+                support="partial",
+                scope="Parses projected physical frequencies, reduced masses, IR intensities, zero-point energy, total enthalpy, total free energy, heat capacity, entropy, temperature, and molecular mass where printed.",
+                limitations="Normal-mode displacement vectors, Hessian sidecar files, Raman intensities, and detailed rotor/interpolation tables are not structured from stdout.",
+                tests=(
+                    "tests/test_xtbout_parser.py::test_xtbout_frequency_and_thermochemistry_are_structured",
+                ),
+            ),
+            FeatureSupport(
+                area="xTB analysis properties",
+                support="partial",
+                scope="Parses vertical IP, vertical EA, global electrophilicity index, and atom-resolved Fukui indices when requested and printed.",
+                limitations="Additional xTB workflows such as FOD, metadynamics, MD, ONIOM, GFN-FF topology, and JSON/sidecar outputs are outside the current stdout contract.",
+                tests=(
+                    "tests/test_xtbout_parser.py::test_xtbout_modern_single_point_keeps_results_without_embedded_geometry",
+                    "tests/test_xtbout_parser.py::test_xtbout_fukui_indices_are_structured",
+                    "tests/test_xtbout_parser.py::test_xtbout_vipea_and_gei_properties_are_structured",
                 ),
             ),
         ),

@@ -10,7 +10,7 @@ boundaries. The coverage statements are tested against the registered codecs.
 | ----- | ------- | ------- |
 | Structure formats | [`xyz`](formats/xyz.md), [`sdf`](formats/sdf.md), [`smi`](formats/smi.md), [`cml`](formats/cml.md) | Coordinate/graph structure IO and rendering. |
 | QM input formats | [`gjf`](formats/gjf.md), [`orcainp`](formats/orcainp.md) | Gaussian and ORCA input parsing and rendering. |
-| QM output formats | [`g16log`](formats/g16log.md), [`orcaout`](formats/orcaout.md), [`fakeg`](formats/fakeg.md) | Gaussian/ORCA output parsing plus Gaussian-like rendering from parsed Gaussian output. |
+| QM output formats | [`g16log`](formats/g16log.md), [`orcaout`](formats/orcaout.md), [`xtbout`](formats/xtbout.md), [`fakeg`](formats/fakeg.md) | Gaussian, ORCA, and xTB output parsing plus Gaussian-like rendering from parsed Gaussian output. |
 | Special readers | [OpenBabel fallback](formats/openbabel-fallback.md) | Unknown-extension fallback through OpenBabel-compatible readers. |
 
 | Format ID | Typical Extensions | Read | Write | Support Page |
@@ -22,12 +22,13 @@ boundaries. The coverage statements are tested against the registered codecs.
 | `g16log` | `.log`, `.out`, `.g16`, `.gal`, `.irc`, `.gau` | Yes | No | [Gaussian output](formats/g16log.md) |
 | `orcainp` | `.inp` | Yes | Yes | [ORCA input](formats/orcainp.md) |
 | `orcaout` | `.out`, `.log`, `.orcaout` | Yes | No | [ORCA output](formats/orcaout.md) |
+| `xtbout` | `.out`, `.log`, `.xtbout` | Yes | No | [xTB output](formats/xtbout.md) |
 | `cml` | `.cml` | No | Yes | [CML writer](formats/cml.md) |
 | `fakeg` | `.fakeg` | No | Yes | [Gaussian-like renderer](formats/fakeg.md) |
 | OpenBabel fallback | Unknown or OpenBabel-supported extensions | Yes | No | [OpenBabel fallback](formats/openbabel-fallback.md) |
 
 !!! note
-    Suffixes are not always unique. For example `.out` and `.log` can be ORCA
-    or Gaussian output, and `.gau` can be Gaussian input or output. Reader
+    Suffixes are not always unique. For example `.out` and `.log` can be ORCA,
+    xTB, or Gaussian output, and `.gau` can be Gaussian input or output. Reader
     selection uses extension candidates plus content checks; non-matching readers
     must raise `FormatMismatchError` so that the next candidate can be tried.

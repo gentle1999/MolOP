@@ -119,6 +119,7 @@ nav:
       - Gaussian 输出: reference/formats/g16log.md
       - ORCA 输入: reference/formats/orcainp.md
       - ORCA 输出: reference/formats/orcaout.md
+      - xTB 输出: reference/formats/xtbout.md
       - CML writer: reference/formats/cml.md
       - Gaussian-like renderer: reference/formats/fakeg.md
       - OpenBabel fallback: reference/formats/openbabel-fallback.md

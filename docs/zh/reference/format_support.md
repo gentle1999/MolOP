@@ -9,7 +9,7 @@
 | ---- | ---- | ---- |
 | 结构格式 | [`xyz`](formats/xyz.md), [`sdf`](formats/sdf.md), [`smi`](formats/smi.md), [`cml`](formats/cml.md) | 坐标/分子图结构读取与渲染。 |
 | QM 输入格式 | [`gjf`](formats/gjf.md), [`orcainp`](formats/orcainp.md) | Gaussian 和 ORCA 输入解析与渲染。 |
-| QM 输出格式 | [`g16log`](formats/g16log.md), [`orcaout`](formats/orcaout.md), [`fakeg`](formats/fakeg.md) | Gaussian/ORCA 输出解析，以及从 Gaussian 输出数据渲染 Gaussian-like 文本。 |
+| QM 输出格式 | [`g16log`](formats/g16log.md), [`orcaout`](formats/orcaout.md), [`xtbout`](formats/xtbout.md), [`fakeg`](formats/fakeg.md) | Gaussian、ORCA 和 xTB 输出解析，以及从 Gaussian 输出数据渲染 Gaussian-like 文本。 |
 | 特殊 reader | [OpenBabel fallback](formats/openbabel-fallback.md) | 通过 OpenBabel 兼容格式 fallback 读取未知扩展名文件。 |
 
 | 格式 ID | 常用扩展名 | 读取 | 写入 | 支持详情 |
@@ -21,11 +21,12 @@
 | `g16log` | `.log`, `.out`, `.g16`, `.gal`, `.irc`, `.gau` | 是 | 否 | [Gaussian 输出](formats/g16log.md) |
 | `orcainp` | `.inp` | 是 | 是 | [ORCA 输入](formats/orcainp.md) |
 | `orcaout` | `.out`, `.log`, `.orcaout` | 是 | 否 | [ORCA 输出](formats/orcaout.md) |
+| `xtbout` | `.out`, `.log`, `.xtbout` | 是 | 否 | [xTB 输出](formats/xtbout.md) |
 | `cml` | `.cml` | 否 | 是 | [CML writer](formats/cml.md) |
 | `fakeg` | `.fakeg` | 否 | 是 | [Gaussian-like renderer](formats/fakeg.md) |
 | OpenBabel fallback | 未知扩展名或 OpenBabel 支持的扩展名 | 是 | 否 | [OpenBabel fallback](formats/openbabel-fallback.md) |
 
 !!! note
-    扩展名并不总是唯一对应格式。例如 `.out` 和 `.log` 可能是 ORCA 输出，也可能是
+    扩展名并不总是唯一对应格式。例如 `.out` 和 `.log` 可能是 ORCA、xTB 或
     Gaussian 输出；`.gau` 也可能是 Gaussian 输入或输出。Reader 选择会先给出扩展名候选，
     再执行内容检查；不匹配的 reader 必须抛出 `FormatMismatchError`，以便继续尝试下一个候选。
