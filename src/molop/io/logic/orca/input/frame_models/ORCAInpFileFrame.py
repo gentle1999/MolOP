@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import cast
+from collections.abc import Mapping, Sequence
+from typing import Any, cast
 
 from pydantic import Field, model_validator
 from typing_extensions import Self
@@ -20,9 +21,17 @@ from molop.io.logic.orca.common import (
     ORCAOutputPrintSetting,
     project_orca_geometry_to_qm_frame,
 )
+from molop.io.logic.orca.input._orca_inp_renderer import (
+    adapt_orca_writer_payload,
+    render_orca_input_frame,
+)
 
 
 class ORCAInpFileFrameMixin(ORCACommonQMFieldsMixin):
+    @classmethod
+    def adapt_writer_payload(cls, data: dict[str, Any]) -> dict[str, Any]:
+        return adapt_orca_writer_payload(data)
+
     comment_lines: list[ORCACommentLine] = Field(default_factory=list)
     keyword_lines: list[ORCAKeywordLine] = Field(default_factory=list)
     blocks: list[ORCABlock] = Field(default_factory=list)
@@ -47,10 +56,40 @@ class ORCAInpFileFrameMixin(ORCACommonQMFieldsMixin):
     )
     output_print_settings: list[ORCAOutputPrintSetting] = Field(default_factory=list)
 
-    def _render(self, **kwargs) -> str:
+    def _render(
+        self,
+        keywords: str | Sequence[str] | None = None,
+        nprocs: int | None = None,
+        maxcore: int | None = None,
+        blocks: str | Mapping[str, Any] | Sequence[ORCABlock] | None = None,
+        charge: int | None = None,
+        multiplicity: int | None = None,
+        coordinate_decimal_places: int = 10,
+        **kwargs: Any,
+    ) -> str:
+        """Render a canonical ORCA input frame.
+
+        Explicit render arguments replace matching structured values for this
+        render only. Unknown ORCA blocks can be supplied as raw block text or a
+        mapping whose keys are block names.
+        """
+
         _ = kwargs
-        raise NotImplementedError(
-            f"{self.__class__.__name__} does not support ORCA input rendering yet."
+        typed_self = cast(BaseQMInputFrame, self)
+        return render_orca_input_frame(
+            fallback_keywords=typed_self.keywords,
+            fallback_keyword_lines=self.keyword_lines,
+            fallback_blocks=self.blocks,
+            fallback_comments=self.comment_lines,
+            fallback_trailing_lines=self.trailing_lines,
+            geometry=self.geometry,
+            keywords=keywords,
+            nprocs=nprocs,
+            maxcore=maxcore,
+            blocks=blocks,
+            charge=charge,
+            multiplicity=multiplicity,
+            coordinate_decimal_places=coordinate_decimal_places,
         )
 
     @model_validator(mode="after")

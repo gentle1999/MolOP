@@ -88,16 +88,16 @@ def test_format_transform_completes_dynamic_options_for_target_format() -> None:
     )
 
 
-def test_format_transform_has_no_orcainp_writer_dynamic_options() -> None:
+def test_format_transform_completes_orcainp_writer_dynamic_options() -> None:
     command = app.commands["parse"].commands["format-transform"]
     extra_arg = next(param for param in command.params if param.name == "extra_args")
     ctx = click.Context(command)
     ctx.params["target_format"] = "orcainp"
     ctx.args = ["--format", "orcainp"]
 
-    completions = extra_arg.shell_complete(ctx, "--no-use")
+    completions = extra_arg.shell_complete(ctx, "--max")
 
-    assert completions == []
+    assert [item.value for item in completions] == ["--maxcore"]
 
 
 def test_format_transform_completes_dynamic_option_values() -> None:

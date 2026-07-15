@@ -8,7 +8,7 @@
 | 分组 | 格式 | 概要 |
 | ---- | ---- | ---- |
 | 结构格式 | [`xyz`](formats/xyz.md), [`sdf`](formats/sdf.md), [`smi`](formats/smi.md), [`cml`](formats/cml.md) | 坐标/分子图结构读取与渲染。 |
-| QM 输入格式 | [`gjf`](formats/gjf.md), [`orcainp`](formats/orcainp.md) | Gaussian 和 ORCA 输入解析；目前只有 Gaussian 输入支持渲染。 |
+| QM 输入格式 | [`gjf`](formats/gjf.md), [`orcainp`](formats/orcainp.md) | Gaussian 和 ORCA 输入解析与渲染。 |
 | QM 输出格式 | [`g16log`](formats/g16log.md), [`orcaout`](formats/orcaout.md), [`fakeg`](formats/fakeg.md) | Gaussian/ORCA 输出解析，以及从 Gaussian 输出数据渲染 Gaussian-like 文本。 |
 | 特殊 reader | [OpenBabel fallback](formats/openbabel-fallback.md) | 通过 OpenBabel 兼容格式 fallback 读取未知扩展名文件。 |
 
@@ -19,7 +19,7 @@
 | `smi` | `.smi`, `.txt` | 是 | 是 | [SMILES](formats/smi.md) |
 | `gjf` | `.gjf`, `.gif`, `.com`, `.gau`, `.gjc` | 是 | 是 | [Gaussian 输入](formats/gjf.md) |
 | `g16log` | `.log`, `.out`, `.g16`, `.gal`, `.irc`, `.gau` | 是 | 否 | [Gaussian 输出](formats/g16log.md) |
-| `orcainp` | `.inp` | 是 | 否 | [ORCA 输入](formats/orcainp.md) |
+| `orcainp` | `.inp` | 是 | 是 | [ORCA 输入](formats/orcainp.md) |
 | `orcaout` | `.out`, `.log`, `.orcaout` | 是 | 否 | [ORCA 输出](formats/orcaout.md) |
 | `cml` | `.cml` | 否 | 是 | [CML writer](formats/cml.md) |
 | `fakeg` | `.fakeg` | 否 | 是 | [Gaussian-like renderer](formats/fakeg.md) |

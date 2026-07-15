@@ -39,3 +39,56 @@ coverage.
 | <!-- feature-area:CPU and elapsed time -->CPU and elapsed time | Example-covered | Job CPU and elapsed-time style records accumulated into the running-time value. | Per-link timing rows are not exposed as separate timing records. |
 | <!-- feature-area:Link1 multi-step jobs -->Link1 multi-step jobs | Partial | Link1 section metadata is propagated to later frames so multi-step Gaussian jobs keep the expected per-frame context. | Low-level link boundary rows are not exposed as user-facing records. |
 | <!-- feature-area:Registry conversion -->Registry conversion | Supported | Parsed Gaussian output can be converted to coordinate and graph formats through the registry. | Conversion quality depends on successful structure and graph recovery. |
+
+## Gaussian Output Capability Matrix
+
+`g16log` is a structured reader and does not provide a Gaussian log writer. In the
+matrix, fakeG indicates whether the field can participate in the
+[Gaussian-like renderer](fakeg.md); it does not imply reconstruction of the source log.
+
+| Gaussian output content | Parse | Structured target | fakeG | Source fidelity | Current boundary |
+| ----------------------- | ----- | ----------------- | ----- | --------------- | ---------------- |
+| Gaussian software and version | Fixture-covered | `qm_software`, `qm_software_version` | Supported | Unsupported | Maintained Gaussian version banners are covered; an exact version cannot be inferred from a truncated file without a header. |
+| Link0/options | Partial | File/frame `options` text | Supported | Unsupported | Printed Link0 options are stored; fakeG can derive a CPU line from `%nprocshared`, but complete structured resource projection is not guaranteed. |
+| Route and title | Fixture-covered | `keywords`, `title_card`, `semantic_route` | Supported | Unsupported | Route semantics are shared with GJF; title and route are normalized without decorative lines. |
+| Method, functional, basis, and tasks | Partial | `model_chemistry`, `task_requests`, and compatibility fields | Partial | Not applicable | Only shared-route keywords are structured; requested properties are never fabricated solely from the route. |
+| Charge and multiplicity | Supported | Frame/file top-level fields | Supported | Unsupported | Extracted from Gaussian charge/multiplicity lines or archive metadata; main-log values take priority. |
+| Link1 / multi-segment context | Partial | Segment/frame indices and propagated task metadata | Partial | Unsupported | Applicable section metadata propagates to later frames; low-level Link enter/leave rows are not public business records. |
+| Input orientation | Fixture-covered | `atoms`, `coords` | Supported | Unsupported | Coordinates are normalized without preserving table whitespace or center numbers. |
+| Standard orientation | Fixture-covered | `standard_coords`, transformation matrix | Supported | Unsupported | The input/standard rigid transform can be computed; standard orientation may backfill coordinates when input orientation is absent. |
+| Structure-only fast parsing | Supported | Atoms, coordinates, and basic frame data | Not applicable | Not applicable | `only_extract_structure` stops after orientation and skips energies, frequencies, thermochemistry, and other expensive fields. |
+| Rotational constants | Fixture-covered | `rotation_constants` | Raw/limited | Unsupported | Exposed as a GHz array; fakeG has no complete canonical rotational-constant renderer. |
+| SCF/reference energy | Supported | `energies.reference_energy`, energy observations | Supported | Unsupported | Extracted from `SCF Done`; fakeG emits `E(SCF)` without the original method label or cycle history. |
+| MP2, MP3, MP4, MP5 | Partial | `energies.mp*_energy` | Unsupported | Unsupported | Covered `EUMP*`/MP5 lines parse; all MP corrections and spin-component tables are not guaranteed. |
+| CCSD and CCSD(T) | Partial | `energies.ccsd_energy`, `ccsd_t_energy` | Unsupported | Unsupported | Covered total-energy lines parse; other coupled-cluster variants and correction tables are not guaranteed. |
+| Archive energy fallback | Partial | Merged `energies` | Indirect | Unsupported | Main-log observations take priority; archive values augment missing or duplicate fields without overriding stronger live evidence. |
+| Total spin | Partial | `total_spin.spin_square`, `spin_quantum_number` | Supported | Unsupported | Only standard `S**2` / `S` print forms are covered. |
+| MO energies, occupations, and symmetry | Partial | `molecular_orbitals` | Raw/unsupported | Unsupported | Alpha/beta, open-shell, and concatenated-number regressions are covered; complete MO coefficient matrices are not parsed. |
+| Mulliken charge / spin populations | Partial | `charge_spin_populations` | Raw/unsupported | Unsupported | Charge and spin density are structured; headings, sums, and source precision are not retained. |
+| APT / Lowdin populations | Partial | `charge_spin_populations` | Raw/unsupported | Unsupported | Coverage is limited to standard tables in maintained examples. |
+| Hirshfeld / CM5 | Partial | `charge_spin_populations` | Raw/unsupported | Unsupported | Hirshfeld charge, spin, and `q_cm5` parse; NPA/NBO populations are outside the guaranteed Gaussian parser scope. |
+| Electronic spatial extent | Partial | `polarizability.electronic_spatial_extent` | Raw/unsupported | Unsupported | Only the standard scalar line in population output is covered. |
+| Dipole and higher multipoles | Partial | Dipole, quadrupole, traceless quadrupole, octapole, and hexadecapole fields | Raw/unsupported | Unsupported | Covered field-independent/response forms parse; all units and frequency-dependent variants are not guaranteed. |
+| Polarizability | Partial | Isotropic, anisotropic, and tensor fields | Raw/unsupported | Unsupported | Population, response, and archive sources merge; later explicit response data may replace an earlier approximation. |
+| Harmonic frequencies | Partial | `vibrations.frequencies`, imaginary-mode flags | Supported | Unsupported | Concatenated numeric output is handled; anharmonic/VPT2 result tables are not parsed. |
+| Reduced mass, force constant, and IR | Partial | Corresponding `vibrations` arrays | Supported | Unsupported | Values align by mode; Raman activity and VCD/ROA are not in the structured contract. |
+| Normal-mode displacement | Partial | `vibrations.vibration_modes` and axis metadata | Supported | Unsupported | Normalized to mode/atom/Cartesian; normalization and mass weighting remain `unknown`. |
+| Temperature and pressure | Partial | Frame `temperature`, `pressure` | Supported | Unsupported | Read from standard frequency/thermochemistry lines; archive data does not invent absent temperature or pressure. |
+| Molecular mass, inertia, and rotational data | Partial | `thermal_informations` | Supported | Unsupported | Covers mass, moments, symmetry number, rotational temperatures, and rotational constants. |
+| Vibrational temperatures | Partial | `vibrational_temperatures` and mode indices | Supported | Unsupported | Positive-frequency modes are mapped first; only demonstrable array relations are retained when counts disagree. |
+| ZPVE and thermal corrections | Partial | ZPVE/TCE/TCH/TCG in `thermal_informations` | Supported | Unsupported | Values use normalized Hartree/particle units; all partition-function diagnostics are not included. |
+| U0, UT, H, G, entropy, and Cv | Partial | `thermal_informations` | Supported | Unsupported | Standard Gaussian thermochemistry summaries parse; source pretty-print layout is not modeled. |
+| Cartesian forces | Partial | `forces` plus axis/order/orientation metadata | Raw/unsupported | Unsupported | Shape is `(N, 3)` in source atom order; orientation is normally `unknown`. |
+| Cartesian Hessian | Partial | `hessian` plus axis/order/orientation metadata | Raw/unsupported | Unsupported | Main second-derivative data take priority and archive can backfill; shape must be `(3N, 3N)`. |
+| Berny convergence | Partial | `geometry_optimization_status` | Supported | Unsupported | Force/displacement values, thresholds, energy change, and optimized state are covered; other optimizers may remain unstructured. |
+| SCF and termination status | Partial | Frame-local `status`, segment/file aggregate status | Synthetic | Unsupported | SCF evidence is frame-local; normal/error termination is segment/file scoped. fakeG termination is not source-status reproduction. |
+| CPU / elapsed time | Fixture-covered | Accumulated `running_time` | Partial | Unsupported | File totals aggregate segments; per-Link timing records are not public, and multiframe fakeG removes frame runtime lines. |
+| Archive-tail metadata/coordinates | Partial | Missing-field fallback | Indirect | Unsupported | Archive can augment metadata, coordinates, energies, thermochemistry, polarizability, and Hessian; live data take priority. |
+| TD excited-state results | Unsupported | No stable public result contract | Unsupported | Unsupported | The route may identify a TD request, but excitation energies and oscillator strengths are not structured. |
+| NMR/EPR, NBO bond order, and other specialized results | Unsupported | No stable public result contract | Unsupported | Unsupported | The existence of generic result containers does not imply Gaussian parser coverage. |
+| Coordinate/graph conversion | Supported | Frame structure / recovered graph | Not applicable | Not applicable | Coordinate conversion requires extracted structure; graph conversion also depends on bond-order and charge-state recovery. |
+| Lossless source-log rewriting | Unsupported | Component raw snippets are inspection/fallback only | Unsupported | Unsupported | The parser is a field extractor, not a complete Gaussian-output CST, and has no byte-for-byte writer. |
+
+`capture_source_evidence=True` retains source evidence for energies, SCF status, and
+optimization convergence for audit-oriented workflows. Default parsing focuses on result
+extraction. Neither mode preserves the complete original output structure.

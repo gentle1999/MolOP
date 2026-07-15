@@ -79,6 +79,7 @@ class FileRendererWriter:
     file_cls: type[Any]
     frame_cls: type[BaseChemFileFrame]
     priority: int
+    output_extension: str | None = None
 
     def write(
         self,
@@ -113,7 +114,7 @@ class FileRendererWriter:
         normalized_file_path = os.fspath(file_path)
         dir_path = os.path.dirname(normalized_file_path)
         base = os.path.splitext(os.path.basename(normalized_file_path))[0]
-        return os.path.join(dir_path, f"{base}.{self.format_id}")
+        return os.path.join(dir_path, f"{base}.{self.output_extension or self.format_id}")
 
     def _derive_frame_file_paths(
         self,
@@ -135,7 +136,7 @@ class FileRendererWriter:
         return {
             frame.frame_id: os.path.join(
                 dir_path,
-                f"{base}{frame.frame_id:03d}.{self.format_id}",
+                f"{base}{frame.frame_id:03d}.{self.output_extension or self.format_id}",
             )
             for frame in cast(list[BaseChemFileFrame], typed_value.frames)
         }
@@ -147,6 +148,7 @@ class FrameRendererWriter:
     required_level: StructureLevel
     frame_cls: type[BaseChemFileFrame]
     priority: int
+    output_extension: str | None = None
 
     def write(self, value: object, **kwargs: Any) -> object:
         if not hasattr(value, "model_dump") or not hasattr(value, "_render"):
@@ -167,7 +169,7 @@ class FrameRendererWriter:
         normalized_file_path = os.fspath(file_path)
         dir_path = os.path.dirname(normalized_file_path)
         base = os.path.splitext(os.path.basename(normalized_file_path))[0]
-        return os.path.join(dir_path, f"{base}.{self.format_id}")
+        return os.path.join(dir_path, f"{base}.{self.output_extension or self.format_id}")
 
 
 __all__ = [

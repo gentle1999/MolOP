@@ -9,7 +9,7 @@ boundaries. The coverage statements are tested against the registered codecs.
 | Group | Formats | Summary |
 | ----- | ------- | ------- |
 | Structure formats | [`xyz`](formats/xyz.md), [`sdf`](formats/sdf.md), [`smi`](formats/smi.md), [`cml`](formats/cml.md) | Coordinate/graph structure IO and rendering. |
-| QM input formats | [`gjf`](formats/gjf.md), [`orcainp`](formats/orcainp.md) | Gaussian and ORCA input parsing, with Gaussian input rendering currently available. |
+| QM input formats | [`gjf`](formats/gjf.md), [`orcainp`](formats/orcainp.md) | Gaussian and ORCA input parsing and rendering. |
 | QM output formats | [`g16log`](formats/g16log.md), [`orcaout`](formats/orcaout.md), [`fakeg`](formats/fakeg.md) | Gaussian/ORCA output parsing plus Gaussian-like rendering from parsed Gaussian output. |
 | Special readers | [OpenBabel fallback](formats/openbabel-fallback.md) | Unknown-extension fallback through OpenBabel-compatible readers. |
 
@@ -20,7 +20,7 @@ boundaries. The coverage statements are tested against the registered codecs.
 | `smi` | `.smi`, `.txt` | Yes | Yes | [SMILES](formats/smi.md) |
 | `gjf` | `.gjf`, `.gif`, `.com`, `.gau`, `.gjc` | Yes | Yes | [Gaussian input](formats/gjf.md) |
 | `g16log` | `.log`, `.out`, `.g16`, `.gal`, `.irc`, `.gau` | Yes | No | [Gaussian output](formats/g16log.md) |
-| `orcainp` | `.inp` | Yes | No | [ORCA input](formats/orcainp.md) |
+| `orcainp` | `.inp` | Yes | Yes | [ORCA input](formats/orcainp.md) |
 | `orcaout` | `.out`, `.log`, `.orcaout` | Yes | No | [ORCA output](formats/orcaout.md) |
 | `cml` | `.cml` | No | Yes | [CML writer](formats/cml.md) |
 | `fakeg` | `.fakeg` | No | Yes | [Gaussian-like renderer](formats/fakeg.md) |

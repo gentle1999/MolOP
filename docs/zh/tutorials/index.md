@@ -34,6 +34,10 @@ print(f"能量: {frame.energies.total_energy}")
 
 ## 2. 批处理 (Batch Processing)
 
+### 前提条件
+
+- 同一目录中存在多个相同类型的文件。
+
 ### 代码示例
 
 ```python

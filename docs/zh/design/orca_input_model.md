@@ -1,6 +1,8 @@
-# ORCA 输入文件模型与解析指南
+# ORCA 输入文件模型与解析渲染指南
 
-本文说明 MolOP 中 ORCA `.inp` 的结构化读取模型。ORCA writer 暂不注册；不要依赖 `orca_raw_preamble` / `orca_raw_postamble` 或 raw round-trip 兼容。
+本文说明 MolOP 中 ORCA `.inp` 的结构化读取模型和规范化 writer。ORCA writer 已注册，
+可从带坐标的 frame 和显式 ORCA 计算设置构建输入；它不是 source-preserving writer，
+不要依赖 `orca_raw_preamble` / `orca_raw_postamble` 或 raw round-trip 兼容。
 
 ## 数据层次
 
@@ -41,11 +43,14 @@ ORCAInpFileFrame
 
 - `name`：去掉 `%` 后的小写块名，例如 `pal`、`maxcore`、`scf`
 - `raw_header`：原始 header 行
+- `raw_text`：扫描器识别出的原始 block 文本
 - `lines`：块体行，去掉行尾换行
 
 `geometry`
 
-: 保存 ORCA 几何输入结构。支持 `* xyz`、`* cart`、`* xyzfile`、`* gzmtfile` 和 `%coords` 中的 Cartesian 坐标。Cartesian 坐标会同步到 frame 的 `atoms` / `coords`。
+: 保存 ORCA 几何输入结构。支持 `* xyz`、`* cart`、数值型 `* int` / `* internal` /
+  `* gzmt`、`* xyzfile`、`* gzmtfile`、`* pdbfile` 和 `%coords` 中的 Cartesian
+  坐标。Cartesian 坐标以及可解析的内坐标会同步到 frame 的 `atoms` / `coords`。
 
 `trailing_lines`
 
@@ -72,6 +77,8 @@ ORCAInpFileFrame
 - `units`：例如 `bohr`
 - `external_path`：外部几何文件路径
 - `atoms`：Cartesian 原子列表
+- `internal_coords`：可解析的数值内坐标
+- `coordinate_parameters`：来自 `%paras` 的坐标参数
 - `point_charges`：`Q q x y z` 点电荷
 - `source`：`star` 或 `percent_coords`
 
@@ -108,12 +115,23 @@ frame 解析器：
 
 Cartesian 输入默认按 Å 处理。`units` 为 `bohr`、`a0`、`au` 等时，解析器把坐标和点电荷位置转换为 Å 后写入模型。
 
-`xyzfile` / `gzmtfile` 只保留 `external_path`，不会读取外部文件，也不会伪造 `atoms` / `coords`。
+`xyzfile` / `gzmtfile` / `pdbfile` 只保留 `external_path`，不会读取外部文件，也不会伪造
+`atoms` / `coords`。
+
+## 渲染合同
+
+ORCA file writer 和 frame writer 均已注册。渲染器支持显式 `keywords`、`nprocs`、
+`maxcore`、raw 或 mapping 形式的 `%block`、Cartesian 几何和外部几何引用。
+跨格式转换必须显式提供 ORCA `keywords`。
+
+渲染器输出规范化输入，不承诺保留原始语句顺序、空白、注释位置或 `%coords` 表示。
+内联 `int` / `internal` / `gzmt` 尚不能渲染。完整边界见
+[ORCA 输入格式页中的 6.1 能力覆盖矩阵](../reference/formats/orcainp.md)。
 
 ## 开发约束
 
 - 不新增 `jobs` 包装层；`$new_job` 对应多个 frame。
 - 不恢复 `orca_raw_preamble` / `orca_raw_postamble`。
-- 不注册 ORCA writer，直到有结构化 renderer。
+- ORCA writer 只承诺规范化渲染；在引入有序 statement 模型前，不声明原文无损 round-trip。
 - 程序特有语法优先写入 ORCA 结构化字段和公共 QM 结构化容器，再由 `project_common_qm_fields()` 投影到 `method`、`functional`、`basis_set` 等兼容字段。
 - 新语法应先扩展结构化模型，再扩展 parser；不要把语义藏进 raw 字符串。

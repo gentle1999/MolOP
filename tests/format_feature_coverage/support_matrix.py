@@ -42,7 +42,7 @@ BUILTIN_READER_FORMATS = frozenset(
         "xyz",
     }
 )
-BUILTIN_WRITER_FORMATS = frozenset({"cml", "fakeg", "gjf", "sdf", "smi", "xyz"})
+BUILTIN_WRITER_FORMATS = frozenset({"cml", "fakeg", "gjf", "orcainp", "sdf", "smi", "xyz"})
 SPECIAL_CODEC_IDS = frozenset({"openbabel-fallback"})
 
 FORMAT_GROUPS: dict[FormatGroup, tuple[str, ...]] = {
@@ -536,8 +536,8 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
         title="ORCA input",
         extensions=(".inp",),
         read=True,
-        write=False,
-        registry_role="reader",
+        write=True,
+        registry_role="reader, file writer, frame writer",
         data_level="coordinates and QM input semantics",
         summary="ORCA input parsing with coordinates, multi-job splitting, model chemistry, task-family fixtures, and structured request containers.",
         features=(
@@ -607,11 +607,12 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             ),
             FeatureSupport(
                 area="Writer availability",
-                support="intentionally-unsupported",
-                scope="ORCA input writer is not registered.",
-                limitations="Rendering is disabled until a structured renderer can preserve ORCA input semantics.",
+                support="partial",
+                scope="Canonical file/frame rendering from coordinate-bearing models with explicit keywords, PAL, maxcore, arbitrary percent blocks, Cartesian geometry, and .inp output paths.",
+                limitations="Non-Cartesian inline geometry and arbitrary source-statement ordering are not canonicalized; cross-format conversion requires explicit ORCA keywords.",
                 tests=(
-                    "tests/test_autoparser_orcainp_tmpfile.py::test_orcainp_writer_is_not_registered",
+                    "tests/test_autoparser_orcainp_tmpfile.py::test_orcainp_writer_builds_common_sp_input",
+                    "tests/test_autoparser_orcainp_tmpfile.py::test_orcainp_writer_uses_inp_output_extension",
                 ),
             ),
         ),

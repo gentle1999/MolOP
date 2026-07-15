@@ -1,6 +1,10 @@
-# ORCA Input Model and Parser Guide
+# ORCA Input Model, Parser, and Renderer Guide
 
-This page documents the structured reader model for ORCA `.inp` files in MolOP. The ORCA writer is not registered yet; do not rely on `orca_raw_preamble` / `orca_raw_postamble` or raw round-trip compatibility.
+This page documents the structured reader model and canonical writer for ORCA `.inp`
+files in MolOP. The ORCA writer is registered and can construct input from a
+coordinate-bearing frame plus explicit ORCA calculation settings. It is not a
+source-preserving writer; do not rely on `orca_raw_preamble` / `orca_raw_postamble`
+or raw round-trip compatibility.
 
 ## Data Layers
 
@@ -41,11 +45,15 @@ ORCAInpFileFrame
 
 - `name`: lowercase block name without `%`, such as `pal`, `maxcore`, or `scf`
 - `raw_header`: original header line
+- `raw_text`: original block text recognized by the scanner
 - `lines`: block body lines without newline terminators
 
 `geometry`
 
-: Structured ORCA geometry input. The parser supports `* xyz`, `* cart`, `* xyzfile`, `* gzmtfile`, and Cartesian coordinates inside `%coords`. Cartesian coordinates are synchronized onto the frame-level `atoms` / `coords` fields.
+: Structured ORCA geometry input. The parser supports `* xyz`, `* cart`, numeric
+  `* int` / `* internal` / `* gzmt`, `* xyzfile`, `* gzmtfile`, `* pdbfile`, and
+  Cartesian coordinates inside `%coords`. Cartesian coordinates and resolvable
+  internal coordinates are synchronized onto frame-level `atoms` / `coords`.
 
 `trailing_lines`
 
@@ -72,6 +80,8 @@ ORCAInpFileFrame
 - `units`, such as `bohr`
 - `external_path` for external geometry files
 - `atoms` for Cartesian atom rows
+- `internal_coords` for resolvable numeric internal coordinates
+- `coordinate_parameters` from `%paras`
 - `point_charges` for `Q q x y z` rows
 - `source`: `star` or `percent_coords`
 
@@ -108,12 +118,26 @@ Frame parser:
 
 Cartesian input is treated as Å by default. If `units` is `bohr`, `a0`, `au`, or an equivalent token, coordinates and point-charge positions are converted to Å before being stored.
 
-`xyzfile` / `gzmtfile` preserve only `external_path`; the parser does not read external files or fabricate `atoms` / `coords`.
+`xyzfile` / `gzmtfile` / `pdbfile` preserve only `external_path`; the parser does not
+read external files or fabricate `atoms` / `coords`.
+
+## Rendering Contract
+
+Both ORCA file and frame writers are registered. The renderer accepts explicit
+`keywords`, `nprocs`, `maxcore`, raw or mapping-form `%block` input, Cartesian
+geometry, and external geometry references. Cross-format conversion must provide
+explicit ORCA `keywords`.
+
+Rendering is canonical: original statement order, whitespace, comment position, and
+the `%coords` representation are not preserved. Inline `int` / `internal` / `gzmt`
+rendering is not implemented. See the
+[ORCA 6.1 capability matrix on the format page](../reference/formats/orcainp.md)
+for the complete boundary.
 
 ## Development Constraints
 
 - Do not add a `jobs` wrapper layer; `$new_job` maps to multiple frames.
 - Do not restore `orca_raw_preamble` / `orca_raw_postamble`.
-- Do not register an ORCA writer until a structured renderer exists.
+- The ORCA writer guarantees canonical rendering only; do not claim source-preserving round trips until an ordered statement model exists.
 - Write program-specific syntax into ORCA structured fields and common QM structured containers first, then use `project_common_qm_fields()` to project compatibility fields such as `method`, `functional`, and `basis_set`.
 - Do not hide semantics in raw strings.

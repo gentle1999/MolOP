@@ -260,6 +260,22 @@ class Registry:
             self.ensure_default_codecs_registered()
         return sorted(self._writers_by_format.keys())
 
+    def get_writer_output_extension(self, format_id: str) -> str:
+        """Return the preferred filename extension for a writer format."""
+        if self._autoload_defaults:
+            self.ensure_default_codecs_registered()
+        normalized_format_id = _normalize_format_id(format_id)
+        writer_specs = self._writers_by_format.get(normalized_format_id, [])
+        for spec in writer_specs:
+            try:
+                writer = spec.factory()
+            except MissingOptionalDependencyError:
+                continue
+            extension = getattr(writer, "output_extension", None)
+            if isinstance(extension, str) and extension.strip():
+                return _normalize_format_id(extension.strip().removeprefix("."))
+        return normalized_format_id
+
     def get_writer_option_specs(self, format_id: str) -> list[WriterOptionSpec]:
         """Return completion metadata for writer-specific format options."""
         if self._autoload_defaults:
@@ -467,6 +483,10 @@ def writer_factory(
 
 def get_supported_writer_formats() -> list[str]:
     return default_registry.get_supported_writer_formats()
+
+
+def get_writer_output_extension(format_id: str) -> str:
+    return default_registry.get_writer_output_extension(format_id)
 
 
 def get_writer_option_specs(format_id: str) -> list[WriterOptionSpec]:
@@ -867,6 +887,7 @@ __all__ = [
     "default_registry",
     "ensure_default_codecs_registered",
     "get_supported_writer_formats",
+    "get_writer_output_extension",
     "get_writer_option_specs",
     "reader_factory",
     "register_openbabel_fallback",

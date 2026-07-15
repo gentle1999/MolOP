@@ -12,6 +12,7 @@ import os
 from typing import Any, Protocol, cast
 
 from molop.config import moloplogger
+from molop.io import codec_registry
 from molop.io.frame_selection import FrameSelector
 
 
@@ -41,6 +42,7 @@ class BatchFormatTransformMixin:
             assert os.path.isdir(output_dir), f"{output_dir} is not a directory"
 
         typed_self = cast(_HasParallelExecute, self)
+        output_extension = codec_registry.get_writer_output_extension(format)
 
         def transform_func(diskfile: Any) -> tuple[str, str | list[str]]:
             try:
@@ -51,7 +53,7 @@ class BatchFormatTransformMixin:
                     write_to_disk=write_to_disk,
                     file_path=os.path.join(
                         output_dir,
-                        f"{os.path.splitext(diskfile.filename)[0]}.{format}",
+                        f"{os.path.splitext(diskfile.filename)[0]}.{output_extension}",
                     )
                     if write_to_disk and output_dir
                     else None,
