@@ -25,6 +25,14 @@ rendered = frame.format_transform(
 )
 ```
 
+`rendered` 是字符串，开头类似：
+
+```text
+%nprocshared=16
+%mem=32GB
+#p wb97xd/def2tzvp opt freq
+```
+
 跨格式转换时应显式提供 Gaussian `route_section`。writer 不会验证计算方法、基组、
 任务与 Gaussian 版本之间的兼容性。
 

@@ -2,113 +2,119 @@
 
 [中文](README.zh.md) | [English](README.md)
 
-MolOP is a Python 3.10+ library and command-line tool designed for computational chemistry workflows. It aims to bridge the gap between raw computational output and structured, analysis-ready molecular data.
-
-## Core Features
-
-- **Unified Parser**: Read various formats like Gaussian log, GJF, XYZ, SDF through a single interface (`AutoParser`).
-- **Structure Recovery**: Advanced molecular graph reconstruction algorithm capable of recovering bonding information from coordinates, with excellent support for radicals and metal complexes.
-- **Data Modeling**: Pydantic-based models providing type-safe access to data such as energies, vibrations, orbitals, and population analysis.
-- **Batch Processor**: Supports parallel processing of thousands of files with built-in flexible filtering and format conversion.
-
-## Use Cases
-
-- Need to extract thermodynamic data or molecular properties from hundreds of Gaussian log files.
-- Need to convert between different chemical file formats while preserving or recovering bond information.
-- Building machine learning pipelines and need to reliably extract molecular features from quantum chemistry output.
-- Prefer using command-line tools to quickly inspect and process data without writing Python scripts.
-
-## Non-goals
-
-- **Quantum Chemistry Solver**: MolOP does not perform quantum chemistry calculations; it only parses and processes the results.
-- **Visualization Tool**: While integrated with RDKit, it is not a dedicated molecular viewer.
-- **Force Field Engine**: It is not designed for running molecular dynamics simulations.
+MolOP is a Python 3.10+ library and command-line tool for computational
+chemistry files. It reads Gaussian, ORCA, xTB, and common structure formats,
+extracts scientific results, filters batches, and exports structures or
+next-step calculation inputs.
 
 ## Installation
 
-### For End Users
-
-Install the latest version directly from the GitHub repository:
+MolOP is not currently published on PyPI or Conda. Install it from GitHub:
 
 ```bash
-pip install git+https://github.com/gentle1999/MolOP.git
+python -m pip install git+https://github.com/gentle1999/MolOP.git
 ```
 
-### For Developers
+Verify the installation:
 
-Clone the repository and sync the environment using `uv`:
+```bash
+python -c "import molop; print(molop.__version__)"
+molop --help
+```
+
+## Read one calculation result
+
+Download the
+[ORCA water example](https://gentle1999.github.io/MolOP/assets/examples/water_mp2.out)
+and save it as `water_mp2.out`:
+
+```python
+from molop import AutoParser
+
+batch = AutoParser("water_mp2.out", n_jobs=1)
+frame = batch[0][-1]
+
+print(batch[0].detected_format_id)
+print(len(frame.atoms), frame.coords.shape)
+print(frame.energies.total_energy.m_as("hartree"))
+```
+
+Output:
+
+```text
+orcaout
+3 (3, 3)
+-74.999374598107
+```
+
+## Common tasks
+
+### Export a batch CSV
+
+```python
+batch = AutoParser("results/*.log")
+summary = batch.to_summary_df(
+    frame=-1,
+    brief=False,
+    flatten_columns=True,
+)
+summary.to_csv("summary.csv", index=False)
+```
+
+The result is `summary.csv` with one row per successfully parsed file and
+unit-bearing columns such as `Energy.total_energy.hartree`.
+
+### Filter and export structures
+
+```bash
+molop -q parse "results/*.out" \
+  filter-state --state normal \
+  format-transform --format xyz --output-dir structures
+```
+
+The result is one `.xyz` file per selected source under `structures/`.
+
+## Supported scope
+
+- QM outputs: Gaussian log/fchk, ORCA output, and xTB output.
+- QM inputs: Gaussian and ORCA input reading and canonical writing.
+- Structure formats: XYZ, SDF/MOL, SMILES, and a CML writer.
+- Common results: structures, energies, thermochemistry, vibrations, orbitals,
+  atomic populations, dipole/polarizability, NMR, and calculation status,
+  depending on the format and printed source content.
+
+See the
+[format overview](https://gentle1999.github.io/MolOP/en/reference/format_support/)
+for exact reader/writer status and field boundaries.
+
+MolOP does not run quantum chemistry calculations and is not a dedicated
+molecular viewer or molecular dynamics engine.
+
+## Documentation
+
+- [5-minute start](https://gentle1999.github.io/MolOP/en/getting_started/quickstart/)
+- [Read calculation results](https://gentle1999.github.io/MolOP/en/guides/results/)
+- [Batch summaries](https://gentle1999.github.io/MolOP/en/guides/batch/)
+- [Filter and select](https://gentle1999.github.io/MolOP/en/guides/filtering/)
+- [Convert and export](https://gentle1999.github.io/MolOP/en/guides/conversion/)
+- [Contributing](https://gentle1999.github.io/MolOP/en/contributing/)
+
+## Development
 
 ```bash
 git clone https://github.com/gentle1999/MolOP.git
 cd MolOP
 uv sync
+make check
 ```
 
-Common development commands:
+See the documentation site's Developer section for implementation contracts
+and quality gates.
 
-- `make test`: Run the test suite
-- `make format`: Format the code
-- `make check`: Run all quality checks (lint, type-check, etc.)
-
-Contributions via [GitHub Issues](https://github.com/gentle1999/MolOP/issues) or Pull Requests are welcome.
-
-_Note: MolOP is currently not published on PyPI or Conda._
-
-## Quick Start
-
-### Python API
-
-Use `AutoParser` to batch parse files and generate summaries:
-
-```python
-from molop.io import AutoParser
-
-# Parse all Gaussian log files in the specified path
-batch = AutoParser("path/to/*.log", n_jobs=-1)
-
-# Paths and glob patterns can be mixed in one call
-batch = AutoParser(["reactants/*.log", "products/product.log"], n_jobs=-1)
-
-# Get the summary DataFrame of the first file
-df = batch[0].to_summary_df()
-print(df)
-```
-
-### Command Line Interface (CLI)
-
-MolOP provides a Click CLI centered on chained batch operations:
-
-```bash
-# Generate a summary CSV from a parsed batch
-molop parse "path/to/*.log" to-summary-df --out summary.csv
-
-# Transform filtered molecular files to another format
-molop parse "path/to/*.log" \
-  filter-state --state normal \
-  format-transform --format sdf --output-dir ./output
-```
-
-`molop parse` is the only business CLI entry point. It builds a
-`FileBatchModelDisk` state first, then validates and executes the operation
-chain. Format-specific transform options are provided dynamically from the
-registered writer metadata.
-
-## Documentation & Tutorials
-
-- **Official Documentation**: [https://gentle1999.github.io/MolOP/](https://gentle1999.github.io/MolOP/)
-- **Quick Start**: [English Documentation](https://gentle1999.github.io/MolOP/en/getting_started/quickstart/)
-- **Command Line Interface**: [CLI Documentation](https://gentle1999.github.io/MolOP/en/command_line_interface/)
-- **Example Notebooks**:
-  - 01-Gaussian Parse and Inspect: [Docs](https://gentle1999.github.io/MolOP/en/examples/01-gaussian-parse-and-inspect/) | [Source](https://github.com/gentle1999/MolOP/blob/main/docs/en/examples/01-gaussian-parse-and-inspect.ipynb)
-  - 02-Batch Summary, Filter and Select: [Docs](https://gentle1999.github.io/MolOP/en/examples/02-batch-summary-filter-select/) | [Source](https://github.com/gentle1999/MolOP/blob/main/docs/en/examples/02-batch-summary-filter-select.ipynb)
-  - 03-Transform and Export: [Docs](https://gentle1999.github.io/MolOP/en/examples/03-transform-and-export/) | [Source](https://github.com/gentle1999/MolOP/blob/main/docs/en/examples/03-transform-and-export.ipynb)
-
-## Citation
+## Citation and license
 
 If MolOP helps your research, please cite:
 
 > MolOP (Molecule OPerator), <https://github.com/gentle1999/MolOP>
-
-## License
 
 This project is licensed under the [MIT License](LICENSE).

@@ -55,17 +55,36 @@ plugins:
           build: true
           nav_translations:
             首页: Home
-            入门指南: Getting Started
+            快速开始: Quick Start
             安装: Installation
-            快速上手: Quickstart
-            概念: Concepts
-            命令行界面: Command Line Interface
-            教程: Tutorials
-            示例（Notebooks）: Examples (Notebooks)
-            教程概览: Tutorials Overview
+            5 分钟上手: 5-Minute Start
+            Python API 初体验: Python API First Steps
+            CLI 初体验: CLI First Steps
+            理解 Batch、File 与 Frame: Understand Batch, File, and Frame
+            使用指南: User Guides
+            解析文件: Parse Files
+            读取计算结果: Read Calculation Results
+            批量汇总: Batch Summaries
+            过滤与选择: Filter and Select
+            格式转换与导出: Convert and Export
+            结构恢复: Structure Recovery
+            CLI 常用任务: CLI Task Recipes
+            常见问题: Troubleshooting
+            任务教程: Task Tutorials
+            教程概览: Tutorial Overview
+            Gaussian、ORCA 与 xTB 汇总: Gaussian, ORCA, and xTB Summary
+            导出能量和热化学 CSV: Export Energy and Thermochemistry CSV
+            筛选优化结果与过渡态: Select Optimized Results and Transition States
+            导出结构和下一步输入: Export Structures and Next-Step Inputs
+            Notebook 补充: Notebook Supplements
             01-Gaussian 解析与检查: 01-Gaussian Parse and Inspect
             02-批量汇总、过滤与选择: 02-Batch Summary, Filter and Select
             03-转换与导出: 03-Transform and Export
+            格式与数据参考: Formats and Data Reference
+            格式支持概览: Format Overview
+            格式: Formats
+            按科学性质查找字段: Find Fields by Scientific Property
+            CLI 命令参考: CLI Command Reference
             API 参考: API Reference
             概览: Overview
             关键入口: Key Entry Points
@@ -77,8 +96,6 @@ plugins:
             molop.structure: molop.structure
             molop.unit: molop.unit
             molop.utils: molop.utils
-            参考: Reference
-            格式支持清单: Format Support
             格式概览: Overview
             Gaussian 输入: Gaussian Input
             Gaussian 输出: Gaussian Output
@@ -89,29 +106,52 @@ plugins:
             OpenBabel fallback: OpenBabel Fallback
             转换行为: Transform Behaviors
             API 契约: API Contracts
-            模型字段: Model Field Map
+            进阶: Advanced
+            精确转换行为: Exact Transform Behavior
+            Source evidence 与序列化: Source Evidence and Serialization
+            CLI 内部契约: Internal CLI Contract
+            开发者: Developer
+            开发者概览: Developer Overview
+            Reader/Writer 插件开发: Reader/Writer Plugin Development
+            完整 Parser 契约: Complete Parser Contract
+            文档贡献: Documentation Contributions
+            开发环境与质量门禁: Development Environment and Quality Gates
+            设计与模型: Design and Models
             贡献指南: Contributing
             更新日志: Changelog
-
 hooks:
   - scripts/mkdocs_hooks.py
 
 nav:
   - 首页: index.md
-  - 入门指南:
+  - 快速开始:
     - 安装: getting_started/installation.md
-    - 快速上手: getting_started/quickstart.md
-  - 概念: concepts.md
-  - 命令行界面: command_line_interface.md
-  - 教程:
+    - 5 分钟上手: getting_started/quickstart.md
+    - Python API 初体验: getting_started/python-api.md
+    - CLI 初体验: getting_started/cli.md
+    - 理解 Batch、File 与 Frame: concepts.md
+  - 使用指南:
+    - 解析文件: guides/parsing.md
+    - 读取计算结果: guides/results.md
+    - 批量汇总: guides/batch.md
+    - 过滤与选择: guides/filtering.md
+    - 格式转换与导出: guides/conversion.md
+    - 结构恢复: guides/structure-recovery.md
+    - CLI 常用任务: guides/cli-recipes.md
+    - 常见问题: guides/troubleshooting.md
+  - 任务教程:
     - 教程概览: tutorials/index.md
-    - 示例（Notebooks）:
+    - Gaussian、ORCA 与 xTB 汇总: tutorials/qm-summary.md
+    - 导出能量和热化学 CSV: tutorials/energy-csv.md
+    - 筛选优化结果与过渡态: tutorials/select-results.md
+    - 导出结构和下一步输入: tutorials/export-inputs.md
+    - Notebook 补充:
       - 01-Gaussian 解析与检查: examples/01-gaussian-parse-and-inspect.ipynb
       - 02-批量汇总、过滤与选择: examples/02-batch-summary-filter-select.ipynb
       - 03-转换与导出: examples/03-transform-and-export.ipynb
-  - 参考:
-    - 格式支持清单:
-      - 格式概览: reference/format_support.md
+  - 格式与数据参考:
+    - 格式支持概览: reference/format_support.md
+    - 格式:
       - XYZ: reference/formats/xyz.md
       - SDF/MOL: reference/formats/sdf.md
       - SMILES: reference/formats/smi.md
@@ -124,21 +164,29 @@ nav:
       - CML writer: reference/formats/cml.md
       - Gaussian-like renderer: reference/formats/fakeg.md
       - OpenBabel fallback: reference/formats/openbabel-fallback.md
-    - 转换行为: reference/transform_behavior.md
-    - API 契约: reference/api_contracts.md
-    - 模型字段: reference/model_fields.md
-  - 设计稿:
-    - QM 公共数据模型: design/qm_data_model.md
-    - ORCA 输入文件模型: design/orca_input_model.md
-  - 贡献指南: contributing.md
-  - 更新日志: changelog.md
-  - API 参考:
-    - 概览: reference/api.md
-    - 关键入口:
+    - 按科学性质查找字段: reference/model_fields.md
+    - CLI 命令参考: command_line_interface.md
+    - Python API:
+      - 概览: reference/api.md
       - AutoParser: reference/api/autoparser.md
       - FileBatchModelDisk: reference/api/filebatchmodeldisk.md
+  - 进阶:
+    - 精确转换行为: reference/transform_behavior.md
+    - Source evidence 与序列化: reference/api_contracts.md
+    - CLI 内部契约: advanced/cli-contract.md
+  - 开发者:
+    - 开发者概览: developer/overview.md
+    - Reader/Writer 插件开发: developer/plugins.md
+    - 完整 Parser 契约: developer/parser-contract.md
+    - 文档贡献: developer/documentation.md
+    - 开发环境与质量门禁: developer/quality.md
+    - 设计与模型:
+      - QM 公共数据模型: design/qm_data_model.md
+      - ORCA 输入文件模型: design/orca_input_model.md
+    - 贡献指南: contributing.md
+    - 更新日志: changelog.md
+    - API 参考:
       - Registry: reference/api/registry.md
-    - 模块:
       - molop: reference/api/molop.md
       - molop.io: reference/api/io.md
       - molop.cli: reference/api/cli.md

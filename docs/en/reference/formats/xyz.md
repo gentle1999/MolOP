@@ -13,6 +13,16 @@
 
 Standard XYZ coordinate IO with charge/multiplicity comment support.
 
+```python
+from molop import AutoParser
+
+frame = AutoParser("molecule.xyz")[0][0]
+print(len(frame.atoms), frame.coords.shape, frame.charge, frame.multiplicity)
+```
+
+A three-atom neutral singlet prints `3 (3, 3) 0 1`. XYZ stores neither energy nor a complete
+molecular graph.
+
 | Feature | Support | Scope | Limits | Test evidence |
 | ------- | ------- | ----- | ------ | ------------- |
 | <!-- feature-area:Reader -->Reader | Supported | Standard multi-frame XYZ files; charge and multiplicity in comments; file-level charge/multiplicity finalized from the first frame. | No graph recovery; malformed atom counts or incomplete frames fail during parse-phase mismatch handling. | `tests/test_parsers_smoke.py::test_autoparser_xyz_smoke`<br>`tests/test_io_registry_and_batch_more.py::test_base_file_parser_finalizes_file_charge_and_multiplicity_from_first_frame` |

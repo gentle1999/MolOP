@@ -25,6 +25,9 @@ rendered = frame.format_transform(
 )
 ```
 
+`rendered` is a string containing the ORCA simple input line, `%pal/%maxcore/%scf`, and an
+`* xyz` coordinate block. Its first line begins with `! wB97M-V def2-TZVPP` in this example.
+
 Cross-format conversion requires `keywords`; MolOP does not reuse keyword syntax
 from another QM program. Raw `%block` text is also accepted through `blocks`.
 

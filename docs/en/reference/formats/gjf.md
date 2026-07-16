@@ -26,6 +26,14 @@ rendered = frame.format_transform(
 )
 ```
 
+`rendered` is a string beginning like:
+
+```text
+%nprocshared=16
+%mem=32GB
+#p wb97xd/def2tzvp opt freq
+```
+
 Provide an explicit Gaussian `route_section` for cross-format conversion. The writer
 does not validate compatibility among methods, basis sets, tasks, and Gaussian versions.
 

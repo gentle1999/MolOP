@@ -1,0 +1,116 @@
+# Parse files
+
+Use `AutoParser` with one file, a glob pattern, or a mixed list of paths.
+
+## Shortest example
+
+```python
+from molop import AutoParser
+
+batch = AutoParser("results/*.log")
+for parsed_file in batch:
+    print(parsed_file.filename, len(parsed_file), parsed_file.detected_format_id)
+```
+
+The returned `FileBatchModelDisk` contains files that parsed successfully and produced at least one
+frame.
+For the shared example, output is:
+
+```text
+water_mp2.out 1 orcaout
+```
+
+## Input forms
+
+```python
+one = AutoParser("calculation.log")
+many = AutoParser("results/*.out")
+mixed = AutoParser([
+    "gaussian/*.log",
+    "orca/job.out",
+    "structures/*.xyz",
+])
+```
+
+MolOP expands globs itself. Inputs are converted to absolute paths, deduplicated, and sorted.
+
+## Select frames
+
+```python
+parsed_file = batch[0]
+first = parsed_file[0]
+final = parsed_file[-1]
+
+for frame in parsed_file:
+    print(frame.frame_id, frame.energies.total_energy if frame.energies else None)
+```
+
+When only final results matter and memory use is important:
+
+```python
+batch = AutoParser("results/*.log", only_last_frame=True)
+```
+
+`only_last_frame=True` changes which frames the parser retains. It is not equivalent to parsing the
+full trajectory and then indexing `[-1]`; leave it off when you need the optimization history.
+
+## Automatic and explicit format detection
+
+The default `parser_detection="auto"` chooses reader candidates from the extension and probes the
+content. For ambiguous extensions, provide a format ID:
+
+```python
+orca = AutoParser("job.out", parser_detection="orcaout")
+xtb = AutoParser("xtb.out", parser_detection="xtbout")
+fchk = AutoParser("molecule.fchk", parser_detection="g16fchk")
+```
+
+See the [format overview](../reference/format_support.md) for format IDs.
+
+## Parallel and structure-only parsing
+
+```python
+batch = AutoParser("results/*", n_jobs=4)
+
+structures = AutoParser(
+    "results/*.log",
+    n_jobs=4,
+    only_extract_structure=True,
+)
+```
+
+`n_jobs=-1` uses the maximum parallelism allowed by MolOP configuration. Use `n_jobs=1` for small
+batches or debugging. `only_extract_structure=True` skips non-structural results and is unsuitable
+for extracting energy or thermochemistry.
+
+## Find failed inputs
+
+```python
+from pathlib import Path
+from molop import AutoParser
+
+inputs = sorted(Path("results").glob("*.out"))
+batch = AutoParser(inputs, n_jobs=1)
+parsed = {Path(path).resolve() for path in batch.file_paths}
+failed = [path for path in inputs if path.resolve() not in parsed]
+
+for path in failed:
+    print("not added to batch:", path)
+```
+
+When every input succeeds this prints nothing. A missing result produces one line such as:
+
+```text
+not added to batch: results/truncated.out
+```
+
+Missing files, unsupported formats, and files without usable frames are omitted and reported in the
+MolOP log. Retry with `n_jobs=1`, then check extensions, encoding, and format IDs in
+[Troubleshooting](troubleshooting.md).
+
+## Learn more
+
+- [Read calculation results](results.md)
+- [Batch summaries](batch.md)
+- [Format overview](../reference/format_support.md)
+- [Source evidence and serialization](../reference/api_contracts.md)

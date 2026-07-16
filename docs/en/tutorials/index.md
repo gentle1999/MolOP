@@ -1,151 +1,21 @@
-# Tutorials
+# Task tutorials
 
-This section provides navigation and key takeaways for using MolOP. Notebooks
-under `docs/en/examples/` are worked examples; they are not executed during
-documentation builds. For exact behavior, prefer the current API reference,
-CLI help, and tests.
+These Markdown tutorials cover complete workflows without requiring a notebook.
 
-MkDocs is configured with `mkdocs-jupyter.execute: false`, so notebooks are not executed during docs builds; notebooks in the repository should include reproducible outputs.
+| Research task | Input | Output |
+| --- | --- | --- |
+| [Summarize Gaussian, ORCA, and xTB](qm-summary.md) | Mixed calculation outputs | Unified status and energy table |
+| [Export energy and thermochemistry CSV](energy-csv.md) | Gaussian/ORCA results | Analysis-ready CSV |
+| [Select optimized results and transition states](select-results.md) | Optimization and frequency outputs | Selected paths and summary |
+| [Export structures and next-step inputs](export-inputs.md) | Completed calculation outputs | XYZ/SDF/GJF/ORCA input |
 
-Recommended reading order:
+## Optional notebooks
 
-- [01-Gaussian Parse and Inspect (Notebook)](../examples/01-gaussian-parse-and-inspect.ipynb)
-- [02-Batch Summary, Filter and Select (Notebook)](../examples/02-batch-summary-filter-select.ipynb)
-- [03-Transform and Export (Notebook)](../examples/03-transform-and-export.ipynb)
+Notebooks provide longer interactive exploration. Documentation builds do not execute them, and
+they are not prerequisites for the workflows above:
 
-## 1. IO Parsing
+- [Gaussian parse and inspect](../examples/01-gaussian-parse-and-inspect.ipynb)
+- [Batch summary, filter, and select](../examples/02-batch-summary-filter-select.ipynb)
+- [Transform and export](../examples/03-transform-and-export.ipynb)
 
-### Prerequisites
-
-- MolOP installed.
-- Computational chemistry output files (e.g., `.log`) or coordinate files (e.g., `.xyz`, `.sdf`).
-
-### Code Snippet
-
-```python
-from molop.io import AutoParser
-# Parse a single file
-files = AutoParser("example.log")
-file = files[0]
-# Get the last frame
-frame = file[-1]
-print(f"Energy: {frame.energies.total_energy}")
-```
-
-### Expected Output
-
-- `files` is a `FileBatchModelDisk` object.
-- `frame` contains fields like `energies`, `coords`, `atoms`.
-
-## 2. Batch Processing
-
-### Prerequisites
-
-- Multiple files of the same type in a directory.
-
-### Code Snippet
-
-```python
-from molop.io import AutoParser
-# Parallel parsing using wildcards
-batch = AutoParser("*.log", n_jobs=-1)
-# Filter successfully optimized structures
-opt_batch = batch.filter_state("opt")
-print(f"Parsed {len(opt_batch)} optimized structures")
-```
-
-### Expected Output
-
-- A filtered `FileBatchModelDisk` object.
-
-## 3. Structure Reconstruction
-
-### Prerequisites
-
-- Atomic coordinates only (e.g., from an XYZ file), needing bond inference.
-
-### Code Snippet
-
-```python
-from molop.io import AutoParser
-batch = AutoParser("molecule.xyz")
-# Automatically triggers the reconstruction algorithm
-rdmol = batch[0][0].rdmol
-```
-
-### Expected Output
-
-- An RDKit `Mol` object with inferred bonds and bond orders.
-
-## 4. Transforms / Format Conversion
-
-### Prerequisites
-
-- A parsed batch object.
-
-### Code Snippet
-
-```python
-from molop.io import AutoParser
-batch = AutoParser("*.log")
-# Batch convert to SDF and save (see Notebook 03 for canonical parameters)
-batch.format_transform(format="sdf", output_dir="./output", frame=-1, write_to_disk=True)
-```
-
-### Expected Output
-
-- `.sdf` files generated in the `./output` directory.
-
-## 5. CLI Usage
-
-### Prerequisites
-
-- `molop` command configured in your terminal.
-
-### Command Examples
-
-```bash
-# Generate a summary CSV
-uv run molop -q parse "tests/test_files/g16log/2-TS1-Opt.log" \
-  --n-jobs 1 \
-  to-summary-df --out tutorial_ts_summary.csv --format csv --mode frame --frame -1 --flatten-columns
-
-# Transform molecular files to another format
-uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
-  --parser-detection orcainp \
-  --n-jobs 1 \
-  format-transform --format sdf --output-dir ./tutorial_transform_out --frame -1 --embed
-```
-
-## 6. Plugin/Codec Extension
-
-### Prerequisites
-
-- Need to support a custom private format.
-
-### Code Snippet
-
-Define in a format package under `src/molop/io/logic`, for example `src/molop/io/logic/myfmt/parsers/MyParser.py`:
-
-```python
-def register(registry):
-    @registry.reader_factory(format_id="myfmt", extensions={".myfmt"}, priority=0)
-    def my_reader_factory():
-        return MyReader()
-
-class MyReader:
-    format_id = "myfmt"
-    extensions = frozenset({".myfmt"})
-    priority = 0
-    def read(self, path, **kwargs):
-        # Your parsing logic here
-        ...
-```
-
-### Expected Output
-
-- `AutoParser` can now recognize the `.myfmt` extension.
-
-### Notes
-
-- The registration function must be named `register`; see [Core Concepts](../concepts.md).
+Adding a reader or writer is a developer task. See [Plugin development](../developer/plugins.md).

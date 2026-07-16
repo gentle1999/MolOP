@@ -13,6 +13,13 @@
 
 Chemical Markup Language writer，基于 RDKit 或 OpenBabel 分子渲染。
 
+```python
+cml_text = frame.format_transform("cml")
+print(cml_text[:5])
+```
+
+输出以 `<?xml` 或 `<cml` 开始；当前没有 CML reader。
+
 | 特性 | 支持程度 | 支持范围 | 明确边界 | 测试证据 |
 | ---- | -------- | -------- | -------- | -------- |
 | <!-- feature-area:File and frame writer -->File and frame writer | 已支持 | 选定帧文件渲染、负数 frame index 选择、选定帧拆分为独立 block，以及通过 registry 渲染单帧。 | 没有注册 CML reader。 | `tests/test_cml_codec.py::test_cml_writer_renders_selected_frames_in_one_file`<br>`tests/test_cml_codec.py::test_cml_writer_supports_negative_frame_id`<br>`tests/test_cml_codec.py::test_cml_writer_can_return_selected_frames_as_separate_blocks`<br>`tests/test_cml_codec.py::test_cml_frame_writer_renders_single_frame` |

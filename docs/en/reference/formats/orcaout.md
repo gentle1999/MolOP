@@ -11,6 +11,25 @@
 | Registry role | Reader |
 | Data level | Coordinates and QM results |
 
+## Quick read
+
+Download the [shared ORCA example](../../../assets/examples/water_mp2.out), then run:
+
+```python
+from molop import AutoParser
+
+frame = AutoParser("water_mp2.out", parser_detection="orcaout", n_jobs=1)[0][-1]
+print(frame.qm_software, frame.method, frame.is_normal)
+print(frame.energies.total_energy.m_as("hartree"))
+```
+
+Output:
+
+```text
+ORCA MP2 True
+-74.999374598107
+```
+
 ORCA output parsing for user-facing result attributes such as energies, forces,
 vibrations, populations, solvation, excited states, and response properties.
 

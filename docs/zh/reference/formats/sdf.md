@@ -13,6 +13,15 @@
 
 基于 RDKit graph 提取和 strict graph writer 语义的 SDF/MOL 结构读写。
 
+```python
+from molop import AutoParser
+
+frame = AutoParser("molecule.sdf")[0][0]
+print(frame.rdmol.GetNumAtoms(), frame.rdmol.GetNumBonds())
+```
+
+输出原子数和键数，例如水分子为 `3 2`。任意 SD data field 不保证无损 round-trip。
+
 | 特性 | 支持程度 | 支持范围 | 明确边界 | 测试证据 |
 | ---- | -------- | -------- | -------- | -------- |
 | <!-- feature-area:Reader -->Reader | 已支持 | SDF/MOL block 解析为原子、坐标、键、形式电荷、自由基、总电荷和自旋多重度字段。 | 测试契约不声明任意 SD data field 的 round-trip。 | `tests/test_autoparser_sdf_tmpfile.py::test_autoparser_sdf_tmpfile` |

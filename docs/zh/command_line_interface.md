@@ -1,125 +1,118 @@
-# 命令行接口
+# CLI 命令参考
 
-MolOP 只暴露一个业务命令：`molop parse`。
+MolOP 的业务入口是：
 
-稳定的 CLI chain 契约，包括参数默认值和错误策略，见 [API 契约](reference/api_contracts.md)。
+```text
+molop [全局选项] parse PATTERN [解析选项] 操作 [操作参数] ...
+```
 
-该命令先把文件解析成 `FileBatchModelDisk` 批状态，然后执行经过检查的操作链。返回值仍是
-`FileBatchModelDisk` 的操作可以继续链接；返回其他结果的操作必须放在最后一步，且这一关系会在实际解析文件前检查。
-
-为保证仓库内可复现，本文示例统一使用 `uv run molop ...`。如果已安装 MolOP，可直接使用
-`molop ...`。
+先看任务配方：[CLI 初体验](getting_started/cli.md)和
+[CLI 常用任务](guides/cli-recipes.md)。本页用于查参数和链式规则。
 
 ## 全局选项
 
-- `-v`, `--verbose`: 启用详细输出。
-- `-q`, `--quiet`: 启用安静模式。
-- `--version`: 显示版本并退出。
-
-## 查看命令
-
-```bash
-uv run molop --help
-uv run molop parse --help
-```
-
-## Shell 补全
-
-为当前 shell 安装补全：
-
-```bash
-molop completion install
-```
-
-可通过 `--shell bash`、`--shell zsh` 或 `--shell fish` 指定 shell。
-安装后需要重启 shell，或手动 source 更新后的 rc 文件。
-
-只查看生成的补全脚本、不安装：
-
-```bash
-molop completion show --shell bash
-```
-
-## 解析并链接操作
-
-按检测到的 codec 过滤并输出路径：
-
-```bash
-uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
-  --parser-detection orcainp \
-  --n-jobs 1 \
-  --output-format json \
-  filter-by-codec --codec-id orcainp
-```
-
-转换为其他格式：
-
-```bash
-uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
-  --parser-detection orcainp \
-  --n-jobs 1 \
-  format-transform --format xyz --output-dir .tmp/molop_xyz
-```
-
-为保持 CLI 兼容性，`--output-dir` 会隐式写盘。若不指定 `--output-dir`，可用
-`--write` 写到每个源文件所在目录；也可用 `--no-write` 强制只渲染、不落盘，即使
-命令中提供了输出目录。`format-transform` 写盘时不会把渲染后的文件内容打印到
-stdout；生成的文件就是该操作的结果。
-
-生成摘要表：
-
-```bash
-uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
-  --parser-detection orcainp \
-  --n-jobs 1 \
-  to-summary-df --out .tmp/molop_summary.csv
-```
-
-`to-summary-df` 默认汇总最后一帧（`--frame -1`）。使用 `--frame all`
-可汇总所有帧，`--full` 可输出扩展字段。摘要 CSV/JSON 默认使用
-`General.FrameID`、`Energy.total_energy.hartree` 这样的扁平列名；如需保留
-三层 `(group, field, unit)` MultiIndex 列，使用 `--multi-index-columns`。
-
-## 操作参考
-
-可继续链接的操作：
-
-| 操作 | 说明 |
+| 选项 | 作用 |
 | --- | --- |
-| `filter-state` | 按计算状态过滤。 |
-| `filter-value` | 按 charge、multiplicity 或文件格式过滤。 |
-| `filter-by-codec` | 按检测到的 reader codec id 过滤。 |
-| `sample` | 从当前 batch 中随机抽样。 |
+| `-v, --verbose` | 显示更详细日志 |
+| `-q, --quiet` | 抑制进度和非结果输出，适合脚本 |
+| `--version` | 显示版本 |
+| `-h, --help` | 显示帮助 |
 
-终止操作：
+## `parse` 选项
 
-| 操作 | 说明 |
-| --- | --- |
-| `format-transform` | 转换文件格式。`--output-dir` 隐式写盘；无输出目录时 `--write` 写到源目录；`--no-write` 禁用落盘。 |
-| `to-summary-df` | 生成摘要表。 |
-| `draw-grid-image` | 渲染分子网格图。 |
-| `groupby` | 分组并输出路径。 |
-| `copy-to` | 将当前 batch 文件复制到目录。 |
-| `move-to` | 将当前 batch 文件移动到目录。 |
+| 选项 | 默认值 | 作用 |
+| --- | --- | --- |
+| `PATTERN` | 必填 | 单路径或 glob |
+| `--parser-detection` | `auto` | 自动检测或格式 ID，如 `g16log`, `orcaout`, `xtbout` |
+| `-j, --n-jobs` | `-1` | 解析进程数 |
+| `--output-format` | `text` | 最终终端输出使用 `text` 或 `json` |
 
-终止操作必须是操作链的最后一步。
+## 可继续链接的操作
 
-## 格式相关动态参数
+| 操作 | 必要参数 | 结果状态 |
+| --- | --- | --- |
+| `filter-state` | `--state ts|error|opt|normal|thermal|no-img` | 新 batch |
+| `filter-value` | `--target charge|multiplicity|format --value VALUE` | 新 batch |
+| `filter-by-codec` | `--codec-id FORMAT_ID` | 新 batch |
+| `sample` | `--n N [--seed SEED]` | 新 batch |
 
-`format-transform` 在常规参数之后还可以接收 writer 特定参数：
+这些操作之后可以继续筛选，也可以接一个最终操作。
+
+## 最终操作
+
+| 操作 | 主要参数 | 输出 |
+| --- | --- | --- |
+| `to-summary-df` | `--frame`, `--full`, `--out`, `--format` | CSV/JSON 或终端表 |
+| `format-transform` | `--format`, `--output-dir`, `--frame`, `--write/--no-write` | 渲染文本或文件 |
+| `draw-grid-image` | `--out` | PNG/SVG 图像 |
+| `groupby` | 分组参数 | 分组路径 |
+| `copy-to` | 目标目录 | 复制源文件 |
+| `move-to` | 目标目录 | 移动源文件 |
+
+最终操作必须位于操作链末尾。
+
+## Summary 参数
 
 ```bash
-uv run molop parse "input.log" \
-  format-transform --format gjf --output-dir out \
-  --route-section "#p B3LYP/6-31G(d) opt" \
-  --link0-commands "%nprocshared=8"
+molop parse "results/*.log" to-summary-df --help
 ```
 
-这些动态参数来自已注册 writer 的元数据。安装 shell completion 后，补全可以根据当前
-`--format` 给出可用参数名，并显示参数的简短含义。
+常用选项：
 
-静态参数面可通过 help 查看：
+- `--mode frame|file`：frame 或 file 级摘要。
+- `--frame -1|all|0,2`：最后、全部或指定 frame。
+- `--brief/--full`：基础列或扩展科学结果。
+- `--flatten-columns/--multi-index-columns`：扁平列或三层列。
+- `--on-missing-frame skip|error`：缺失 frame 的处理。
+- `--out PATH --format csv|json`：写盘位置与格式。
+
+执行：
 
 ```bash
-uv run molop parse PATTERN format-transform --help
+molop -q parse "water_mp2.out" \
+  to-summary-df --full --format json
 ```
+
+输出对象包含：
+
+```json
+{
+  "Calc Parameter.Software": "ORCA",
+  "Status.IsNormal": true,
+  "Energy.total_energy.hartree": -74.9993745981
+}
+```
+
+## Transform 参数
+
+```bash
+molop parse "input.out" format-transform --help
+```
+
+- `--format FORMAT_ID` 必填。
+- `--frame -1|all|0,2` 选择 frame。
+- `--embed/--no-embed` 控制多 frame 合并。
+- `--output-dir DIR` 指定目录并默认写盘。
+- `--write` 无输出目录时写到源目录。
+- `--no-write` 即使给出输出目录也只输出渲染结果。
+
+writer 特定参数跟在静态参数之后，例如：
+
+```bash
+molop parse "input.out" \
+  format-transform --format orcainp --output-dir next \
+  --keywords "B3LYP def2-SVP Opt" --nprocs 8 --maxcore 2000
+```
+
+## 查看精确 help
+
+```bash
+molop --help
+molop parse --help
+molop parse PATTERN filter-state --help
+molop parse PATTERN to-summary-df --help
+molop parse PATTERN format-transform --help
+```
+
+内部 plan 校验、终止操作约束和动态补全协议见
+[CLI 进阶契约](advanced/cli-contract.md)。

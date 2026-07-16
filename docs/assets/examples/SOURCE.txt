@@ -1,0 +1,14 @@
+# Documentation example data
+
+`water_mp2.out` is copied from cclib's ORCA regression data and is distributed
+under the BSD 3-Clause License in `LICENSE.cclib`. MolOP keeps the file as a
+small, reproducible input for the quick start and documentation smoke tests.
+
+Upstream fixture in this repository:
+
+```text
+tests/test_files/orca/output_files/cclib/basicORCA6.0/water_mp2.out
+```
+
+The documentation examples parse this file; they do not execute ORCA or any
+other quantum-chemistry program.

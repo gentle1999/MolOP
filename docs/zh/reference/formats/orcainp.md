@@ -25,6 +25,9 @@ rendered = frame.format_transform(
 )
 ```
 
+`rendered` 是包含 ORCA simple input line、`%pal/%maxcore/%scf` 和 `* xyz` 坐标块的字符串。
+例如第一行以 `! wB97M-V def2-TZVPP` 开始。
+
 跨格式转换必须提供 `keywords`；MolOP 不会复用其他 QM 软件的关键字语法。
 `blocks` 也接受原始 `%block` 文本。
 

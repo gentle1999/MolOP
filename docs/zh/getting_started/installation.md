@@ -1,63 +1,58 @@
-<!--
- * @Author: TMJ
- * @Date: 2026-02-11 16:48:41
- * @LastEditors: TMJ
- * @LastEditTime: 2026-02-11 20:23:31
- * @Description: 请填写简介
--->
+# 安装
 
-# 安装指南
+安装 MolOP 并确认 Python API 与命令行入口可用。
 
-## 目标
+## 准备
 
-安装 MolOP 及其依赖项，开始您的计算化学工作流程。
+- Python 3.10 或更高版本。
+- 能从 GitHub 安装 Python 包。
+- 建议使用独立虚拟环境，避免与已有 RDKit 环境冲突。
 
-## 前置条件
+MolOP 当前未发布到 PyPI 或 Conda，终端用户需要从 GitHub 安装。
 
-- **Python 3.10+**: 请确保您安装了兼容的 Python 版本。
-- **RDKit & OpenBabel**: 这些是运行时实现完整功能（分子图重构、格式转换等）所必需的。
-
-## 步骤
-
-### 选项 1：面向终端用户（通过 pip）
-
-直接从 GitHub 仓库安装最新版本：
+## 安装
 
 ```bash
-pip install git+https://github.com/gentle1999/MolOP.git
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install git+https://github.com/gentle1999/MolOP.git
 ```
 
-### 选项 2：面向开发人员（通过 uv）
+Windows PowerShell 使用 `.venv\Scripts\Activate.ps1` 激活环境。
 
-如果您想为 MolOP 贡献代码或运行测试套件，我们建议使用 `uv`：
-
-```bash
-git clone https://github.com/gentle1999/MolOP.git
-cd MolOP
-uv sync
-```
-
-## 预期输出
-
-安装完成后，您应该能够运行以下验证命令而不会报错。
-
-### 验证版本
+## 验证
 
 ```bash
 python -c "import molop; print(molop.__version__)"
+molop --version
+molop --help
 ```
 
-_预期：类似于 `0.1.0` 的版本字符串。_
+`molop --help` 应显示 `parse` 命令。版本来自 Git tag；直接从未标记的源码运行时可能显示开发
+版本标识。
 
-### 验证核心组件
+## 常见问题
 
-```bash
-python -c "from molop.io import AutoParser; print(AutoParser)"
-```
+### Python 版本不兼容
 
-_预期：`<function AutoParser at ...>`。_
+先检查 `python --version`。同一终端中的 `python` 和 `python -m pip` 必须指向刚激活的
+Python 3.10+ 环境。
 
-## 相关链接
+### RDKit 安装失败
 
-- [快速上手](quickstart.md)
-- [GitHub 仓库](https://github.com/gentle1999/MolOP)
+RDKit 是 MolOP 的运行时依赖。优先使用支持当前 Python 和操作系统的环境；若 pip 无可用
+wheel，可先在 Conda 环境中安装 RDKit，再从 GitHub 安装 MolOP。
+
+### OpenBabel 是否必需
+
+专用 Gaussian、ORCA、xTB、XYZ、SDF 和 SMILES reader 不依赖 OpenBabel fallback。只有读取
+未知扩展名或明确选择 OpenBabel 渲染后端时才需要可用的 OpenBabel Python 绑定。
+
+### 如何安装开发环境
+
+源码检出、`uv sync` 和测试命令属于贡献者流程，见[开发环境与质量门禁](../developer/quality.md)。
+
+## 下一步
+
+使用共享样例完成[5 分钟上手](quickstart.md)。

@@ -11,6 +11,21 @@
 | Registry role | Reader |
 | Data level | Single-frame Gaussian QM results and coordinates |
 
+## Quick read
+
+```python
+from molop import AutoParser
+
+frame = AutoParser("molecule.fchk", parser_detection="g16fchk")[0][0]
+print(len(frame.atoms), frame.coords.shape)
+print(frame.energies.total_energy if frame.energies else None)
+print(frame.charge_spin_populations.population_names if frame.charge_spin_populations else [])
+```
+
+Output reports atom/coordinate size, available total energy, and population schemes actually
+present. An fchk produces one current-geometry frame, not the full optimization trajectory from a
+log.
+
 MolOP reads textual formatted checkpoints produced by Gaussian `formchk`. The
 reader decodes fixed-width records and `N=` array lengths without depending on
 adjacent field ordering. Unknown records are skipped.

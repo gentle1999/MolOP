@@ -2,110 +2,114 @@
 
 [中文](README.zh.md) | [English](README.md)
 
-MolOP 是一个专为计算化学工作流设计的 Python 3.10+ 库和命令行工具。它旨在连接原始计算输出与结构化的、可供分析的分子数据。
-
-## 核心特性
-
-- **统一解析器**：通过单一接口 (`AutoParser`) 读取 Gaussian log、GJF、XYZ、SDF 等多种格式。
-- **结构恢复**：先进的分子图重建算法，能够从坐标中恢复键合信息，对自由基和金属配合物有卓越支持。
-- **数据建模**：基于 Pydantic 的模型，提供对能量、振动、轨道和布居分析等数据的类型安全访问。
-- **批处理器**：支持数千个文件的并行处理，内置灵活的过滤和格式转换功能。
-
-## 适用场景
-
-- 需要从数百个 Gaussian log 文件中提取热力学数据或分子性质。
-- 需要在不同化学文件格式之间转换，同时希望保留或恢复化学键信息。
-- 正在构建机器学习流水线，需要从量子化学输出中可靠地提取分子特征。
-- 倾向于使用命令行工具快速检查和处理数据，而无需编写 Python 脚本。
-
-## 非目标
-
-- **量子化学求解器**：MolOP 不执行量子化学计算，它只解析和处理计算结果。
-- **可视化工具**：虽然集成了 RDKit，但它不是专门的分子查看器。
-- **力场引擎**：它并非为运行分子动力学模拟而设计。
+MolOP 是面向计算化学文件的 Python 3.10+ 库和命令行工具。它可以读取
+Gaussian、ORCA、xTB 和常见结构格式，提取科学结果，批量筛选并导出结构或
+下一步计算输入。
 
 ## 安装
 
-### 面向终端用户
-
-直接从 GitHub 仓库安装最新版本：
+MolOP 当前未发布到 PyPI 或 Conda，请从 GitHub 安装：
 
 ```bash
-pip install git+https://github.com/gentle1999/MolOP.git
+python -m pip install git+https://github.com/gentle1999/MolOP.git
 ```
 
-### 面向开发人员
+验证安装：
 
-克隆仓库并使用 `uv` 同步环境：
+```bash
+python -c "import molop; print(molop.__version__)"
+molop --help
+```
+
+## 读取一个计算结果
+
+从文档下载
+[ORCA 水分子样例](https://gentle1999.github.io/MolOP/assets/examples/water_mp2.out)，
+保存为 `water_mp2.out`：
+
+```python
+from molop import AutoParser
+
+batch = AutoParser("water_mp2.out", n_jobs=1)
+frame = batch[0][-1]
+
+print(batch[0].detected_format_id)
+print(len(frame.atoms), frame.coords.shape)
+print(frame.energies.total_energy.m_as("hartree"))
+```
+
+输出：
+
+```text
+orcaout
+3 (3, 3)
+-74.999374598107
+```
+
+## 常用任务
+
+### 批量导出 CSV
+
+```python
+batch = AutoParser("results/*.log")
+summary = batch.to_summary_df(
+    frame=-1,
+    brief=False,
+    flatten_columns=True,
+)
+summary.to_csv("summary.csv", index=False)
+```
+
+结果是每个成功解析文件一行的 `summary.csv`，列名包含单位，例如
+`Energy.total_energy.hartree`。
+
+### 筛选并导出结构
+
+```bash
+molop -q parse "results/*.out" \
+  filter-state --state normal \
+  format-transform --format xyz --output-dir structures
+```
+
+结果是在 `structures/` 下按源文件主名生成 `.xyz` 文件。
+
+## 支持范围
+
+- QM 输出：Gaussian log/fchk、ORCA output、xTB output。
+- QM 输入：Gaussian input、ORCA input 的读取和规范化写出。
+- 结构格式：XYZ、SDF/MOL、SMILES，以及 CML writer。
+- 公共结果：结构、能量、热化学、振动、轨道、原子布居、偶极/极化率、
+  NMR 和计算状态，具体取决于格式和源文件打印内容。
+
+精确 reader/writer 状态和字段边界见
+[格式支持概览](https://gentle1999.github.io/MolOP/reference/format_support/)。
+
+MolOP 不运行量子化学计算，也不是专用分子查看器或分子动力学引擎。
+
+## 文档
+
+- [5 分钟上手](https://gentle1999.github.io/MolOP/getting_started/quickstart/)
+- [读取计算结果](https://gentle1999.github.io/MolOP/guides/results/)
+- [批量汇总](https://gentle1999.github.io/MolOP/guides/batch/)
+- [过滤与选择](https://gentle1999.github.io/MolOP/guides/filtering/)
+- [格式转换与导出](https://gentle1999.github.io/MolOP/guides/conversion/)
+- [贡献指南](https://gentle1999.github.io/MolOP/contributing/)
+
+## 开发
 
 ```bash
 git clone https://github.com/gentle1999/MolOP.git
 cd MolOP
 uv sync
+make check
 ```
 
-常用开发命令：
+开发约束和测试门禁见文档站点的“开发者”区域。
 
-- `make test`: 运行测试套件
-- `make format`: 格式化代码
-- `make check`: 运行所有质量检查（lint, type-check 等）
+## 引用与许可证
 
-欢迎通过 [GitHub Issues](https://github.com/gentle1999/MolOP/issues) 或 Pull Requests 参与贡献。
-
-_注意：MolOP 目前未发布在 PyPI 或 Conda。_
-
-## 快速上手
-
-### Python API
-
-使用 `AutoParser` 批量解析文件并生成摘要：
-
-```python
-from molop.io import AutoParser
-
-# 解析指定路径下的所有 Gaussian log 文件
-batch = AutoParser("path/to/*.log", n_jobs=-1)
-
-# 可在一次调用中混合多个路径和通配符
-batch = AutoParser(["reactants/*.log", "products/product.log"], n_jobs=-1)
-
-# 获取第一个文件的摘要 DataFrame
-df = batch[0].to_summary_df()
-print(df)
-```
-
-### 命令行界面 (CLI)
-
-MolOP 提供以批处理链式操作为核心的 Click CLI：
-
-```bash
-# 从解析后的 batch 生成摘要 CSV
-molop parse "path/to/*.log" to-summary-df --out summary.csv
-
-# 过滤后将分子文件转换为另一种格式
-molop parse "path/to/*.log" \
-  filter-state --state normal \
-  format-transform --format sdf --output-dir ./output
-```
-
-`molop parse` 是唯一的业务 CLI 入口。它先构造 `FileBatchModelDisk` 状态，再校验并执行操作链。格式转换的目标格式参数会根据已注册 writer 的元数据动态提供。
-
-## 文档与教程
-
-- **官方文档**: [https://gentle1999.github.io/MolOP/](https://gentle1999.github.io/MolOP/)
-- **快速入门**: [中文文档](https://gentle1999.github.io/MolOP/getting_started/quickstart/)
-- **命令行界面**: [CLI 文档](https://gentle1999.github.io/MolOP/command_line_interface/)
-- **示例 Notebooks**:
-  - 01-Gaussian 解析与检查: [文档](https://gentle1999.github.io/MolOP/examples/01-gaussian-parse-and-inspect/) | [源码](https://github.com/gentle1999/MolOP/blob/main/docs/zh/examples/01-gaussian-parse-and-inspect.ipynb)
-  - 02-批量摘要、过滤与选择: [文档](https://gentle1999.github.io/MolOP/examples/02-batch-summary-filter-select/) | [源码](https://github.com/gentle1999/MolOP/blob/main/docs/zh/examples/02-batch-summary-filter-select.ipynb)
-  - 03-格式转换与导出: [文档](https://gentle1999.github.io/MolOP/examples/03-transform-and-export/) | [源码](https://github.com/gentle1999/MolOP/blob/main/docs/zh/examples/03-transform-and-export.ipynb)
-
-## 引用
-
-如果 MolOP 对您的研究有所帮助，请引用：
+如果 MolOP 对研究有帮助，请引用：
 
 > MolOP (Molecule OPerator), <https://github.com/gentle1999/MolOP>
-
-## 许可证
 
 本项目采用 [MIT 许可证](LICENSE)。

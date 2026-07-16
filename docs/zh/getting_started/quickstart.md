@@ -1,64 +1,99 @@
-# 快速上手
+# 5 分钟上手
 
-## 目标
+用一份可下载的 ORCA 输出完成“解析、读取最终结构和能量、生成摘要、导出 XYZ”。
 
-通过一个可复现的小例子，快速了解 MolOP 的核心工作流：解析 -> 摘要。
+## 准备
 
-本页是入门示例。当前源码、API 参考和测试是行为事实来源；Notebook 只是示例资产，文档构建时不会执行。
+1. 按[安装指南](installation.md)安装 MolOP。
+2. 下载 [water_mp2.out](../../assets/examples/water_mp2.out) 到一个空目录。
+3. 在同一目录启动 Python。
 
-## 前置条件
+样例来自 cclib 的 ORCA 回归数据，许可证和来源见
+[样例说明](../../assets/examples/SOURCE.txt)。本页只解析已有输出，不运行 ORCA。
 
-- 已安装 MolOP（参见[安装指南](installation.md)）。
-- 可以访问仓库的测试文件（如果从源码运行）。
-
-## 步骤
-
-### 1. 解析 Gaussian 输出文件并生成摘要
-
-使用 `AutoParser` 读取 Gaussian `.log` 文件，并通过 `to_summary_df()` 得到紧凑、可核对的摘要信息。
+## 解析并读取结果
 
 ```python
-import os
-from pathlib import Path
+from molop import AutoParser
 
-os.environ.setdefault("TQDM_DISABLE", "1")
-
-from molop.io import AutoParser
-
-# 通过搜索 pyproject.toml 定位仓库根目录
-def get_repo_root():
-    current = Path(os.getcwd())
-    for parent in [current] + list(current.parents):
-        if (parent / "pyproject.toml").exists():
-            return parent
-    return current
-
-repo_root = get_repo_root()
-file_path = repo_root / "tests/test_files/g16log/2-TS1-Opt.log"
-
-# 解析文件
-# AutoParser 返回一个 FileBatchModelDisk 对象
-batch = AutoParser(file_path.as_posix(), n_jobs=1)
+batch = AutoParser("water_mp2.out", n_jobs=1)
 parsed_file = batch[0]
+frame = parsed_file[-1]
 
-# 紧凑摘要（默认 brief=True）
-df_brief = parsed_file.to_summary_df()
-df_brief
+print(parsed_file.detected_format_id)
+print(len(frame.atoms), frame.coords.shape)
+print(frame.energies.total_energy.m_as("hartree"))
 ```
 
-### 2. 获取更丰富的摘要
+预期得到：
 
-使用 `brief=False` 可以得到更完整的最后一帧摘要：
+```text
+orcaout
+3 (3, 3)
+-74.999374598107
+```
+
+`AutoParser` 总是返回一个 batch。这里的访问顺序是：
+
+```text
+batch -> 第一个输入文件 -> 最后一帧
+          batch[0]          [-1]
+```
+
+## 生成完整摘要
 
 ```python
-df_full = parsed_file.to_summary_df(brief=False)
-df_full
+summary = batch.to_summary_df(
+    frame=-1,
+    brief=False,
+    flatten_columns=True,
+)
+print(summary[[
+    "DiskStorage.FilePath",
+    "Status.IsNormal",
+    "Energy.total_energy.hartree",
+]])
+summary.to_csv("summary.csv", index=False)
 ```
 
-## 相关链接
+`summary.csv` 会包含一行最后一帧结果。`brief=False` 才会包含能量、热化学和振动等扩展列。
 
-- [安装指南](installation.md)
-- [模型字段](../reference/model_fields.md)
-- [01-Gaussian 解析与检查（Notebook）](../examples/01-gaussian-parse-and-inspect.ipynb)
-- [教程概览](../tutorials/index.md)
-- [API 参考](../reference/api.md)
+## 导出最终结构
+
+```python
+rendered = batch.format_transform("xyz", frame=-1, write_to_disk=False)
+print(rendered[parsed_file.file_path])
+
+batch.format_transform(
+    "xyz",
+    output_dir=".",
+    frame=-1,
+    write_to_disk=True,
+)
+```
+
+第一次调用只返回 XYZ 文本；第二次在当前目录写出 `water_mp2.xyz`。
+
+## 换成自己的文件
+
+只需要替换路径：
+
+```python
+gaussian = AutoParser("calculation.log")
+orca = AutoParser("job.out")
+xtb = AutoParser("xtb.out")
+many_files = AutoParser("results/*.log")
+```
+
+同一扩展名可能有歧义时，显式指定格式：
+
+```python
+batch = AutoParser("calculation.out", parser_detection="orcaout")
+```
+
+## 下一步
+
+- [Python API 初体验](python-api.md)
+- [CLI 初体验](cli.md)
+- [读取计算结果](../guides/results.md)
+- [格式支持概览](../reference/format_support.md)

@@ -13,6 +13,15 @@
 
 SMILES 记录读写，支持 graph 派生的电荷/自旋多重度和 canonical SMILES 写出。
 
+```python
+from molop import AutoParser
+
+frame = AutoParser("molecules.smi")[0][0]
+print(frame.to_canonical_SMILES(), frame.coords.shape)
+```
+
+输入 `CCO ethanol` 时输出类似 `CCO (3, 3)`；行尾名称不属于解析契约，三维坐标不会保留。
+
 | 特性 | 支持程度 | 支持范围 | 明确边界 | 测试证据 |
 | ---- | -------- | -------- | -------- | -------- |
 | <!-- feature-area:Reader -->Reader | 已支持 | 非空 SMILES 记录；每行第一个空白分隔 token；由 RDKit 派生 2D 坐标、graph、形式电荷/自由基、电荷和自旋多重度。 | 行尾名称或额外列不属于已声明解析数据契约；输入 3D 坐标无法保留。 | `tests/test_autoparser_smi_tmpfile.py::test_autoparser_smi_tmpfile`<br>`tests/test_structure_format_features.py::test_smi_reader_uses_first_token_and_writer_canonicalizes` |

@@ -1,150 +1,72 @@
-# Model Field Map
+# Find fields by scientific property
 
-This page maps user-visible computational chemistry data to MolOP file and frame
-objects. It is written from the public API point of view: use these fields in
-analysis code, notebooks, and downstream converters.
+Start with `frame = AutoParser(path)[0][-1]`, then locate a public field by the result you need.
 
-## Gaussian Output Contract
+## Quick index
 
-`AutoParser(..., parser_detection="g16log")` returns a batch. Each item in the
-batch is a Gaussian output file object, and each file contains frame objects.
-The parser stores raw Gaussian output as normalized model fields; it does not
-promise byte-for-byte preservation of the original log.
+| Result | Presence check | Main fields | Common units |
+| --- | --- | --- | --- |
+| Structure | `bool(frame.atoms)` | `atoms`, `coords`, `rdmol` | angstrom |
+| Charge/multiplicity | Read directly | `charge`, `multiplicity` | dimensionless |
+| Energy | `frame.energies is not None` | `energies.total_energy`, `reference_energy`, `mp2_energy`, `ccsd_t_energy` | hartree |
+| Thermochemistry | `frame.thermal_informations is not None` | `ZPVE`, `U_T`, `H_T`, `G_T`, `S`, `C_V` | field-specific |
+| Frequencies | `frame.vibrations is not None` | `frequencies`, `num_imaginary`, `vibration_modes` | cm^-1, angstrom |
+| Molecular orbitals | `frame.molecular_orbitals is not None` | `HOMO_energy`, `LUMO_energy`, `HOMO_LUMO_gap`, occupancies | hartree, convertible to eV |
+| Atomic populations | `frame.charge_spin_populations is not None` | `population_names`, `populations[name].values` | dimensionless |
+| Dipole/polarizability | `frame.polarizability is not None` | `dipole`, `polarizability_tensor`, `quadrupole` | debye, bohr^3 |
+| NMR | `frame.nmr is not None` | `shielding_tensors`, `spin_spin_coupling_j/k` | ppm, Hz |
+| Forces/Hessian | `frame.forces/hessian is not None` | `forces`, `hessian`, and axis metadata | hartree/bohr, etc. |
+| Status | Read directly | `is_normal`, `is_error`, `is_optimized`, `is_TS` | `bool | None` |
 
-### File-Level Fields
+## Unit-aware values
 
-Use file-level fields for job-wide metadata and values finalized from the last
-frame.
+```python
+energy = frame.energies.total_energy
+print(energy.m_as("hartree"))
 
-| Data | Field | Notes |
-| ---- | ----- | ----- |
-| Software | `file.qm_software`, `file.qm_software_version` | Usually `"Gaussian"` plus the Gaussian revision string. |
-| Route text | `file.keywords` | Normalized route line text. |
-| Structured route | `file.semantic_route`, `file.model_chemistry`, `file.task_requests` | Preferred structured representation for method family, basis, job types, solvation, dispersion, and related route semantics. |
-| Legacy route projections | `file.method`, `file.basis_set`, `file.functional` | Compatibility fields projected from structured route data when possible. |
-| Charge and multiplicity | `file.charge`, `file.multiplicity` | File-level values finalized from parsed frames. |
-| Running time | `file.running_time` | Accumulated `pint` quantity when Gaussian timing records are present. |
-| Status | `file.status` | File-level status finalized from the last parsed frame. |
+frequencies = frame.vibrations.frequencies.m_as("cm^-1")
+coords = frame.coords.m_as("angstrom")
+```
 
-### Frame-Level Fields
+`.m_as(...)` returns a value or NumPy array in the requested unit. Keep the quantity object when
+unit metadata must remain attached.
 
-Use frame-level fields for structures and per-step QM results.
+## Populations are an open set
 
-| Data | Field | Notes |
-| ---- | ----- | ----- |
-| Frame identity | `frame.frame_id` | Zero-based frame index inside the parsed file. |
-| Structure | `frame.atoms`, `frame.atom_symbols`, `frame.coords` | Atomic numbers, symbols, and input-orientation coordinates. |
-| Standard orientation | `frame.standard_coords`, `frame.standard_orientation_transformation_matrix` | Present when Gaussian prints standard orientation or when it can be reconstructed. |
-| Energy data | `frame.energies` | `Energies` object with `reference_energy`, `electronic_energy`, post-HF energies, and computed `total_energy`. |
-| Thermochemistry | `frame.thermal_informations` | `ThermalInformations` object with ZPVE, thermal corrections, thermodynamic energies, entropy, heat capacity, mass, and rotational/vibrational metadata. |
-| Vibrations | `frame.vibrations` | Frequencies, reduced masses, force constants, IR intensities, mode vectors, and imaginary-mode counts. |
-| Molecular orbitals | `frame.molecular_orbitals` | Orbital energies, occupancies, symmetries, and derived frontier-orbital quantities. |
-| Populations | `frame.charge_spin_populations` | Atom-aligned `AtomicPopulationSeries` values stored exclusively in the `populations` mapping. |
-| Response properties | `frame.polarizability` | Dipole, polarizability tensor/scalars, electronic spatial extent, and multipoles where present. |
-| Forces and Hessian | `frame.forces`, `frame.hessian` | Cartesian arrays with normalized units. |
-| Optimization | `frame.geometry_optimization_status` | Berny convergence values, raw thresholds, and the derived optimization result. |
-| Status | `frame.status`, `frame.is_error`, `frame.is_normal`, `frame.is_TS`, `frame.is_optimized` | Public status helpers for common workflow filters. `is_optimized` accepts optimized minima and transition states, but rejects frames with more than one imaginary frequency. |
-| Running time | `frame.running_time` | Per-frame timing when present. |
+```python
+populations = frame.charge_spin_populations
+if populations:
+    for name, series in populations.population_items():
+        print(name, series.scheme, series.quantity, series.values[:3])
+```
 
-### Extensible Atomic Populations
+`ChargeSpinPopulations` has one `populations` mapping rather than a fixed attribute per scheme. Read
+Mulliken charges with:
 
-`ChargeSpinPopulations.populations` is the only source of population data. Each
-entry is an `AtomicPopulationSeries` with explicit `scheme`, `quantity`,
-`spin_channel`, `source_label`, values, and metadata. Access a required series
-with `populations["mulliken_charges"]`, use `get_population(name)` for optional
-lookup, or call `population_items()` to iterate over all entries. Adding a new
-scheme never requires adding another container field. All series must have the
-same atom-aligned length.
+```python
+values = populations["mulliken_charges"].values
+```
 
-### Energy Selection
+Check `population_names` first because a source may provide only Lowdin, Hirshfeld, CM5, NPA, or ESP
+data.
 
-`frame.energies.total_energy` is a computed field, not an input field. It picks
-the most specific available energy in this order:
+## `None` status
 
-`ccsd_energy -> mp5_energy -> mp4_energy -> mp3_energy -> mp2_energy -> electronic_energy -> reference_energy`
+```python
+if frame.is_normal is None:
+    print("the source has insufficient termination evidence")
+```
 
-Use method-specific fields when the exact source matters. Use `total_energy` for
-summary tables and filtering when “best available scalar energy” is sufficient.
+For status fields, `None` means unknown and is not equivalent to `False`.
 
-### Optimization Status
+## Format capability
 
-`frame.geometry_optimization_status.geometry_optimized` is derived from the
-available convergence metrics when parser output does not provide a stronger
-result. Each metric is accepted when its absolute value is within
-`convergence_multiplier * threshold`; the default multiplier is `2.0`.
+A public field does not imply that every format fills it. Check:
 
-For frequency-checked frames, `frame.is_optimized` accepts zero imaginary
-frequencies for minima and exactly one imaginary frequency for transition
-states. More than one imaginary frequency is treated as not optimized.
+- [Gaussian log](formats/g16log.md)
+- [Gaussian fchk](formats/g16fchk.md)
+- [ORCA output](formats/orcaout.md)
+- [xTB output](formats/xtbout.md)
+- [Full format overview](format_support.md)
 
-### Summary Tables
-
-`file.to_summary_df()` and `batch.to_summary_df()` default to the last frame
-(`frame=-1`). Use `frame="all"` to return one row per frame. With the default
-`brief=True`, the stable columns cover storage, charge/multiplicity, structure
-summary, route metadata, environment, and status:
-
-| Column group | Examples |
-| ------------ | -------- |
-| `DiskStorage` | `FilePath`, `FileFormat` |
-| `General` | `Charge`, `Multiplicity`, `CanonicalSMILES`, `NumAtoms`, `FrameID` |
-| `Calc Parameter` | `Software`, `Version`, `Method`, `BasisSet`, `Functional`, `Keywords` |
-| `Environment` | `SolventModel`, `Solvent`, `Temperature`, `Pressure` |
-| `Status` | `IsError`, `IsNormal`, `IsTS`, `IsOptimized` |
-
-Summary DataFrame columns use a three-level `MultiIndex`:
-`(group, field, unit)`. Unitless fields keep the third level empty; unit-bearing
-fields put normalized units there, for example
-`("Energy", "total_energy", "hartree")`.
-
-Use `brief=False` to add result-heavy columns such as `Energy`,
-`Thermal`, `GeometryOptimizationStatus`, and `Vibration`. Optimization summary
-columns include raw metric values and raw thresholds, not only the
-multiplier-adjusted convergence booleans.
-
-For batches, `batch.to_summary_df(frame="all", flatten_columns=True)` returns
-one row per selected frame and uses dot-separated column names such as
-`General.FrameID`, `Status.IsError`, and `Energy.total_energy.hartree`.
-
-### fakeG Rendering
-
-`file.format_transform("fakeg")` follows the general transform default
-`frame=-1`, so it renders the last frame unless another selector is passed.
-Use `file.format_transform("fakeg", frame="all")` or `file.render_fakeg()` for
-full-file Gaussian-like output.
-
-`fakeg` output is semantic and normalized. It is suitable for inspection,
-compatibility tests, and reparse checks, but it is not a byte-for-byte Gaussian
-log reproduction.
-
-### Compatibility and Internal Data
-
-The public API keeps some legacy flat fields for convenience:
-
-| Compatibility field | Preferred structured field |
-| ------------------- | -------------------------- |
-| `method`, `basis_set`, `functional` | `model_chemistry` |
-| `keywords` | `semantic_route` / `model_chemistry` / task request containers |
-| `is_error`, `is_normal`, `is_TS`, `is_optimized` | `status`, `vibrations`, `geometry_optimization_status` |
-
-The derived data used to rebuild Gaussian-like text is internal. It is not
-serialized by `model_dump()`, and user code should rely on file/frame fields
-instead of rendering implementation details.
-
-## Common Field Map
-
-| Data | Location | Type |
-| ---- | -------- | ---- |
-| Structure | `frame.atoms`, `frame.coords` | `list[int]`, `NumpyQuantity` |
-| Bonds | `frame.bonds` | `list` |
-| SMILES | `frame.to_SMILES()` | `str` |
-| Total energy | `frame.energies.total_energy` | `PlainQuantity | None` |
-| Reference energy | `frame.energies.reference_energy` | `PlainQuantity | None` |
-| Electronic energy | `frame.energies.electronic_energy` | `PlainQuantity | None` |
-| Frequencies | `frame.vibrations.frequencies` | `NumpyQuantity` |
-| Imaginary frequencies | `frame.vibrations.num_imaginary` | `int` |
-| Orbitals | `frame.molecular_orbitals` | `MolecularOrbitals | None` |
-| Charges/spins | `frame.charge_spin_populations` | `ChargeSpinPopulations | None` |
-| Optimization status | `frame.geometry_optimization_status` | `GeometryOptimizationStatus | None` |
-| Calculation status | `file.status` or `frame.status` | `Status | None` |
-| QM software | `file.qm_software`, `frame.qm_software` | `str` |
+See [Read calculation results](../guides/results.md) for runnable examples.

@@ -11,6 +11,20 @@
 | Registry 角色 | Reader |
 | 数据层级 | 坐标和 QM 结果 |
 
+## 快速读取
+
+```python
+from molop import AutoParser
+
+frame = AutoParser("calculation.log", parser_detection="g16log")[0][-1]
+print(frame.is_normal)
+if frame.energies and frame.energies.total_energy is not None:
+    print(frame.energies.total_energy.m_as("hartree"))
+```
+
+输出为终止状态和最终总能量，例如 `True` 与 `-317.592366596`；具体数值取决于文件。
+其他结果入口见[按科学性质查找字段](../model_fields.md)。
+
 MolOP 读取 Gaussian 输出文件，并提取后处理常用的结构、能量、热力学、振动、
 轨道、布居、梯度、NMR、响应性质、archive 和终止状态信息。覆盖范围按计算化学用户熟悉的
 Gaussian 输出内容组织；“部分支持”表示已覆盖常见或测试样例中的打印形式，但不等价于完整

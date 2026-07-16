@@ -13,6 +13,15 @@
 
 标准 XYZ 坐标读写，支持从 comment 行读取电荷和自旋多重度。
 
+```python
+from molop import AutoParser
+
+frame = AutoParser("molecule.xyz")[0][0]
+print(len(frame.atoms), frame.coords.shape, frame.charge, frame.multiplicity)
+```
+
+一个 3 原子中性单重态输出为 `3 (3, 3) 0 1`。XYZ 不保存能量或完整分子图。
+
 | 特性 | 支持程度 | 支持范围 | 明确边界 | 测试证据 |
 | ---- | -------- | -------- | -------- | -------- |
 | <!-- feature-area:Reader -->Reader | 已支持 | 标准多帧 XYZ；comment 中的电荷和自旋多重度；文件级电荷/自旋多重度从第一帧 finalize。 | 不恢复分子图；非法原子数或不完整帧在解析阶段按格式不匹配处理。 | `tests/test_parsers_smoke.py::test_autoparser_xyz_smoke`<br>`tests/test_io_registry_and_batch_more.py::test_base_file_parser_finalizes_file_charge_and_multiplicity_from_first_frame` |

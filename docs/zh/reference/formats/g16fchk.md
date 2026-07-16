@@ -11,6 +11,20 @@
 | Registry 角色 | Reader |
 | 数据层级 | 单 frame Gaussian QM 结果和坐标 |
 
+## 快速读取
+
+```python
+from molop import AutoParser
+
+frame = AutoParser("molecule.fchk", parser_detection="g16fchk")[0][0]
+print(len(frame.atoms), frame.coords.shape)
+print(frame.energies.total_energy if frame.energies else None)
+print(frame.charge_spin_populations.population_names if frame.charge_spin_populations else [])
+```
+
+输出依次给出原子/坐标规模、可用总能量和实际存在的布居方案。fchk 只产生一个当前几何
+frame，不包含 log 中的完整优化轨迹。
+
 MolOP 读取 Gaussian `formchk` 生成的文本格式化检查点。解析器按 fchk 固定宽度
 record 和 `N=` 数组长度解码，不依赖字段相邻顺序；未知 record 会被跳过。
 

@@ -11,6 +11,21 @@
 | Registry role | Reader |
 | Data level | QM results; coordinates when printed in the output |
 
+## Quick read
+
+```python
+from molop import AutoParser
+
+frame = AutoParser("xtb.out", parser_detection="xtbout")[0][-1]
+print(frame.qm_software_version, frame.is_normal)
+print(frame.energies.total_energy.m_as("hartree"))
+print(len(frame.atoms), frame.coords.shape)
+```
+
+Output reports version, termination status, total energy, and geometry size. If an xTB single-point
+stdout only references an external coordinate file without printing geometry, the final line can be
+`0 (0, 3)`; MolOP does not implicitly read adjacent coordinate files.
+
 MolOP parses command-line standard output from xTB major version 5 and versions
 `>=6`. The reader covers both the legacy xTB 5/6.1 print family and the modern
 xTB `>=6` print

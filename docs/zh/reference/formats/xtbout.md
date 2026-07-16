@@ -11,6 +11,20 @@
 | Registry 角色 | Reader |
 | 数据层级 | QM 结果；仅在输出实际打印坐标时提供坐标 |
 
+## 快速读取
+
+```python
+from molop import AutoParser
+
+frame = AutoParser("xtb.out", parser_detection="xtbout")[0][-1]
+print(frame.qm_software_version, frame.is_normal)
+print(frame.energies.total_energy.m_as("hartree"))
+print(len(frame.atoms), frame.coords.shape)
+```
+
+输出版本、终止状态、总能量和几何规模。如果 xTB 单点 stdout 只引用外部坐标而没有打印
+几何，最后一行可能是 `0 (0, 3)`；MolOP 不会隐式读取相邻坐标文件。
+
 MolOP 解析 xTB 5 和 `>=6` 的命令行标准输出，同时覆盖 xTB 5/6.1 的 legacy
 打印族和 xTB `>=6` 的 modern 打印族。由于 xTB 通常直接从命令行接收坐标文件与选项，
 因此不单独定义 xTB 输入文件格式。

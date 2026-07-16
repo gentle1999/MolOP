@@ -11,6 +11,25 @@
 | Registry 角色 | Reader |
 | 数据层级 | 坐标和 QM 结果 |
 
+## 快速读取
+
+下载[共享 ORCA 样例](../../../assets/examples/water_mp2.out)后运行：
+
+```python
+from molop import AutoParser
+
+frame = AutoParser("water_mp2.out", parser_detection="orcaout", n_jobs=1)[0][-1]
+print(frame.qm_software, frame.method, frame.is_normal)
+print(frame.energies.total_energy.m_as("hartree"))
+```
+
+输出：
+
+```text
+ORCA MP2 True
+-74.999374598107
+```
+
 ORCA 输出解析以用户可获得的结果属性为口径，例如能量、力、振动、布居、溶剂化、
 激发态和响应性质。
 

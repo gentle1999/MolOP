@@ -13,6 +13,16 @@
 
 SDF/MOL structure IO backed by RDKit graph extraction and strict graph writer semantics.
 
+```python
+from molop import AutoParser
+
+frame = AutoParser("molecule.sdf")[0][0]
+print(frame.rdmol.GetNumAtoms(), frame.rdmol.GetNumBonds())
+```
+
+Output is atom and bond counts, for example `3 2` for water. Arbitrary SD data fields are not
+guaranteed to round-trip.
+
 | Feature | Support | Scope | Limits | Test evidence |
 | ------- | ------- | ----- | ------ | ------------- |
 | <!-- feature-area:Reader -->Reader | Supported | SDF/MOL blocks parsed into atom, coordinate, bond, formal charge, radical, total charge, and multiplicity fields. | Arbitrary SD data-field round-trip is not advertised by the tested contract. | `tests/test_autoparser_sdf_tmpfile.py::test_autoparser_sdf_tmpfile` |

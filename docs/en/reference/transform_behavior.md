@@ -27,8 +27,8 @@ For parameter defaults, return values, and error policy, see
   When `write_to_disk=False`, `file_path` and `output_dir` are ignored and the
   transform only returns the rendered string or list of strings.
 - **Structure Level**:
-  - **COORDS (Coordinate Level)**: Formats like `xyz` and `gjf` primarily preserve atomic coordinates and elements. `orcainp` is currently a structured reader only.
+  - **COORDS (Coordinate Level)**: Formats such as `xyz`, `gjf`, and `orcainp` primarily preserve atomic coordinates and elements.
   - **GRAPH (Graph Level)**: Formats like `sdf`, `smi`, and `cml` preserve bonding information (molecular graph). If the source file only has coordinates (e.g., a `.log` file), MolOP will automatically attempt to reconstruct the molecular graph using its built-in algorithms.
 - **Metadata Preservation**:
-  - The `gjf` writer preserves structured Gaussian directives and keywords. The `orcainp` reader parses ORCA keywords, blocks, and geometry into frame fields, but no ORCA writer is currently registered.
+  - The `gjf` writer preserves structured Gaussian directives and keywords. The `orcainp` reader parses ORCA keywords, blocks, and geometry into frame fields; its registered canonical writer can build a new input from a coordinate-bearing frame plus explicit `keywords`, resources, and blocks, but does not promise source-preserving round trips.
   - Computational properties (energies, frequencies) are generally **NOT** preserved when transforming to simple coordinate formats like XYZ, although some formats like SDF can store them as properties.

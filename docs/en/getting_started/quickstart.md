@@ -1,66 +1,102 @@
-# Quickstart
+# 5-minute start
 
-## Goal
+Use a downloadable ORCA output to parse a file, read its final structure and energy, build a
+summary, and export XYZ.
 
-Get a quick, reproducible tour of MolOP's core workflow: parse -> summarize.
+## Prepare
 
-This page is an entry-level guide. The current source code, API reference, and
-tests are the source of truth for behavior; notebooks are examples and are not
-executed during documentation builds.
+1. Install MolOP using the [installation guide](installation.md).
+2. Download [water_mp2.out](../../assets/examples/water_mp2.out) into an empty directory.
+3. Start Python in that directory.
 
-## Prerequisites
+The example comes from cclib's ORCA regression data. See the
+[example data notes](../../assets/examples/SOURCE.txt) for its source and license. This tutorial
+parses an existing output; it does not run ORCA.
 
-- MolOP installed (see [Installation](installation.md)).
-- Access to the repository's test files (if running from the source).
-
-## Steps
-
-### 1. Parse a Gaussian Output File and generate a summary
-
-Use `AutoParser` to read a Gaussian `.log` file and call `to_summary_df()` to obtain a compact, verifiable summary.
+## Parse and read results
 
 ```python
-import os
-from pathlib import Path
+from molop import AutoParser
 
-os.environ.setdefault("TQDM_DISABLE", "1")
-
-from molop.io import AutoParser
-
-# Locate the repository root by searching for pyproject.toml
-def get_repo_root():
-    current = Path(os.getcwd())
-    for parent in [current] + list(current.parents):
-        if (parent / "pyproject.toml").exists():
-            return parent
-    return current
-
-repo_root = get_repo_root()
-file_path = repo_root / "tests/test_files/g16log/2-TS1-Opt.log"
-
-# Parse the file
-# AutoParser returns a FileBatchModelDisk object
-batch = AutoParser(file_path.as_posix(), n_jobs=1)
+batch = AutoParser("water_mp2.out", n_jobs=1)
 parsed_file = batch[0]
+frame = parsed_file[-1]
 
-# Compact summary (default brief=True)
-df_brief = parsed_file.to_summary_df()
-df_brief
+print(parsed_file.detected_format_id)
+print(len(frame.atoms), frame.coords.shape)
+print(frame.energies.total_energy.m_as("hartree"))
 ```
 
-### 2. Get a richer summary
+Expected output:
 
-Use `brief=False` for a more complete last-frame summary:
+```text
+orcaout
+3 (3, 3)
+-74.999374598107
+```
+
+`AutoParser` always returns a batch. The access sequence here is:
+
+```text
+batch -> first input file -> final frame
+          batch[0]           [-1]
+```
+
+## Build a full summary
 
 ```python
-df_full = parsed_file.to_summary_df(brief=False)
-df_full
+summary = batch.to_summary_df(
+    frame=-1,
+    brief=False,
+    flatten_columns=True,
+)
+print(summary[[
+    "DiskStorage.FilePath",
+    "Status.IsNormal",
+    "Energy.total_energy.hartree",
+]])
+summary.to_csv("summary.csv", index=False)
 ```
 
-## Related Links
+`summary.csv` contains one final-frame row. Use `brief=False` to include extended energy,
+thermochemistry, and vibration columns.
 
-- [Installation](installation.md)
-- [Model Field Map](../reference/model_fields.md)
-- [01-Gaussian Parse and Inspect (Notebook)](../examples/01-gaussian-parse-and-inspect.ipynb)
-- [Tutorials Overview](../tutorials/index.md)
-- [API Reference](../reference/api.md)
+## Export the final structure
+
+```python
+rendered = batch.format_transform("xyz", frame=-1, write_to_disk=False)
+print(rendered[parsed_file.file_path])
+
+batch.format_transform(
+    "xyz",
+    output_dir=".",
+    frame=-1,
+    write_to_disk=True,
+)
+```
+
+The first call returns XYZ text. The second writes `water_mp2.xyz` in the current directory.
+
+## Use your own files
+
+Only the path changes:
+
+```python
+gaussian = AutoParser("calculation.log")
+orca = AutoParser("job.out")
+xtb = AutoParser("xtb.out")
+many_files = AutoParser("results/*.log")
+```
+
+When an extension is ambiguous, specify the format explicitly:
+
+```python
+batch = AutoParser("calculation.out", parser_detection="orcaout")
+```
+
+## Next steps
+
+- [Python API first steps](python-api.md)
+- [CLI first steps](cli.md)
+- [Read calculation results](../guides/results.md)
+- [Format overview](../reference/format_support.md)

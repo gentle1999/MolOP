@@ -18,7 +18,8 @@ def _normalize_frame_ids(value: object, frame: FrameSelector) -> list[int]:
 def _render_cml_frame(frame: object, *, engine: Literal["rdkit", "openbabel"] = "rdkit") -> str:
     typed_frame = cast(Any, frame)
     if engine == "rdkit":
-        rdmol = getattr(typed_frame, "qm_embedded_rdmol", getattr(typed_frame, "rdmol", None))
+        rdmol_factory = getattr(typed_frame, "qm_embedded_rdmol", None)
+        rdmol = rdmol_factory() if callable(rdmol_factory) else getattr(typed_frame, "rdmol", None)
         if rdmol is None:
             raise ValueError("CML building failed. No RDKit molecule recovered.")
         return Chem.MolToMrvBlock(rdmol)

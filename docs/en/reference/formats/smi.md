@@ -13,6 +13,16 @@
 
 SMILES record IO with graph-derived charge/multiplicity and canonical SMILES writing.
 
+```python
+from molop import AutoParser
+
+frame = AutoParser("molecules.smi")[0][0]
+print(frame.to_canonical_SMILES(), frame.coords.shape)
+```
+
+For `CCO ethanol`, output is similar to `CCO (3, 3)`. The trailing name is outside the parsed
+contract and three-dimensional coordinates are not preserved.
+
 | Feature | Support | Scope | Limits | Test evidence |
 | ------- | ------- | ----- | ------ | ------------- |
 | <!-- feature-area:Reader -->Reader | Supported | Non-empty SMILES records; first whitespace token parsed; 2D coordinates, graph, formal charge/radical, charge, and multiplicity derived by RDKit. | Trailing record names or columns are not part of the advertised parsed-data contract; input 3D coordinates cannot be preserved. | `tests/test_autoparser_smi_tmpfile.py::test_autoparser_smi_tmpfile`<br>`tests/test_structure_format_features.py::test_smi_reader_uses_first_token_and_writer_canonicalizes` |

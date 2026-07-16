@@ -1,42 +1,53 @@
-<!--
- * @Author: TMJ
- * @Date: 2026-02-11 16:48:41
- * @LastEditors: TMJ
- * @LastEditTime: 2026-02-11 20:16:24
- * @Description: 请填写简介
--->
-# MolOP (Molecule OPerator)
+# MolOP
 
-MolOP 是一个专为计算化学工作流设计的 Python 3.10+ 库和命令行工具。它旨在连接原始计算输出与结构化的、可供分析的分子数据。
+MolOP 用一个 Python API 和一套命令行工具读取计算化学输出、提取结果、批量筛选并导出结构。
 
-## 什么是 MolOP？
+## 三步读取最终能量
 
-- **统一解析器**：通过单一接口 (`AutoParser`) 读取 Gaussian log、GJF、XYZ、SDF 等多种格式。
-- **结构恢复**：先进的分子图重建算法，能够从坐标中恢复键合信息，对自由基和金属配合物有卓越支持。
-- **数据建模**：基于 Pydantic 的模型，提供对能量、振动、轨道和布居分析等数据的类型安全访问。
-- **批处理器**：支持数千个文件的并行处理，内置过滤、链式操作、分组、复制、移动和格式转换功能。
+安装当前版本：
 
-## 适用场景
+```bash
+pip install git+https://github.com/gentle1999/MolOP.git
+```
 
-- 需要从数百个 Gaussian log 文件中提取热力学数据或分子性质。
-- 需要在不同化学文件格式之间转换，同时希望保留或恢复化学键信息。
-- 正在构建机器学习流水线，需要从量子化学输出中可靠地提取分子特征。
-- 倾向于使用“链式”命令行工具快速检查和处理数据，而无需编写 Python 脚本。
+下载文档使用的 [ORCA 水分子样例](../assets/examples/water_mp2.out)，将它保存为
+`water_mp2.out`，然后运行：
 
-## 非目标
+```python
+from molop import AutoParser
 
-- **量子化学求解器**：MolOP 不执行量子化学计算，它只解析和处理计算结果。
-- **可视化工具**：虽然集成了 RDKit，但它不是专门的分子查看器。
-- **力场引擎**：它并非为运行分子动力学模拟而设计。
+batch = AutoParser("water_mp2.out", n_jobs=1)
+frame = batch[0][-1]
 
-## 开始使用
+print(frame.atoms)
+print(frame.energies.total_energy.m_as("hartree"))
+```
 
-- [安装指南](getting_started/installation.md)
-- [快速上手](getting_started/quickstart.md)
-- [命令行界面](command_line_interface.md)
+最后一行输出约为 `-74.999374598107`。`batch[0]` 是第一个文件，`[-1]` 是该文件的
+最后一帧。
 
-## 引用
+## 选择你的任务
 
-如果 MolOP 对您的研究有所帮助，请引用：
+| 要完成的任务 | 从这里开始 |
+| --- | --- |
+| 安装并验证环境 | [安装](getting_started/installation.md) |
+| 用一个真实文件完成首次解析 | [5 分钟上手](getting_started/quickstart.md) |
+| 在 Python 中读取能量、频率、布居或 NMR | [读取计算结果](guides/results.md) |
+| 批量导出 CSV | [批量汇总](guides/batch.md) |
+| 筛选正常结束、优化结果或过渡态 | [过滤与选择](guides/filtering.md) |
+| 导出 XYZ、SDF、Gaussian 或 ORCA 输入 | [格式转换与导出](guides/conversion.md) |
+| 查看某种文件能解析哪些数据 | [格式支持概览](reference/format_support.md) |
 
-> MolOP (Molecule OPerator), <https://github.com/gentle1999/MolOP>
+## 常见输入
+
+MolOP 对 Gaussian log/fchk/input、ORCA output/input、xTB output、XYZ、SDF/MOL、SMILES
+和 CML 等格式提供专用 reader 或 writer。具体字段和限制以
+[格式支持概览](reference/format_support.md)及各格式页面为准。
+
+MolOP 不运行 Gaussian、ORCA 或 xTB 计算。它处理已有文件，并把结果整理成可查询、可转换的
+对象。
+
+## 下一步
+
+[安装 MolOP](getting_started/installation.md)，或直接进入
+[5 分钟上手](getting_started/quickstart.md)。
