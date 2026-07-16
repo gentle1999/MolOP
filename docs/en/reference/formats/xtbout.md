@@ -11,21 +11,22 @@
 | Registry role | Reader |
 | Data level | QM results; coordinates when printed in the output |
 
-MolOP parses command-line standard output from xTB major versions 5 and 6. The
-reader covers both the legacy xTB 5/6.1 print family and the modern xTB 6 print
+MolOP parses command-line standard output from xTB major version 5 and versions
+`>=6`. The reader covers both the legacy xTB 5/6.1 print family and the modern
+xTB `>=6` print
 family. It does not define a separate xTB input format because xTB calculations
 normally receive coordinates and options directly from the command line.
 
 | Feature | Support | Scope | Limits | Test evidence |
 | ------- | ------- | ----- | ------ | ------------- |
-| <!-- feature-area:Version scope, setup, tasks, and status -->Version scope, setup, tasks, and status | Partial | Recognizes xTB major versions 5 and 6; parses version, program call, coordinate-file name, method, charge, multiplicity, OMP threads, task requests, termination, SCC status, and total wall time. | Versions before 5 and after 6 are intentionally rejected. The xTB 5 regression is a compact legacy-format contract rather than a complete vendor output capture. | `tests/test_xtbout_parser.py::test_xtbout_all_maintained_fixtures_parse_with_supported_major_versions`<br>`tests/test_xtbout_parser.py::test_xtbout_legacy_v5_contract_parses_metadata_geometry_and_results`<br>`tests/test_xtbout_parser.py::test_xtbout_explicitly_rejects_versions_outside_five_and_six` |
+| <!-- feature-area:Version scope, setup, tasks, and status -->Version scope, setup, tasks, and status | Partial | Recognizes xTB major version 5 and treats versions `>=6` as the modern print family; parses version, program call, coordinate-file name, method, charge, multiplicity, OMP threads, task requests, termination, SCC status, and total wall time. | Versions before 5 are rejected. Future major versions are accepted through the `>=6` contract but are not vendor-validated until real outputs are available; the xTB 5 sample is also a compact contract. | `tests/test_xtbout_parser.py::test_xtbout_all_maintained_fixtures_parse_with_supported_major_versions`<br>`tests/test_xtbout_parser.py::test_xtbout_legacy_v5_contract_parses_metadata_geometry_and_results`<br>`tests/test_xtbout_parser.py::test_xtbout_major_seven_uses_the_modern_six_contract`<br>`tests/test_xtbout_parser.py::test_xtbout_explicitly_rejects_versions_before_five` |
 | <!-- feature-area:Geometry availability -->Geometry availability | Partial | Parses legacy Bohr `$coord` blocks, legacy setup coordinates, modern XYZ final structures, and embedded V2000 SDF final structures. | Single-point xTB stdout often references an external coordinate file without printing coordinates. Such logs retain a property frame with empty geometry; the parser does not read adjacent files implicitly. | `tests/test_xtbout_parser.py::test_xtbout_legacy_v5_contract_parses_metadata_geometry_and_results`<br>`tests/test_xtbout_parser.py::test_xtbout_modern_single_point_keeps_results_without_embedded_geometry`<br>`tests/test_xtbout_parser.py::test_xtbout_modern_optimization_parses_xyz_and_sdf_final_structures` |
 | <!-- feature-area:Energies and geometry optimization -->Energies and geometry optimization | Partial | Exposes final total energy in Hartree, source-labeled energy evidence, optimization convergence, energy-change criteria, and xTB gradient norm fields. | Energy decomposition rows and full optimization trajectories are not structured; only the final geometry printed by stdout is represented. | `tests/test_xtbout_parser.py::test_xtbout_modern_optimization_parses_xyz_and_sdf_final_structures`<br>`tests/test_xtbout_parser.py::test_autoparser_detects_xtbout_and_preserves_source_evidence` |
 | <!-- feature-area:Orbitals, populations, and dipole -->Orbitals, populations, and dipole | Partial | Parses legacy and modern orbital energies/occupancies, GFN1 Mulliken/CM5 charges, GFN2 Mulliken charges, molecular dipole, and rotational constants where printed. | Wiberg bond-order tables, quadrupoles, dispersion-property tables, and omitted orbital ranges are not fully reconstructed. | `tests/test_xtbout_parser.py::test_xtbout_legacy_v5_contract_parses_metadata_geometry_and_results`<br>`tests/test_xtbout_parser.py::test_xtbout_modern_single_point_keeps_results_without_embedded_geometry`<br>`tests/test_xtbout_parser.py::test_xtbout_modern_optimization_parses_xyz_and_sdf_final_structures` |
 | <!-- feature-area:Vibrations and thermochemistry -->Vibrations and thermochemistry | Partial | Parses projected physical frequencies, reduced masses, IR intensities, zero-point energy, total enthalpy, total free energy, heat capacity, entropy, temperature, and molecular mass where printed. | Normal-mode displacement vectors, Hessian sidecar files, Raman intensities, and detailed rotor/interpolation tables are not structured from stdout. | `tests/test_xtbout_parser.py::test_xtbout_frequency_and_thermochemistry_are_structured` |
 | <!-- feature-area:xTB analysis properties -->xTB analysis properties | Partial | Parses vertical IP, vertical EA, global electrophilicity index, and atom-resolved Fukui indices when requested and printed. | Additional xTB workflows such as FOD, metadynamics, MD, ONIOM, GFN-FF topology, and JSON/sidecar outputs are outside the current stdout contract. | `tests/test_xtbout_parser.py::test_xtbout_modern_single_point_keeps_results_without_embedded_geometry`<br>`tests/test_xtbout_parser.py::test_xtbout_fukui_indices_are_structured`<br>`tests/test_xtbout_parser.py::test_xtbout_vipea_and_gei_properties_are_structured` |
 
-## xTB 5/6 Capability Coverage Matrix
+## xTB 5 / xTB >=6 Capability Coverage Matrix
 
 The table below defines the field-level contract of the stdout reader. Statuses
 have the following meanings:
@@ -36,9 +37,14 @@ have the following meanings:
 - **Unsupported**: no corresponding structured field is currently produced.
 - **Not applicable**: the capability is outside the responsibility of the stdout reader.
 
-| xTB output capability | xTB 5 legacy | xTB 6 legacy/modern | Structured result | Current boundary |
-| --------------------- | ------------ | ------------------- | ----------------- | ---------------- |
-| Banner and version | Partial | Supported | `qm_software`, `qm_software_version` | Only major versions `5` and `6` are accepted. The current xTB 5 fixture is a compact legacy contract rather than a real vendor output capture. |
+“Supported” in the `xTB >=6 modern` column is established by real xTB 6
+fixtures. xTB 7 and later versions use the same modern contract, but remain
+forward-compatible rather than independently version-validated until real
+outputs are available.
+
+| xTB output capability | xTB 5 legacy | xTB >=6 modern | Structured result | Current boundary |
+| --------------------- | ------------ | -------------- | ----------------- | ---------------- |
+| Banner and version | Partial | Supported | `qm_software`, `qm_software_version` | Major version `5` and versions `>=6` are accepted. The xTB 5 fixture is a legacy contract, and no real `>=7` output fixture is currently available. |
 | Concatenated command-line runs | Unverified | Supported | One segment and result frame per version banner | Every run must print a version banner; arbitrary shell separator text is not used for splitting. |
 | Program call and coordinate-file name | Partial | Supported | `keywords`, `input_file_name`, and model-chemistry raw keywords | Only the printed `program call` and `coordinate file` lines are read; shell environment and the relative-path base are not recovered. |
 | GFN Hamiltonian | Partial | Supported | `method`, `model_chemistry.method`, with method family `SEMIEMPIRICAL` | Printed GFN, GFN1, GFN2, and GFN-FF-style labels are recognized; method/version compatibility is not validated. |
@@ -57,7 +63,7 @@ have the following meanings:
 | Complete optimization trajectory | Unsupported | Unsupported | No per-step frame sequence | A command-line run currently maps to one result frame rather than one frame per optimization step. |
 | Gradient vectors | Unsupported | Unsupported | Only the `gradient` task request and final gradient norm can be recorded | Per-atom stdout gradients and the `gradient` sidecar are not mapped to structured arrays. |
 | Orbital energies and occupancies | Partial | Supported | Alpha/beta orbital energies and occupancies | Legacy `occ./eps` and modern orbital tables are covered. Orbitals hidden by ellipses cannot be recovered, and non-spin-resolved occupancies are split into alpha/beta channels. |
-| Atomic charges | Unverified | Partial | GFN1 Mulliken/CM5 and GFN2 Mulliken charges | Spin populations, complete population tables, and every Hamiltonian-specific charge scheme are not parsed. |
+| Atomic charges | Unverified | Partial | GFN1 Mulliken/CM5 and GFN2 Mulliken charges with source-labeled extensible population metadata | Spin populations, complete population tables, and every Hamiltonian-specific charge scheme are not parsed. |
 | Dipole and rotational constants | Unverified | Partial | Debye dipole vector and GHz rotational constants | Dipole magnitude, quadrupole, polarizability tensors, and higher multipoles are not structured. |
 | Frequencies, reduced masses, and IR intensities | Unverified | Supported | `vibrations`, including imaginary-mode count | Only printed projected physical frequencies are covered; missing columns are not synthesized. |
 | Mode displacements, Hessian, and Raman | Unsupported | Unsupported | No corresponding structured arrays | Stdout displacement blocks, `.hessian` sidecars, and Raman intensity tables are not read. |
@@ -77,6 +83,7 @@ coordinate fields.
 
 ## Version Boundary
 
-The parser accepts version declarations whose major version is `5` or `6`.
-Recognized xTB outputs outside that range raise an explicit unsupported-version
-error instead of falling through to Gaussian or ORCA output readers.
+The parser accepts major version `5` and routes all versions `>=6` through the
+modern parsing contract. Recognized xTB outputs with a major version below `5`
+raise an explicit unsupported-version error instead of falling through to
+Gaussian or ORCA output readers.

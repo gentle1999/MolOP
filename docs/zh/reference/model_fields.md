@@ -36,12 +36,21 @@ Gaussian 输出文件对象，文件对象中包含多个 frame。解析器会�
 | 热力学 | `frame.thermal_informations` | `ThermalInformations` 对象，包含 ZPVE、热校正、热力学能量、熵、热容、质量以及转动/振动 metadata。 |
 | 振动 | `frame.vibrations` | 频率、约化质量、力常数、IR 强度、振动模式向量和虚频数量。 |
 | 分子轨道 | `frame.molecular_orbitals` | 轨道能级、占据数、对称性和派生前线轨道量。 |
-| 布居 | `frame.charge_spin_populations` | Mulliken、Lowdin、Hirshfeld、CM5、NPA 和自旋布居字段，取决于 Gaussian 输出。 |
+| 布居 | `frame.charge_spin_populations` | 逐原子 `AtomicPopulationSeries`，唯一存储位置是 `populations` 映射。 |
 | 响应性质 | `frame.polarizability` | dipole、polarizability、electronic spatial extent 和多极矩。 |
 | 力与 Hessian | `frame.forces`, `frame.hessian` | 归一化单位后的 Cartesian 数组。 |
 | 几何优化 | `frame.geometry_optimization_status` | Berny 收敛数值、原始阈值和派生优化结果。 |
 | 状态 | `frame.status`, `frame.is_error`, `frame.is_normal`, `frame.is_TS`, `frame.is_optimized` | 用于常见过滤和判断的公开状态字段。`is_optimized` 接受已优化的极小值和过渡态，但会拒绝超过一个虚频的 frame。 |
 | 运行时间 | `frame.running_time` | 该帧 timing 信息，存在时为 `pint` quantity。 |
+
+### 可扩展原子布居
+
+`ChargeSpinPopulations.populations` 是布居数据的唯一事实源。每个条目都是
+`AtomicPopulationSeries`，显式记录 `scheme`、`quantity`、`spin_channel`、
+`source_label`、values 和 metadata。必需条目使用
+`populations["mulliken_charges"]` 访问，可选查找使用 `get_population(name)`，遍历全部
+条目使用 `population_items()`。新增方案不需要增加容器字段。所有 series 必须具有相同的
+逐原子长度。
 
 ### 能量选择
 

@@ -7,13 +7,16 @@ from molop.io.base_models.Bases import (
     PropertyPoint,
     PropertySeries,
     PropertyTable,
+    PropertyTransition,
     SpectralBand,
     Spectrum,
     TensorProperty,
 )
 from molop.io.base_models.ChemFileFrame import BaseCalcFrame, BaseQMInputFrame
 from molop.io.base_models.DataClasses import (
+    NMR,
     ActiveSpace,
+    AtomicPopulationSeries,
     BondOrders,
     ChargeSpinPopulations,
     Dispersions,
@@ -32,6 +35,7 @@ from molop.io.base_models.DataClasses import (
     QMModelChemistry,
     QMResourceRequest,
     QMTaskRequest,
+    ShieldingTensor,
     SinglePointProperties,
     Status,
     ThermalInformations,
@@ -72,6 +76,49 @@ def test_molecular_orbitals_support_fractional_occupancies() -> None:
     assert orbitals.HOMO.alpha_occupancy == 0.5
 
 
+def test_common_data_containers_enforce_declared_array_shapes() -> None:
+    assert Molecule().coords.shape == (0, 3)
+    assert Vibration().vibration_mode.shape == (0, 3)
+    assert "vibration_mode" not in Vibration().model_dump()
+    assert BondOrders().wiberg_bond_order.shape == (0, 0)
+
+    with pytest.raises(ValidationError, match="must have shape"):
+        Molecule(coords=np.zeros((3, 2)) * atom_ureg.angstrom)
+    with pytest.raises(ValidationError, match="must have shape"):
+        ElectronicState(transition_dipole=np.zeros(2) * atom_ureg.debye)
+    with pytest.raises(ValidationError, match="must have shape"):
+        PropertyTransition(transition_dipole=np.zeros(4) * atom_ureg.debye)
+    with pytest.raises(ValidationError, match="must have shape"):
+        PropertyBundle(vector_properties={"invalid": np.zeros((2, 2)) * atom_ureg.debye})
+    with pytest.raises(ValidationError, match="must have shape"):
+        ThermalInformations(moments_of_inertia=np.zeros((1, 3)) * atom_ureg.amu * atom_ureg.bohr**2)
+    with pytest.raises(ValidationError, match="must have shape"):
+        MolecularOrbitals(alpha_energies=np.zeros((2, 2)) * atom_ureg.hartree)
+    with pytest.raises(ValidationError, match="must have shape"):
+        Vibration(vibration_mode=np.zeros((3, 2)) * atom_ureg.angstrom)
+    with pytest.raises(ValidationError, match="must have shape"):
+        BondOrders(wiberg_bond_order=np.zeros((2, 3)))
+
+
+def test_polarizability_accepts_supported_packed_and_tensor_shapes() -> None:
+    packed = Polarizability(
+        polarizability_tensor=np.zeros(6) * atom_ureg.bohr**3,
+        dipole=np.zeros(3) * atom_ureg.debye,
+        quadrupole=np.zeros(6) * atom_ureg.debye * atom_ureg.angstrom,
+        octapole=np.zeros(10) * atom_ureg.debye * atom_ureg.angstrom**2,
+        hexadecapole=np.zeros(15) * atom_ureg.debye * atom_ureg.angstrom**3,
+    )
+    tensor = Polarizability(polarizability_tensor=np.eye(3) * atom_ureg.bohr**3)
+
+    assert packed.polarizability_tensor is not None
+    assert packed.polarizability_tensor.shape == (6,)
+    assert tensor.polarizability_tensor is not None
+    assert tensor.polarizability_tensor.shape == (3, 3)
+
+    with pytest.raises(ValidationError, match="must have shape"):
+        Polarizability(quadrupole=np.zeros(5) * atom_ureg.debye * atom_ureg.angstrom)
+
+
 def test_resource_request_normalizes_memory_unit() -> None:
     request = QMResourceRequest(num_cpu=8, memory=1 * atom_ureg.gigabyte)
 
@@ -79,6 +126,68 @@ def test_resource_request_normalizes_memory_unit() -> None:
     assert request.memory is not None
     assert request.memory.units == atom_ureg.megabyte
     assert request.memory.magnitude == pytest.approx(1000.0)
+
+
+def test_nmr_shielding_tensor_derives_serializable_scalar_properties() -> None:
+    shielding = ShieldingTensor(
+        atom_index=0,
+        atom_symbol="C",
+        shielding_tensor=np.diag([1.0, 2.0, 6.0]) * atom_ureg.ppm,
+    )
+
+    assert shielding.isotropic is not None
+    assert shielding.isotropic.m_as("ppm") == pytest.approx(3.0)
+    assert shielding.anisotropy is not None
+    assert shielding.anisotropy.m_as("ppm") == pytest.approx(4.5)
+    assert shielding.principal_values is not None
+    np.testing.assert_allclose(shielding.principal_values.m_as("ppm"), [1.0, 2.0, 6.0])
+    assert shielding.model_dump()["isotropic"].m_as("ppm") == pytest.approx(3.0)
+
+
+def test_nmr_container_validates_tensor_shapes_and_atom_alignment() -> None:
+    with pytest.raises(ValidationError, match="must have shape"):
+        ShieldingTensor(
+            atom_index=0,
+            atom_symbol="C",
+            shielding_tensor=np.zeros((2, 2)) * atom_ureg.ppm,
+        )
+
+    shielding = ShieldingTensor(
+        atom_index=0,
+        atom_symbol="H",
+        shielding_tensor=np.eye(3) * atom_ureg.ppm,
+    )
+    with pytest.raises(ValidationError, match="atom symbol does not match"):
+        BaseCalcFrame(
+            atoms=[6],
+            coords=np.zeros((1, 3)) * atom_ureg.angstrom,
+            nmr=NMR(shielding_tensors=[shielding]),
+        )
+
+
+def test_nmr_container_validates_and_normalizes_coupling_components() -> None:
+    nmr = NMR(
+        coupling_atom_indices=[0, 1],
+        spin_spin_coupling_k=np.zeros((2, 2)) * atom_ureg.Hz,
+        spin_spin_coupling_k_components={
+            "FC": np.ones((2, 2)) * atom_ureg.kHz,
+        },
+    )
+
+    assert nmr.spin_spin_coupling_k_components["FC"].units == atom_ureg.Hz
+    np.testing.assert_allclose(
+        nmr.spin_spin_coupling_k_components["FC"].magnitude,
+        np.full((2, 2), 1000.0),
+    )
+
+    with pytest.raises(ValidationError, match="component matrices must have matching shapes"):
+        NMR(
+            coupling_atom_indices=[0, 1],
+            spin_spin_coupling_k=np.zeros((2, 2)) * atom_ureg.Hz,
+            spin_spin_coupling_k_components={
+                "FC": np.zeros((3, 3)) * atom_ureg.Hz,
+            },
+        )
 
 
 def test_model_chemistry_and_task_request_capture_common_input_semantics() -> None:
@@ -356,9 +465,20 @@ def test_molecular_orbitals_project_to_columnar_tables_without_eager_records() -
 
 def test_charge_spin_populations_project_to_atomic_population_table() -> None:
     populations = ChargeSpinPopulations(
-        mulliken_charges=[-0.2, 0.1, 0.1],
-        mulliken_spins=[0.0, 0.5, -0.5],
-        hirshfeld_charges=[-0.1, 0.05, 0.05],
+        populations={
+            "mulliken_charges": AtomicPopulationSeries(
+                scheme="mulliken", quantity="charge", values=[-0.2, 0.1, 0.1]
+            ),
+            "mulliken_spins": AtomicPopulationSeries(
+                scheme="mulliken",
+                quantity="spin_density",
+                spin_channel="total",
+                values=[0.0, 0.5, -0.5],
+            ),
+            "hirshfeld_charges": AtomicPopulationSeries(
+                scheme="hirshfeld", quantity="charge", values=[-0.1, 0.05, 0.05]
+            ),
+        }
     )
 
     table = populations.to_population_table(atom_symbols=["O", "H", "H"])
@@ -375,6 +495,50 @@ def test_charge_spin_populations_project_to_atomic_population_table() -> None:
 
     bundle = populations.to_property_bundle(atom_symbols=["O", "H", "H"])
     assert "atomic_populations" in bundle.tables
+
+
+def test_charge_spin_populations_accept_extensible_population_series() -> None:
+    populations = ChargeSpinPopulations(
+        populations={
+            "mulliken_charges": AtomicPopulationSeries(
+                scheme="mulliken", quantity="charge", values=[-0.2, 0.2]
+            ),
+            "chelpg_charges": AtomicPopulationSeries(
+                scheme="chelpg",
+                quantity="charge",
+                values=[-0.3, 0.3],
+                source_label="ESP charges",
+                metadata={"fit": "cubical_grid"},
+            ),
+        },
+    )
+
+    assert populations.population_names == ["mulliken_charges", "chelpg_charges"]
+    assert populations["chelpg_charges"].scheme == "chelpg"
+    assert len(populations) == 2
+    assert populations.to_population_table().row(1) == {
+        "atom_index": 1,
+        "chelpg_charges": 0.3,
+        "mulliken_charges": 0.2,
+    }
+    assert set(populations.model_dump()) == {"populations"}
+
+    with pytest.raises(ValidationError, match="mulliken_charges"):
+        ChargeSpinPopulations.model_validate({"mulliken_charges": [-0.2, 0.2]})
+
+    with pytest.raises(ValidationError, match="All populations must have the same length"):
+        ChargeSpinPopulations(
+            populations={
+                "mulliken_charges": AtomicPopulationSeries(
+                    scheme="mulliken", quantity="charge", values=[0.0]
+                ),
+                "mbis_charges": AtomicPopulationSeries(
+                    scheme="mbis",
+                    quantity="charge",
+                    values=[-0.1, 0.1],
+                ),
+            },
+        )
 
 
 def test_polarizability_projects_to_generic_bundle_without_losing_units() -> None:
@@ -581,7 +745,7 @@ def test_calc_frame_validates_force_and_hessian_conventions() -> None:
     assert frame.hessian_atom_order == "source"
     assert frame.hessian_orientation == "unknown"
 
-    with pytest.raises(ValueError, match="forces must have shape"):
+    with pytest.raises(ValueError, match="must have shape"):
         BaseCalcFrame(
             atoms=[1, 1],
             coords=np.zeros((2, 3)) * atom_ureg.angstrom,

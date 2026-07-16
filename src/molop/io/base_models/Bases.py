@@ -23,11 +23,12 @@ from typing_extensions import Self
 from molop.config import molopconfig, moloplogger
 from molop.io.base_models.summary import SummaryDict, normalize_summary_series
 from molop.unit import unit_transform
+from molop.utils.types import Array, PintArray, PintArray3, PintArrayN
 
 
-PropertyScalarValue: TypeAlias = str | int | float | bool | PlainQuantity | NumpyQuantity | None
+PropertyScalarValue: TypeAlias = str | int | float | bool | PlainQuantity | PintArray | None
 PropertyColumnValue: TypeAlias = (
-    list[str | int | float | bool | None] | np.ndarray | PlainQuantity | NumpyQuantity
+    list[str | int | float | bool | None] | Array | PlainQuantity | PintArray
 )
 UnitlessDumpArrayMode: TypeAlias = Literal["list", "ndarray"]
 
@@ -258,10 +259,10 @@ class BaseDataClassWithUnit(BaseModel):
 
 class PropertyPoint(BaseDataClassWithUnit):
     label: str | None = Field(default=None, description="Point label or identifier")
-    value: PlainQuantity | NumpyQuantity | float | None = Field(
+    value: PlainQuantity | PintArray | float | None = Field(
         default=None, description="Point value, stored as a pint quantity or dimensionless float"
     )
-    uncertainty: PlainQuantity | NumpyQuantity | float | None = Field(
+    uncertainty: PlainQuantity | PintArray | float | None = Field(
         default=None,
         description="Optional uncertainty, stored as a pint quantity or dimensionless float",
     )
@@ -292,7 +293,7 @@ class PropertySeries(BaseDataClassWithUnit, Sequence[PropertyPoint]):
 
 class TensorProperty(BaseDataClassWithUnit):
     label: str | None = Field(default=None, description="Property label")
-    tensor: NumpyQuantity | np.ndarray | None = Field(default=None, description="Tensor payload")
+    tensor: PintArray | Array | None = Field(default=None, description="Tensor payload")
     frame: str | None = Field(default=None, description="Reference frame")
     metadata: dict[str, Any] = Field(default_factory=dict, description="Extra tensor metadata")
 
@@ -377,7 +378,7 @@ class PropertyTransition(BaseDataClassWithUnit):
     wavelength: PlainQuantity | None = Field(default=None, description="Transition wavelength")
     oscillator_strength: float | None = Field(default=None, description="Oscillator strength")
     rotatory_strength: float | None = Field(default=None, description="Rotatory strength")
-    transition_dipole: NumpyQuantity | None = Field(default=None, description="Transition dipole")
+    transition_dipole: PintArray3 | None = Field(default=None, description="Transition dipole")
     properties: dict[str, PropertyScalarValue] = Field(
         default_factory=dict, description="Extra transition properties"
     )
@@ -407,7 +408,7 @@ class PropertyBundle(BaseDataClassWithUnit):
     scalar_properties: dict[str, PropertyScalarValue] = Field(
         default_factory=dict, description="Scalar results"
     )
-    vector_properties: dict[str, NumpyQuantity] = Field(
+    vector_properties: dict[str, PintArrayN] = Field(
         default_factory=dict, description="Vector results"
     )
     tensor_properties: dict[str, TensorProperty] = Field(

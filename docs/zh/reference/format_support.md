@@ -19,6 +19,7 @@
 | `smi` | `.smi`, `.txt` | 是 | 是 | [SMILES](formats/smi.md) |
 | `gjf` | `.gjf`, `.gif`, `.com`, `.gau`, `.gjc` | 是 | 是 | [Gaussian 输入](formats/gjf.md) |
 | `g16log` | `.log`, `.out`, `.g16`, `.gal`, `.irc`, `.gau` | 是 | 否 | [Gaussian 输出](formats/g16log.md) |
+| `g16fchk` | `.fchk`, `.fch`, `.fck` | 是 | 否 | [Gaussian 格式化检查点](formats/g16fchk.md) |
 | `orcainp` | `.inp` | 是 | 是 | [ORCA 输入](formats/orcainp.md) |
 | `orcaout` | `.out`, `.log`, `.orcaout` | 是 | 否 | [ORCA 输出](formats/orcaout.md) |
 | `xtbout` | `.out`, `.log`, `.xtbout` | 是 | 否 | [xTB 输出](formats/xtbout.md) |

@@ -9,6 +9,9 @@ Description: 请填写简介
 from molop.io.base_models.SearchPattern import MolOPPattern
 
 
+_FLOAT = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[DEde][-+]?\d+)?"
+
+
 class G16LogPatterns:
     """
     G16 log file patterns
@@ -199,6 +202,91 @@ class G16LogPatterns:
         content_pattern=r"\d+.\d+\s*(?P<value>\d+.\d+)",
         description="The isotropic polarizability of the Gaussian calculation. link 1002",
     )
+    NMR_SHIELDING = MolOPPattern(
+        start_pattern=r"^\s*[A-Za-z0-9()\-+]+\s+[A-Za-z0-9()\-+]+\s+"
+        r"Magnetic shielding tensor \(ppm\):\s*$",
+        end_pattern=r"^\s*End of Minotr F\.D\. properties file",
+        content_pattern=(
+            rf"^\s*(?P<atom_index>\d+)\s+(?P<atom_symbol>[A-Z][a-z]?)\s+"
+            rf"Isotropic\s*=\s*(?P<isotropic>{_FLOAT})\s+"
+            rf"Anisotropy\s*=\s*(?P<anisotropy>{_FLOAT})\s*$\n"
+            rf"\s*XX=\s*(?P<xx>{_FLOAT})\s+YX=\s*(?P<yx>{_FLOAT})\s+"
+            rf"ZX=\s*(?P<zx>{_FLOAT})\s*$\n"
+            rf"\s*XY=\s*(?P<xy>{_FLOAT})\s+YY=\s*(?P<yy>{_FLOAT})\s+"
+            rf"ZY=\s*(?P<zy>{_FLOAT})\s*$\n"
+            rf"\s*XZ=\s*(?P<xz>{_FLOAT})\s+YZ=\s*(?P<yz>{_FLOAT})\s+"
+            rf"ZZ=\s*(?P<zz>{_FLOAT})\s*$\n"
+            rf"\s*Eigenvalues:\s*(?P<eigenvalue_1>{_FLOAT})\s+"
+            rf"(?P<eigenvalue_2>{_FLOAT})\s+(?P<eigenvalue_3>{_FLOAT})\s*$"
+        ),
+        content_repeat=0,
+        description="Per-atom Gaussian magnetic shielding tensors. link 1002",
+    )
+    NMR_SHIELDING_HEADER = MolOPPattern(
+        content_pattern=r"^\s*(?P<method>[A-Za-z0-9()\-+]+)\s+"
+        r"(?P<gauge>[A-Za-z0-9()\-+]+)\s+Magnetic shielding tensor \(ppm\):\s*$",
+        description="Gaussian NMR shielding method and gauge header. link 1002",
+    )
+    NMR_COUPLING_FC_K = MolOPPattern(
+        start_pattern=r"^\s*Fermi Contact \(FC\) contribution to K \(Hz\):\s*$",
+        end_pattern=r"^\s*Fermi Contact \(FC\) contribution to J \(Hz\):\s*$",
+        description="Gaussian Fermi-contact reduced spin-spin coupling matrix. link 1002",
+    )
+    NMR_COUPLING_FC_J = MolOPPattern(
+        start_pattern=r"^\s*Fermi Contact \(FC\) contribution to J \(Hz\):\s*$",
+        end_pattern=r"^\s*Spin-dipolar \(SD\) contribution to K \(Hz\):\s*$",
+        description="Gaussian Fermi-contact spin-spin coupling matrix. link 1002",
+    )
+    NMR_COUPLING_SD_K = MolOPPattern(
+        start_pattern=r"^\s*Spin-dipolar \(SD\) contribution to K \(Hz\):\s*$",
+        end_pattern=r"^\s*Spin-dipolar \(SD\) contribution to J \(Hz\):\s*$",
+        description="Gaussian spin-dipolar reduced spin-spin coupling matrix. link 1002",
+    )
+    NMR_COUPLING_SD_J = MolOPPattern(
+        start_pattern=r"^\s*Spin-dipolar \(SD\) contribution to J \(Hz\):\s*$",
+        end_pattern=r"^\s*Paramagnetic spin-orbit \(PSO\) contribution to K \(Hz\):\s*$",
+        description="Gaussian spin-dipolar spin-spin coupling matrix. link 1002",
+    )
+    NMR_COUPLING_PSO_K = MolOPPattern(
+        start_pattern=r"^\s*Paramagnetic spin-orbit \(PSO\) contribution to K \(Hz\):\s*$",
+        end_pattern=r"^\s*Paramagnetic spin-orbit \(PSO\) contribution to J \(Hz\):\s*$",
+        description="Gaussian paramagnetic spin-orbit reduced coupling matrix. link 1002",
+    )
+    NMR_COUPLING_PSO_J = MolOPPattern(
+        start_pattern=r"^\s*Paramagnetic spin-orbit \(PSO\) contribution to J \(Hz\):\s*$",
+        end_pattern=r"^\s*Diamagnetic spin-orbit \(DSO\) contribution to K \(Hz\):\s*$",
+        description="Gaussian paramagnetic spin-orbit coupling matrix. link 1002",
+    )
+    NMR_COUPLING_DSO_K = MolOPPattern(
+        start_pattern=r"^\s*Diamagnetic spin-orbit \(DSO\) contribution to K \(Hz\):\s*$",
+        end_pattern=r"^\s*Diamagnetic spin-orbit \(DSO\) contribution to J \(Hz\):\s*$",
+        description="Gaussian diamagnetic spin-orbit reduced coupling matrix. link 1002",
+    )
+    NMR_COUPLING_DSO_J = MolOPPattern(
+        start_pattern=r"^\s*Diamagnetic spin-orbit \(DSO\) contribution to J \(Hz\):\s*$",
+        end_pattern=r"^\s*Total nuclear spin-spin coupling K \(Hz\):\s*$",
+        description="Gaussian diamagnetic spin-orbit coupling matrix. link 1002",
+    )
+    NMR_TOTAL_COUPLING_K = MolOPPattern(
+        start_pattern=r"^\s*Total nuclear spin-spin coupling K \(Hz\):\s*$",
+        end_pattern=r"^\s*Total nuclear spin-spin coupling J \(Hz\):\s*$",
+        description="Gaussian total reduced spin-spin coupling matrix. link 1002",
+    )
+    NMR_TOTAL_COUPLING_J = MolOPPattern(
+        start_pattern=r"^\s*Total nuclear spin-spin coupling J \(Hz\):\s*$",
+        end_pattern=r"^\s*End of Minotr F\.D\. properties file",
+        description="Gaussian total spin-spin coupling matrix. link 1002",
+    )
+    NMR_COUPLING_COLUMN_HEADER = MolOPPattern(
+        content_pattern=r"^\s*(?P<columns>\d+(?:\s+\d+)*)\s*$",
+        description="Gaussian spin-spin coupling matrix column labels.",
+    )
+    NMR_COUPLING_ROW = MolOPPattern(
+        content_pattern=r"^\s*(?P<row>\d+)\s+"
+        r"(?P<values>[-+]?\d+\.\d+(?:[DEde][-+]?\d+)"
+        r"(?:\s+[-+]?\d+\.\d+(?:[DEde][-+]?\d+))*)\s*$",
+        description="Gaussian spin-spin coupling matrix row.",
+    )
     POPULATION_ANALYSIS = MolOPPattern(
         start_pattern=r"^\s*Population analysis using the (?:SCF|CC) [Dd]ensity.",
         end_pattern=r"^\s*N-N=.*",
@@ -356,6 +444,19 @@ class G16LogPatterns:
         content_pattern=r"\d+\s+[A-Z][a-z]?\s+(?P<charge>\s*-?\d+\.\d*)",
         content_repeat=0,
         description="The ESP population analysis of the Gaussian calculation. link 601",
+    )
+    NPA_POPULATION = MolOPPattern(
+        start_pattern="Summary of Natural Population Analysis:",
+        start_regex=False,
+        end_pattern=r"^\s*=+\s*$",
+        content_pattern=(
+            r"^\s*[A-Z][a-z]?\s+\d+\s+"
+            r"(?P<charge>[+-]?\d+\.\d+)\s+"
+            r"[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s+"
+            r"[+-]?\d+\.\d+\s+[+-]?\d+\.\d+\s*$"
+        ),
+        content_repeat=0,
+        description="The natural population analysis summary. NBO link 607",
     )
     DIPOLE_BEFORE_FORCE = MolOPPattern(
         start_pattern="Dipole        =",

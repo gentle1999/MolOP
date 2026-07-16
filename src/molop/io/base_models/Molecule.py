@@ -17,7 +17,6 @@ from molgr.config import get_config as get_molgr_config
 from molgr.interface import xyz_to_rdmol
 from openbabel import pybel
 from pint._typing import UnitLike
-from pint.facets.numpy.quantity import NumpyQuantity
 from pydantic import Field, PrivateAttr, computed_field, model_validator
 from rdkit import Chem
 from rdkit.Chem.rdMolAlign import GetBestRMS
@@ -42,7 +41,7 @@ from molop.structure.StructureTransformation import (
 )
 from molop.structure.utils import canonical_smiles
 from molop.unit import atom_ureg
-from molop.utils.types import RdMol
+from molop.utils.types import PintArrayNx3, RdMol
 
 from .Bases import BaseDataClassWithUnit
 from .DataClasses import InternalCoords
@@ -63,8 +62,8 @@ EXCLUDE_FIELDS_IF_NO_BOND = {
 class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
     default_units: ClassVar[dict[str, UnitLike]] = {"coords": atom_ureg.angstrom}
     atoms: list[int] = Field(default_factory=list, description="atom numbers", title="Atom numbers")
-    coords: NumpyQuantity = Field(
-        default=np.array([[]]) * atom_ureg.angstrom,
+    coords: PintArrayNx3 = Field(
+        default=np.zeros((0, 3)) * atom_ureg.angstrom,
         description="Atom coordinates, unit is `angstrom`",
         title="Atom coordinates",
     )

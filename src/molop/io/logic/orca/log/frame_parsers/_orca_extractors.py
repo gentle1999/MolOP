@@ -85,51 +85,36 @@ def _energy_observation(
     )
 
 
-def _extract_until_blank_or_rule(text: str, start: int) -> str:
-    lines = text[start:].splitlines()
-    collected: list[str] = []
-    seen_payload = False
-    for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            if seen_payload:
-                break
-            collected.append(line)
-            continue
-        if seen_payload and stripped.startswith("----"):
-            break
-        collected.append(line)
-        if not stripped.startswith("----"):
-            seen_payload = True
-    return "\n".join(collected)
-
-
-def _parse_labeled_charge_block(text: str, header: str) -> list[float]:
+def _parse_labeled_charge_block(text: str, header: str) -> tuple[list[float], list[float]]:
     start = text.rfind(header)
     if start < 0:
-        return []
-    block = _extract_until_blank_or_rule(text, start + len(header))
-    values: list[float] = []
-    for line in block.splitlines():
+        return [], []
+    charges: list[float] = []
+    spins: list[float] = []
+    for line in text[start + len(header) :].splitlines():
         matched = orca_log_patterns.MULLIKEN_CHARGE_ROW.match(line)
         if matched is not None:
-            values.append(_as_float(matched.group("value")))
-    return values
+            charges.append(_as_float(matched.group("value")))
+            if spin := matched.group("spin"):
+                spins.append(_as_float(spin))
+        elif charges:
+            break
+    return charges, spins
 
 
 def _parse_hirshfeld(text: str) -> tuple[list[float], list[float]]:
     start = text.rfind("HIRSHFELD ANALYSIS")
     if start < 0:
         return [], []
-    block = _extract_until_blank_or_rule(text, start + len("HIRSHFELD ANALYSIS"))
     charges: list[float] = []
     spins: list[float] = []
-    for line in block.splitlines():
+    for line in text[start + len("HIRSHFELD ANALYSIS") :].splitlines():
         matched = orca_log_patterns.HIRSHFELD_ROW.match(line)
-        if matched is None:
-            continue
-        charges.append(_as_float(matched.group("charge")))
-        spins.append(_as_float(matched.group("spin")))
+        if matched is not None:
+            charges.append(_as_float(matched.group("charge")))
+            spins.append(_as_float(matched.group("spin")))
+        elif charges:
+            break
     return charges, spins
 
 
@@ -398,29 +383,77 @@ def extract_orca_vibrations(text: str, num_atoms: int | None) -> Vibrations | No
 
 
 def extract_orca_populations(text: str) -> ChargeSpinPopulations | None:
-    pop_dict: dict[str, Any] = {}
-    mulliken = _parse_labeled_charge_block(text, "MULLIKEN ATOMIC CHARGES")
-    if mulliken:
-        pop_dict["mulliken_charges"] = mulliken
-    lowdin = _parse_labeled_charge_block(text, "LOEWDIN ATOMIC CHARGES")
-    if lowdin:
-        pop_dict["lowdin_charges"] = lowdin
+    populations: dict[str, Any] = {}
+
+    def add_series(
+        key: str,
+        values: list[float],
+        *,
+        scheme: str,
+        quantity: str,
+        source_label: str,
+        spin_channel: str | None = None,
+    ) -> None:
+        if values:
+            populations[key] = {
+                "scheme": scheme,
+                "quantity": quantity,
+                "values": values,
+                "spin_channel": spin_channel,
+                "source_label": source_label,
+            }
+
+    mulliken_charges, mulliken_spins = _parse_labeled_charge_block(text, "MULLIKEN ATOMIC CHARGES")
+    add_series(
+        "mulliken_charges",
+        mulliken_charges,
+        scheme="mulliken",
+        quantity="charge",
+        source_label="MULLIKEN ATOMIC CHARGES",
+    )
+    add_series(
+        "mulliken_spins",
+        mulliken_spins,
+        scheme="mulliken",
+        quantity="spin_density",
+        spin_channel="total",
+        source_label="MULLIKEN ATOMIC CHARGES AND SPIN POPULATIONS",
+    )
+    lowdin_charges, lowdin_spins = _parse_labeled_charge_block(text, "LOEWDIN ATOMIC CHARGES")
+    add_series(
+        "lowdin_charges",
+        lowdin_charges,
+        scheme="lowdin",
+        quantity="charge",
+        source_label="LOEWDIN ATOMIC CHARGES",
+    )
+    add_series(
+        "lowdin_spins",
+        lowdin_spins,
+        scheme="lowdin",
+        quantity="spin_density",
+        spin_channel="total",
+        source_label="LOEWDIN ATOMIC CHARGES AND SPIN POPULATIONS",
+    )
     hirshfeld_charges, hirshfeld_spins = _parse_hirshfeld(text)
-    if hirshfeld_charges:
-        pop_dict["hirshfeld_charges"] = hirshfeld_charges
-    if hirshfeld_spins:
-        pop_dict["hirshfeld_spins"] = hirshfeld_spins
-    if not pop_dict:
-        return None
-    try:
-        return ChargeSpinPopulations.model_validate(pop_dict)
-    except Exception:
-        # ORCA can print only a subset of analyses for some jobs. Keep the
-        # successfully parsed first population if lengths differ.
-        for key in ("mulliken_charges", "lowdin_charges", "hirshfeld_charges"):
-            if key in pop_dict:
-                return ChargeSpinPopulations.model_validate({key: pop_dict[key]})
-    return None
+    add_series(
+        "hirshfeld_charges",
+        hirshfeld_charges,
+        scheme="hirshfeld",
+        quantity="charge",
+        source_label="HIRSHFELD ANALYSIS",
+    )
+    add_series(
+        "hirshfeld_spins",
+        hirshfeld_spins,
+        scheme="hirshfeld",
+        quantity="spin_density",
+        spin_channel="total",
+        source_label="HIRSHFELD ANALYSIS",
+    )
+    return (
+        ChargeSpinPopulations.model_validate({"populations": populations}) if populations else None
+    )
 
 
 def extract_orca_polarizability(text: str) -> Polarizability | None:

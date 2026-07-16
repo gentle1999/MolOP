@@ -84,6 +84,31 @@ def test_orca_output_fixture_manifest_inventory_is_broad() -> None:
     assert required_features <= available_features
 
 
+def test_orca_closed_shell_population_schemes_are_all_structured() -> None:
+    source = (ORCA_OUTPUT_FIXTURE_DIR / "local" / "h2o_orca_v5_charges.out").read_text()
+    populations = ORCALogFileParserMemory().parse(source)[-1].charge_spin_populations
+
+    assert populations is not None
+    assert populations.population_names == [
+        "mulliken_charges",
+        "lowdin_charges",
+        "hirshfeld_charges",
+        "hirshfeld_spins",
+    ]
+    assert all(len(series.values) == 3 for _name, series in populations.population_items())
+
+
+def test_orca_open_shell_mulliken_and_lowdin_charge_spin_tables_are_structured() -> None:
+    source = (ORCA_OUTPUT_FIXTURE_DIR / "cclib" / "basicORCA6.0" / "dvb_rocis.out").read_text()
+    populations = ORCALogFileParserMemory().parse(source)[-1].charge_spin_populations
+
+    assert populations is not None
+    assert len(populations["mulliken_charges"].values) == 20
+    assert len(populations["mulliken_spins"].values) == 20
+    assert len(populations["lowdin_charges"].values) == 20
+    assert len(populations["lowdin_spins"].values) == 20
+
+
 def test_orca_output_cclib_license_is_preserved() -> None:
     license_path = ORCA_OUTPUT_FIXTURE_DIR / _manifest()["sources"]["cclib"]["license_file"]
     text = license_path.read_text(encoding="utf-8")

@@ -17,6 +17,19 @@ from molop.io.base_models.summary import (
 )
 from molop.unit import atom_ureg
 from molop.utils.functions import invert_transform_coords, transform_coords
+from molop.utils.types import (
+    ArrayN,
+    PintArray3,
+    PintArray3x3,
+    PintArray6,
+    PintArray6Or3x3,
+    PintArray10,
+    PintArray15,
+    PintArrayN,
+    PintArrayNx3,
+    PintSquareMatrix,
+    SquareArray,
+)
 
 from .Bases import (
     BaseDataClassWithUnit,
@@ -578,7 +591,7 @@ class ElectronicState(BaseDataClassWithUnit):
     energy: PlainQuantity | None = Field(default=None, description="State total energy")
     excitation_energy: PlainQuantity | None = Field(default=None, description="Excitation energy")
     oscillator_strength: float | None = Field(default=None, description="Oscillator strength")
-    transition_dipole: NumpyQuantity | None = Field(
+    transition_dipole: PintArray3 | None = Field(
         default=None, description="Transition dipole vector"
     )
     configurations: list[ElectronicConfiguration] = Field(
@@ -952,7 +965,7 @@ class ThermalInformations(BaseDataClassWithUnit):
         description="molecular mass from the thermochemistry section, unit is `amu`",
         exclude_if=lambda x: x is None,
     )
-    moments_of_inertia: NumpyQuantity | None = Field(
+    moments_of_inertia: PintArrayN | None = Field(
         default=None,
         description="principal moments of inertia, unit is `amu*bohr**2`",
         exclude_if=lambda x: x is None,
@@ -962,17 +975,17 @@ class ThermalInformations(BaseDataClassWithUnit):
         description="rotational symmetry number from the thermochemistry section",
         exclude_if=lambda x: x is None,
     )
-    rotational_temperatures: NumpyQuantity | None = Field(
+    rotational_temperatures: PintArrayN | None = Field(
         default=None,
         description="rotational temperatures, unit is `K`",
         exclude_if=lambda x: x is None,
     )
-    rotational_constants: NumpyQuantity | None = Field(
+    rotational_constants: PintArrayN | None = Field(
         default=None,
         description="rotational constants from frequency thermochemistry, unit is `GHz`",
         exclude_if=lambda x: x is None,
     )
-    vibrational_temperatures: NumpyQuantity | None = Field(
+    vibrational_temperatures: PintArrayN | None = Field(
         default=None,
         description="vibrational temperatures, unit is `K`",
         exclude_if=lambda x: x is None,
@@ -1050,7 +1063,7 @@ class MoleculeOrbital(BaseDataClassWithUnit):
     alpha_symmetry: str | None = Field(default=None, description="alpha orbital symmetry")
     beta_occupancy: float | bool | None = Field(default=None, description="beta orbital occupancy")
     beta_symmetry: str | None = Field(default=None, description="beta orbital symmetry")
-    coefficient: np.ndarray | None = Field(default=None, description="coefficient of the orbital")
+    coefficient: ArrayN | None = Field(default=None, description="coefficient of the orbital")
 
     def to_summary_dict(self, **kwargs) -> SummaryDict:
         return summary_dict_from_fields(self, "Orbital", **kwargs)
@@ -1067,11 +1080,11 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
     electronic_state: str | None = Field(
         default=None, description="electronic state of the molecule"
     )
-    alpha_energies: NumpyQuantity = Field(
+    alpha_energies: PintArrayN = Field(
         default=np.array([]) * atom_ureg.hartree,
         description="alpha orbital energies, unit is `hartree`",
     )
-    beta_energies: NumpyQuantity = Field(
+    beta_energies: PintArrayN = Field(
         default=np.array([]) * atom_ureg.hartree,
         description="beta orbital energies, unit is `hartree`",
     )
@@ -1087,7 +1100,7 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
     beta_symmetries: list[str | None] = Field(
         default_factory=list, description="beta orbital symmetries"
     )
-    coefficients: list[np.ndarray | None] = Field(
+    coefficients: list[ArrayN | None] = Field(
         default_factory=list, description="coefficients of the orbitals"
     )
 
@@ -1604,10 +1617,10 @@ class Vibration(BaseDataClassWithUnit):
         description="IR intensity of each mode, unit is `km/mol`",
         exclude_if=lambda x: x is None,
     )
-    vibration_mode: NumpyQuantity = Field(
-        default=np.array([[]]) * atom_ureg.angstrom,
+    vibration_mode: PintArrayNx3 = Field(
+        default=np.zeros((0, 3)) * atom_ureg.angstrom,
         description="Vibration mode of each mode, unit is `angstrom`",
-        exclude_if=lambda x: x.shape == (0, 0),
+        exclude_if=lambda x: len(x) == 0,
     )
 
     @computed_field()  # type: ignore[prop-decorator]
@@ -1639,27 +1652,27 @@ class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
     }
     set_default_units: ClassVar[bool] = True
 
-    frequencies: NumpyQuantity = Field(
+    frequencies: PintArrayN = Field(
         default=np.array([]) * atom_ureg.cm_1,
         description="Frequency of each mode, unit is `cm^-1`",
         exclude_if=lambda x: len(x) == 0,
     )
-    reduced_masses: NumpyQuantity = Field(
+    reduced_masses: PintArrayN = Field(
         default=np.array([]) * atom_ureg.amu,
         description="Reduced mass of each mode, unit is `amu`",
         exclude_if=lambda x: len(x) == 0,
     )
-    force_constants: NumpyQuantity = Field(
+    force_constants: PintArrayN = Field(
         default=np.array([]) * atom_ureg.mdyne / atom_ureg.angstrom,
         description="Force constant of each mode, unit is `mdyne/angstrom`",
         exclude_if=lambda x: len(x) == 0,
     )
-    IR_intensities: NumpyQuantity = Field(
+    IR_intensities: PintArrayN = Field(
         default=np.array([]) * atom_ureg.km / atom_ureg.mol,
         description="IR intensity of each mode, unit is `km/mol`",
         exclude_if=lambda x: len(x) == 0,
     )
-    vibration_modes: list[NumpyQuantity] = Field(
+    vibration_modes: list[PintArrayNx3] = Field(
         default_factory=list,
         description="Vibration mode of each mode, unit is `angstrom`",
         exclude_if=lambda x: len(x) == 0,
@@ -1836,62 +1849,65 @@ class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
         }
 
 
+class AtomicPopulationSeries(BaseDataClassWithUnit):
+    """One extensible atom-aligned population series."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+
+    scheme: str = Field(min_length=1, description="Population analysis scheme")
+    quantity: str = Field(
+        min_length=1,
+        description="Physical quantity, for example charge or spin_density",
+    )
+    values: list[float] = Field(min_length=1, description="Values in source atom order")
+    spin_channel: Literal["alpha", "beta", "total"] | None = Field(
+        default=None,
+        description="Spin channel when the source resolves one",
+    )
+    source_label: str | None = Field(
+        default=None,
+        description="Exact or normalized source table/record label",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Format-specific population metadata",
+    )
+
+
 class ChargeSpinPopulations(BaseDataClassWithUnit):
-    # charge and spin populations
-    mulliken_charges: list[float] = Field(
-        default_factory=list, description="Mulliken charges", exclude_if=lambda x: len(x) == 0
-    )
-    mulliken_spins: list[float] = Field(
-        default_factory=list,
-        description="Mulliken spin densities",
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+
+    populations: dict[str, AtomicPopulationSeries] = Field(
+        default_factory=dict,
+        description=(
+            "Extensible atom-aligned population series keyed by a stable snake_case identifier"
+        ),
         exclude_if=lambda x: len(x) == 0,
     )
-    apt_charges: list[float] = Field(
-        default_factory=list,
-        description="Atomic polarizability tensor charges",
-        exclude_if=lambda x: len(x) == 0,
-    )
-    lowdin_charges: list[float] = Field(
-        default_factory=list, description="Lowdin charges", exclude_if=lambda x: len(x) == 0
-    )
-    hirshfeld_charges: list[float] = Field(
-        default_factory=list, description="Hirshfeld charges", exclude_if=lambda x: len(x) == 0
-    )
-    hirshfeld_spins: list[float] = Field(
-        default_factory=list, description="Hirshfeld spins", exclude_if=lambda x: len(x) == 0
-    )
-    hirshfeld_q_cm5: list[float] = Field(
-        default_factory=list,
-        description="Hirshfeld charges in cm5",
-        exclude_if=lambda x: len(x) == 0,
-    )
-    npa_charges: list[float] = Field(
-        default_factory=list, description="NPA charges", exclude_if=lambda x: len(x) == 0
-    )
-    npa_alpha_spin_densities: list[float] = Field(
-        default_factory=list,
-        description="NPA alpha spin densities",
-        exclude_if=lambda x: len(x) == 0,
-    )
-    npa_beta_spin_densities: list[float] = Field(
-        default_factory=list,
-        description="NPA beta spin densities",
-        exclude_if=lambda x: len(x) == 0,
-    )
+
+    def population_items(self) -> list[tuple[str, AtomicPopulationSeries]]:
+        """Return all population series in insertion order."""
+
+        return list(self.populations.items())
+
+    def __getitem__(self, name: str) -> AtomicPopulationSeries:
+        return self.populations[name]
+
+    def __len__(self) -> int:
+        return len(self.populations)
+
+    def get_population(self, name: str) -> AtomicPopulationSeries | None:
+        """Return one population series by stable key."""
+
+        return self.populations.get(name)
 
     @property
     def population_names(self) -> list[str]:
-        return [
-            name
-            for name in type(self).model_fields
-            if name.endswith(("charges", "spins", "densities", "q_cm5"))
-            and len(getattr(self, name)) > 0
-        ]
+        return list(self.populations)
 
     def to_population_table(self, atom_symbols: Sequence[str] | None = None) -> PropertyTable:
-        population_lengths = [
-            len(getattr(self, population_name)) for population_name in self.population_names
-        ]
+        population_items = self.population_items()
+        population_lengths = [len(series.values) for _name, series in population_items]
         if population_lengths:
             num_atoms = population_lengths[0]
         elif atom_symbols is not None:
@@ -1909,8 +1925,8 @@ class ChargeSpinPopulations(BaseDataClassWithUnit):
             columns["atom_index"] = np.arange(num_atoms)
         if atom_symbols is not None:
             columns["atom_symbol"] = list(atom_symbols)
-        for population_name in self.population_names:
-            columns[population_name] = getattr(self, population_name)
+        for population_name, series in population_items:
+            columns[population_name] = cast(PropertyColumnValue, series.values)
 
         return PropertyTable(
             columns=columns,
@@ -1931,12 +1947,19 @@ class ChargeSpinPopulations(BaseDataClassWithUnit):
 
     @model_validator(mode="after")
     def validate_charge_spin_populations(self) -> Self:
-        available_populations = [
-            getattr(self, pop) for pop in self.model_fields_set if len(getattr(self, pop)) > 0
-        ]
-        assert all(len(pop) == len(available_populations[0]) for pop in available_populations), (
-            "All populations must have the same length"
-        )
+        population_items = self.population_items()
+        if not population_items:
+            return self
+        population_lengths = {name: len(series.values) for name, series in population_items}
+        expected_length = next(iter(population_lengths.values()))
+        mismatched = {
+            name: length for name, length in population_lengths.items() if length != expected_length
+        }
+        if mismatched:
+            raise ValueError(
+                "All populations must have the same length; "
+                f"expected {expected_length}, got {mismatched}"
+            )
         return self
 
     def to_summary_dict(self, **kwargs) -> SummaryDict:
@@ -2003,38 +2026,38 @@ class Polarizability(BaseDataClassWithUnit):
         description="Anisotropic polarizability, unit is bohr^3",
         exclude_if=lambda x: x is None,
     )
-    polarizability_tensor: PlainQuantity | None = Field(
-        default=np.array([]) * atom_ureg.bohr**3,
+    polarizability_tensor: PintArray6Or3x3 | None = Field(
+        default=None,
         description="Polarizability tensor",
         exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
-    electric_dipole_moment: PlainQuantity | None = Field(
-        default=np.array([]) * atom_ureg.debye,
+    electric_dipole_moment: PintArray3 | None = Field(
+        default=None,
         description="Electric dipole moment, unit is `debye`",
         exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
-    dipole: PlainQuantity | None = Field(
-        default=np.array([]) * atom_ureg.debye,
+    dipole: PintArray3 | None = Field(
+        default=None,
         description="Dipole moment, unit is `debye`",
         exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
-    quadrupole: PlainQuantity | None = Field(
-        default=np.array([]) * atom_ureg.debye * atom_ureg.angstrom,
+    quadrupole: PintArray6 | None = Field(
+        default=None,
         description="Quadrupole moment, unit is `debye*angstrom`",
         exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
-    traceless_quadrupole: PlainQuantity | None = Field(
-        default=np.array([]) * atom_ureg.debye * atom_ureg.angstrom,
+    traceless_quadrupole: PintArray6 | None = Field(
+        default=None,
         description="Traceless quadrupole moment, unit is `debye*angstrom`",
         exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
-    octapole: PlainQuantity | None = Field(
-        default=np.array([]) * atom_ureg.debye * atom_ureg.angstrom**2,
+    octapole: PintArray10 | None = Field(
+        default=None,
         description="Octapole moment, unit is `debye*angstrom**2`",
         exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
-    hexadecapole: PlainQuantity | None = Field(
-        default=np.array([]) * atom_ureg.debye * atom_ureg.angstrom**3,
+    hexadecapole: PintArray15 | None = Field(
+        default=None,
         description="Hexadecapole moment, unit is `debye*angstrom**3`",
         exclude_if=lambda x: (x is None) or (len(x) == 0),
     )
@@ -2092,38 +2115,38 @@ class Polarizability(BaseDataClassWithUnit):
 
 
 class BondOrders(BaseDataClassWithUnit):
-    wiberg_bond_order: np.ndarray = Field(
-        default=np.array([[]]),
+    wiberg_bond_order: SquareArray = Field(
+        default=np.zeros((0, 0)),
         description="Wiberg bond order",
         exclude_if=lambda x: x.shape == (0, 0),
     )
-    mo_bond_order: np.ndarray = Field(
-        default=np.array([[]]),
+    mo_bond_order: SquareArray = Field(
+        default=np.zeros((0, 0)),
         description="MO bond order, ∑[i∈A]∑[j∈B]P(i,j)",
         exclude_if=lambda x: x.shape == (0, 0),
     )
-    mayer_bond_order: np.ndarray = Field(
-        default=np.array([[]]),
+    mayer_bond_order: SquareArray = Field(
+        default=np.zeros((0, 0)),
         description="MAYER POPULATION ANALYSIS bond order, ∑[i∈A]∑[j∈B]P(i,j)",
         exclude_if=lambda x: x.shape == (0, 0),
     )
-    atom_atom_overlap_bond_order: np.ndarray = Field(
-        default=np.array([[]]),
+    atom_atom_overlap_bond_order: SquareArray = Field(
+        default=np.zeros((0, 0)),
         description="Atom-atom overlap bond order",
         exclude_if=lambda x: x.shape == (0, 0),
     )
-    nbo_bond_order: np.ndarray = Field(
-        default=np.array([[]]),
+    nbo_bond_order: SquareArray = Field(
+        default=np.zeros((0, 0)),
         description="NBO bond order",
         exclude_if=lambda x: x.shape == (0, 0),
     )
-    nbo_bond_order_for_alpha_spin: np.ndarray = Field(
-        default=np.array([[]]),
+    nbo_bond_order_for_alpha_spin: SquareArray = Field(
+        default=np.zeros((0, 0)),
         description="NBO bond order for alpha spin",
         exclude_if=lambda x: x.shape == (0, 0),
     )
-    nbo_bond_order_for_beta_spin: np.ndarray = Field(
-        default=np.array([[]]),
+    nbo_bond_order_for_beta_spin: SquareArray = Field(
+        default=np.zeros((0, 0)),
         description="NBO bond order for beta spin",
         exclude_if=lambda x: x.shape == (0, 0),
     )
@@ -2569,32 +2592,74 @@ class Status(BaseDataClassWithUnit):
 
 
 class ShieldingTensor(BaseDataClassWithUnit):
-    """
-    Shielding tensor data.
-    """
+    """Nuclear magnetic shielding tensor for one source-order atom."""
 
-    default_units: ClassVar[dict[str, UnitLike]] = {"shielding_tensor": atom_ureg.ppm}
+    default_units: ClassVar[dict[str, UnitLike]] = {
+        "shielding_tensor": atom_ureg.ppm,
+        "isotropic": atom_ureg.ppm,
+        "anisotropy": atom_ureg.ppm,
+        "principal_values": atom_ureg.ppm,
+    }
     set_default_units: ClassVar[bool] = True
 
-    atom: str = Field(default="", description="Atom element")
-    shielding_tensor: NumpyQuantity = Field(
-        default=np.zeros((3, 3)) * atom_ureg.ppm,
-        description="Shielding tensor, unit is `ppm`",
+    atom_index: int = Field(ge=0, description="Zero-based atom index in source atom order")
+    atom_symbol: str = Field(min_length=1, description="Atom element symbol")
+    shielding_tensor: PintArray3x3 = Field(
+        description="Full 3 x 3 magnetic shielding tensor, unit is `ppm`",
+    )
+    isotropic: PlainQuantity | None = Field(
+        default=None,
+        description="Observed isotropic shielding, or trace(tensor) / 3 when absent",
+    )
+    anisotropy: PlainQuantity | None = Field(
+        default=None,
+        description="Observed shielding anisotropy, or the Haeberlen value when absent",
+    )
+    principal_values: PintArray3 | None = Field(
+        default=None,
+        description="Observed or derived three principal shielding values",
+    )
+    anisotropy_convention: str | None = Field(
+        default=None,
+        description="Convention used for the anisotropy value",
+    )
+    orientation: Literal["input", "standard", "source", "unknown"] = Field(
+        default="unknown",
+        description="Cartesian orientation used by the tensor components",
     )
 
-    @computed_field()  # type: ignore[prop-decorator]
-    @property
-    def isotropic(self) -> PlainQuantity:
-        return np.mean(np.trace(self.shielding_tensor))
+    @model_validator(mode="after")
+    def validate_shielding_tensor(self) -> Self:
+        tensor_magnitude = np.asarray(self.shielding_tensor.magnitude, dtype=float)
+        if not np.isfinite(tensor_magnitude).all():
+            raise ValueError("shielding_tensor must contain only finite values")
 
-    @computed_field()  # type: ignore[prop-decorator]
-    @property
-    def anisotropy(self) -> PlainQuantity:
-        eigenvalues = np.linalg.eigvals(self.shielding_tensor)
-        # 按照 Haeberlen 约定排序: |s_zz - s_iso| >= |s_xx - s_iso| >= |s_yy - s_iso|
-        s_iso = np.mean(eigenvalues)
-        sorted_eigs = sorted(eigenvalues, key=lambda x: abs(x - s_iso), reverse=True)
-        return sorted_eigs[0] - (sorted_eigs[1] + sorted_eigs[2]) / 2
+        if self.isotropic is None:
+            self.isotropic = float(np.trace(tensor_magnitude) / 3.0) * self.shielding_tensor.units
+
+        if self.principal_values is None:
+            symmetric_tensor = (tensor_magnitude + tensor_magnitude.T) / 2.0
+            eigenvalues = np.linalg.eigvalsh(symmetric_tensor)
+            self.principal_values = (
+                np.sort(np.asarray(eigenvalues, dtype=float)) * self.shielding_tensor.units
+            )
+
+        principal_values_quantity = self.principal_values
+        assert principal_values_quantity is not None
+        if self.anisotropy is None:
+            principal_values = np.asarray(principal_values_quantity.magnitude, dtype=float)
+            isotropic = float(np.mean(principal_values))
+            ordered = sorted(
+                principal_values,
+                key=lambda value: abs(float(value) - isotropic),
+                reverse=True,
+            )
+            self.anisotropy = (
+                float(ordered[0] - (ordered[1] + ordered[2]) / 2.0)
+                * principal_values_quantity.units
+            )
+            self.anisotropy_convention = self.anisotropy_convention or "Haeberlen"
+        return self
 
     def to_summary_dict(self, **kwargs) -> SummaryDict:
         return summary_dict_from_fields(self, "ShieldingTensor", **kwargs)
@@ -2607,17 +2672,69 @@ class NMR(BaseDataClassWithUnit):
     }
     set_default_units: ClassVar[bool] = True
 
+    gauge: str | None = Field(
+        default=None,
+        description="Magnetic gauge/origin scheme, such as GIAO or CSGT",
+    )
     shielding_tensors: list[ShieldingTensor] = Field(
         default_factory=list, description="NMR shielding tensors"
     )
-    spin_spin_coupling_k: NumpyQuantity | None = Field(
-        default=None,
-        description="Spin-spin coupling constant, unit is `Hz`",
+    coupling_atom_indices: list[int] = Field(
+        default_factory=list,
+        description="Source-order atom indices corresponding to coupling matrix axes",
     )
-    spin_spin_coupling_j: NumpyQuantity | None = Field(
+    spin_spin_coupling_k: PintSquareMatrix | None = Field(
         default=None,
-        description="Spin-spin coupling constant, unit is `Hz`",
+        description="Reduced isotropic spin-spin coupling matrix, unit is `Hz`",
     )
+    spin_spin_coupling_j: PintSquareMatrix | None = Field(
+        default=None,
+        description="Isotropic spin-spin coupling matrix, unit is `Hz`",
+    )
+    spin_spin_coupling_k_components: dict[Literal["FC", "SD", "PSO", "DSO"], PintSquareMatrix] = (
+        Field(
+            default_factory=dict,
+            description="Reduced spin-spin coupling contribution matrices in Hz",
+        )
+    )
+    spin_spin_coupling_j_components: dict[Literal["FC", "SD", "PSO", "DSO"], PintSquareMatrix] = (
+        Field(
+            default_factory=dict,
+            description="Spin-spin coupling contribution matrices in Hz",
+        )
+    )
+
+    @model_validator(mode="after")
+    def validate_nmr(self) -> Self:
+        shielding_indices = [item.atom_index for item in self.shielding_tensors]
+        if len(shielding_indices) != len(set(shielding_indices)):
+            raise ValueError("shielding_tensors contain duplicate atom indices")
+
+        matrix_sizes: set[int] = set()
+        for field_name in ("spin_spin_coupling_k", "spin_spin_coupling_j"):
+            value = getattr(self, field_name)
+            if value is None:
+                continue
+            matrix_sizes.add(int(value.shape[0]))
+        for field_name in (
+            "spin_spin_coupling_k_components",
+            "spin_spin_coupling_j_components",
+        ):
+            components = getattr(self, field_name)
+            for component_name, value in components.items():
+                normalized = value.to(atom_ureg.Hz)
+                components[component_name] = normalized
+                matrix_sizes.add(int(normalized.shape[0]))
+        if len(matrix_sizes) > 1:
+            raise ValueError(
+                "spin-spin coupling total and component matrices must have matching shapes"
+            )
+        if self.coupling_atom_indices:
+            if len(self.coupling_atom_indices) != len(set(self.coupling_atom_indices)):
+                raise ValueError("coupling_atom_indices must be unique")
+            if matrix_sizes and len(self.coupling_atom_indices) != next(iter(matrix_sizes)):
+                raise ValueError("coupling_atom_indices length must match coupling matrix size")
+        return self
 
     def to_summary_dict(self, **kwargs) -> SummaryDict:
         return summary_dict_from_fields(self, "NMR", **kwargs)

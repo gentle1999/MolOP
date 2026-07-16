@@ -14,6 +14,8 @@ from molop.io.logic.coords.frame_models.XYZFileFrame import XYZFileFrameDisk
 from molop.io.logic.coords.models.SDFFile import SDFFileDisk
 from molop.io.logic.coords.models.SMIFile import SMIFileDisk
 from molop.io.logic.coords.models.XYZFile import XYZFileDisk
+from molop.io.logic.gaussian.fchk.output.frame_models.G16FchkFileFrame import G16FchkFileFrameDisk
+from molop.io.logic.gaussian.fchk.output.models.G16FchkFile import G16FchkFileDisk
 from molop.io.logic.gaussian.input.frame_models.GJFFileFrame import GJFFileFrameDisk
 from molop.io.logic.gaussian.input.models.GJFFile import GJFFileDisk
 from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import G16LogFileFrameDisk
@@ -26,7 +28,8 @@ from molop.io.logic.xtb.output.frame_models.XTBOutputFileFrame import XTBOutputF
 from molop.io.logic.xtb.output.models.XTBOutputFile import XTBOutputFileDisk
 
 FileDiskObj: TypeAlias = (
-    G16LogFileDisk
+    G16FchkFileDisk
+    | G16LogFileDisk
     | GJFFileDisk
     | ORCAInpFileDisk
     | ORCALogFileDisk
@@ -36,7 +39,8 @@ FileDiskObj: TypeAlias = (
     | XYZFileDisk
 )
 FrameDiskObj: TypeAlias = (
-    G16LogFileFrameDisk
+    G16FchkFileFrameDisk
+    | G16LogFileFrameDisk
     | GJFFileFrameDisk
     | ORCAInpFileFrameDisk
     | ORCALogFileFrameDisk

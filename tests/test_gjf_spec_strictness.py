@@ -141,6 +141,7 @@ def test_geom_allcheck_allows_missing_title_and_molecule_sections() -> None:
 FreezeAll
 """
     frame = parser.parse(block)
+    assert frame.coords.shape == (0, 3)
     assert frame.title_card.title_card == ""
     assert frame.molecule_specifications.molecule_fragments == []
     assert "FreezeAll" in frame.additional_sections

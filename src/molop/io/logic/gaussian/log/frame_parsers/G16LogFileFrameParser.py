@@ -19,6 +19,7 @@ from molop.io.logic.gaussian.log.frame_parsers._g16_extractors import (
     extract_forces_from_state,
     extract_hessian_from_state,
     extract_input_coords_from_state,
+    extract_nmr_from_state,
     extract_polarizability_from_state,
     extract_populations_from_state,
     extract_rotation_consts_from_state,
@@ -47,7 +48,8 @@ class G16ParsePhase(Enum):
     STRUCTURE_ONLY_CHECK -> DONE | ROTATION
     ROTATION -> SCF
     SCF -> ISOTROPIC_POLARIZABILITY
-    ISOTROPIC_POLARIZABILITY -> POPULATION
+    ISOTROPIC_POLARIZABILITY -> NMR
+    NMR -> POPULATION
     POPULATION -> FREQUENCY
     FREQUENCY -> THERMOCHEM
     THERMOCHEM -> FORCES
@@ -71,6 +73,7 @@ class G16ParsePhase(Enum):
     ROTATION = auto()
     SCF = auto()
     ISOTROPIC_POLARIZABILITY = auto()
+    NMR = auto()
     POPULATION = auto()
     FREQUENCY = auto()
     THERMOCHEM = auto()
@@ -155,6 +158,13 @@ class G16LogFileFrameParserMixin:
         """Parse early scalar polarizability data before the larger population section."""
         if (polarizability := extract_polarizability_from_state(state)) is not None:
             result.set("polarizability", polarizability)
+        return G16ParsePhase.NMR
+
+    @staticmethod
+    def _run_nmr_phase(state: ParseState, result: ModelParseResult) -> G16ParsePhase:
+        """Parse per-nucleus magnetic shielding tensors before population analysis."""
+        if (nmr := extract_nmr_from_state(state)) is not None:
+            result.set("nmr", nmr)
         return G16ParsePhase.POPULATION
 
     def _run_population_phase(self, state: ParseState, result: ModelParseResult) -> G16ParsePhase:
@@ -286,6 +296,8 @@ class G16LogFileFrameParserMixin:
                 phase = self._run_scf_phase(state, result)
             elif phase is G16ParsePhase.ISOTROPIC_POLARIZABILITY:
                 phase = self._run_isotropic_polarizability_phase(state, result)
+            elif phase is G16ParsePhase.NMR:
+                phase = self._run_nmr_phase(state, result)
             elif phase is G16ParsePhase.POPULATION:
                 phase = self._run_population_phase(state, result)
             elif phase is G16ParsePhase.FREQUENCY:

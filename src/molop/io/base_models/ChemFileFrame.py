@@ -16,7 +16,6 @@ from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, cast
 import numpy as np
 import numpy.typing as npt
 from pint._typing import UnitLike
-from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr, computed_field, model_validator
 from rdkit import Chem
@@ -25,6 +24,7 @@ from typing_extensions import Self
 
 from molop.config import moloplogger
 from molop.io.base_models.DataClasses import (
+    NMR,
     BondOrders,
     ChargeSpinPopulations,
     ElectronicStates,
@@ -56,7 +56,7 @@ from molop.io.base_models.source import (
 from molop.io.base_models.summary import SummaryDict, summary_column, summary_item
 from molop.structure.StructureTransformation import check_crowding
 from molop.unit import atom_ureg
-from molop.utils.types import OMol, RdMol
+from molop.utils.types import OMol, PintArrayN, PintArrayNx3, PintSquareMatrix, RdMol
 
 
 class _HasCoords(Protocol):
@@ -66,7 +66,7 @@ class _HasCoords(Protocol):
     @property
     def atom_symbols(self) -> list[str]: ...
 
-    coords: NumpyQuantity
+    coords: PintArrayNx3
     charge: int
     multiplicity: int
     _default_units: dict[str, UnitLike]
@@ -455,13 +455,13 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         description="Pressure used in the QM calculation, unit is `atm`",
     )
     # QM properties
-    forces: NumpyQuantity | None = Field(
+    forces: PintArrayNx3 | None = Field(
         default=None,
         description="Forces of each atom, unit is `hartree/bohr`.\n"
         "In Gaussian, the extracted forces data are all calculated using the "
         "input coordinates as a reference.",
     )
-    hessian: NumpyQuantity | None = Field(
+    hessian: PintSquareMatrix | None = Field(
         default=None,
         description="Hessian matrix of the QM calculation, unit is `hartree/bohr^2`.\n"
         "In Gaussian, the extracted hessian data are all calculated using the "
@@ -497,8 +497,8 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         description="Cartesian orientation used by the Hessian",
         exclude_if=lambda value: value is None,
     )
-    rotation_constants: NumpyQuantity | None = Field(
-        default=np.array([[]]) * atom_ureg.gigahertz,
+    rotation_constants: PintArrayN | None = Field(
+        default=np.array([]) * atom_ureg.gigahertz,
         description="Rotational constants, unit is `gigahertz`",
     )
     energies: Energies | None = Field(
@@ -523,6 +523,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         "In Gaussian, the extracted polarization-related data are all calculated using the "
         "input coordinates as a reference.",
     )
+    nmr: NMR | None = Field(default=None, description="NMR shielding and coupling properties")
     bond_orders: BondOrders | None = Field(default=None, description="Bond orders of the molecule")
     total_spin: TotalSpin | None = Field(default=None, description="Total spin of the molecule")
     single_point_properties: SinglePointProperties | None = Field(
@@ -586,13 +587,29 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             )
             self.hessian_atom_order = self.hessian_atom_order or "source"
             self.hessian_orientation = self.hessian_orientation or "unknown"
+
+        if self.nmr is not None:
+            for shielding in self.nmr.shielding_tensors:
+                if shielding.atom_index >= atom_count:
+                    raise ValueError("NMR shielding atom index is outside the frame atom range")
+                expected_symbol = self.atom_symbols[shielding.atom_index]
+                if shielding.atom_symbol != expected_symbol:
+                    raise ValueError(
+                        "NMR shielding atom symbol does not match the frame source atom order"
+                    )
+            for atom_index in self.nmr.coupling_atom_indices:
+                if atom_index < 0 or atom_index >= atom_count:
+                    raise ValueError("NMR coupling atom index is outside the frame atom range")
         return self
 
     def qm_embedded_rdmol(
-        self, embed_populations: bool = True, embed_bond_orders: bool = True
+        self,
+        embed_populations: bool = True,
+        embed_bond_orders: bool = True,
+        embed_nmr: bool = True,
     ) -> RdMol | None:
         """
-        Store the population embedded rdkit molecule object.
+        Store atom- and bond-resolved QM properties in an RDKit molecule.
 
         Follow the guide in https://greglandrum.github.io/rdkit-blog/posts/2025-07-24-writing-partial-charges-to-sd-files.html
 
@@ -600,10 +617,13 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         to generate the population embedded rdkit molecule object.
         If `embed_bond_orders` is True, this function will use all bond order properties in the `bond_orders` field
         to generate the bond order embedded rdkit molecule object.
+        If `embed_nmr` is True, per-atom shielding scalars, principal values, and tensor components
+        are embedded in ppm. Spin-spin coupling matrices remain frame-level atom-pair data.
 
         Parameters:
             embed_populations (bool): If True, embed the population properties. Defaults to True.
             embed_bond_orders (bool): If True, embed the bond order properties. Defaults to True.
+            embed_nmr (bool): If True, embed per-atom NMR shielding properties. Defaults to True.
 
         Returns:
             Optional[RdMol]: The population embedded rdkit molecule object.
@@ -612,11 +632,8 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             return None
         rwmol = Chem.RWMol(self.rdmol)
         if embed_populations and self.charge_spin_populations is not None:
-            populations: dict[str, list[float]] = self.charge_spin_populations.model_dump(
-                exclude_defaults=True
-            )
-            for population, pop_list in populations.items():
-                for atom_idx, pop in enumerate(pop_list):
+            for population, series in self.charge_spin_populations.population_items():
+                for atom_idx, pop in enumerate(series.values):
                     rwmol.GetAtomWithIdx(atom_idx).SetDoubleProp(
                         f"{population}_by_{self.qm_software}".upper(), pop
                     )
@@ -638,10 +655,72 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 Chem.CreateBondDoublePropertyList(
                     rwmol, f"{bond_order}_by_{self.qm_software}".upper()
                 )
+        if embed_nmr and self.nmr is not None and self.nmr.shielding_tensors:
+            software_label = self.qm_software or "UNKNOWN"
+            property_suffix = f"BY_{software_label}".upper()
+            numeric_property_names: set[str] = set()
+            string_property_names: set[str] = set()
+            tensor_labels = (
+                ("XX", "XY", "XZ"),
+                ("YX", "YY", "YZ"),
+                ("ZX", "ZY", "ZZ"),
+            )
+
+            if self.nmr.gauge:
+                rwmol.SetProp(f"NMR_GAUGE_{property_suffix}", self.nmr.gauge)
+
+            for shielding in self.nmr.shielding_tensors:
+                atom = rwmol.GetAtomWithIdx(shielding.atom_index)
+                numeric_properties: dict[str, float] = {}
+                if shielding.isotropic is not None:
+                    numeric_properties["NMR_SHIELDING_ISOTROPIC_PPM"] = float(
+                        shielding.isotropic.m_as("ppm")
+                    )
+                if shielding.anisotropy is not None:
+                    numeric_properties["NMR_SHIELDING_ANISOTROPY_PPM"] = float(
+                        shielding.anisotropy.m_as("ppm")
+                    )
+                if shielding.principal_values is not None:
+                    for principal_index, value in enumerate(
+                        shielding.principal_values.m_as("ppm"), start=1
+                    ):
+                        numeric_properties[
+                            f"NMR_SHIELDING_PRINCIPAL_VALUE_{principal_index}_PPM"
+                        ] = float(value)
+                tensor = np.asarray(shielding.shielding_tensor.m_as("ppm"), dtype=float)
+                for row_index, row_labels in enumerate(tensor_labels):
+                    for column_index, component_label in enumerate(row_labels):
+                        numeric_properties[f"NMR_SHIELDING_TENSOR_{component_label}_PPM"] = float(
+                            tensor[row_index, column_index]
+                        )
+
+                for property_name, value in numeric_properties.items():
+                    full_name = f"{property_name}_{property_suffix}"
+                    atom.SetDoubleProp(full_name, value)
+                    numeric_property_names.add(full_name)
+
+                string_properties = {
+                    "NMR_SHIELDING_ANISOTROPY_CONVENTION": shielding.anisotropy_convention,
+                    "NMR_SHIELDING_ORIENTATION": shielding.orientation,
+                }
+                for property_name, value in string_properties.items():
+                    if value is None:
+                        continue
+                    full_name = f"{property_name}_{property_suffix}"
+                    atom.SetProp(full_name, value)
+                    string_property_names.add(full_name)
+
+            for property_name in sorted(numeric_property_names):
+                Chem.CreateAtomDoublePropertyList(rwmol, property_name)
+            for property_name in sorted(string_property_names):
+                Chem.CreateAtomStringPropertyList(rwmol, property_name)
         return rwmol.GetMol()
 
     def to_population_embedded_SDF_block(
-        self, embed_populations: bool = True, embed_bond_orders: bool = True
+        self,
+        embed_populations: bool = True,
+        embed_bond_orders: bool = True,
+        embed_nmr: bool = True,
     ) -> str:
         """
         Write the SDF block with population embedded properties.
@@ -652,17 +731,19 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         to generate the population embedded rdkit molecule object.
         If `embed_bond_orders` is True, this function will use all bond order properties in the `bond_orders` field
         to generate the bond order embedded rdkit molecule object.
+        If `embed_nmr` is True, per-atom NMR shielding properties are included.
 
         Parameters:
             embed_populations (bool): If True, embed the population properties. Defaults to True.
             embed_bond_orders (bool): If True, embed the bond order properties. Defaults to True.
+            embed_nmr (bool): If True, embed per-atom NMR shielding properties. Defaults to True.
 
         Returns:
             str: The SDF block with population embedded properties.
         """
         sio = StringIO()
         with Chem.SDWriter(sio) as w:
-            w.write(self.qm_embedded_rdmol(embed_populations, embed_bond_orders))
+            w.write(self.qm_embedded_rdmol(embed_populations, embed_bond_orders, embed_nmr))
         return sio.getvalue()
 
     def to_population_embedded_SDF_file(
@@ -670,6 +751,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         filepath: os.PathLike | str,
         embed_populations: bool = True,
         embed_bond_orders: bool = True,
+        embed_nmr: bool = True,
     ):
         """
         Write the SDF block to a file with population embedded properties.
@@ -680,9 +762,14 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             filepath (os.PathLike| str): The path to the output file.
             embed_populations (bool): If True, embed the population properties. Defaults to True.
             embed_bond_orders (bool): If True, embed the bond order properties. Defaults to True.
+            embed_nmr (bool): If True, embed per-atom NMR shielding properties. Defaults to True.
         """
         with open(filepath, "w") as f:
-            f.write(self.to_population_embedded_SDF_block(embed_populations, embed_bond_orders))
+            f.write(
+                self.to_population_embedded_SDF_block(
+                    embed_populations, embed_bond_orders, embed_nmr
+                )
+            )
 
     def vibrate(
         self,

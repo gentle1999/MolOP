@@ -95,7 +95,7 @@ def test_every_format_feature_declares_scope_limits_level_and_test_support() -> 
 
 
 def test_qm_output_feature_rows_describe_user_visible_properties() -> None:
-    for format_id in ("g16log", "orcaout", "xtbout", "fakeg"):
+    for format_id in ("g16log", "g16fchk", "orcaout", "xtbout", "fakeg"):
         for feature in FORMAT_SUPPORT[format_id].features:
             text = f"{feature.area} {feature.scope} {feature.limitations}".lower()
             for term in INTERNAL_IMPLEMENTATION_TERMS:

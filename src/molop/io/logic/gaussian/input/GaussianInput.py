@@ -24,6 +24,7 @@ from molop.io.logic.gaussian.input.GaussianRoute import GaussianRouteSemantic
 from molop.structure.FormatConverter import rdmol_to_gjf_connectivity
 from molop.structure.GeometryTransformation import merge_mols_directly
 from molop.unit import atom_ureg
+from molop.utils.types import PintArrayNx3
 
 
 pt = Chem.GetPeriodicTable()
@@ -424,7 +425,7 @@ class GJFMoleculeSpecificationsFragment(BaseDataClassWithUnit):
             if not atom_spec.is_dummy and not atom_spec.is_ghost
         ]
 
-    def coords(self) -> NumpyQuantity:
+    def coords(self) -> PintArrayNx3:
         if self.atom_specifications[0].is_cartesian_coords():
             return (
                 np.array(
@@ -504,12 +505,12 @@ class GJFMoleculeSpecifications(BaseDataClassWithUnit):
             for atom_spec in frag.atom_specifications
         ]
 
-    def coords(self) -> NumpyQuantity:
+    def coords(self) -> PintArrayNx3:
         if len(self.molecule_fragments) == 0:
-            return np.array([]) * atom_ureg.angstrom
+            return np.zeros((0, 3)) * atom_ureg.angstrom
         return cast(
             NumpyQuantity,
-            np.concatenate([frag.coords() for frag in self.molecule_fragments], axis=1),
+            np.concatenate([frag.coords() for frag in self.molecule_fragments], axis=0),
         )
 
     def to_XYZ_block(self) -> str:

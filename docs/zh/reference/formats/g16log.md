@@ -12,7 +12,7 @@
 | 数据层级 | 坐标和 QM 结果 |
 
 MolOP 读取 Gaussian 输出文件，并提取后处理常用的结构、能量、热力学、振动、
-轨道、布居、梯度、响应性质、archive 和终止状态信息。覆盖范围按计算化学用户熟悉的
+轨道、布居、梯度、NMR、响应性质、archive 和终止状态信息。覆盖范围按计算化学用户熟悉的
 Gaussian 输出内容组织；“部分支持”表示已覆盖常见或测试样例中的打印形式，但不等价于完整
 Gaussian 输出语法。
 
@@ -24,10 +24,11 @@ Gaussian 输出语法。
 | <!-- feature-area:Input and standard orientations -->Input/standard orientation | 样例覆盖 | Gaussian 打印的 input orientation 与 standard orientation 中的原子和坐标。 | Distance matrix 和 stoichiometry 打印块不作为独立结构化字段声明。 |
 | <!-- feature-area:Rotational constants -->Rotational constants | 样例覆盖 | Gaussian 输出中的转动常数，以帧级频率量暴露。 | 不单独保留 principal-axis 诊断文本。 |
 | <!-- feature-area:SCF and electronic energies -->SCF 与电子能量 | 部分支持 | SCF、reference/electronic 和方法相关能量；主 log 中的能量优先于 archive-tail 重复值。 | 只声明已测试能量字段；不保证所有 post-HF 或 correction energy 表都结构化。 |
-| <!-- feature-area:Molecular orbitals and population analysis -->分子轨道与布居分析 | 部分支持 | 轨道能级/占据数、电荷/自旋布居、electronic spatial extent、多极矩，以及存在时的早期 polarizability。 | 不声明轨道系数矩阵或每一种 population analysis 变体都已覆盖。 |
+| <!-- feature-area:Molecular orbitals and population analysis -->分子轨道与布居分析 | 部分支持 | 轨道能级/占据数，Mulliken charge/spin、APT、Lowdin、Hirshfeld/CM5、NPA、ESP charge series，electronic spatial extent、多极矩，以及存在时的早期 polarizability。 | 不解析轨道系数矩阵、NBO 轨道/键级细节，以及没有可识别逐原子表格的方案。 |
 | <!-- feature-area:Vibrational frequencies and IR intensities -->振动频率与 IR 强度 | 部分支持 | 频率、约化质量、力常数、IR 强度、逐模式位移向量和虚频标记。 | Raman、VCD 等其他谱学变体只有在后续明确覆盖时才声明支持。 |
 | <!-- feature-area:Thermochemistry -->热力学 | 部分支持 | 温度、压力、分子质量、惯性矩、转动对称数、转动/振动温度、转动常数、ZPVE、热能、焓、Gibbs 自由能、熵和热容。 | 覆盖主要面向 frequency 类型 Gaussian 输出和已有样例。 |
 | <!-- feature-area:Dipole and polarizability -->偶极矩与 polarizability | 部分支持 | Gaussian 已覆盖响应性质区段中的 dipole 和 polarizability 值。 | 只声明样例覆盖的 response 字段；不保证所有响应性质打印变体都结构化。 |
+| <!-- feature-area:NMR shielding and spin-spin coupling -->NMR 屏蔽与自旋-自旋耦合 | 部分支持 | 解析 Gaussian GIAO 的逐原子 shielding tensor、源 isotropic/anisotropy、principal values，以及 Hz 单位的 total K/J 和 FC、SD、PSO、DSO 贡献矩阵。 | 当前覆盖标准 SCF GIAO 打印族；参考化学位移、EPR 和其他 gauge 尚未结构化。 |
 | <!-- feature-area:Cartesian gradients and forces -->Cartesian gradients/forces | 部分支持 | Gaussian forces 区段中的 Cartesian force 数组。 | 只声明归一化 force 数组；辅助 force diagnostics 不单独记录。 |
 | <!-- feature-area:Cartesian Hessian -->Cartesian Hessian | 部分支持 | Gaussian second-derivative 区段中的 Cartesian Hessian 数据。 | 契约是归一化 Hessian 字段，不是每个 second-derivative 诊断项。 |
 | <!-- feature-area:Geometry optimization convergence -->几何优化收敛 | 部分支持 | Berny 优化摘要，包括收敛阈值、force/displacement、energy change 和 optimized-state 标记。 | 测试样例外的 optimizer diagnostics 可能仍是非结构化。 |
@@ -60,9 +61,10 @@ Gaussian 输出语法。
 | archive energy fallback | 部分 | 合并后的 `energies` | 间接 | 不支持 | 主 log observation 优先，archive 只补充缺失/重复能量，不覆盖更强的 live 证据。 |
 | 总自旋 | 部分 | `total_spin.spin_square`、`spin_quantum_number` | 支持 | 不支持 | 只覆盖标准 `S**2`/`S` 打印形式。 |
 | MO 能级、占据和对称性 | 部分 | `molecular_orbitals` | Raw/不支持 | 不支持 | 支持 alpha/beta、开壳层和连写数值回归；不解析完整 MO coefficient matrix。 |
-| Mulliken / spin population | 部分 | `charge_spin_populations` | Raw/不支持 | 不支持 | 支持 Mulliken charge 和 spin density；表头、总和及打印精度不保留。 |
+| Mulliken / spin population | 部分 | `charge_spin_populations` | Raw/不支持 | 不支持 | 支持独立表和开壳层合并 charge/spin 表；表头、总和及打印精度不保留。 |
 | APT / Lowdin population | 部分 | `charge_spin_populations` | Raw/不支持 | 不支持 | 只覆盖已有样例的标准表格。 |
-| Hirshfeld / CM5 | 部分 | `charge_spin_populations` | Raw/不支持 | 不支持 | 提取 Hirshfeld charge、spin 和 `q_cm5`；NPA/NBO population 不在当前 Gaussian parser 保证范围。 |
+| Hirshfeld / CM5 | 部分 | `populations["hirshfeld_charges"]`、`populations["hirshfeld_spins"]`、`populations["cm5_charges"]` | Raw/不支持 | 不支持 | 提取 Hirshfeld charge/spin 和 CM5 charge series。 |
+| NPA / ESP 原子电荷 | 部分 | `populations["npa_charges"]`、`populations["esp_charges"]` | Raw/不支持 | 不支持 | 保留 frame 中最后一份完整 NPA summary 和 ESP 原子电荷表；不解析详细 NBO 轨道与键级。 |
 | electronic spatial extent | 部分 | `polarizability.electronic_spatial_extent` | Raw/不支持 | 不支持 | 只覆盖 population 区段中的标准 scalar 行。 |
 | dipole 和高阶多极矩 | 部分 | `polarizability` 的 dipole、quadrupole、traceless quadrupole、octapole、hexadecapole | Raw/不支持 | 不支持 | 覆盖已测试 field-independent/response 打印；不保证全部单位和频率依赖变体。 |
 | polarizability | 部分 | isotropic、anisotropic、tensor 字段 | Raw/不支持 | 不支持 | 合并 population、response 和 archive 来源；后出现的明确 response 数据可覆盖早期近似值。 |
@@ -81,7 +83,9 @@ Gaussian 输出语法。
 | CPU / elapsed time | 样例覆盖 | 累计 `running_time` | 部分 | 不支持 | file 汇总 segment 时间；不暴露逐 Link timing records，多帧 fakeG 会移除 frame runtime 行。 |
 | archive tail metadata/coords | 部分 | 缺失字段 fallback | 间接 | 不支持 | archive 可补充 metadata、坐标、能量、热化学、polarizability 和 Hessian；live 数据优先。 |
 | TD excited-state 结果 | 不支持 | 无稳定公共结果合同 | 不支持 | 不支持 | route 可识别 TD 请求，但 excitation energies、oscillator strengths 等结果尚未结构化。 |
-| NMR/EPR、NBO bond order 等专用结果 | 不支持 | 无稳定公共结果合同 | 不支持 | 不支持 | 不应因通用容器存在对应字段而推断 Gaussian parser 已覆盖这些输出。 |
+| NMR magnetic shielding | 部分 | `nmr.gauge`、逐原子 `shielding_tensors`、isotropic、anisotropy、principal values | 不支持 | 不支持 | 覆盖标准 SCF GIAO `(ppm)` 打印；张量按 source atom index 对齐，Cartesian orientation 当前标记为 `unknown`。逐原子 shielding 可通过 `qm_embedded_rdmol(embed_nmr=True)` 写入 RDKit atom properties。 |
+| NMR spin-spin coupling | 部分 | `spin_spin_coupling_k`、`spin_spin_coupling_j`、`spin_spin_coupling_k_components`、`spin_spin_coupling_j_components`、`coupling_atom_indices` | 不支持 | 不支持 | 将分块下三角 total 和 FC/SD/PSO/DSO K/J 表展开为 Hz 单位对称方阵；coupling 矩阵仍保留为 frame-level 原子对数据。 |
+| EPR、参考化学位移、NBO bond order 等专用结果 | 不支持 | 无稳定公共结果合同 | 不支持 | 不支持 | route 请求不代表结果字段已覆盖；需要独立样例和公共语义合同。 |
 | 坐标/graph 格式转换 | 支持 | frame structure / recovered graph | 不适用 | 不适用 | 坐标转换依赖成功提取结构；graph 转换还依赖键级和电荷状态恢复质量。 |
 | 原始 log 无损重写 | 不支持 | component raw snippets 仅供检查/fallback | 不支持 | 不支持 | parser 是字段提取器，不是完整 Gaussian 输出 CST；不提供 byte-for-byte writer。 |
 

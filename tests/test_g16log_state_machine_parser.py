@@ -5,6 +5,10 @@ import pytest
 
 from molop.io.base_models.ParseContainers import ModelParseResult
 from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import G16LogFileFrameMemory
+from molop.io.logic.gaussian.log.frame_parsers._g16_extractors import (
+    ParseState,
+    extract_populations_from_state,
+)
 from molop.io.logic.gaussian.log.frame_parsers.G16LogFileFrameParser import (
     G16LogFileFrameParserMemory,
 )
@@ -22,6 +26,9 @@ FIXTURES = [
 
 ARCHIVE_ONLY_FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "1.log"
 CCSD_FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "CH3-ccsd-sp.log"
+OPEN_SHELL_NPA_FIXTURE = (
+    Path(__file__).resolve().parent / "test_files" / "g16log" / "dsgdb9nsd_130472-1.log"
+)
 
 
 def _last_frame_block(fixture: Path) -> str:
@@ -102,6 +109,39 @@ def test_g16log_state_machine_frame_parser_matches_file_parser_frames():
         assert bool(direct_frame.geometry_optimization_status) == bool(
             file_frame.geometry_optimization_status
         )
+
+
+def test_g16log_open_shell_mulliken_and_npa_populations_are_both_retained() -> None:
+    parsed = G16LogFileParserMemory().parse(OPEN_SHELL_NPA_FIXTURE.read_text())
+    populations = parsed[-1].charge_spin_populations
+
+    assert populations is not None
+    assert len(populations["mulliken_charges"].values) == 11
+    assert len(populations["mulliken_spins"].values) == 11
+    assert len(populations["npa_charges"].values) == 11
+    assert sum(populations["mulliken_charges"].values) == pytest.approx(0.0, abs=1.0e-5)
+    assert sum(populations["mulliken_spins"].values) == pytest.approx(1.0, abs=1.0e-5)
+
+
+def test_g16log_esp_population_uses_extensible_series() -> None:
+    source = """
+ Population analysis using the SCF Density.
+ Mulliken charges:
+     1  C   -0.100000
+     2  H    0.100000
+ Sum of Mulliken charges =   0.00000
+ N-N= 1.0 E-N=-2.0 KE= 1.0
+ ESP charges:
+     1  C   -0.250000
+     2  H    0.250000
+ Sum of ESP charges =   0.00000
+"""
+
+    payload = extract_populations_from_state(ParseState(source))
+    populations = payload["charge_spin_populations"]
+
+    assert populations["populations"]["mulliken_charges"]["values"] == [-0.1, 0.1]
+    assert populations["populations"]["esp_charges"]["values"] == [-0.25, 0.25]
 
 
 def test_g16log_state_machine_result_is_canonical_model_data():

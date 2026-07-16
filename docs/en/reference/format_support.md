@@ -20,6 +20,7 @@ boundaries. The coverage statements are tested against the registered codecs.
 | `smi` | `.smi`, `.txt` | Yes | Yes | [SMILES](formats/smi.md) |
 | `gjf` | `.gjf`, `.gif`, `.com`, `.gau`, `.gjc` | Yes | Yes | [Gaussian input](formats/gjf.md) |
 | `g16log` | `.log`, `.out`, `.g16`, `.gal`, `.irc`, `.gau` | Yes | No | [Gaussian output](formats/g16log.md) |
+| `g16fchk` | `.fchk`, `.fch`, `.fck` | Yes | No | [Gaussian formatted checkpoint](formats/g16fchk.md) |
 | `orcainp` | `.inp` | Yes | Yes | [ORCA input](formats/orcainp.md) |
 | `orcaout` | `.out`, `.log`, `.orcaout` | Yes | No | [ORCA output](formats/orcaout.md) |
 | `xtbout` | `.out`, `.log`, `.xtbout` | Yes | No | [xTB output](formats/xtbout.md) |

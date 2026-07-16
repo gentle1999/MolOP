@@ -34,6 +34,7 @@ class FormatSupport:
 BUILTIN_READER_FORMATS = frozenset(
     {
         "g16log",
+        "g16fchk",
         "gjf",
         "orcainp",
         "orcaout",
@@ -49,7 +50,7 @@ SPECIAL_CODEC_IDS = frozenset({"openbabel-fallback"})
 FORMAT_GROUPS: dict[FormatGroup, tuple[str, ...]] = {
     "structure": ("xyz", "sdf", "smi", "cml"),
     "qm-input": ("gjf", "orcainp"),
-    "qm-output": ("g16log", "orcaout", "xtbout", "fakeg"),
+    "qm-output": ("g16log", "g16fchk", "orcaout", "xtbout", "fakeg"),
     "special": ("openbabel-fallback",),
 }
 
@@ -258,6 +259,92 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             ),
         ),
     ),
+    "g16fchk": FormatSupport(
+        format_id="g16fchk",
+        group="qm-output",
+        title="Gaussian formatted checkpoint",
+        extensions=(".fchk", ".fch", ".fck"),
+        read=True,
+        write=False,
+        registry_role="reader",
+        data_level="single-frame Gaussian QM results and coordinates",
+        summary="Gaussian formatted checkpoint parsing through typed fixed-width records.",
+        features=(
+            FeatureSupport(
+                area="File recognition and fixture inventory",
+                support="fixture-covered",
+                scope="Reads Gaussian formatted-checkpoint scalar and array records; all maintained fchk fixtures, including large files, produce one result frame.",
+                limitations="Binary checkpoint files are not accepted; unknown formatted-checkpoint records are skipped unless mapped to a shared field.",
+                tests=(
+                    "tests/test_g16fchk_parser.py::test_g16fchk_all_maintained_fixtures_parse",
+                    "tests/test_g16fchk_parser.py::test_g16fchk_probe_does_not_claim_gaussian_log",
+                    "tests/test_g16fchk_parser.py::test_g16fchk_record_decoder_handles_fixed_width_character_arrays",
+                ),
+            ),
+            FeatureSupport(
+                area="Metadata and route semantics",
+                support="partial",
+                scope="Exposes title, Gaussian version, route, charge, multiplicity, model chemistry, tasks, dispersion, solvation, and open-shell treatment from the route and fchk summary header.",
+                limitations="Route semantics follow the shared Gaussian grammar; unknown route tokens remain unstructured, and fchk does not contain runtime or complete Link 0 input text.",
+                tests=(
+                    "tests/test_g16fchk_parser.py::test_g16fchk_frequency_fixture_exposes_structured_results",
+                    "tests/test_g16fchk_parser.py::test_g16fchk_correlated_energy_fields_are_preserved",
+                    "tests/test_g16fchk_parser.py::test_g16fchk_record_decoder_handles_fixed_width_character_arrays",
+                ),
+            ),
+            FeatureSupport(
+                area="Geometry and Cartesian derivatives",
+                support="partial",
+                scope="Parses atomic numbers, Bohr coordinates, Cartesian gradients as forces, and packed Cartesian force constants as a symmetric Hessian with source-order conventions.",
+                limitations="A formatted checkpoint represents one current geometry rather than an optimization trajectory; coordinate orientation is reported as source orientation without reconstructing the original input transform.",
+                tests=(
+                    "tests/test_g16fchk_parser.py::test_g16fchk_frequency_fixture_exposes_structured_results",
+                    "tests/test_g16fchk_parser.py::test_g16fchk_only_extract_structure_skips_property_arrays",
+                    "tests/test_g16fchk_parser.py::test_g16fchk_autoparser_preserves_single_source_span",
+                ),
+            ),
+            FeatureSupport(
+                area="Energies, orbitals, and spin",
+                support="partial",
+                scope="Parses SCF/reference, MP2, MP3, MP4, CCSD, CCSD(T), and final total energies; alpha/beta orbital energies and occupancies; and S-squared spin information.",
+                limitations="MO coefficient matrices, density matrices, natural orbitals, and method-specific energy labels outside the mapped set are not exposed.",
+                tests=(
+                    "tests/test_g16fchk_parser.py::test_g16fchk_frequency_fixture_exposes_structured_results",
+                    "tests/test_g16fchk_parser.py::test_g16fchk_correlated_energy_fields_are_preserved",
+                ),
+            ),
+            FeatureSupport(
+                area="Populations and electric response",
+                support="partial",
+                scope="Parses atom-count-aligned Mulliken, NPA, ESP, APT, Hirshfeld/CM5, and available spin population records plus dipole, packed polarizability, and quadrupole values with atomic-unit conversion.",
+                limitations="Only records actually present in the fchk are exposed; bond orders, hyperfine tensors, and higher electric-response arrays are not currently mapped.",
+                tests=(
+                    "tests/test_g16fchk_parser.py::test_g16fchk_frequency_fixture_exposes_structured_results",
+                    "tests/test_g16fchk_parser.py::test_g16fchk_npa_population_is_structured_when_present",
+                    "tests/test_g16fchk_parser.py::test_g16fchk_population_records_support_spin_and_extensible_schemes",
+                ),
+            ),
+            FeatureSupport(
+                area="Vibrations, thermochemistry, and status",
+                support="partial",
+                scope="Parses frequencies, reduced masses, force constants, IR intensities, normal-mode vectors, thermal energy/enthalpy/free energy, Job Status, and optimization completion.",
+                limitations="Raman/ROA/VCD data, detailed thermochemical corrections, temperature/pressure, and optimization convergence history are not mapped from the current fixtures.",
+                tests=(
+                    "tests/test_g16fchk_parser.py::test_g16fchk_frequency_fixture_exposes_structured_results",
+                ),
+            ),
+            FeatureSupport(
+                area="NMR shielding and spin-spin coupling",
+                support="partial",
+                scope="Exposes per-atom magnetic shielding tensors and isotropic, anisotropic, and principal values; formatted-checkpoint FC, SD, PSO, and DSO reduced-coupling contributions; and their total K matrix in Hz.",
+                limitations="Coverage requires the NMR shielding and isotropic spin-spin records; formatted checkpoints do not provide the isotope information needed to reconstruct J, and referenced chemical shifts and EPR data are not mapped.",
+                tests=(
+                    "tests/test_g16fchk_parser.py::test_g16fchk_nmr_shielding_matches_corresponding_log",
+                    "tests/test_g16fchk_parser.py::test_g16fchk_nmr_spin_spin_components_reconstruct_total_k",
+                ),
+            ),
+        ),
+    ),
     "g16log": FormatSupport(
         format_id="g16log",
         group="qm-output",
@@ -336,12 +423,14 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="Molecular orbitals and population analysis",
                 support="partial",
-                scope="Population analysis exposes molecular orbital energies and occupancies, charge and spin populations, electronic spatial extent, multipole data, and early polarizability values where present.",
-                limitations="Orbital coefficient matrices and every population analysis flavor are not claimed by this coverage item.",
+                scope="Population analysis exposes molecular orbital energies and occupancies; Mulliken charge/spin, APT, Lowdin, Hirshfeld/CM5, NPA, and ESP charge series; electronic spatial extent; multipole data; and early polarizability values where present.",
+                limitations="Orbital coefficient matrices, NBO orbital/bond-order details, and population schemes without a recognized atomic table are not claimed.",
                 tests=(
                     "tests/test_g16log_mo_regression.py::test_default_g16log_parser_preserves_open_shell_mo_counts",
                     "tests/test_g16log_mo_regression.py::test_default_g16log_parser_handles_concatenated_orbital_energies",
                     "tests/test_g16log_component_tree_payloads.py::test_g16log_component_tree_major_components_expose_model_payloads",
+                    "tests/test_g16log_state_machine_parser.py::test_g16log_open_shell_mulliken_and_npa_populations_are_both_retained",
+                    "tests/test_g16log_state_machine_parser.py::test_g16log_esp_population_uses_extensible_series",
                 ),
             ),
             FeatureSupport(
@@ -375,6 +464,16 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
                     "tests/test_g16log_state_machine_parser.py::test_g16log_state_machine_frame_parser_matches_file_parser_frames",
                     "tests/test_g16log_numeric_regression.py::test_extract_labeled_float_tokens_handles_concatenated_polarizability_values",
                     "tests/test_g16log_component_tree_payloads.py::test_g16log_l716_children_decompose_model_payloads",
+                ),
+            ),
+            FeatureSupport(
+                area="NMR shielding and spin-spin coupling",
+                support="partial",
+                scope="Gaussian GIAO output exposes per-atom shielding tensors, observed isotropic and anisotropic values, principal values, total K/J spin-spin coupling matrices, and FC, SD, PSO, and DSO contribution matrices in Hz.",
+                limitations="Coverage is fixture-backed for the standard SCF GIAO print family; referenced chemical shifts, EPR, and other gauges are not structured.",
+                tests=(
+                    "tests/test_g16log_nmr.py::test_g16log_nmr_shielding_tensors_are_attached_to_property_frame",
+                    "tests/test_g16log_nmr.py::test_g16log_nmr_total_spin_spin_coupling_matrices_are_structured",
                 ),
             ),
             FeatureSupport(
@@ -673,10 +772,12 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="Charge and spin populations",
                 support="partial",
-                scope="Charge/spin population containers are exposed for covered ORCA outputs that include population sections.",
-                limitations="Specific population schemes outside the tested fixtures may remain unstructured.",
+                scope="Parses closed- and open-shell Mulliken and Loewdin atomic charge/spin tables plus Hirshfeld charge/spin tables in covered ORCA outputs.",
+                limitations="Reduced orbital populations, Mayer valence/bond-order tables, and schemes outside the tested fixtures remain unstructured.",
                 tests=(
                     "tests/test_orca_output_fixtures.py::test_orca_output_structured_parse_contract",
+                    "tests/test_orca_output_fixtures.py::test_orca_closed_shell_population_schemes_are_all_structured",
+                    "tests/test_orca_output_fixtures.py::test_orca_open_shell_mulliken_and_lowdin_charge_spin_tables_are_structured",
                 ),
             ),
             FeatureSupport(
@@ -723,17 +824,18 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
         write=False,
         registry_role="reader",
         data_level="QM results; coordinates when printed in the output",
-        summary="xTB 5/6 command-line output parsing across legacy and modern print families.",
+        summary="xTB 5 and >=6 command-line output parsing across legacy and modern print families.",
         features=(
             FeatureSupport(
                 area="Version scope, setup, tasks, and status",
                 support="partial",
-                scope="Recognizes xTB major versions 5 and 6, parses version, program call, coordinate-file name, method, charge, multiplicity, OMP threads, task requests, termination, SCC status, and total wall time.",
-                limitations="Versions before 5 and after 6 are intentionally rejected. The xTB 5 regression is a compact legacy-format contract rather than a complete vendor output capture.",
+                scope="Recognizes xTB major version 5 and treats versions >=6 as the modern print family; parses version, program call, coordinate-file name, method, charge, multiplicity, OMP threads, task requests, termination, SCC status, and total wall time.",
+                limitations="Versions before 5 are rejected. Future versions are accepted through the modern >=6 contract but remain unverified until real outputs are available; the xTB 5 regression is also a compact compatibility contract.",
                 tests=(
                     "tests/test_xtbout_parser.py::test_xtbout_all_maintained_fixtures_parse_with_supported_major_versions",
                     "tests/test_xtbout_parser.py::test_xtbout_legacy_v5_contract_parses_metadata_geometry_and_results",
-                    "tests/test_xtbout_parser.py::test_xtbout_explicitly_rejects_versions_outside_five_and_six",
+                    "tests/test_xtbout_parser.py::test_xtbout_major_seven_uses_the_modern_six_contract",
+                    "tests/test_xtbout_parser.py::test_xtbout_explicitly_rejects_versions_before_five",
                 ),
             ),
             FeatureSupport(

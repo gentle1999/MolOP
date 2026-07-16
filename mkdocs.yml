@@ -117,6 +117,7 @@ nav:
       - SMILES: reference/formats/smi.md
       - Gaussian 输入: reference/formats/gjf.md
       - Gaussian 输出: reference/formats/g16log.md
+      - Gaussian 格式化检查点: reference/formats/g16fchk.md
       - ORCA 输入: reference/formats/orcainp.md
       - ORCA 输出: reference/formats/orcaout.md
       - xTB 输出: reference/formats/xtbout.md

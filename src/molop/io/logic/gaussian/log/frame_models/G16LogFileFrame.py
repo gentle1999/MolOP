@@ -8,9 +8,7 @@ Description: 请填写简介
 
 from typing import ClassVar, cast
 
-import numpy as np
 from pint._typing import UnitLike
-from pint.facets.numpy.quantity import NumpyQuantity
 from pydantic import Field, PrivateAttr, model_validator
 from typing_extensions import Self
 
@@ -26,18 +24,19 @@ from molop.io.logic.gaussian.log.frame_models.G16Components import (
 )
 from molop.unit import atom_ureg
 from molop.utils.functions import find_rigid_transform, invert_transform_coords, transform_coords
+from molop.utils.types import Array4x4, PintArrayNx3
 
 
 class G16LogFileFrameMixin(GaussianRouteSemanticFieldsMixin):
     default_units: ClassVar[dict[str, UnitLike]] = {
         "standard_orientation_coords": atom_ureg.angstrom
     }
-    standard_orientation_transformation_matrix: np.ndarray | None = Field(
+    standard_orientation_transformation_matrix: Array4x4 | None = Field(
         default=None,
         description="Transformation matrix to standard orientation, unit is `angstrom`",
         title="Transformation matrix to standard orientation",
     )
-    standard_coords: NumpyQuantity | None = Field(
+    standard_coords: PintArrayNx3 | None = Field(
         default=None,
         description="Atom coordinates with standard orientation, unit is `angstrom`",
         title="Atom coordinates with standard orientation",

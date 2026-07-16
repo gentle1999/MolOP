@@ -149,7 +149,10 @@ class ORCALogPatterns:
         content_repeat=0,
     )
     MULLIKEN_CHARGE_ROW = MolOPPattern(
-        content_pattern=rf"^\s*\d+\s+[A-Z][a-z]?\s*:\s*(?P<value>{ORCA_FLOAT_PATTERN})\s*$",
+        content_pattern=(
+            rf"^\s*\d+\s+[A-Z][a-z]?\s*:\s*(?P<value>{ORCA_FLOAT_PATTERN})"
+            rf"(?:\s+(?P<spin>{ORCA_FLOAT_PATTERN}))?\s*$"
+        ),
         content_repeat=0,
     )
     HIRSHFELD_ROW = MolOPPattern(

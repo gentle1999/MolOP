@@ -75,9 +75,9 @@ def ensure_xtb_output_content(file_content: str) -> None:
     major_version = extract_xtb_major_version(prefix)
     if major_version is None:
         raise FormatMismatchError("Not an xTB output file: missing version declaration.")
-    if major_version not in {5, 6}:
+    if major_version < 5:
         raise UnsupportedFormatError(
-            f"xTB output major version {major_version} is outside the supported 5/6 range."
+            f"xTB output major version {major_version} is below the supported minimum 5."
         )
 
 
@@ -558,7 +558,7 @@ def extract_xtb_rotation_constants(file_content: str):
 
 
 def extract_xtb_populations(file_content: str) -> ChargeSpinPopulations | None:
-    payload: dict[str, list[float]] = {}
+    populations: dict[str, Any] = {}
     gfn1_headers = xtb_output_patterns.GFN1_CHARGE_HEADER.find_matches(file_content)
     if gfn1_headers:
         mulliken: list[float] = []
@@ -573,8 +573,20 @@ def extract_xtb_populations(file_content: str) -> ChargeSpinPopulations | None:
             mulliken.append(_to_float(matched.group("mulliken")))
             cm5.append(_to_float(matched.group("cm5")))
         if mulliken:
-            payload["mulliken_charges"] = mulliken
-            payload["hirshfeld_q_cm5"] = cm5
+            populations = {
+                "mulliken_charges": {
+                    "scheme": "mulliken",
+                    "quantity": "charge",
+                    "values": mulliken,
+                    "source_label": "Mulliken/CM5 charges",
+                },
+                "cm5_charges": {
+                    "scheme": "cm5",
+                    "quantity": "charge",
+                    "values": cm5,
+                    "source_label": "Mulliken/CM5 charges",
+                },
+            }
 
     gfn2_headers = xtb_output_patterns.GFN2_CHARGE_HEADER.find_matches(file_content)
     if gfn2_headers:
@@ -588,8 +600,17 @@ def extract_xtb_populations(file_content: str) -> ChargeSpinPopulations | None:
             matched = row_matches[0]
             mulliken.append(_to_float(matched.group("charge")))
         if mulliken:
-            payload["mulliken_charges"] = mulliken
-    return ChargeSpinPopulations.model_validate(payload) if payload else None
+            populations = {
+                "mulliken_charges": {
+                    "scheme": "mulliken",
+                    "quantity": "charge",
+                    "values": mulliken,
+                    "source_label": "GFN2 atom-resolved q column",
+                }
+            }
+    return (
+        ChargeSpinPopulations.model_validate({"populations": populations}) if populations else None
+    )
 
 
 def _occupancy_channels(occupancy: float) -> tuple[float, float]:

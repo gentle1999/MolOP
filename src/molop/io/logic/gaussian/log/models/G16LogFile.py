@@ -12,7 +12,6 @@ import math
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Protocol, cast
 
-import numpy as np
 from pint.facets.plain import PlainQuantity
 from pydantic import Field
 
@@ -25,6 +24,7 @@ from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
     G16LogFileFrameMemory,
 )
+from molop.utils.types import Array4x4
 
 
 if TYPE_CHECKING:
@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 
 class G16LogFileMixin(GaussianRouteSemanticFieldsMixin):
-    standard_orientation_transformation_matrix: np.ndarray | None = Field(
+    standard_orientation_transformation_matrix: Array4x4 | None = Field(
         default=None,
         description="Transformation matrix to standard orientation, unit is `angstrom`",
         title="Transformation matrix to standard orientation",

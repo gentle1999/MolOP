@@ -66,6 +66,22 @@ def _focus_from_state(pattern: MolOPPattern, state: ParseState) -> tuple[str, in
     return pattern.split_content_from(state.content, state.cursor)
 
 
+def _last_pattern_matches(pattern: MolOPPattern, content: str) -> list[Any]:
+    """Return matches from the last complete occurrence of a delimited table."""
+
+    cursor = 0
+    latest: list[Any] = []
+    while located := pattern.locate_content_from(content, cursor):
+        start_start, _start_end, _end_start, end_end = located
+        matches = pattern.find_matches(content[start_start:end_end])
+        if matches:
+            latest = matches
+        if end_end <= cursor:
+            break
+        cursor = end_end
+    return latest
+
+
 def extract_input_coords_from_state(
     state: ParseState,
 ) -> tuple[list[int] | None, NumpyQuantity | None]:
@@ -153,6 +169,104 @@ def extract_polarizability_from_state(state: ParseState) -> dict[str, Any] | Non
     return None
 
 
+def extract_nmr_from_state(state: ParseState) -> dict[str, Any] | None:
+    focus_content, next_cursor = _focus_from_state(g16_log_patterns.NMR_SHIELDING, state)
+    if focus_content == "":
+        return None
+    state.advance_to(next_cursor)
+
+    header_matches = g16_log_patterns.NMR_SHIELDING_HEADER.find_matches(focus_content)
+    gauge = header_matches[0].group("gauge") if header_matches else None
+    shielding_tensors: list[dict[str, Any]] = []
+    component_names = (("xx", "xy", "xz"), ("yx", "yy", "yz"), ("zx", "zy", "zz"))
+    for matched in g16_log_patterns.NMR_SHIELDING.find_matches(focus_content):
+        tensor = np.asarray(
+            [[float(matched.group(component)) for component in row] for row in component_names]
+        )
+        shielding_tensors.append(
+            {
+                "atom_index": int(matched.group("atom_index")) - 1,
+                "atom_symbol": matched.group("atom_symbol"),
+                "shielding_tensor": tensor * atom_ureg.ppm,
+                "isotropic": float(matched.group("isotropic")) * atom_ureg.ppm,
+                "anisotropy": float(matched.group("anisotropy")) * atom_ureg.ppm,
+                "principal_values": np.asarray(
+                    [
+                        float(matched.group("eigenvalue_1")),
+                        float(matched.group("eigenvalue_2")),
+                        float(matched.group("eigenvalue_3")),
+                    ]
+                )
+                * atom_ureg.ppm,
+                "anisotropy_convention": "Gaussian",
+                "orientation": "unknown",
+            }
+        )
+    if not shielding_tensors:
+        return None
+
+    payload: dict[str, Any] = {"gauge": gauge, "shielding_tensors": shielding_tensors}
+    coupling_size = max(item["atom_index"] for item in shielding_tensors) + 1
+    component_patterns = {
+        "spin_spin_coupling_k_components": (
+            ("FC", g16_log_patterns.NMR_COUPLING_FC_K),
+            ("SD", g16_log_patterns.NMR_COUPLING_SD_K),
+            ("PSO", g16_log_patterns.NMR_COUPLING_PSO_K),
+            ("DSO", g16_log_patterns.NMR_COUPLING_DSO_K),
+        ),
+        "spin_spin_coupling_j_components": (
+            ("FC", g16_log_patterns.NMR_COUPLING_FC_J),
+            ("SD", g16_log_patterns.NMR_COUPLING_SD_J),
+            ("PSO", g16_log_patterns.NMR_COUPLING_PSO_J),
+            ("DSO", g16_log_patterns.NMR_COUPLING_DSO_J),
+        ),
+    }
+    for field_name, patterns in component_patterns.items():
+        components: dict[str, Any] = {}
+        for component_name, pattern in patterns:
+            coupling_content, _ = pattern.split_content(focus_content)
+            matrix = _extract_nmr_coupling_matrix(coupling_content, coupling_size)
+            if matrix is not None:
+                components[component_name] = matrix * atom_ureg.Hz
+        if components:
+            payload[field_name] = components
+    for pattern, field_name in (
+        (g16_log_patterns.NMR_TOTAL_COUPLING_K, "spin_spin_coupling_k"),
+        (g16_log_patterns.NMR_TOTAL_COUPLING_J, "spin_spin_coupling_j"),
+    ):
+        coupling_content, _ = pattern.split_content(focus_content)
+        matrix = _extract_nmr_coupling_matrix(coupling_content, coupling_size)
+        if matrix is not None:
+            payload[field_name] = matrix * atom_ureg.Hz
+    if any(key.startswith("spin_spin_coupling_") for key in payload):
+        payload["coupling_atom_indices"] = list(range(coupling_size))
+    return payload
+
+
+def _extract_nmr_coupling_matrix(content: str, size: int) -> np.ndarray | None:
+    if not content or size <= 0:
+        return None
+    matrix = np.full((size, size), np.nan, dtype=float)
+    columns: list[int] = []
+    for line in content.splitlines():
+        if column_match := g16_log_patterns.NMR_COUPLING_COLUMN_HEADER.match(line):
+            columns = [int(token) - 1 for token in column_match.group("columns").split()]
+            continue
+        row_match = g16_log_patterns.NMR_COUPLING_ROW.match(line)
+        if row_match is None or not columns:
+            continue
+        row_index = int(row_match.group("row")) - 1
+        values = [
+            float(token.replace("D", "E").replace("d", "e"))
+            for token in row_match.group("values").split()
+        ]
+        for column_index, value in zip(columns, values, strict=False):
+            if 0 <= row_index < size and 0 <= column_index < size:
+                matrix[row_index, column_index] = value
+                matrix[column_index, row_index] = value
+    return matrix if np.isfinite(matrix).all() else None
+
+
 def extract_populations_from_state(state: ParseState) -> dict[str, Any]:
     infos: dict[str, Any] = {}
     mo: dict[str, Any] = {}
@@ -174,16 +288,49 @@ def extract_populations_from_state(state: ParseState) -> dict[str, Any]:
             if matches := pattern.find_matches(sub_focus_content):
                 mo[key] = [sym for matched in matches for sym in matched.group("symbols").split()]
         mo.update(_extract_molecular_orbital_payload_from_text(focus_content))
-        patterns_and_keys_2: list[tuple[MolOPPattern, str, str]] = [
-            (g16_log_patterns.MULLIKEN_SPIN_DENSITY, "mulliken_spins", "spin"),
-            (g16_log_patterns.MULLIKEN_POPULATION, "mulliken_charges", "charge"),
-            (g16_log_patterns.APT_POPULATION, "apt_charges", "charge"),
-            (g16_log_patterns.LOWDIN_POPULATION, "lowdin_charges", "charge"),
+        patterns_and_keys_2: list[tuple[MolOPPattern, str, str, str, str, str | None]] = [
+            (
+                g16_log_patterns.MULLIKEN_SPIN_DENSITY,
+                "mulliken_spins",
+                "spin",
+                "mulliken",
+                "spin_density",
+                "total",
+            ),
+            (
+                g16_log_patterns.MULLIKEN_POPULATION,
+                "mulliken_charges",
+                "charge",
+                "mulliken",
+                "charge",
+                None,
+            ),
+            (
+                g16_log_patterns.APT_POPULATION,
+                "apt_charges",
+                "charge",
+                "apt",
+                "charge",
+                None,
+            ),
+            (
+                g16_log_patterns.LOWDIN_POPULATION,
+                "lowdin_charges",
+                "charge",
+                "lowdin",
+                "charge",
+                None,
+            ),
         ]
-        for pattern, key, group_name in patterns_and_keys_2:
-            sub_focus_content, focus_content = pattern.split_content(focus_content)
-            if matches := pattern.find_matches(sub_focus_content):
-                pops[key] = [float(matched.group(group_name)) for matched in matches]
+        for pattern, key, group_name, scheme, quantity, spin_channel in patterns_and_keys_2:
+            if matches := _last_pattern_matches(pattern, state.content):
+                pops[key] = {
+                    "scheme": scheme,
+                    "quantity": quantity,
+                    "values": [float(matched.group(group_name)) for matched in matches],
+                    "spin_channel": spin_channel,
+                    "source_label": pattern.description,
+                }
         sub_focus_content, focus_content = g16_log_patterns.ELECTRONIC_SPATIAL_EXTENT.split_content(
             focus_content
         )
@@ -224,13 +371,41 @@ def extract_populations_from_state(state: ParseState) -> dict[str, Any]:
             remainder_content, "Approx polarizability:", expected_count=6, decimal_places=3
         ):
             polars["polarizability_tensor"] = np.array(approx_polarizability) * atom_ureg.bohr**3
-        sub_focus_content, _ignored = g16_log_patterns.HIRSHFELD_POPULATION.split_content(
-            remainder_content
-        )
-        if matches := g16_log_patterns.HIRSHFELD_POPULATION.find_matches(sub_focus_content):
-            pops["hirshfeld_charges"] = [float(matched.group("charge")) for matched in matches]
-            pops["hirshfeld_spins"] = [float(matched.group("spin")) for matched in matches]
-            pops["hirshfeld_q_cm5"] = [float(matched.group("q_cm5")) for matched in matches]
+        if matches := _last_pattern_matches(g16_log_patterns.HIRSHFELD_POPULATION, state.content):
+            hirshfeld_source = "Hirshfeld charges, spin densities, dipoles, and CM5 charges"
+            pops["hirshfeld_charges"] = {
+                "scheme": "hirshfeld",
+                "quantity": "charge",
+                "values": [float(matched.group("charge")) for matched in matches],
+                "source_label": hirshfeld_source,
+            }
+            pops["hirshfeld_spins"] = {
+                "scheme": "hirshfeld",
+                "quantity": "spin_density",
+                "values": [float(matched.group("spin")) for matched in matches],
+                "spin_channel": "total",
+                "source_label": hirshfeld_source,
+            }
+            pops["cm5_charges"] = {
+                "scheme": "cm5",
+                "quantity": "charge",
+                "values": [float(matched.group("q_cm5")) for matched in matches],
+                "source_label": hirshfeld_source,
+            }
+        if matches := _last_pattern_matches(g16_log_patterns.NPA_POPULATION, state.content):
+            pops["npa_charges"] = {
+                "scheme": "npa",
+                "quantity": "charge",
+                "values": [float(matched.group("charge")) for matched in matches],
+                "source_label": "Summary of Natural Population Analysis",
+            }
+        if matches := _last_pattern_matches(g16_log_patterns.ESP_POPULATION, state.content):
+            pops["esp_charges"] = {
+                "scheme": "esp",
+                "quantity": "charge",
+                "values": [float(matched.group("charge")) for matched in matches],
+                "source_label": "ESP charges",
+            }
         if dipole_before_force := _extract_labeled_float_tokens(
             remainder_content, "Dipole        =", expected_count=3, decimal_places=8
         ):
@@ -250,7 +425,7 @@ def extract_populations_from_state(state: ParseState) -> dict[str, Any]:
             mo = _trim_molecular_orbital_symmetries(mo)
             infos["molecular_orbitals"] = mo
         if pops:
-            infos["charge_spin_populations"] = pops
+            infos["charge_spin_populations"] = {"populations": pops}
         if polars:
             infos["polarizability"] = polars
     except (ValueError, IndexError) as exc:

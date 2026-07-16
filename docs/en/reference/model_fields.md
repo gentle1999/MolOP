@@ -39,12 +39,22 @@ Use frame-level fields for structures and per-step QM results.
 | Thermochemistry | `frame.thermal_informations` | `ThermalInformations` object with ZPVE, thermal corrections, thermodynamic energies, entropy, heat capacity, mass, and rotational/vibrational metadata. |
 | Vibrations | `frame.vibrations` | Frequencies, reduced masses, force constants, IR intensities, mode vectors, and imaginary-mode counts. |
 | Molecular orbitals | `frame.molecular_orbitals` | Orbital energies, occupancies, symmetries, and derived frontier-orbital quantities. |
-| Populations | `frame.charge_spin_populations` | Mulliken, Lowdin, Hirshfeld, CM5, NPA, and spin population fields when printed and recognized. |
+| Populations | `frame.charge_spin_populations` | Atom-aligned `AtomicPopulationSeries` values stored exclusively in the `populations` mapping. |
 | Response properties | `frame.polarizability` | Dipole, polarizability tensor/scalars, electronic spatial extent, and multipoles where present. |
 | Forces and Hessian | `frame.forces`, `frame.hessian` | Cartesian arrays with normalized units. |
 | Optimization | `frame.geometry_optimization_status` | Berny convergence values, raw thresholds, and the derived optimization result. |
 | Status | `frame.status`, `frame.is_error`, `frame.is_normal`, `frame.is_TS`, `frame.is_optimized` | Public status helpers for common workflow filters. `is_optimized` accepts optimized minima and transition states, but rejects frames with more than one imaginary frequency. |
 | Running time | `frame.running_time` | Per-frame timing when present. |
+
+### Extensible Atomic Populations
+
+`ChargeSpinPopulations.populations` is the only source of population data. Each
+entry is an `AtomicPopulationSeries` with explicit `scheme`, `quantity`,
+`spin_channel`, `source_label`, values, and metadata. Access a required series
+with `populations["mulliken_charges"]`, use `get_population(name)` for optional
+lookup, or call `population_items()` to iterate over all entries. Adding a new
+scheme never requires adding another container field. All series must have the
+same atom-aligned length.
 
 ### Energy Selection
 

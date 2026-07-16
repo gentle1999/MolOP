@@ -61,6 +61,46 @@ def test_xtbout_legacy_v5_contract_parses_metadata_geometry_and_results() -> Non
     assert frame.running_time.m_as("second") == pytest.approx(0.125)
 
 
+def test_xtbout_major_seven_uses_the_modern_six_contract() -> None:
+    source = (FIXTURE_DIR / "dsgdb9nsd_130336-5_opt.out").read_text(encoding="utf-8")
+    future_source = source.replace("* xtb version 6.6.1", "* xtb version 7.0.0", 1)
+
+    parsed_v6 = XTBOutputFileParserMemory().parse(source)
+    parsed_v7 = XTBOutputFileParserMemory().parse(future_source)
+    frame_v6 = parsed_v6.frames[0]
+    frame_v7 = parsed_v7.frames[0]
+
+    assert parsed_v7.qm_software_version.startswith("7.0.0")
+    assert parsed_v7.method == parsed_v6.method
+    assert parsed_v7.charge == parsed_v6.charge
+    assert parsed_v7.multiplicity == parsed_v6.multiplicity
+    assert parsed_v7.task_requests == parsed_v6.task_requests
+    assert frame_v7.atoms == frame_v6.atoms
+    assert np.array_equal(frame_v7.coords.magnitude, frame_v6.coords.magnitude)
+    assert frame_v7.energies == frame_v6.energies
+    assert frame_v7.molecular_orbitals is not None
+    assert frame_v6.molecular_orbitals is not None
+    np.testing.assert_allclose(
+        frame_v7.molecular_orbitals.alpha_energies.magnitude,
+        frame_v6.molecular_orbitals.alpha_energies.magnitude,
+        equal_nan=True,
+    )
+    np.testing.assert_allclose(
+        frame_v7.molecular_orbitals.alpha_occupancies,
+        frame_v6.molecular_orbitals.alpha_occupancies,
+        equal_nan=True,
+    )
+    assert frame_v7.charge_spin_populations is not None
+    assert frame_v6.charge_spin_populations is not None
+    np.testing.assert_allclose(
+        frame_v7.charge_spin_populations["mulliken_charges"].values,
+        frame_v6.charge_spin_populations["mulliken_charges"].values,
+    )
+    assert frame_v7.geometry_optimization_status == frame_v6.geometry_optimization_status
+    assert frame_v7.gradient_norm == frame_v6.gradient_norm
+    assert frame_v7.status == frame_v6.status
+
+
 def test_xtbout_modern_single_point_keeps_results_without_embedded_geometry() -> None:
     fixture_path = FIXTURE_DIR / "dsgdb9nsd_130336-5.out"
     parsed = XTBOutputFileParserDisk().parse(str(fixture_path))
@@ -76,7 +116,9 @@ def test_xtbout_modern_single_point_keeps_results_without_embedded_geometry() ->
     assert frame.molecular_orbitals is not None
     assert len(frame.molecular_orbitals.alpha_energies) == 44
     assert frame.charge_spin_populations is not None
-    assert len(frame.charge_spin_populations.mulliken_charges) == 13
+    assert len(frame.charge_spin_populations["mulliken_charges"].values) == 13
+    assert frame.charge_spin_populations["mulliken_charges"].source_label == "Mulliken/CM5 charges"
+    assert frame.charge_spin_populations["cm5_charges"].scheme == "cm5"
     assert frame.single_point_properties is not None
     assert frame.single_point_properties.vip.m_as("eV/particle") == pytest.approx(7.9982)
 
@@ -188,14 +230,14 @@ def test_autoparser_detects_xtbout_and_preserves_source_evidence() -> None:
     assert frame.energies.observations[0].source_label.startswith("| TOTAL ENERGY")
 
 
-@pytest.mark.parametrize("major", [4, 7])
-def test_xtbout_explicitly_rejects_versions_outside_five_and_six(major: int) -> None:
+@pytest.mark.parametrize("major", [0, 4])
+def test_xtbout_explicitly_rejects_versions_before_five(major: int) -> None:
     text = f"""
      |                           x T B                           |
      |               Version {major}.0.0 (unsupported)               |
 """
 
-    with pytest.raises(UnsupportedFormatError, match="outside the supported 5/6 range"):
+    with pytest.raises(UnsupportedFormatError, match="below the supported minimum 5"):
         XTBOutputFileParserMemory().parse(text)
 
 

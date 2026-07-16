@@ -350,6 +350,7 @@ def test_nbo_additional_section_detected_as_typed_section() -> None:
 
 def test_multifragment_assignments_match_declared_pairs() -> None:
     frame = _parse_first_frame("spec_fragments_valid.gjf")
+    assert frame.coords.shape == (2, 3)
     assert len(frame.molecule_specifications.molecule_fragments) == 2
     assert [frag.fragment_id for frag in frame.molecule_specifications.molecule_fragments] == [0, 1]
     assert [
