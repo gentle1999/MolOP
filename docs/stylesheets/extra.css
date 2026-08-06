@@ -1,0 +1,32 @@
+.molop-notebook-output {
+  width: 100%;
+  margin: 0.8rem 0;
+  overflow-x: auto;
+}
+
+.molop-notebook-output > div {
+  min-width: max-content;
+}
+
+.molop-notebook-output table.dataframe {
+  border-collapse: collapse;
+  color: var(--md-default-fg-color);
+  font-size: 0.68rem;
+  white-space: nowrap;
+}
+
+.molop-notebook-output table.dataframe th,
+.molop-notebook-output table.dataframe td {
+  padding: 0.5rem 0.65rem;
+  border: 0.05rem solid var(--md-default-fg-color--lightest);
+  text-align: left;
+}
+
+.molop-notebook-output table.dataframe thead th {
+  background: var(--md-default-bg-color);
+  font-weight: 700;
+}
+
+.molop-notebook-output table.dataframe tbody tr:hover {
+  background: var(--md-accent-fg-color--transparent);
+}

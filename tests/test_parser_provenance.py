@@ -2,13 +2,12 @@ from __future__ import annotations
 
 import json
 from copy import deepcopy
-from dataclasses import asdict, replace
+from dataclasses import asdict
 from hashlib import sha256
 from importlib.metadata import version as distribution_version
 
 import pytest
-from molgr.config import get_config as get_molgr_config
-from molgr.config import set_config as set_molgr_config
+from molgr.config import CONFIG as MOLGR_CONFIG
 from pydantic import ValidationError
 
 from molop.config import molopconfig
@@ -70,7 +69,7 @@ def test_parser_provenance_captures_complete_effective_config() -> None:
         "graph_reconstruction_backend": molopconfig.graph_reconstruction_backend,
         "make_dative_bonds": molopconfig.make_dative_bonds,
     }
-    assert provenance.effective_config["molgr"] == asdict(get_molgr_config())
+    assert provenance.effective_config["molgr"] == asdict(MOLGR_CONFIG)
 
 
 def test_effective_config_hash_is_strict_and_deterministic() -> None:
@@ -105,7 +104,7 @@ def test_parser_provenance_is_a_snapshot_of_global_configuration() -> None:
     original_force_unit_transform = molopconfig.force_unit_transform
     original_graph_backend = molopconfig.graph_reconstruction_backend
     original_make_dative_bonds = molopconfig.make_dative_bonds
-    original_molgr_config = get_molgr_config()
+    original_molgr_config = deepcopy(MOLGR_CONFIG)
 
     before = XYZFileParserMemory().parse(_XYZ_TEXT).parser_provenance
     assert before is not None
@@ -118,15 +117,7 @@ def test_parser_provenance_is_a_snapshot_of_global_configuration() -> None:
             "python" if original_graph_backend == "cpp" else "cpp"
         )
         molopconfig.make_dative_bonds = not original_make_dative_bonds
-        set_molgr_config(
-            replace(
-                original_molgr_config,
-                resonance=replace(
-                    original_molgr_config.resonance,
-                    max_depth=original_molgr_config.resonance.max_depth + 1,
-                ),
-            )
-        )
+        MOLGR_CONFIG.resonance.max_depth += 1
 
         after = XYZFileParserMemory().parse(_XYZ_TEXT).parser_provenance
         assert after is not None
@@ -138,4 +129,4 @@ def test_parser_provenance_is_a_snapshot_of_global_configuration() -> None:
         molopconfig.force_unit_transform = original_force_unit_transform
         molopconfig.graph_reconstruction_backend = original_graph_backend
         molopconfig.make_dative_bonds = original_make_dative_bonds
-        set_molgr_config(original_molgr_config)
+        MOLGR_CONFIG.resonance.max_depth = original_molgr_config.resonance.max_depth

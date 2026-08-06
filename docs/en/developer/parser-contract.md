@@ -1,24 +1,24 @@
-# Contributing
+# Complete Parser Contract
 
-Thank you for your interest in MolOP! We welcome contributions in all forms.
-
-- **Reporting Bugs**: How to submit an effective Issue.
-- **Feature Suggestions**: Share your ideas for improving MolOP.
-- **Code Contribution Workflow**: Detailed steps from Fork to Pull Request.
-- **Development Environment Setup**: How to configure your local development environment.
-- **Code Style Guidelines**: Follow Ruff and type checking requirements.
-- **Documentation Style Guide**: Use the unified four-layer documentation standard (`style_guide.md`).
+This page defines the implementation boundary between MolOP readers, file and
+frame models, writers, and the codec registry. It is for contributors adding or
+maintaining an IO format.
 
 ## Documentation Quality Assurance
 
 To ensure high-quality documentation, we enforce the following policies:
 
 - **CI Verification**: Every Pull Request triggers a documentation build using `mkdocs build --strict`. This ensures no broken internal links and valid configuration.
-- **Translation Policy**:
-  - We use `TODO(translate):` as a placeholder for content that has not yet been translated between English and Chinese.
-  - Placeholders are allowed in the `main` branch and Pull Requests to enable staged parity.
-  - **Release Blockers**: Placeholders are strictly forbidden in release tags (`v*`). The CI will fail if any are detected during a release build.
-- **Notebooks**: Jupyter notebooks in the documentation are optional and are not executed by the CI. Please ensure they are pre-executed if you want the output to be visible.
+- **Bilingual pages**: User-facing Chinese and English pages are maintained as
+  semantic pairs; release documentation must not contain translation
+  placeholders.
+- **Output blocks**: Printed values and generated artifacts in Markdown are
+  collapsed. README pages use `<details>`, while MkDocs pages use Material
+  `??? example` blocks; see [Documentation contributions](documentation.md).
+- **Notebooks**: Edit notebook code and Markdown cells only. CI executes every
+  code cell with `nbconvert --execute` before the MkDocs build, and
+  `mkdocs-jupyter` renders the saved outputs. Do not hand-edit `outputs` or
+  execution counts.
 
 ## Developing IO plugins
 
@@ -493,12 +493,12 @@ For writers/renderers:
 
 - register through `Registry.writer_factory(...)`
 - choose the correct `domain` explicitly:
-  - `domain="file"` for file-level writers
-  - `domain="frame"` for frame-level writers
+    - `domain="file"` for file-level writers
+    - `domain="frame"` for frame-level writers
 - use `FileRendererWriter` for file renderers and `FrameRendererWriter` for frame renderers
 - pick `required_level` carefully:
-  - `StructureLevel.COORDS` for coordinate-driven formats
-  - `StructureLevel.GRAPH` for graph-preserving formats
+    - `StructureLevel.COORDS` for coordinate-driven formats
+    - `StructureLevel.GRAPH` for graph-preserving formats
 - set `default_graph_policy` intentionally rather than relying on guesses
 
 Reference registration files:

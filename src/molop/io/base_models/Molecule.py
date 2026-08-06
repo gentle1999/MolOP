@@ -7,13 +7,11 @@ Description: 请填写简介
 """
 
 from collections.abc import Sequence
-from copy import deepcopy
 from dataclasses import asdict
 from typing import ClassVar, Literal, Optional
 
 import numpy as np
-from molgr.config import MolGRConfig
-from molgr.config import get_config as get_molgr_config
+from molgr.config import CONFIG as MOLGR_CONFIG
 from molgr.interface import xyz_to_rdmol
 from openbabel import pybel
 from pint._typing import UnitLike
@@ -149,15 +147,6 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
     _rdmol: RdMol | None = PrivateAttr(default=None)
     _smiles_cache: str | None = PrivateAttr(default=None)
     _canonical_smiles_cache: str | None = PrivateAttr(default=None)
-    _topology_molgr_config: MolGRConfig = PrivateAttr(
-        default_factory=lambda: deepcopy(get_molgr_config())
-    )
-    _topology_reconstruction_backend: Literal["cpp", "python"] = PrivateAttr(
-        default_factory=lambda: molopconfig.graph_reconstruction_backend
-    )
-    _topology_make_dative_bonds: bool = PrivateAttr(
-        default_factory=lambda: molopconfig.make_dative_bonds
-    )
     _topology_reconstruction_attempted: bool = PrivateAttr(default=False)
 
     @model_validator(mode="after")
@@ -218,13 +207,15 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         )
 
     def _record_topology_reconstruction_provenance(self) -> None:
+        backend = molopconfig.graph_reconstruction_backend
+        make_dative_bonds = molopconfig.make_dative_bonds
         config = {
-            "backend": self._topology_reconstruction_backend,
-            "make_dative_bonds": self._topology_make_dative_bonds,
-            "molgr": asdict(self._topology_molgr_config),
+            "backend": backend,
+            "make_dative_bonds": make_dative_bonds,
+            "molgr": asdict(MOLGR_CONFIG),
         }
-        self.topology_reconstruction_backend = self._topology_reconstruction_backend
-        self.topology_make_dative_bonds = self._topology_make_dative_bonds
+        self.topology_reconstruction_backend = backend
+        self.topology_make_dative_bonds = make_dative_bonds
         self.topology_reconstruction_config_sha256 = canonical_json_sha256(config)
 
     def _record_source_to_topology_atom_permutation(self) -> None:
@@ -301,9 +292,9 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
                         self.to_XYZ(),
                         self.charge,
                         self.multiplicity,
-                        backend=self._topology_reconstruction_backend,
-                        make_dative_bonds=self._topology_make_dative_bonds,
-                        config=self._topology_molgr_config,
+                        backend=molopconfig.graph_reconstruction_backend,
+                        make_dative_bonds=molopconfig.make_dative_bonds,
+                        config=MOLGR_CONFIG,
                     )
                     if reconstructed is None:
                         raise ValueError("MolGR topology reconstruction returned no molecule")

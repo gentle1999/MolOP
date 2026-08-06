@@ -6,6 +6,7 @@ from typing import Any
 
 import numpy as np
 import pytest
+from molgr.config import CONFIG as MOLGR_CONFIG
 from rdkit import Chem
 
 from molop.config import molopconfig
@@ -98,6 +99,50 @@ def test_molgr_backends_preserve_source_atom_order(
     assert molecule.source_to_topology_atom_permutation == [0, 1, 2]
     assert molecule.topology_reconstruction_backend == backend
     assert molecule.topology_reconstruction_status == "succeeded"
+
+
+def test_molecule_reads_global_topology_config_at_reconstruction_time(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    molecule_module = importlib.import_module("molop.io.base_models.Molecule")
+    captured: dict[str, Any] = {}
+
+    def capture_config(
+        xyz_block: str,
+        _charge: int,
+        _multiplicity: int,
+        *,
+        backend: str,
+        make_dative_bonds: bool,
+        config: Any,
+    ) -> Chem.Mol:
+        captured.update(
+            backend=backend,
+            make_dative_bonds=make_dative_bonds,
+            config=config,
+        )
+        rdmol = Chem.MolFromXYZBlock(xyz_block)
+        assert rdmol is not None
+        return rdmol
+
+    molecule = Molecule.from_coords(WATER_ATOMS, WATER_COORDS)
+    monkeypatch.setattr(molopconfig, "graph_reconstruction_backend", "python")
+    monkeypatch.setattr(molopconfig, "make_dative_bonds", False)
+    monkeypatch.setattr(
+        MOLGR_CONFIG.resonance,
+        "max_depth",
+        MOLGR_CONFIG.resonance.max_depth + 1,
+    )
+    monkeypatch.setattr(molecule_module, "xyz_to_rdmol", capture_config)
+
+    assert molecule.rdmol is not None
+    assert captured == {
+        "backend": "python",
+        "make_dative_bonds": False,
+        "config": MOLGR_CONFIG,
+    }
+    assert molecule.topology_reconstruction_backend == "python"
+    assert molecule.topology_make_dative_bonds is False
 
 
 def test_topology_v3000_molblock_is_map_free_and_does_not_mutate_cached_rdmol() -> None:

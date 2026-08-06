@@ -7,7 +7,7 @@ Export stable optimized structures and transition-state candidates separately.
 ```python
 from molop import AutoParser
 
-batch = AutoParser("results/*.log")
+batch = AutoParser("water_mp2.out", n_jobs=1)
 normal = batch.filter_state("normal")
 optimized = normal.filter_state("opt")
 transition_states = normal.filter_state("ts")
@@ -30,15 +30,26 @@ transition_states.to_summary_df(
 
 ## Output
 
-```text
-{'parsed': N, 'normal': A, 'optimized': B, 'transition_states': C}
-optimized.csv
-transition_states.csv
-```
+??? example "Selection counts"
 
-`N/A/B/C` are counts from the current dataset. Use `Vibration.num_imaginary` in the transition-state
-CSV to review imaginary-mode counts. A missing column means selected frames had no structured
-frequency result.
+    ```text
+    {'parsed': 1, 'normal': 1, 'optimized': 0, 'transition_states': 0}
+    ```
+
+The generated files are:
+
+??? example "Created files"
+
+    ```text
+    optimized.csv
+    transition_states.csv
+    ```
+
+The counts above are for the bundled single-point sample; counts and whether the two CSV files have
+data depend on the input set. Use `Vibration.num_imaginary` in the transition-state CSV to review
+imaginary-mode counts. A missing column means selected frames had no structured frequency result.
+
+Replace `water_mp2.out` with `results/*.log` when selecting optimization or transition-state jobs.
 
 ## CLI
 
@@ -48,6 +59,12 @@ molop -q parse "results/*.log" \
   filter-state --state ts \
   to-summary-df --full --out transition_states.csv
 ```
+
+??? example "Created file"
+
+    ```text
+    transition_states.csv
+    ```
 
 ## Scientific review
 

@@ -19,8 +19,22 @@ byte-for-byte Gaussian log reproducer.
 pass `frame="all"` when full-file Gaussian-like rendering is required.
 
 ```python
+from molop import AutoParser
+
+gaussian_log = AutoParser(
+    "calculation.log",
+    parser_detection="g16log",
+    n_jobs=1,
+)[0]
 rendered = gaussian_log.format_transform("fakeg", frame="all")
+print(type(rendered).__name__)
 ```
+
+??? example "Output type"
+
+    ```text
+    str
+    ```
 
 `G16LogFile.render_fakeg()` defaults to `frame="all"`, unlike `format_transform()`.
 

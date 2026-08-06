@@ -17,7 +17,7 @@ from importlib.metadata import version as distribution_version
 from pathlib import Path
 from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, cast
 
-from molgr.config import get_config as get_molgr_config
+from molgr.config import CONFIG as MOLGR_CONFIG
 from pydantic import Field, PrivateAttr
 
 from molop.config import molopconfig
@@ -110,7 +110,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
                 "graph_reconstruction_backend": molopconfig.graph_reconstruction_backend,
                 "make_dative_bonds": molopconfig.make_dative_bonds,
             },
-            "molgr": asdict(get_molgr_config()),
+            "molgr": asdict(MOLGR_CONFIG),
         }
         molop_version = self._distribution_version("molop")
         parser_class = type(self)

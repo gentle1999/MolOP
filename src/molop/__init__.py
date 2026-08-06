@@ -8,6 +8,9 @@ Description: MolOP is a toolbox for molecule operations and QM information extra
 
 import importlib.metadata
 
+# Load RDKit's native Chem extension before MolOP imports Open Babel.
+from rdkit import Chem as _rdkit_chem  # noqa: F401
+
 from molop.config import molopconfig, moloplogger
 from molop.io import AutoParser
 

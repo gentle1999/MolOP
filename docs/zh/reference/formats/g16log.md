@@ -22,7 +22,10 @@ if frame.energies and frame.energies.total_energy is not None:
     print(frame.energies.total_energy.m_as("hartree"))
 ```
 
-输出为终止状态和最终总能量，例如 `True` 与 `-317.592366596`；具体数值取决于文件。
+??? example "输出约定"
+
+    输出为终止状态和最终总能量，例如 `True` 与 `-317.592366596`；具体数值取决于文件。
+
 其他结果入口见[按科学性质查找字段](../model_fields.md)。
 
 MolOP 读取 Gaussian 输出文件，并提取后处理常用的结构、能量、热力学、振动、

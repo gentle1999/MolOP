@@ -15,7 +15,12 @@ ORCA input parsing with coordinates, multi-job splitting, model chemistry, task-
 
 Coordinate-bearing frames can be rendered with explicit ORCA calculation settings:
 
+Download the [shared ORCA example](../../../assets/examples/water_mp2.out), then run:
+
 ```python
+from molop import AutoParser
+
+frame = AutoParser("water_mp2.out", n_jobs=1)[0][-1]
 rendered = frame.format_transform(
     "orcainp",
     keywords="wB97M-V def2-TZVPP RIJCOSX def2/J TightSCF DefGrid3 NoAutoStart SP",
@@ -26,19 +31,41 @@ rendered = frame.format_transform(
 ```
 
 `rendered` is a string containing the ORCA simple input line, `%pal/%maxcore/%scf`, and an
-`* xyz` coordinate block. Its first line begins with `! wB97M-V def2-TZVPP` in this example.
+`* xyz` coordinate block.
+
+??? example "Output"
+    ```text
+    ! wB97M-V def2-TZVPP RIJCOSX def2/J TightSCF DefGrid3 NoAutoStart SP
+
+    %pal
+      nprocs 16
+    end
+
+    %maxcore 4000
+
+    %scf
+      MaxIter 300
+      STABPerform true
+    end
+
+    * xyz 0 1
+    O      1.7849140000     1.2624220000     0.5119850000
+    H      2.6482370000     1.0729290000     0.1316310000
+    H      1.1831680000     1.2568160000    -0.2388350000
+    *
+    ```
 
 Cross-format conversion requires `keywords`; MolOP does not reuse keyword syntax
 from another QM program. Raw `%block` text is also accepted through `blocks`.
 
-| Feature | Support | Scope | Limits | Test evidence |
-| ------- | ------- | ----- | ------ | ------------- |
-| <!-- feature-area:Geometry and job splitting -->Geometry and job splitting | Partial | Direct coordinates, point charges, external xyzfile/pdbfile references, and $new_job splitting. | External geometry references are parsed as references; parser does not require dereferencing external files. | `tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_minimal_xyz_parses_atoms_and_coords`<br>`tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_point_charges_parse_into_frame_geometry`<br>`tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_xyzfile_does_not_require_external_file`<br>`tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_new_job_splits_frames` |
-| <!-- feature-area:Model chemistry and options -->Model chemistry and options | Partial | Method, functional, basis, auxiliary basis, dispersion-as-functional-suffix, mixed basis, print settings, PARAS variables, and scan coordinates. | Unsupported ORCA block options may remain raw/resource fields instead of dedicated semantic containers. | `tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_metadata_population_recognizes_d4`<br>`tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_mixed_basis_and_output_print_settings`<br>`tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_paras_structures_scan_and_resolves_cartesian_variables`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_manual_dispersion_is_functional_suffix` |
-| <!-- feature-area:ORCA 6 manual fixture families -->ORCA 6 manual fixture families | Fixture-covered | Single point, SCF stability, optimization, frequency, excited-state, MRCI, and Solvator input examples. | Manual snippets without complete explicit geometry are intentionally excluded from fixture coverage. | `tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_single_point_inputs_include_orca6_manual_fixtures`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_scf_stability_inputs_include_orca6_manual_fixtures`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_optimization_inputs_include_orca6_manual_fixtures`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_frequency_inputs_include_orca6_manual_fixtures`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_excited_state_inputs_include_orca6_manual_fixtures`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_mrci_inputs_include_orca6_manual_fixtures`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_solvator_inputs_include_orca6_manual_fixtures` |
-| <!-- feature-area:Excited-state and multireference requests -->Excited-state and multireference requests | Partial | Structured excited-state and multireference task semantics, including MRCI multi-job fixtures. | ORCA excited-state and multireference keyword families outside the covered examples may still be raw. | `tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_excited_state_manual_fixtures_are_structured`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_mrci_manual_fixtures_are_structured`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_mrci_multijob_manual_fixture_splits_frames_and_structures_last_job` |
-| <!-- feature-area:Optimization, coordinates, frequency, and Solvator structures -->Optimization, coordinates, frequency, and Solvator structures | Partial | Optimization constraints, internal coordinates, fragments, NEB, frequency restart, and Solvator examples. | Coverage follows explicit ORCA manual fixtures and targeted regression examples. | `tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_optimization_constraints_block_is_not_truncated`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_manual_internal_coords_fill_frame_atoms_and_coords`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_optimization_fragment_mixed_basis_is_structured`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_optimization_neb_block_and_xtb_geometry_are_structured`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_frequency_restart_example_is_structured`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_solvator_fixture_is_structured` |
-| <!-- feature-area:Writer availability -->Writer availability | Partial | Canonical file/frame rendering from coordinate-bearing models with explicit keywords, PAL, maxcore, arbitrary percent blocks, Cartesian geometry, and `.inp` output paths. | Non-Cartesian inline geometry and arbitrary source-statement ordering are not canonicalized; cross-format conversion requires explicit ORCA keywords. | `tests/test_autoparser_orcainp_tmpfile.py::test_orcainp_writer_builds_common_sp_input`<br>`tests/test_autoparser_orcainp_tmpfile.py::test_orcainp_writer_uses_inp_output_extension` |
+| Feature | Support | Scope | Limits |
+| ------- | ------- | ----- | ------ |
+| <!-- feature-area:Geometry and job splitting -->Geometry and job splitting | Partial | Direct coordinates, point charges, external xyzfile/pdbfile references, and $new_job splitting. | External geometry references are parsed as references; parser does not require dereferencing external files. |
+| <!-- feature-area:Model chemistry and options -->Model chemistry and options | Partial | Method, functional, basis, auxiliary basis, dispersion-as-functional-suffix, mixed basis, print settings, PARAS variables, and scan coordinates. | Unsupported ORCA block options may remain raw/resource fields instead of dedicated semantic containers. |
+| <!-- feature-area:ORCA 6 manual fixture families -->ORCA 6 manual fixture families | Fixture-covered | Single point, SCF stability, optimization, frequency, excited-state, MRCI, and Solvator input examples. | Manual snippets without complete explicit geometry are intentionally excluded from fixture coverage. |
+| <!-- feature-area:Excited-state and multireference requests -->Excited-state and multireference requests | Partial | Structured excited-state and multireference task semantics, including MRCI multi-job fixtures. | ORCA excited-state and multireference keyword families outside the covered examples may still be raw. |
+| <!-- feature-area:Optimization, coordinates, frequency, and Solvator structures -->Optimization, coordinates, frequency, and Solvator structures | Partial | Optimization constraints, internal coordinates, fragments, NEB, frequency restart, and Solvator examples. | Coverage follows explicit ORCA manual fixtures and targeted regression examples. |
+| <!-- feature-area:Writer availability -->Writer availability | Partial | Canonical file/frame rendering from coordinate-bearing models with explicit keywords, PAL, maxcore, arbitrary percent blocks, Cartesian geometry, and `.inp` output paths. | Non-Cartesian inline geometry and arbitrary source-statement ordering are not canonicalized; cross-format conversion requires explicit ORCA keywords. |
 
 ## ORCA 6.1 Capability Matrix
 

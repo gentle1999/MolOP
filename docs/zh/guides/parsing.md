@@ -7,7 +7,7 @@
 ```python
 from molop import AutoParser
 
-batch = AutoParser("results/*.log")
+batch = AutoParser("water_mp2.out", n_jobs=1)
 for parsed_file in batch:
     print(parsed_file.filename, len(parsed_file), parsed_file.detected_format_id)
 ```
@@ -15,9 +15,11 @@ for parsed_file in batch:
 返回的 `FileBatchModelDisk` 只包含成功解析且至少有一个 frame 的文件。
 对共享样例，输出为：
 
-```text
-water_mp2.out 1 orcaout
-```
+??? example "输出"
+
+    ```text
+    water_mp2.out 1 orcaout
+    ```
 
 ## 输入方式
 
@@ -40,9 +42,14 @@ parsed_file = batch[0]
 first = parsed_file[0]
 final = parsed_file[-1]
 
-for frame in parsed_file:
-    print(frame.frame_id, frame.energies.total_energy if frame.energies else None)
+print([(frame.frame_id, len(frame.atoms)) for frame in parsed_file])
 ```
+
+??? example "输出"
+
+    ```text
+    [(0, 3)]
+    ```
 
 只关心最终结果且希望降低内存占用时：
 
@@ -69,17 +76,21 @@ fchk = AutoParser("molecule.fchk", parser_detection="g16fchk")
 ## 并行与结构优先
 
 ```python
-batch = AutoParser("results/*", n_jobs=4)
+batch = AutoParser("results/*")
 
 structures = AutoParser(
     "results/*.log",
-    n_jobs=4,
+    n_jobs=-1,
     only_extract_structure=True,
 )
 ```
 
-`n_jobs=-1` 使用 MolOP 配置允许的最大并行度；小批量或排查问题时使用 `n_jobs=1`。
-`only_extract_structure=True` 跳过非结构结果，不适合能量或热化学提取。
+`AutoParser` 默认使用 `n_jobs=-1`。MolOP 会将它解析为 CPU 数量与全局配置
+`molopconfig.max_jobs` 中较小的值。传入正整数可指定 worker 数量；小批量或排查问题时使用
+`n_jobs=1`。汇总、筛选和转换操作也支持 `n_jobs`；Python 方法默认值为 `1`，需要并行时应
+显式传入。CLI 的 parse 级 `--n-jobs` 会传给后续操作，除非某个操作单独覆盖它。
+
+`only_extract_structure=True` 会跳过非结构结果，不适合提取能量或热化学。
 
 ## 发现失败文件
 
@@ -98,9 +109,11 @@ for path in failed:
 
 全部成功时没有输出；失败时每个遗漏路径一行，例如：
 
-```text
-未加入 batch: results/truncated.out
-```
+??? example "存在遗漏文件时的输出"
+
+    ```text
+    未加入 batch: results/truncated.out
+    ```
 
 不存在、格式不支持或没有可用 frame 的文件不会进入 batch，并会写入 MolOP 日志。排查时先用
 `n_jobs=1`，再按[常见问题](troubleshooting.md)检查扩展名、编码和格式 ID。

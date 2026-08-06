@@ -22,21 +22,25 @@ print(frame.energies.total_energy.m_as("hartree"))
 print(len(frame.atoms), frame.coords.shape)
 ```
 
-输出版本、终止状态、总能量和几何规模。如果 xTB 单点 stdout 只引用外部坐标而没有打印
-几何，最后一行可能是 `0 (0, 3)`；MolOP 不会隐式读取相邻坐标文件。
+??? example "输出约定"
+
+    输出版本、终止状态、总能量和几何规模。如果 xTB 单点 stdout 只引用外部坐标而没有打印
+    几何，最后一行可能是 `0 (0, 3)`。
+
+MolOP 不会隐式读取相邻坐标文件。
 
 MolOP 解析 xTB 5 和 `>=6` 的命令行标准输出，同时覆盖 xTB 5/6.1 的 legacy
 打印族和 xTB `>=6` 的 modern 打印族。由于 xTB 通常直接从命令行接收坐标文件与选项，
 因此不单独定义 xTB 输入文件格式。
 
-| 特性 | 支持程度 | 支持范围 | 明确边界 | 测试证据 |
-| ---- | -------- | -------- | -------- | -------- |
-| <!-- feature-area:Version scope, setup, tasks, and status -->Version scope, setup, tasks, and status | 部分支持 | 识别 xTB 5，并将 `>=6` 作为 modern 打印族；解析版本、程序调用、坐标文件名、方法、电荷、多重度、OMP 线程数、任务请求、终止状态、SCC 状态和总 wall time。 | 明确拒绝 5 之前的版本。未来 major version 通过 `>=6` 合同前向兼容，但在获得真实输出前不视为厂商验证；xTB 5 样本同样是紧凑合同。 | `tests/test_xtbout_parser.py::test_xtbout_all_maintained_fixtures_parse_with_supported_major_versions`<br>`tests/test_xtbout_parser.py::test_xtbout_legacy_v5_contract_parses_metadata_geometry_and_results`<br>`tests/test_xtbout_parser.py::test_xtbout_major_seven_uses_the_modern_six_contract`<br>`tests/test_xtbout_parser.py::test_xtbout_explicitly_rejects_versions_before_five` |
-| <!-- feature-area:Geometry availability -->Geometry availability | 部分支持 | 解析 legacy Bohr `$coord`、legacy setup 坐标、现代 XYZ final structure 和内嵌 V2000 SDF final structure。 | xTB 单点 stdout 经常只引用外部坐标文件而不打印坐标。这类日志仍保留结果 frame，但 geometry 为空；parser 不会隐式读取相邻文件。 | `tests/test_xtbout_parser.py::test_xtbout_legacy_v5_contract_parses_metadata_geometry_and_results`<br>`tests/test_xtbout_parser.py::test_xtbout_modern_single_point_keeps_results_without_embedded_geometry`<br>`tests/test_xtbout_parser.py::test_xtbout_modern_optimization_parses_xyz_and_sdf_final_structures` |
-| <!-- feature-area:Energies and geometry optimization -->Energies and geometry optimization | 部分支持 | 暴露 Hartree 单位的最终总能量、带来源标签的能量证据、优化收敛状态、能量变化判据和 xTB gradient norm 字段。 | 不结构化能量分解表和完整优化轨迹；只表示 stdout 实际打印的最终结构。 | `tests/test_xtbout_parser.py::test_xtbout_modern_optimization_parses_xyz_and_sdf_final_structures`<br>`tests/test_xtbout_parser.py::test_autoparser_detects_xtbout_and_preserves_source_evidence` |
-| <!-- feature-area:Orbitals, populations, and dipole -->Orbitals, populations, and dipole | 部分支持 | 解析 legacy/modern 轨道能量与占据数、GFN1 Mulliken/CM5 电荷、GFN2 Mulliken 电荷、分子偶极矩和已打印的转动常数。 | 尚未完整重建 Wiberg 键级表、四极矩、色散性质表和输出中省略的轨道区间。 | `tests/test_xtbout_parser.py::test_xtbout_legacy_v5_contract_parses_metadata_geometry_and_results`<br>`tests/test_xtbout_parser.py::test_xtbout_modern_single_point_keeps_results_without_embedded_geometry`<br>`tests/test_xtbout_parser.py::test_xtbout_modern_optimization_parses_xyz_and_sdf_final_structures` |
-| <!-- feature-area:Vibrations and thermochemistry -->Vibrations and thermochemistry | 部分支持 | 解析投影后的物理频率、约化质量、IR 强度、零点能、总焓、总自由能、热容、熵、温度和已打印的分子质量。 | 不从 stdout 结构化简正模式位移向量、Hessian sidecar、Raman 强度和详细 rotor/interpolation 表。 | `tests/test_xtbout_parser.py::test_xtbout_frequency_and_thermochemistry_are_structured` |
-| <!-- feature-area:xTB analysis properties -->xTB analysis properties | 部分支持 | 在请求且打印时解析垂直 IP、垂直 EA、全局亲电指数和逐原子 Fukui 指数。 | FOD、metadynamics、MD、ONIOM、GFN-FF topology 以及 JSON/sidecar 输出不在当前 stdout 合同内。 | `tests/test_xtbout_parser.py::test_xtbout_modern_single_point_keeps_results_without_embedded_geometry`<br>`tests/test_xtbout_parser.py::test_xtbout_fukui_indices_are_structured`<br>`tests/test_xtbout_parser.py::test_xtbout_vipea_and_gei_properties_are_structured` |
+| 特性 | 支持程度 | 支持范围 | 明确边界 |
+| ---- | -------- | -------- | -------- |
+| <!-- feature-area:Version scope, setup, tasks, and status -->Version scope, setup, tasks, and status | 部分支持 | 识别 xTB 5，并将 `>=6` 作为 modern 打印族；解析版本、程序调用、坐标文件名、方法、电荷、多重度、OMP 线程数、任务请求、终止状态、SCC 状态和总 wall time。 | 明确拒绝 5 之前的版本。未来 major version 通过 `>=6` 合同前向兼容，但在获得真实输出前不视为厂商验证；xTB 5 样本同样是紧凑合同。 |
+| <!-- feature-area:Geometry availability -->Geometry availability | 部分支持 | 解析 legacy Bohr `$coord`、legacy setup 坐标、现代 XYZ final structure 和内嵌 V2000 SDF final structure。 | xTB 单点 stdout 经常只引用外部坐标文件而不打印坐标。这类日志仍保留结果 frame，但 geometry 为空；parser 不会隐式读取相邻文件。 |
+| <!-- feature-area:Energies and geometry optimization -->Energies and geometry optimization | 部分支持 | 暴露 Hartree 单位的最终总能量、带来源标签的能量证据、优化收敛状态、能量变化判据和 xTB gradient norm 字段。 | 不结构化能量分解表和完整优化轨迹；只表示 stdout 实际打印的最终结构。 |
+| <!-- feature-area:Orbitals, populations, and dipole -->Orbitals, populations, and dipole | 部分支持 | 解析 legacy/modern 轨道能量与占据数、GFN1 Mulliken/CM5 电荷、GFN2 Mulliken 电荷、分子偶极矩和已打印的转动常数。 | 尚未完整重建 Wiberg 键级表、四极矩、色散性质表和输出中省略的轨道区间。 |
+| <!-- feature-area:Vibrations and thermochemistry -->Vibrations and thermochemistry | 部分支持 | 解析投影后的物理频率、约化质量、IR 强度、零点能、总焓、总自由能、热容、熵、温度和已打印的分子质量。 | 不从 stdout 结构化简正模式位移向量、Hessian sidecar、Raman 强度和详细 rotor/interpolation 表。 |
+| <!-- feature-area:xTB analysis properties -->xTB analysis properties | 部分支持 | 在请求且打印时解析垂直 IP、垂直 EA、全局亲电指数和逐原子 Fukui 指数。 | FOD、metadynamics、MD、ONIOM、GFN-FF topology 以及 JSON/sidecar 输出不在当前 stdout 合同内。 |
 
 ## xTB 5 / xTB >=6 能力覆盖矩阵
 

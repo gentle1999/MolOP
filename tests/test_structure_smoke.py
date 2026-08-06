@@ -1,11 +1,13 @@
-import sys
+import sys  # noqa: I001
 from collections.abc import Generator
 from pathlib import Path
 
+# Keep MolOP's RDKit initialization ahead of Open Babel's native extension.
+# isort: off
 import pytest
-from openbabel import pybel
-
 from molop.structure.GraphReconstruction import xyz_to_omol_no_metal
+from openbabel import pybel
+# isort: on
 
 
 sys.path.append(str(Path(__file__).resolve().parent))

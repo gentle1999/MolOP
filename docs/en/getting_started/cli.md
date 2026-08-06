@@ -9,6 +9,17 @@ molop --help
 molop parse --help
 ```
 
+??? example "Help summary"
+
+    ```text
+    Usage: molop [OPTIONS] COMMAND [ARGS]...
+    Commands: completion, parse
+    Usage: molop parse [OPTIONS] PATTERN COMMAND1 [ARGS]...
+    Commands: copy-to, draw-grid-image, filter-by-codec, filter-state,
+              filter-value, format-transform, groupby, move-to, sample,
+              to-summary-df
+    ```
+
 Every data operation starts with `molop parse PATTERN`. `PATTERN` can be a path or a shell glob.
 
 ## Export a summary CSV
@@ -19,6 +30,19 @@ molop -q parse "results/*.out" \
 ```
 
 The default selects the final frame of each file. Add `--frame all` to export every frame.
+
+For the bundled example:
+
+```bash
+molop -q parse "water_mp2.out" --n-jobs 1 \
+  to-summary-df --full --out summary.csv
+```
+
+??? example "Output"
+
+    ```text
+    Summary written to summary.csv
+    ```
 
 ## Filter before exporting
 
@@ -32,6 +56,12 @@ molop -q parse "results/*.log" \
 Operations run from left to right. `filter-state` keeps a batch state, so another filter or one
 terminal output operation can follow it.
 
+??? example "Created file"
+
+    ```text
+    optimized.csv
+    ```
+
 ## Export final structures
 
 ```bash
@@ -44,12 +74,26 @@ molop -q parse "results/*.out" \
 Providing `--output-dir` creates the directory and writes files. Use `--no-write` to preview output
 in the terminal without writing files.
 
+With `water_mp2.out`, the output directory contains:
+
+??? example "Created file"
+
+    ```text
+    structures/water_mp2.xyz
+    ```
+
 ## Resolve an ambiguous extension
 
 ```bash
 molop parse "results/*.out" --parser-detection orcaout \
   to-summary-df --out summary.csv
 ```
+
+??? example "Created file"
+
+    ```text
+    summary.csv
+    ```
 
 ## Next steps
 

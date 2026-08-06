@@ -6,15 +6,19 @@ LastEditTime: 2026-06-18 19:45:06
 Description: 请填写简介
 """
 
-import logging
+import logging  # noqa: I001
 import multiprocessing
 import sys
 from typing import Literal
 
-from openbabel import pybel
+# RDKit must initialize before Open Babel; loading Open Babel first causes an
+# ELF symbol collision between the bundled native libraries.
+# isort: off
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from rdkit import RDLogger
 from rdkit_dof import dofconfig
+from openbabel import pybel
+# isort: on
 
 
 RDLogger.DisableLog("rdApp.*")  # type: ignore

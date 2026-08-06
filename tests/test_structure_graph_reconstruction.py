@@ -1,13 +1,12 @@
-from __future__ import annotations
+from __future__ import annotations  # noqa: I001
 
 import sys
 from collections.abc import Generator
 from pathlib import Path
 
+# Keep MolOP's RDKit initialization ahead of Open Babel's native extension.
+# isort: off
 import pytest
-from openbabel import openbabel as ob
-from openbabel import pybel
-
 import molop.structure.GraphReconstruction as graph_reconstruction
 from molop.structure.GraphReconstruction import (
     MetalAtomPosition,
@@ -64,6 +63,9 @@ from molop.structure.GraphReconstruction import (
     xyz2omol,
     xyz_to_omol_no_metal,
 )
+from openbabel import openbabel as ob
+from openbabel import pybel
+# isort: on
 
 
 sys.path.append(str(Path(__file__).resolve().parent))

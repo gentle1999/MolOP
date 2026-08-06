@@ -9,6 +9,10 @@ molop [global options] parse PATTERN [parse options] operation [operation option
 Start with [CLI first steps](getting_started/cli.md) or
 [CLI task recipes](guides/cli-recipes.md). Use this page for options and chaining rules.
 
+The commands below use the [shared ORCA water example](../assets/examples/water_mp2.out). Download
+it into the current directory before running them; replace `water_mp2.out` with your own input when
+needed.
+
 ## Global options
 
 | Option | Purpose |
@@ -26,6 +30,10 @@ Start with [CLI first steps](getting_started/cli.md) or
 | `--parser-detection` | `auto` | Automatic detection or an ID such as `g16log`, `orcaout`, `xtbout` |
 | `-j, --n-jobs` | `-1` | Parser process count |
 | `--output-format` | `text` | Final terminal output as `text` or `json` |
+
+`--n-jobs -1` is the default automatic setting. MolOP caps it with `molopconfig.max_jobs`; pass
+`--n-jobs 1` when diagnosing a parser or native-library issue. The parse-level value is inherited by
+later operations unless an operation supplies its own `--n-jobs`.
 
 ## Chainable operations
 
@@ -54,8 +62,19 @@ A terminal operation must end the operation chain.
 ## Summary options
 
 ```bash
-molop parse "results/*.log" to-summary-df --help
+molop parse "water_mp2.out" to-summary-df --help
 ```
+
+??? example "Help summary"
+
+    ```text
+    Usage: molop parse PATTERN to-summary-df [OPTIONS]
+    --mode [file|frame]       Summary mode.  [default: frame]
+    --frame TEXT              Frame selection: all, int, or csv ints.
+    --brief / --full          Use compact or full summary fields.
+    --out FILE                Output file.
+    --format [csv|json]       Output file format.  [default: csv]
+    ```
 
 Common options:
 
@@ -69,25 +88,39 @@ Common options:
 Run:
 
 ```bash
-molop -q parse "water_mp2.out" \
-  to-summary-df --full --format json
+molop -q parse "water_mp2.out" --parser-detection orcaout --n-jobs 1 \
+  to-summary-df --full --format json --out summary.json
 ```
 
-The output object includes:
+The output object includes the following fields (the full JSON also contains other parsed fields):
 
-```json
-{
-  "Calc Parameter.Software": "ORCA",
-  "Status.IsNormal": true,
-  "Energy.total_energy.hartree": -74.9993745981
-}
-```
+??? example "JSON output"
+
+    ```json
+    {
+      "Calc Parameter.Software": "ORCA",
+      "Status.IsNormal": true,
+      "Energy.total_energy.hartree": -74.9993745981
+    }
+    ```
+
+    Created file: `summary.json`.
 
 ## Transform options
 
 ```bash
 molop parse "input.out" format-transform --help
 ```
+
+??? example "Help summary"
+
+    ```text
+    Usage: molop parse PATTERN format-transform [OPTIONS] [EXTRA_ARGS]...
+    --format TEXT           Target writer format id.  [required]
+    --output-dir DIRECTORY  Directory for generated files.
+    --frame TEXT            Frame selection: all, int, or csv ints.
+    --write / --no-write    Write generated files.
+    ```
 
 - `--format FORMAT_ID` is required.
 - `--frame -1|all|0,2` selects frames.
@@ -104,6 +137,12 @@ molop parse "input.out" \
   --keywords "B3LYP def2-SVP Opt" --nprocs 8 --maxcore 2000
 ```
 
+??? example "Created file"
+
+    ```text
+    next/input.inp
+    ```
+
 ## Inspect exact help
 
 ```bash
@@ -113,6 +152,12 @@ molop parse PATTERN filter-state --help
 molop parse PATTERN to-summary-df --help
 molop parse PATTERN format-transform --help
 ```
+
+??? example "Common help shape"
+
+    ```text
+    molop [OPTIONS] parse PATTERN OPERATION [OPTIONS]
+    ```
 
 See the [Advanced CLI contract](advanced/cli-contract.md) for internal plan validation, terminal
 operation constraints, and dynamic completion behavior.

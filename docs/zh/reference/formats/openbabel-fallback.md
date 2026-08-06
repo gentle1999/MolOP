@@ -20,8 +20,12 @@ parsed = AutoParser("molecule.unknown")[0]
 print(parsed.detected_format_id, len(parsed[-1].atoms))
 ```
 
-成功时 reader ID 为 `openbabel` 并输出首个分子的原子数。可用范围取决于本机 OpenBabel。
+??? example "输出约定"
 
-| 特性 | 支持程度 | 支持范围 | 明确边界 | 测试证据 |
-| ---- | -------- | -------- | -------- | -------- |
-| <!-- feature-area:Unknown-extension fallback -->Unknown-extension fallback | 部分支持 | 未知扩展名可以通过 OpenBabel 兼容格式读取，并转换为带 detected format ID、且保留首个分子坐标的 `XYZFile`/`XYZFileFrame` 模型。 | 只转换第一个成功解析的分子；输出是坐标层级；实际格式范围取决于 OpenBabel 安装。 | `tests/test_structure_format_features.py::test_openbabel_unknown_extension_fallback_keeps_first_molecule_coordinates`<br>`tests/test_io_convert_registry_smoke.py::test_unknown_extension_fallback_smoke`<br>`tests/test_filebatchmodeldisk_codec_filter.py::test_filter_by_codec_id_uses_detected_format_id` |
+    成功时 reader ID 为 `openbabel` 并输出首个分子的原子数。
+
+可用范围取决于本机 OpenBabel。
+
+| 特性 | 支持程度 | 支持范围 | 明确边界 |
+| ---- | -------- | -------- | -------- |
+| <!-- feature-area:Unknown-extension fallback -->Unknown-extension fallback | 部分支持 | 未知扩展名可以通过 OpenBabel 兼容格式读取，并转换为带 detected format ID、且保留首个分子坐标的 `XYZFile`/`XYZFileFrame` 模型。 | 只转换第一个成功解析的分子；输出是坐标层级；实际格式范围取决于 OpenBabel 安装。 |

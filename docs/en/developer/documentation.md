@@ -22,6 +22,39 @@ start must not depend on `tests/test_files/`, a source root, or test environment
 
 Do not hand-maintain a second supported/unsupported matrix in prose.
 
+## Output rendering
+
+Treat output as a separate, collapsible part of every Markdown example. In the
+documentation site, use a Material details block:
+
+````markdown
+??? example "Output"
+    ```text
+    ...
+    ```
+````
+
+Keep commands, input code, and explanations outside the block. This applies to
+printed values, returned text, command output, generated file trees, and other
+artifacts that are useful for verification. README pages use native HTML
+`<details>` because GitHub does not render Material admonitions.
+
+Notebook output has a different ownership boundary: edit code and Markdown
+cells, then let CI execute the notebooks with `nbconvert --execute` before the
+MkDocs build. `mkdocs-jupyter` renders the saved notebook as HTML with
+`execute: false`; do not hand-edit a notebook's `outputs`, execution counts,
+or generated HTML.
+
+To show one notebook cell's HTML output directly in a Markdown page, reference its cell `id`:
+
+```markdown
+<!-- notebook-output: examples/02-batch-summary-filter-select.ipynb#batch-summary -->
+```
+
+`scripts/mkdocs_hooks.py` reads the executed notebook's `text/html` output and embeds it in the
+matching locale page. The cell must have a stable `id` and produce HTML after CI execution. Do not
+copy DataFrame HTML into Markdown.
+
 ## New pages
 
 One change should include:
@@ -34,7 +67,7 @@ One change should include:
 ## Validate
 
 ```bash
-uv run rumdl check docs README.md README.zh.md
+uv run rumdl check README.md README.zh.md $(rg --files docs -g '*.md')
 uv run pytest -q tests/test_documentation_examples.py --no-cov
 NO_MKDOCS_2_WARNING=1 uv run mkdocs build --strict
 ```

@@ -18,8 +18,22 @@
 Gaussian-like 渲染时传入 `frame="all"`。
 
 ```python
+from molop import AutoParser
+
+gaussian_log = AutoParser(
+    "calculation.log",
+    parser_detection="g16log",
+    n_jobs=1,
+)[0]
 rendered = gaussian_log.format_transform("fakeg", frame="all")
+print(type(rendered).__name__)
 ```
+
+??? example "输出类型"
+
+    ```text
+    str
+    ```
 
 `G16LogFile.render_fakeg()` 的默认 frame 是 `"all"`，与 `format_transform()` 的默认值不同。
 

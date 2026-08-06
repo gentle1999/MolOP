@@ -1,25 +1,8 @@
 # 安装
 
-安装 MolOP 并确认 Python API 与命令行入口可用。
-
-## 准备
-
-- Python 3.10 或更高版本。
-- 能从 GitHub 安装 Python 包。
-- 建议使用独立虚拟环境，避免与已有 RDKit 环境冲突。
-
-MolOP 当前未发布到 PyPI 或 Conda，终端用户需要从 GitHub 安装。
-
-## 安装
-
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install git+https://github.com/gentle1999/MolOP.git
+pip install molop
 ```
-
-Windows PowerShell 使用 `.venv\Scripts\Activate.ps1` 激活环境。
 
 ## 验证
 
@@ -29,27 +12,42 @@ molop --version
 molop --help
 ```
 
-`molop --help` 应显示 `parse` 命令。版本来自 Git tag；直接从未标记的源码运行时可能显示开发
-版本标识。
+`molop --help` 应显示 `parse` 命令。直接从未标记的源码运行时，版本可能带有开发版本标识。
+
+验证输出的稳定形状为：
+
+??? example "验证输出"
+
+    ```text
+    <version>
+    molop, version <version>
+    Usage: molop [OPTIONS] COMMAND [ARGS]...
+    ...
+      parse       Parse files into a FileBatchModelDisk state, then run...
+    ```
+
+两个 `<version>` 应一致；具体版本号和完整 help 文本随发布版本变化。
 
 ## 常见问题
 
-### Python 版本不兼容
+???+ note "从源码检出建立开发环境"
+    需要可编辑源码环境时，请使用[开发环境与质量门禁](../developer/quality.md)。面向终端用户的
+    示例假设 `molop` 命令已经位于 `PATH`。
 
-先检查 `python --version`。同一终端中的 `python` 和 `python -m pip` 必须指向刚激活的
-Python 3.10+ 环境。
+### 导入 RDKit 和 Open Babel 时发生原生崩溃
 
-### RDKit 安装失败
+如果先导入 Open Babel，再导入 RDKit，可能触发原生 segmentation fault。使用 MolOP 时先导入
+MolOP；如果直接导入这两个原生库，请先加载 RDKit：
 
-RDKit 是 MolOP 的运行时依赖。优先使用支持当前 Python 和操作系统的环境；若 pip 无可用
-wheel，可先在 Conda 环境中安装 RDKit，再从 GitHub 安装 MolOP。
+```python
+import molop
+from rdkit import Chem
+from openbabel import pybel
+```
 
-### OpenBabel 是否必需
+MolOP 会在初始化 Open Babel 前先加载 RDKit，以避免原生库冲突。
 
-专用 Gaussian、ORCA、xTB、XYZ、SDF 和 SMILES reader 不依赖 OpenBabel fallback。只有读取
-未知扩展名或明确选择 OpenBabel 渲染后端时才需要可用的 OpenBabel Python 绑定。
-
-### 如何安装开发环境
+## 开发环境
 
 源码检出、`uv sync` 和测试命令属于贡献者流程，见[开发环境与质量门禁](../developer/quality.md)。
 

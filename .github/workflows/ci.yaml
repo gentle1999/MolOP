@@ -1,0 +1,237 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Quality gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install quality dependencies
+        run: uv sync --frozen --group dev
+
+      - name: Check dependency lock
+        run: uv lock --check
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+      - name: Lint source tree
+        run: uv run ruff check .
+
+      - name: Check generated typing stubs
+        run: |
+          uv run python scripts/generate_io_typing_catalog.py --check
+          uv run python scripts/generate_chemfile_format_transform_stubs.py --check
+
+      - name: Run Mypy
+        run: uv run mypy src
+
+      - name: Run Pyright
+        run: uv run pyright
+
+      - name: Lint Markdown
+        run: >-
+          find docs -type f -name '*.md' -print0 |
+          xargs -0 uv run rumdl check --no-cache README.md README.zh.md
+
+  docs:
+    name: Documentation gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install documentation dependencies
+        run: uv sync --frozen --group docs --group test
+
+      - name: Execute documentation notebooks
+        run: |
+          uv run jupyter nbconvert \
+            --to notebook \
+            --execute \
+            --inplace \
+            --ExecutePreprocessor.timeout=120 \
+            --ExecutePreprocessor.kernel_name=python3 \
+            docs/zh/examples/*.ipynb docs/en/examples/*.ipynb
+          rm -f summary.csv docs/zh/examples/summary.csv docs/en/examples/summary.csv
+
+      - name: Test documentation contracts
+        run: uv run pytest --no-cov -q tests/test_documentation_examples.py
+
+      - name: Build documentation strictly
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+        run: uv run mkdocs build --strict
+
+  build:
+    name: Build package
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: .python-version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install build dependencies
+        run: uv sync --frozen --group publish --no-install-project
+
+      - name: Audit runtime dependencies
+        run: |
+          uv export --frozen --no-dev --no-emit-project \
+            --format requirements-txt \
+            --output-file runtime-requirements.txt
+          uv run --group publish pip-audit \
+            --requirement runtime-requirements.txt \
+            --require-hashes \
+            --disable-pip \
+            --progress-spinner off
+
+      - name: Build distributions
+        run: uv build --out-dir dist
+
+      - name: Check distribution contents
+        run: uv run python scripts/check_release_artifacts.py dist
+
+      - name: Check PyPI metadata and description
+        run: uv run --group publish twine check --strict dist/*
+
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/
+          if-no-files-found: error
+
+  test:
+    name: Test (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python-version: "3.10"
+          - os: ubuntu-latest
+            python-version: "3.11"
+          - os: ubuntu-latest
+            python-version: "3.12"
+          - os: ubuntu-latest
+            python-version: "3.13"
+          - os: ubuntu-latest
+            python-version: "3.14"
+          - os: windows-latest
+            python-version: "3.10"
+          - os: windows-latest
+            python-version: "3.14"
+          - os: macos-14
+            python-version: "3.10"
+          - os: macos-14
+            python-version: "3.14"
+    env:
+      UV_PYTHON: ${{ matrix.python-version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+
+      - name: Install test dependencies
+        run: uv sync --frozen --group test
+
+      - name: Run tests
+        run: uv run pytest --no-cov -q
+
+  deploy:
+    name: Deploy to PyPI
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    needs:
+      - build
+      - docs
+      - quality
+      - test
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/molop
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/
+
+      - name: Publish distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/

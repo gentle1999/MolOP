@@ -5,11 +5,24 @@
 本页概览 MolOP 内置格式支持。每个具体格式的独立页面会说明可读取或写出的信息、
 支持范围和已知边界；这些覆盖声明会在测试中与已注册 codec 保持同步。
 
+=== "按工作流选择"
+
+    - 结构文件从 [`xyz`](formats/xyz.md)、[`sdf`](formats/sdf.md) 或 [`smi`](formats/smi.md) 开始。
+    - 计算输入使用 [`gjf`](formats/gjf.md) 或 [`orcainp`](formats/orcainp.md)。
+    - 计算结果使用 [`g16log`](formats/g16log.md)、[`g16fchk`](formats/g16fchk.md)、
+      [`orcaout`](formats/orcaout.md) 或 [`xtbout`](formats/xtbout.md)。
+    - 需要从已解析数据生成 Gaussian-like 文本时使用 [`fakeg`](formats/fakeg.md)。
+
+=== "按扩展名选择"
+
+    扩展名只用于提供候选 reader。`.out` 和 `.log` 可能属于不同 QM 输出格式，最终 reader
+    仍由内容探测决定。完整的扩展名到 codec 映射见下表。
+
 | 分组 | 格式 | 概要 |
 | ---- | ---- | ---- |
 | 结构格式 | [`xyz`](formats/xyz.md), [`sdf`](formats/sdf.md), [`smi`](formats/smi.md), [`cml`](formats/cml.md) | 坐标/分子图结构读取与渲染。 |
 | QM 输入格式 | [`gjf`](formats/gjf.md), [`orcainp`](formats/orcainp.md) | Gaussian 和 ORCA 输入解析与渲染。 |
-| QM 输出格式 | [`g16log`](formats/g16log.md), [`orcaout`](formats/orcaout.md), [`xtbout`](formats/xtbout.md), [`fakeg`](formats/fakeg.md) | Gaussian、ORCA 和 xTB 输出解析，以及从 Gaussian 输出数据渲染 Gaussian-like 文本。 |
+| QM 输出格式 | [`g16log`](formats/g16log.md), [`g16fchk`](formats/g16fchk.md), [`orcaout`](formats/orcaout.md), [`xtbout`](formats/xtbout.md), [`fakeg`](formats/fakeg.md) | Gaussian log/fchk、ORCA 和 xTB 输出解析，以及从 Gaussian 输出数据渲染 Gaussian-like 文本。 |
 | 特殊 reader | [OpenBabel fallback](formats/openbabel-fallback.md) | 通过 OpenBabel 兼容格式 fallback 读取未知扩展名文件。 |
 
 | 格式 ID | 常用扩展名 | 读取 | 写入 | 支持详情 |

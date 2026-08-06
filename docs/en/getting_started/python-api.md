@@ -7,7 +7,7 @@ Learn the `batch -> file -> frame` access pattern used by most MolOP programs.
 ```python
 from molop import AutoParser
 
-batch = AutoParser("calculation.log")
+batch = AutoParser("water_mp2.out", n_jobs=1)
 parsed_file = batch[0]
 final_frame = parsed_file[-1]
 ```
@@ -21,17 +21,18 @@ print(len(batch), len(parsed_file), parsed_file.detected_format_id)
 print(len(final_frame.atoms), final_frame.coords.shape)
 ```
 
-Output:
+??? example "Output"
 
-```text
-1 1 orcaout
-3 (3, 3)
-```
+    ```text
+    1 1 orcaout
+    3 (3, 3)
+    ```
 
 ## Parse multiple inputs
 
 ```python
 batch = AutoParser([
+    "water_mp2.out",
     "reactants/*.log",
     "products/product.out",
     "structures/*.xyz",
@@ -42,11 +43,13 @@ for parsed_file in batch:
     print(parsed_file.filename, frame.charge, frame.multiplicity)
 ```
 
-Each successfully parsed file produces one line, for example:
+Each successfully parsed file produces one line. For the shared water sample, the loop prints:
 
-```text
-water_mp2.out 0 1
-```
+??? example "Output"
+
+    ```text
+    water_mp2.out 0 1
+    ```
 
 Paths, glob patterns, and path lists can be mixed. Results are stably sorted by absolute path and
 duplicate paths are parsed once.
@@ -57,7 +60,7 @@ Different calculation types provide different fields. Check that a container exi
 it:
 
 ```python
-frame = batch[0][-1]
+frame = AutoParser("water_mp2.out", n_jobs=1)[0][-1]
 
 if frame.energies and frame.energies.total_energy is not None:
     print(frame.energies.total_energy.m_as("hartree"))
@@ -70,9 +73,17 @@ if frame.charge_spin_populations:
     print(names)
 ```
 
-The shared MP2 example prints `-74.999374598107` from the energy branch. It has no frequency or
-population section, so the other two branches print nothing. This is why optional containers are
-checked first.
+The shared MP2 example prints:
+
+??? example "Output"
+
+    ```text
+    -74.999374598107
+    ['mulliken_charges', 'lowdin_charges']
+    ```
+
+It has no frequency section, so the frequency branch prints nothing. Population schemes are
+optional, but this sample contains two of them; check each container before reading it.
 
 MolOP numerical results commonly carry Pint units. Use `.m_as("target unit")` to obtain a value in
 a chosen unit.
@@ -80,15 +91,26 @@ a chosen unit.
 ## Build a table
 
 ```python
+batch = AutoParser("water_mp2.out", n_jobs=1)
 df = batch.to_summary_df(
     frame=-1,
     brief=False,
     flatten_columns=True,
 )
+print(df[["Status.IsNormal", "Energy.total_energy.hartree"]])
 df.to_csv("summary.csv", index=False)
 ```
 
 Use `frame="all"` for every frame in every file. The default `frame=-1` selects only final frames.
+
+For the shared sample, the selected columns are:
+
+??? example "Output"
+
+    ```text
+       Status.IsNormal  Energy.total_energy.hartree
+    0             True                    -74.999375
+    ```
 
 ## Next steps
 

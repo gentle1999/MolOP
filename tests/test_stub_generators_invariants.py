@@ -1,4 +1,5 @@
 import importlib.util
+import os
 import re
 import subprocess
 import sys
@@ -10,6 +11,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def _read(rel_path: str) -> str:
     return (ROOT / rel_path).read_text(encoding="utf-8")
+
+
+def test_package_declares_pep561_typing() -> None:
+    assert (ROOT / "src/molop/py.typed").is_file()
+    assert '"Typing :: Typed"' in _read("pyproject.toml")
 
 
 def _load_script_module(rel_path: str):
@@ -105,17 +111,17 @@ def test_io_stub_overloads_are_sorted_and_have_numpy_parameters() -> None:
 
 
 def test_stub_generators_check_mode_is_deterministic() -> None:
+    environment = os.environ.copy()
+    environment["UV_NO_SYNC"] = "1"
     commands = [
         [
-            "uv",
-            "run",
-            "python",
+            sys.executable,
             "scripts/generate_chemfile_format_transform_stubs.py",
             "--check",
         ]
     ]
     for command in commands:
-        subprocess.run(command, cwd=ROOT, check=True)
+        subprocess.run(command, cwd=ROOT, check=True, env=environment)
 
 
 def test_typing_catalog_generator_discovers_logic_models_recursively() -> None:

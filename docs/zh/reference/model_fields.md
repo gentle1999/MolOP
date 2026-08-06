@@ -28,6 +28,14 @@ frequencies = frame.vibrations.frequencies.m_as("cm^-1")
 coords = frame.coords.m_as("angstrom")
 ```
 
+??? example "输出"
+
+    随文档提供的 ORCA 水分子样例第一行结果为：
+
+    ```text
+    -74.999374598107
+    ```
+
 `.m_as(...)` 返回指定单位下的数值或 NumPy 数组。保留 quantity 本身可避免单位信息丢失。
 
 ## 布居是开放集合
@@ -38,6 +46,15 @@ if populations:
     for name, series in populations.population_items():
         print(name, series.scheme, series.quantity, series.values[:3])
 ```
+
+??? example "输出"
+
+    随文档提供的 ORCA 水分子样例包含两种电荷布居方案：
+
+    ```text
+    mulliken_charges mulliken charge [-0.361722  0.180857  0.180866]
+    lowdin_charges lowdin charge [-0.2507    0.125348  0.125352]
+    ```
 
 `ChargeSpinPopulations` 只有 `populations` 映射，不为每种方案增加固定属性。读取 Mulliken 电荷：
 
@@ -53,6 +70,12 @@ values = populations["mulliken_charges"].values
 if frame.is_normal is None:
     print("源文件没有足够终止状态证据")
 ```
+
+??? example "输出"
+
+    ```text
+    源文件没有足够终止状态证据
+    ```
 
 对状态字段，`None` 表示未知，不等于 `False`。
 

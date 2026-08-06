@@ -1,133 +1,151 @@
-# Command Line Interface
+# CLI Chain Contract
 
-MolOP exposes a single business command: `molop parse`.
+This page explains the `molop parse` chain rules and terminal-operation boundary. Start with [CLI
+first steps](../getting_started/cli.md) for normal use; see the [CLI command reference](../command_line_interface.md)
+for the complete option surface.
 
-For the stable CLI chain contract, including parameter defaults and error
-policy, see [API Contracts](../reference/api_contracts.md).
+## Command shape
 
-The command first parses files into a `FileBatchModelDisk` batch state, then
-executes a checked chain of operations. Operations that return another
-`FileBatchModelDisk` can be followed by more operations. Operations that return
-another result must be the last operation, and this is checked before files are
-parsed.
-
-Examples use `uv run molop ...` for in-repo reproducibility. If MolOP is
-installed in your environment, use `molop ...` directly.
-
-## Global Options
-
-- `-v`, `--verbose`: Enable verbose output.
-- `-q`, `--quiet`: Enable quiet mode.
-- `--version`: Show the version and exit.
-
-## Discover Commands
-
-```bash
-uv run molop --help
-uv run molop parse --help
+```text
+molop parse PATTERN [parse options] OPERATION [operation options] ...
+                                                     -> terminal operation
 ```
 
-## Shell Completion
+`PATTERN` is a path or glob. After parsing, operations that return a batch can be followed by more
+operations. Operations that return a summary, rendered text, or path mapping must be last. The CLI
+checks this rule before reading files.
 
-Install shell completion for the current shell:
+The examples below use the bundled [water_mp2.out](../../assets/examples/water_mp2.out).
+
+## Common chains
+
+=== "Filter by codec"
+
+    ```bash
+    molop -q parse "water_mp2.out" \
+      --parser-detection orcaout \
+      --n-jobs 1 \
+      --output-format json \
+      filter-by-codec --codec-id orcaout
+    ```
+
+    ??? example "Output shape"
+
+        ```json
+        [
+          "<absolute path to water_mp2.out>"
+        ]
+        ```
+
+=== "Summary"
+
+    ```bash
+    molop -q parse "water_mp2.out" --n-jobs 1 \
+      filter-state --state normal \
+      to-summary-df --full --out summary.csv
+    ```
+
+    ??? example "Terminal output and created file"
+
+        ```text
+        Summary written to summary.csv
+        summary.csv
+        ```
+
+=== "Conversion"
+
+    ```bash
+    molop -q parse "water_mp2.out" --n-jobs 1 \
+      format-transform --format xyz --output-dir converted
+    ```
+
+    ??? example "Created file"
+
+        ```text
+        converted/water_mp2.xyz
+        ```
+
+## Operation classes
+
+| Class | Operations | Returned state |
+| --- | --- | --- |
+| Chainable | `filter-state`, `filter-value`, `filter-by-codec`, `sample` | New batch |
+| Terminal | `to-summary-df` | CSV, JSON, or table result |
+| Terminal | `format-transform` | Rendered text or generated files |
+| Terminal | `draw-grid-image` | SVG/PNG image |
+| Terminal | `groupby`, `copy-to`, `move-to` | Grouped paths or file-operation result |
+
+A terminal operation cannot be followed by another operation. The following chain is rejected before
+parsing:
 
 ```bash
-molop completion install
+molop parse "water_mp2.out" \
+  to-summary-df --out summary.csv \
+  filter-state --state normal
 ```
 
-Use `--shell bash`, `--shell zsh`, or `--shell fish` to install for a specific
-shell. Restart the shell after installation, or source the updated rc file.
+??? example "Error shape"
 
-To inspect the generated completion script without installing it:
+    ```text
+    Error: to-summary-df returns non-FileBatchModelDisk and must be the last operation.
+    ```
+
+The exact error depends on the validation branch; move the filter before `to-summary-df` to correct it.
+
+## Writer-specific options
+
+`format-transform` accepts writer-specific options after its common options. The registered writer
+provides the option names:
+
+```bash
+molop parse "water_mp2.out" --n-jobs 1 \
+  format-transform --format gjf --output-dir gaussian_inputs \
+  --route-section "#p B3LYP/6-31G(d) opt" \
+  --link0-commands "%nprocshared=8"
+```
+
+??? example "Created file"
+
+    ```text
+    gaussian_inputs/water_mp2.gjf
+    ```
+
+Inspect the static and writer-specific options in the installed version:
+
+```bash
+molop parse PATTERN format-transform --help
+```
+
+??? example "Help output shape"
+
+    ```text
+    Usage: molop parse PATTERN format-transform [OPTIONS] [EXTRA_ARGS]...
+    --format TEXT           Target writer format id.  [required]
+    --output-dir DIRECTORY  Directory for generated files.
+    --frame TEXT            Frame selection: all, int, or csv ints.
+    ```
+
+## Shell completion
+
+Inspect the completion script without changing shell configuration:
 
 ```bash
 molop completion show --shell bash
 ```
 
-## Parse And Chain Operations
+??? example "Output shape"
 
-List parsed files after filtering by detected codec:
+    ```text
+    # bash completion script
+    <script generated from the current Click command tree>
+    ```
 
-```bash
-uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
-  --parser-detection orcainp \
-  --n-jobs 1 \
-  --output-format json \
-  filter-by-codec --codec-id orcainp
-```
+Install completion with `molop completion install --shell bash`, then reload the shell. Installation
+modifies the current user's shell configuration; automation should use `completion show` and manage
+the script explicitly.
 
-Convert parsed files to another format:
+## Related pages
 
-```bash
-uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
-  --parser-detection orcainp \
-  --n-jobs 1 \
-  format-transform --format xyz --output-dir .tmp/molop_xyz
-```
-
-For CLI compatibility, `--output-dir` implies writing files. Use `--write`
-without `--output-dir` to write beside each source file, or `--no-write` to
-force render-only behavior even when an output directory is present. When
-`format-transform` writes files, it does not print the rendered file contents to
-stdout. The generated files are the operation result.
-
-Generate a summary table:
-
-```bash
-uv run molop -q parse "tests/test_files/orca/single_point_inputs/h2_grad_orca.inp" \
-  --parser-detection orcainp \
-  --n-jobs 1 \
-  to-summary-df --out .tmp/molop_summary.csv
-```
-
-`to-summary-df` defaults to the last frame (`--frame -1`). Use
-`--frame all` to summarize every frame and `--full` for expanded fields. Summary
-CSV/JSON output uses flattened column names such as `General.FrameID` and
-`Energy.total_energy.hartree` by default; use `--multi-index-columns` to keep
-the three-level `(group, field, unit)` MultiIndex columns.
-
-## Operation Reference
-
-Chainable operations:
-
-| Operation | Meaning |
-| --- | --- |
-| `filter-state` | Filter by calculation state. |
-| `filter-value` | Filter by charge, multiplicity, or file format. |
-| `filter-by-codec` | Filter by detected reader codec id. |
-| `sample` | Randomly sample files from the current batch. |
-
-Terminal operations:
-
-| Operation | Meaning |
-| --- | --- |
-| `format-transform` | Transform files to another format. `--output-dir` implies writing; `--write` writes beside sources when no output dir is given; `--no-write` disables disk output. |
-| `to-summary-df` | Build a summary table. |
-| `draw-grid-image` | Render a molecule grid image. |
-| `groupby` | Group files and print grouped paths. |
-| `copy-to` | Copy current batch files to a directory. |
-| `move-to` | Move current batch files to a directory. |
-
-A terminal operation must be the last operation in the chain.
-
-## Format-Specific Options
-
-`format-transform` accepts additional writer-specific options after its normal
-options:
-
-```bash
-uv run molop parse "input.log" \
-  format-transform --format gjf --output-dir out \
-  --route-section "#p B3LYP/6-31G(d) opt" \
-  --link0-commands "%nprocshared=8"
-```
-
-These dynamic options come from the registered writer metadata. Shell
-completion can suggest available option names for the selected `--format`, and
-can also show short descriptions for supported options.
-
-Use the command help for the static surface:
-
-```bash
-uv run molop parse PATTERN format-transform --help
-```
+- [CLI first steps](../getting_started/cli.md)
+- [CLI command reference](../command_line_interface.md)
+- [API Contracts](../reference/api_contracts.md)

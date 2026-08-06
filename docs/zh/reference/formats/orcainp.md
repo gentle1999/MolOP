@@ -15,7 +15,12 @@ ORCA 输入解析，覆盖坐标、多任务分割、模型化学、任务族 fi
 
 带坐标的 frame 可以通过显式 ORCA 计算设置生成输入文件：
 
+下载[共享 ORCA 样例](../../../assets/examples/water_mp2.out)后运行：
+
 ```python
+from molop import AutoParser
+
+frame = AutoParser("water_mp2.out", n_jobs=1)[0][-1]
 rendered = frame.format_transform(
     "orcainp",
     keywords="wB97M-V def2-TZVPP RIJCOSX def2/J TightSCF DefGrid3 NoAutoStart SP",
@@ -26,19 +31,40 @@ rendered = frame.format_transform(
 ```
 
 `rendered` 是包含 ORCA simple input line、`%pal/%maxcore/%scf` 和 `* xyz` 坐标块的字符串。
-例如第一行以 `! wB97M-V def2-TZVPP` 开始。
+
+??? example "输出"
+    ```text
+    ! wB97M-V def2-TZVPP RIJCOSX def2/J TightSCF DefGrid3 NoAutoStart SP
+
+    %pal
+      nprocs 16
+    end
+
+    %maxcore 4000
+
+    %scf
+      MaxIter 300
+      STABPerform true
+    end
+
+    * xyz 0 1
+    O      1.7849140000     1.2624220000     0.5119850000
+    H      2.6482370000     1.0729290000     0.1316310000
+    H      1.1831680000     1.2568160000    -0.2388350000
+    *
+    ```
 
 跨格式转换必须提供 `keywords`；MolOP 不会复用其他 QM 软件的关键字语法。
 `blocks` 也接受原始 `%block` 文本。
 
-| 特性 | 支持程度 | 支持范围 | 明确边界 | 测试证据 |
-| ---- | -------- | -------- | -------- | -------- |
-| <!-- feature-area:Geometry and job splitting -->Geometry and job splitting | 部分支持 | 直接坐标、点电荷、外部 `xyzfile`/`pdbfile` 引用，以及 `$new_job` 分割。 | 外部几何作为引用解析；解析器不要求读取外部文件。 | `tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_minimal_xyz_parses_atoms_and_coords`<br>`tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_point_charges_parse_into_frame_geometry`<br>`tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_xyzfile_does_not_require_external_file`<br>`tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_new_job_splits_frames` |
-| <!-- feature-area:Model chemistry and options -->Model chemistry and options | 部分支持 | Method、functional、basis、辅助基组、色散作为 functional 后缀、混合基组、print 设置、PARAS 变量和扫描坐标。 | 未支持的 ORCA block 选项可能保留在 raw/resource 字段，而不是专门语义容器中。 | `tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_metadata_population_recognizes_d4`<br>`tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_mixed_basis_and_output_print_settings`<br>`tests/test_autoparser_orcainp_tmpfile.py::test_autoparser_orcainp_paras_structures_scan_and_resolves_cartesian_variables`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_manual_dispersion_is_functional_suffix` |
-| <!-- feature-area:ORCA 6 manual fixture families -->ORCA 6 manual fixture families | fixture 覆盖 | ORCA 6 手册中的单点、SCF stability、优化、频率、激发态、MRCI 和 Solvator 输入示例。 | 缺少完整显式几何的手册片段会被排除。 | `tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_single_point_inputs_include_orca6_manual_fixtures`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_scf_stability_inputs_include_orca6_manual_fixtures`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_optimization_inputs_include_orca6_manual_fixtures`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_frequency_inputs_include_orca6_manual_fixtures`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_excited_state_inputs_include_orca6_manual_fixtures`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_mrci_inputs_include_orca6_manual_fixtures`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_solvator_inputs_include_orca6_manual_fixtures` |
-| <!-- feature-area:Excited-state and multireference requests -->Excited-state and multireference requests | 部分支持 | 结构化激发态和多参考任务语义，包括 MRCI multi-job fixture。 | 覆盖示例之外的 ORCA 激发态和多参考关键字族可能仍为 raw。 | `tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_excited_state_manual_fixtures_are_structured`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_mrci_manual_fixtures_are_structured`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_mrci_multijob_manual_fixture_splits_frames_and_structures_last_job` |
-| <!-- feature-area:Optimization, coordinates, frequency, and Solvator structures -->Optimization, coordinates, frequency, and Solvator structures | 部分支持 | 优化约束、内坐标、fragments、NEB、频率 restart 和 Solvator 示例。 | 覆盖范围来自显式 ORCA 手册 fixtures 和针对性回归示例。 | `tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_optimization_constraints_block_is_not_truncated`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_manual_internal_coords_fill_frame_atoms_and_coords`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_optimization_fragment_mixed_basis_is_structured`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_optimization_neb_block_and_xtb_geometry_are_structured`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_frequency_restart_example_is_structured`<br>`tests/test_orcainp_fixtures_roundtrip.py::test_orcainp_orca6_solvator_fixture_is_structured` |
-| <!-- feature-area:Writer availability -->Writer availability | 部分支持 | 从带坐标的模型规范化渲染 file/frame，支持显式 keywords、PAL、maxcore、任意 `%block`、笛卡尔坐标和 `.inp` 输出路径。 | 尚不规范化非笛卡尔内联几何和任意原文语句顺序；跨格式转换必须显式提供 ORCA keywords。 | `tests/test_autoparser_orcainp_tmpfile.py::test_orcainp_writer_builds_common_sp_input`<br>`tests/test_autoparser_orcainp_tmpfile.py::test_orcainp_writer_uses_inp_output_extension` |
+| 特性 | 支持程度 | 支持范围 | 明确边界 |
+| ---- | -------- | -------- | -------- |
+| <!-- feature-area:Geometry and job splitting -->Geometry and job splitting | 部分支持 | 直接坐标、点电荷、外部 `xyzfile`/`pdbfile` 引用，以及 `$new_job` 分割。 | 外部几何作为引用解析；解析器不要求读取外部文件。 |
+| <!-- feature-area:Model chemistry and options -->Model chemistry and options | 部分支持 | Method、functional、basis、辅助基组、色散作为 functional 后缀、混合基组、print 设置、PARAS 变量和扫描坐标。 | 未支持的 ORCA block 选项可能保留在 raw/resource 字段，而不是专门语义容器中。 |
+| <!-- feature-area:ORCA 6 manual fixture families -->ORCA 6 manual fixture families | fixture 覆盖 | ORCA 6 手册中的单点、SCF stability、优化、频率、激发态、MRCI 和 Solvator 输入示例。 | 缺少完整显式几何的手册片段会被排除。 |
+| <!-- feature-area:Excited-state and multireference requests -->Excited-state and multireference requests | 部分支持 | 结构化激发态和多参考任务语义，包括 MRCI multi-job fixture。 | 覆盖示例之外的 ORCA 激发态和多参考关键字族可能仍为 raw。 |
+| <!-- feature-area:Optimization, coordinates, frequency, and Solvator structures -->Optimization, coordinates, frequency, and Solvator structures | 部分支持 | 优化约束、内坐标、fragments、NEB、频率 restart 和 Solvator 示例。 | 覆盖范围来自显式 ORCA 手册 fixtures 和针对性回归示例。 |
+| <!-- feature-area:Writer availability -->Writer availability | 部分支持 | 从带坐标的模型规范化渲染 file/frame，支持显式 keywords、PAL、maxcore、任意 `%block`、笛卡尔坐标和 `.inp` 输出路径。 | 尚不规范化非笛卡尔内联几何和任意原文语句顺序；跨格式转换必须显式提供 ORCA keywords。 |
 
 ## ORCA 6.1 能力覆盖矩阵
 

@@ -1,25 +1,8 @@
 # Installation
 
-Install MolOP and verify both the Python API and command-line entry point.
-
-## Prerequisites
-
-- Python 3.10 or newer.
-- Access to install a Python package from GitHub.
-- A dedicated virtual environment is recommended to avoid conflicts with an existing RDKit setup.
-
-MolOP is not currently published on PyPI or Conda. End users install it from GitHub.
-
-## Install
-
 ```bash
-python -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install git+https://github.com/gentle1999/MolOP.git
+pip install molop
 ```
-
-On Windows PowerShell, activate the environment with `.venv\Scripts\Activate.ps1`.
 
 ## Verify
 
@@ -29,28 +12,43 @@ molop --version
 molop --help
 ```
 
-`molop --help` should list the `parse` command. The version is derived from Git tags; running an
-untagged source checkout can show a development version.
+`molop --help` should list the `parse` command. An untagged source checkout can show a development
+version.
+
+The stable output shape is:
+
+??? example "Verification output"
+
+    ```text
+    <version>
+    molop, version <version>
+    Usage: molop [OPTIONS] COMMAND [ARGS]...
+    ...
+      parse       Parse files into a FileBatchModelDisk state, then run...
+    ```
+
+The two `<version>` values should match. The exact version and full help text are release-dependent.
 
 ## Troubleshooting
 
-### Incompatible Python version
+???+ note "Install from a source checkout"
+    Contributors who need an editable checkout should use the [development environment and quality
+    gates](../developer/quality.md). End-user examples assume the `molop` command is on `PATH`.
 
-Check `python --version`. `python` and `python -m pip` in the same terminal must point to the active
-Python 3.10+ environment.
+### Native crash when importing RDKit and Open Babel
 
-### RDKit installation fails
+Importing Open Babel before RDKit can cause a native segmentation fault. When using MolOP, import it
+first. If you import the native packages directly, load RDKit before Open Babel:
 
-RDKit is a MolOP runtime dependency. Use an environment supported by RDKit. If pip has no suitable
-wheel, install RDKit in a Conda environment first, then install MolOP from GitHub.
+```python
+import molop
+from rdkit import Chem
+from openbabel import pybel
+```
 
-### Is OpenBabel required?
+MolOP initializes RDKit before Open Babel to avoid this native-library conflict.
 
-The dedicated Gaussian, ORCA, xTB, XYZ, SDF, and SMILES readers do not require the OpenBabel
-fallback. OpenBabel Python bindings are needed only for unknown-extension fallback or when you
-explicitly select the OpenBabel rendering engine.
-
-### How do I install a development environment?
+## Development environment
 
 Source checkout, `uv sync`, and test commands belong to the contributor workflow. See
 [Development environment and quality gates](../developer/quality.md).

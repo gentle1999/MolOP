@@ -28,6 +28,14 @@ frequencies = frame.vibrations.frequencies.m_as("cm^-1")
 coords = frame.coords.m_as("angstrom")
 ```
 
+??? example "Output"
+
+    For the bundled ORCA water sample, the first line is:
+
+    ```text
+    -74.999374598107
+    ```
+
 `.m_as(...)` returns a value or NumPy array in the requested unit. Keep the quantity object when
 unit metadata must remain attached.
 
@@ -39,6 +47,15 @@ if populations:
     for name, series in populations.population_items():
         print(name, series.scheme, series.quantity, series.values[:3])
 ```
+
+??? example "Output"
+
+    The bundled ORCA water sample reports two charge-population schemes:
+
+    ```text
+    mulliken_charges mulliken charge [-0.361722  0.180857  0.180866]
+    lowdin_charges lowdin charge [-0.2507    0.125348  0.125352]
+    ```
 
 `ChargeSpinPopulations` has one `populations` mapping rather than a fixed attribute per scheme. Read
 Mulliken charges with:
@@ -56,6 +73,12 @@ data.
 if frame.is_normal is None:
     print("the source has insufficient termination evidence")
 ```
+
+??? example "Output"
+
+    ```text
+    the source has insufficient termination evidence
+    ```
 
 For status fields, `None` means unknown and is not equivalent to `False`.
 

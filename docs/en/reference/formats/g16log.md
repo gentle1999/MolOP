@@ -22,9 +22,12 @@ if frame.energies and frame.energies.total_energy is not None:
     print(frame.energies.total_energy.m_as("hartree"))
 ```
 
-Output is termination status and final total energy, for example `True` and `-317.592366596`; the
-value depends on the file. See [Find fields by scientific property](../model_fields.md) for other
-results.
+??? example "Output contract"
+
+    Output is termination status and final total energy, for example `True` and `-317.592366596`;
+    the value depends on the file.
+
+See [Find fields by scientific property](../model_fields.md) for other results.
 
 MolOP reads Gaussian output files and extracts the data most often needed for
 computational chemistry post-processing: structures, energies, thermochemistry,

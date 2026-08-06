@@ -29,12 +29,20 @@ jobs:
         uses: astral-sh/setup-uv@v7
 
       - name: Install dependencies
+        run: uv sync --frozen --group docs
+
+      - name: Execute documentation notebooks
         run: |
-          uv export --frozen --only-group docs --no-emit-project --format requirements.txt --no-hashes -o /tmp/requirements-docs.txt
-          python -m venv .venv
-          uv pip sync --no-config --prefix .venv --default-index https://pypi.org/simple /tmp/requirements-docs.txt
+          uv run --frozen --group docs jupyter nbconvert \
+            --to notebook \
+            --execute \
+            --inplace \
+            --ExecutePreprocessor.timeout=120 \
+            --ExecutePreprocessor.kernel_name=python3 \
+            docs/zh/examples/*.ipynb docs/en/examples/*.ipynb
+          rm -f summary.csv docs/zh/examples/summary.csv docs/en/examples/summary.csv
 
       - name: Build docs
         env:
           NO_MKDOCS_2_WARNING: "1"
-        run: .venv/bin/mkdocs build -f mkdocs.yml
+        run: uv run --frozen --group docs mkdocs build --strict -f mkdocs.yml

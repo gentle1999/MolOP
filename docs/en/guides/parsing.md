@@ -7,7 +7,7 @@ Use `AutoParser` with one file, a glob pattern, or a mixed list of paths.
 ```python
 from molop import AutoParser
 
-batch = AutoParser("results/*.log")
+batch = AutoParser("water_mp2.out", n_jobs=1)
 for parsed_file in batch:
     print(parsed_file.filename, len(parsed_file), parsed_file.detected_format_id)
 ```
@@ -16,9 +16,11 @@ The returned `FileBatchModelDisk` contains files that parsed successfully and pr
 frame.
 For the shared example, output is:
 
-```text
-water_mp2.out 1 orcaout
-```
+??? example "Output"
+
+    ```text
+    water_mp2.out 1 orcaout
+    ```
 
 ## Input forms
 
@@ -41,9 +43,14 @@ parsed_file = batch[0]
 first = parsed_file[0]
 final = parsed_file[-1]
 
-for frame in parsed_file:
-    print(frame.frame_id, frame.energies.total_energy if frame.energies else None)
+print([(frame.frame_id, len(frame.atoms)) for frame in parsed_file])
 ```
+
+??? example "Output"
+
+    ```text
+    [(0, 3)]
+    ```
 
 When only final results matter and memory use is important:
 
@@ -70,18 +77,24 @@ See the [format overview](../reference/format_support.md) for format IDs.
 ## Parallel and structure-only parsing
 
 ```python
-batch = AutoParser("results/*", n_jobs=4)
+batch = AutoParser("results/*")
 
 structures = AutoParser(
     "results/*.log",
-    n_jobs=4,
+    n_jobs=-1,
     only_extract_structure=True,
 )
 ```
 
-`n_jobs=-1` uses the maximum parallelism allowed by MolOP configuration. Use `n_jobs=1` for small
-batches or debugging. `only_extract_structure=True` skips non-structural results and is unsuitable
-for extracting energy or thermochemistry.
+`AutoParser` defaults to `n_jobs=-1`. MolOP resolves this to the smaller of the CPU count and the
+global `molopconfig.max_jobs` limit. Pass a positive integer to request a specific worker count, or
+use `n_jobs=1` for a small batch or debugging. The same `n_jobs` option is available on summary,
+filter, and transform operations; Python methods default to `1`, so pass it explicitly when those
+steps should also run in parallel. The CLI parse-level `--n-jobs` is used by later operations unless
+an operation-level value overrides it.
+
+`only_extract_structure=True` skips non-structural results and is unsuitable for extracting energy
+or thermochemistry.
 
 ## Find failed inputs
 
@@ -100,9 +113,11 @@ for path in failed:
 
 When every input succeeds this prints nothing. A missing result produces one line such as:
 
-```text
-not added to batch: results/truncated.out
-```
+??? example "Output when a file is omitted"
+
+    ```text
+    not added to batch: results/truncated.out
+    ```
 
 Missing files, unsupported formats, and files without usable frames are omitted and reported in the
 MolOP log. Retry with `n_jobs=1`, then check extensions, encoding, and format IDs in

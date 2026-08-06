@@ -6,11 +6,26 @@ This page summarizes MolOP's built-in format support. Each format page describes
 the information that can be read or written, the supported scope, and known
 boundaries. The coverage statements are tested against the registered codecs.
 
+=== "Choose by workflow"
+
+    - Start with [`xyz`](formats/xyz.md), [`sdf`](formats/sdf.md), or [`smi`](formats/smi.md)
+      for structure files.
+    - Use [`gjf`](formats/gjf.md) or [`orcainp`](formats/orcainp.md) for calculation inputs.
+    - Use [`g16log`](formats/g16log.md), [`g16fchk`](formats/g16fchk.md), [`orcaout`](formats/orcaout.md),
+      or [`xtbout`](formats/xtbout.md) for calculation results.
+    - Use [`fakeg`](formats/fakeg.md) when a Gaussian-like text rendering is required from parsed data.
+
+=== "Choose by extension"
+
+    Extensions are only candidate hints. `.out` and `.log` can belong to more
+    than one QM output format, so content probing determines the final reader.
+    See the table below for the complete extension-to-codec mapping.
+
 | Group | Formats | Summary |
 | ----- | ------- | ------- |
 | Structure formats | [`xyz`](formats/xyz.md), [`sdf`](formats/sdf.md), [`smi`](formats/smi.md), [`cml`](formats/cml.md) | Coordinate/graph structure IO and rendering. |
 | QM input formats | [`gjf`](formats/gjf.md), [`orcainp`](formats/orcainp.md) | Gaussian and ORCA input parsing and rendering. |
-| QM output formats | [`g16log`](formats/g16log.md), [`orcaout`](formats/orcaout.md), [`xtbout`](formats/xtbout.md), [`fakeg`](formats/fakeg.md) | Gaussian, ORCA, and xTB output parsing plus Gaussian-like rendering from parsed Gaussian output. |
+| QM output formats | [`g16log`](formats/g16log.md), [`g16fchk`](formats/g16fchk.md), [`orcaout`](formats/orcaout.md), [`xtbout`](formats/xtbout.md), [`fakeg`](formats/fakeg.md) | Gaussian log/fchk, ORCA, and xTB output parsing plus Gaussian-like rendering from parsed Gaussian output. |
 | Special readers | [OpenBabel fallback](formats/openbabel-fallback.md) | Unknown-extension fallback through OpenBabel-compatible readers. |
 
 | Format ID | Typical Extensions | Read | Write | Support Page |

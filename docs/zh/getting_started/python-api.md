@@ -7,7 +7,7 @@
 ```python
 from molop import AutoParser
 
-batch = AutoParser("calculation.log")
+batch = AutoParser("water_mp2.out", n_jobs=1)
 parsed_file = batch[0]
 final_frame = parsed_file[-1]
 ```
@@ -20,17 +20,18 @@ print(len(batch), len(parsed_file), parsed_file.detected_format_id)
 print(len(final_frame.atoms), final_frame.coords.shape)
 ```
 
-输出：
+??? example "输出"
 
-```text
-1 1 orcaout
-3 (3, 3)
-```
+    ```text
+    1 1 orcaout
+    3 (3, 3)
+    ```
 
 ## 解析多个输入
 
 ```python
 batch = AutoParser([
+    "water_mp2.out",
     "reactants/*.log",
     "products/product.out",
     "structures/*.xyz",
@@ -41,11 +42,13 @@ for parsed_file in batch:
     print(parsed_file.filename, frame.charge, frame.multiplicity)
 ```
 
-每个成功解析文件输出一行，例如：
+每个成功解析文件输出一行。对共享水分子样例，循环输出：
 
-```text
-water_mp2.out 0 1
-```
+??? example "输出"
+
+    ```text
+    water_mp2.out 0 1
+    ```
 
 路径、glob 和路径列表可以混用。结果按绝对路径稳定排序，重复路径只解析一次。
 
@@ -54,7 +57,7 @@ water_mp2.out 0 1
 不同计算类型提供的字段不同，读取前检查容器是否存在：
 
 ```python
-frame = batch[0][-1]
+frame = AutoParser("water_mp2.out", n_jobs=1)[0][-1]
 
 if frame.energies and frame.energies.total_energy is not None:
     print(frame.energies.total_energy.m_as("hartree"))
@@ -67,23 +70,43 @@ if frame.charge_spin_populations:
     print(names)
 ```
 
-共享 MP2 样例的能量分支输出 `-74.999374598107`；它没有频率或布居区段，因此另外两个
-分支不输出内容。这正是读取可选容器前需要检查的原因。
+共享 MP2 样例的输出为：
+
+??? example "输出"
+
+    ```text
+    -74.999374598107
+    ['mulliken_charges', 'lowdin_charges']
+    ```
+
+它没有频率区段，因此频率分支不输出内容。布居方案是可选的，但该样例确实包含两种布居；
+这正是读取可选容器前需要检查的原因。
 
 MolOP 的数值通常带 Pint 单位。使用 `.m_as("目标单位")` 取得指定单位下的数值。
 
 ## 生成表格
 
 ```python
+batch = AutoParser("water_mp2.out", n_jobs=1)
 df = batch.to_summary_df(
     frame=-1,
     brief=False,
     flatten_columns=True,
 )
+print(df[["Status.IsNormal", "Energy.total_energy.hartree"]])
 df.to_csv("summary.csv", index=False)
 ```
 
 使用 `frame="all"` 汇总每个文件的全部 frame；默认 `frame=-1` 只取最后一帧。
+
+共享样例的选中列为：
+
+??? example "输出"
+
+    ```text
+       Status.IsNormal  Energy.total_energy.hartree
+    0             True                    -74.999375
+    ```
 
 ## 下一步
 

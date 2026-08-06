@@ -7,7 +7,7 @@
 ```python
 from molop import AutoParser
 
-batch = AutoParser("results/*.log")
+batch = AutoParser("water_mp2.out", n_jobs=1)
 normal = batch.filter_state("normal")
 optimized = normal.filter_state("opt")
 transition_states = normal.filter_state("ts")
@@ -30,14 +30,25 @@ transition_states.to_summary_df(
 
 ## 输出
 
-```text
-{'parsed': N, 'normal': A, 'optimized': B, 'transition_states': C}
-optimized.csv
-transition_states.csv
-```
+??? example "筛选计数"
 
-`N/A/B/C` 是当前目录真实计数。过渡态 CSV 的 `Vibration.num_imaginary` 可用于复核虚频数；
-若列缺失，说明选中 frame 没有结构化频率结果。
+    ```text
+    {'parsed': 1, 'normal': 1, 'optimized': 0, 'transition_states': 0}
+    ```
+
+生成的文件为：
+
+??? example "生成文件"
+
+    ```text
+    optimized.csv
+    transition_states.csv
+    ```
+
+以上计数来自随文档提供的单点样例；实际计数以及两个 CSV 是否包含数据取决于输入文件。过渡态
+CSV 的 `Vibration.num_imaginary` 可用于复核虚频数；若列缺失，说明选中 frame 没有结构化频率结果。
+
+筛选优化任务或过渡态任务时，将 `water_mp2.out` 替换为 `results/*.log`。
 
 ## CLI
 
@@ -47,6 +58,12 @@ molop -q parse "results/*.log" \
   filter-state --state ts \
   to-summary-df --full --out transition_states.csv
 ```
+
+??? example "生成文件"
+
+    ```text
+    transition_states.csv
+    ```
 
 ## 科学复核
 

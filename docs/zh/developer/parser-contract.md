@@ -1,24 +1,19 @@
-# 贡献指南
+# 完整 Parser 契约
 
-感谢你对 MolOP 的关注！我们欢迎各种形式的贡献。
-
-- **报告 Bug**：如何提交有效的 Issue。
-- **提交功能建议**：分享你对 MolOP 的改进想法。
-- **代码贡献流程**：从 Fork 到 Pull Request 的详细步骤。
-- **开发环境搭建**：如何配置本地开发环境。
-- **代码风格规范**：遵循 Ruff 和类型检查要求。
-- **文档规范**：使用统一的四层文档标准（`style_guide.md`）。
+本页定义 MolOP reader、file/frame model、writer 和 codec registry 之间的实现边界，面向新增
+格式或维护 IO 栈的贡献者。
 
 ## 文档质量保证
 
-为了确保高质量的文档，我们执行以下政策：
+为了让实现、示例和双语页面保持可验证，我们执行以下约束：
 
 - **CI 验证**：每个 Pull Request 都会触发使用 `mkdocs build --strict` 的文档构建。这确保了没有损坏的内部链接和有效的配置。
-- **翻译政策**：
-  - 我们使用 `TODO(translate):` 作为中英文之间尚未翻译内容的占位符。
-  - 占位符允许存在于 `main` 分支和 Pull Request 中，以实现阶段性同步。
-  - **发布阻断**：发布标签（`v*`）中严禁出现占位符。如果在发布构建期间检测到任何占位符，CI 将失败。
-- **Notebooks**：文档中的 Jupyter notebook 是可选的，且不会由 CI 执行。如果你希望输出可见，请确保它们已预先执行。
+- **双语页面**：面向用户的中文和英文页面成对维护；发布前不得留下翻译占位符。
+- **Markdown 输出**：打印值和生成的产物必须折叠。README 使用 `<details>`，MkDocs 页面使用
+  Material `??? example`；详见[文档贡献](documentation.md)。
+- **Notebooks**：只编辑 Notebook 的代码单元和 Markdown 单元。CI 会在 MkDocs 构建前使用
+  `nbconvert --execute` 执行全部代码单元，再由 `mkdocs-jupyter` 渲染保存的输出；不得手动修改
+  `outputs` 或执行计数。
 
 ## 开发 IO 插件
 
@@ -493,13 +488,13 @@ sequenceDiagram
 
 - 使用 `Registry.writer_factory(...)`
 - 明确选择 `domain`：
-  - `domain="file"`：文件级 writer
-  - `domain="frame"`：帧级 writer
+    - `domain="file"`：文件级 writer
+    - `domain="frame"`：帧级 writer
 - 文件级使用 `FileRendererWriter`
 - 帧级使用 `FrameRendererWriter`
 - 正确设置 `required_level`：
-  - `StructureLevel.COORDS`
-  - `StructureLevel.GRAPH`
+    - `StructureLevel.COORDS`
+    - `StructureLevel.GRAPH`
 - `default_graph_policy` 要有意识地指定，不要依赖猜测
 
 参考注册文件：

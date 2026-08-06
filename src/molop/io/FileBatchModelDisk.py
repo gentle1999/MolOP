@@ -730,7 +730,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             maxMols (int): Maximum number of molecules to visualize.
             useSVG (bool): Whether to use SVG format for visualization.
             n_jobs (int): Number of parallel jobs.
-            **kwargs: Additional arguments for Draw.MolsToGridImage.
+            **kwargs: Additional arguments for the configured RDKit drawer.
 
         Returns:
             (PIL.Image.Image | None): A grid image of the molecules, or None if RDKit is not installed.
@@ -759,13 +759,30 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         if not mols:
             moloplogger.warning("No valid molecules found for visualization.")
             return None
+        if molopconfig.use_dof_effect_drawer:
+            try:
+                from rdkit_dof import MolsToGridDofImage
+            except ImportError:
+                moloplogger.warning("rdkit-dof is not installed; falling back to the RDKit drawer.")
+            else:
+                dof_kwargs = dict(kwargs)
+                dof_kwargs.pop("use_svg", None)
+                return MolsToGridDofImage(
+                    mols,
+                    molsPerRow=molsPerRow,
+                    subImgSize=subImgSize,
+                    legends=legends,
+                    use_svg=useSVG,
+                    return_image=not useSVG,
+                    **dof_kwargs,
+                )
+
         return Draw.MolsToGridImage(
             mols,
             molsPerRow=molsPerRow,
             subImgSize=subImgSize,
             legends=legends,
             useSVG=useSVG,
-            maxMols=maxMols,
             **kwargs,
         )
 

@@ -29,7 +29,7 @@ make check
 ## 文档检查
 
 ```bash
-uv run rumdl check docs README.md README.zh.md
+uv run rumdl check README.md README.zh.md $(rg --files docs -g '*.md')
 uv run pytest -q tests/test_documentation_examples.py --no-cov
 uv run pytest -q tests/format_feature_coverage --no-cov
 NO_MKDOCS_2_WARNING=1 uv run mkdocs build --strict

@@ -22,21 +22,24 @@ print(frame.energies.total_energy if frame.energies else None)
 print(frame.charge_spin_populations.population_names if frame.charge_spin_populations else [])
 ```
 
-输出依次给出原子/坐标规模、可用总能量和实际存在的布居方案。fchk 只产生一个当前几何
-frame，不包含 log 中的完整优化轨迹。
+??? example "输出约定"
+
+    输出依次给出原子/坐标规模、可用总能量和实际存在的布居方案。
+
+fchk 只产生一个当前几何 frame，不包含 log 中的完整优化轨迹。
 
 MolOP 读取 Gaussian `formchk` 生成的文本格式化检查点。解析器按 fchk 固定宽度
 record 和 `N=` 数组长度解码，不依赖字段相邻顺序；未知 record 会被跳过。
 
-| 特性 | 支持程度 | 支持范围 | 明确边界 | 测试证据 |
-| ---- | -------- | -------- | -------- | -------- |
-| <!-- feature-area:File recognition and fixture inventory -->文件识别与样本覆盖 | fixture 覆盖 | 读取 fchk 标量和数组 record；仓库维护的全部 fchk 样本，包括大文件，均生成一个结果 frame。 | 不接受二进制 `.chk`；未知 record 只有在映射到公共字段后才具有结构化语义。 | `tests/test_g16fchk_parser.py::test_g16fchk_all_maintained_fixtures_parse`<br>`tests/test_g16fchk_parser.py::test_g16fchk_probe_does_not_claim_gaussian_log`<br>`tests/test_g16fchk_parser.py::test_g16fchk_record_decoder_handles_fixed_width_character_arrays` |
-| <!-- feature-area:Metadata and route semantics -->元数据与 Route 语义 | 部分支持 | 解析标题、Gaussian 版本、Route、电荷、多重度、模型化学、任务、色散、溶剂和开壳层处理；第二行摘要用于补齐 Route 中未识别的 method/basis。 | Route 仍受共享 Gaussian 语法覆盖范围限制；fchk 不含完整 Link 0 输入和运行时间。 | `tests/test_g16fchk_parser.py::test_g16fchk_frequency_fixture_exposes_structured_results`<br>`tests/test_g16fchk_parser.py::test_g16fchk_correlated_energy_fields_are_preserved`<br>`tests/test_g16fchk_parser.py::test_g16fchk_record_decoder_handles_fixed_width_character_arrays` |
-| <!-- feature-area:Geometry and Cartesian derivatives -->几何与 Cartesian 导数 | 部分支持 | 解析原子序数、Bohr 坐标、由 Cartesian gradient 取负得到的 forces，以及由 packed force constants 展开的对称 Hessian。 | fchk 只表示当前几何，不提供完整优化轨迹；坐标和导数保持 source order，不反演原输入方向变换。 | `tests/test_g16fchk_parser.py::test_g16fchk_frequency_fixture_exposes_structured_results`<br>`tests/test_g16fchk_parser.py::test_g16fchk_only_extract_structure_skips_property_arrays`<br>`tests/test_g16fchk_parser.py::test_g16fchk_autoparser_preserves_single_source_span` |
-| <!-- feature-area:Energies, orbitals, and spin -->能量、轨道与自旋 | 部分支持 | 解析 SCF/reference、MP2、MP3、MP4、CCSD、CCSD(T) 和最终总能量，以及 alpha/beta 轨道能、占据数和 S-squared。 | 不暴露 MO coefficient、密度矩阵、自然轨道和未映射的方法专用能量标签。 | `tests/test_g16fchk_parser.py::test_g16fchk_frequency_fixture_exposes_structured_results`<br>`tests/test_g16fchk_parser.py::test_g16fchk_correlated_energy_fields_are_preserved` |
-| <!-- feature-area:Populations and electric response -->布居与电响应 | 部分支持 | 解析与原子数一致的 Mulliken、NPA、ESP、APT、Hirshfeld/CM5 及可用 spin population records，并解析偶极矩、packed polarizability 和四极矩。 | 只暴露 fchk 实际包含的 record；键级、超精细张量和更高阶电响应数组尚未映射。 | `tests/test_g16fchk_parser.py::test_g16fchk_frequency_fixture_exposes_structured_results`<br>`tests/test_g16fchk_parser.py::test_g16fchk_npa_population_is_structured_when_present`<br>`tests/test_g16fchk_parser.py::test_g16fchk_population_records_support_spin_and_extensible_schemes` |
-| <!-- feature-area:Vibrations, thermochemistry, and status -->振动、热力学与状态 | 部分支持 | 解析频率、约化质量、力常数、IR 强度、简正模式、thermal energy/enthalpy/free energy、Job Status 和优化完成状态。 | 不映射 Raman/ROA/VCD、详细热校正、温度/压力和优化收敛历史。 | `tests/test_g16fchk_parser.py::test_g16fchk_frequency_fixture_exposes_structured_results` |
-| <!-- feature-area:NMR shielding and spin-spin coupling -->NMR 屏蔽与自旋-自旋耦合 | 部分支持 | 解析逐原子 shielding tensor 及 isotropic、anisotropy、principal values，FC、SD、PSO、DSO 约化耦合矩阵，以及 Hz 单位的 total K 矩阵。 | 需要对应 NMR record；fchk 缺少重建 J 所需的同位素信息，也不映射参考化学位移和 EPR 数据。 | `tests/test_g16fchk_parser.py::test_g16fchk_nmr_shielding_matches_corresponding_log`<br>`tests/test_g16fchk_parser.py::test_g16fchk_nmr_spin_spin_components_reconstruct_total_k` |
+| 特性 | 支持程度 | 支持范围 | 明确边界 |
+| ---- | -------- | -------- | -------- |
+| <!-- feature-area:File recognition and fixture inventory -->文件识别与样本覆盖 | fixture 覆盖 | 读取 fchk 标量和数组 record；仓库维护的全部 fchk 样本，包括大文件，均生成一个结果 frame。 | 不接受二进制 `.chk`；未知 record 只有在映射到公共字段后才具有结构化语义。 |
+| <!-- feature-area:Metadata and route semantics -->元数据与 Route 语义 | 部分支持 | 解析标题、Gaussian 版本、Route、电荷、多重度、模型化学、任务、色散、溶剂和开壳层处理；第二行摘要用于补齐 Route 中未识别的 method/basis。 | Route 仍受共享 Gaussian 语法覆盖范围限制；fchk 不含完整 Link 0 输入和运行时间。 |
+| <!-- feature-area:Geometry and Cartesian derivatives -->几何与 Cartesian 导数 | 部分支持 | 解析原子序数、Bohr 坐标、由 Cartesian gradient 取负得到的 forces，以及由 packed force constants 展开的对称 Hessian。 | fchk 只表示当前几何，不提供完整优化轨迹；坐标和导数保持 source order，不反演原输入方向变换。 |
+| <!-- feature-area:Energies, orbitals, and spin -->能量、轨道与自旋 | 部分支持 | 解析 SCF/reference、MP2、MP3、MP4、CCSD、CCSD(T) 和最终总能量，以及 alpha/beta 轨道能、占据数和 S-squared。 | 不暴露 MO coefficient、密度矩阵、自然轨道和未映射的方法专用能量标签。 |
+| <!-- feature-area:Populations and electric response -->布居与电响应 | 部分支持 | 解析与原子数一致的 Mulliken、NPA、ESP、APT、Hirshfeld/CM5 及可用 spin population records，并解析偶极矩、packed polarizability 和四极矩。 | 只暴露 fchk 实际包含的 record；键级、超精细张量和更高阶电响应数组尚未映射。 |
+| <!-- feature-area:Vibrations, thermochemistry, and status -->振动、热力学与状态 | 部分支持 | 解析频率、约化质量、力常数、IR 强度、简正模式、thermal energy/enthalpy/free energy、Job Status 和优化完成状态。 | 不映射 Raman/ROA/VCD、详细热校正、温度/压力和优化收敛历史。 |
+| <!-- feature-area:NMR shielding and spin-spin coupling -->NMR 屏蔽与自旋-自旋耦合 | 部分支持 | 解析逐原子 shielding tensor 及 isotropic、anisotropy、principal values，FC、SD、PSO、DSO 约化耦合矩阵，以及 Hz 单位的 total K 矩阵。 | 需要对应 NMR record；fchk 缺少重建 J 所需的同位素信息，也不映射参考化学位移和 EPR 数据。 |
 
 ## 能力覆盖矩阵
 

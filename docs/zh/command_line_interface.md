@@ -9,6 +9,9 @@ molop [全局选项] parse PATTERN [解析选项] 操作 [操作参数] ...
 先看任务配方：[CLI 初体验](getting_started/cli.md)和
 [CLI 常用任务](guides/cli-recipes.md)。本页用于查参数和链式规则。
 
+以下命令以[共享 ORCA 水分子样例](../assets/examples/water_mp2.out)为输入。将文件下载到当前
+目录后即可直接运行；使用自己的文件时替换 `water_mp2.out`。
+
 ## 全局选项
 
 | 选项 | 作用 |
@@ -26,6 +29,10 @@ molop [全局选项] parse PATTERN [解析选项] 操作 [操作参数] ...
 | `--parser-detection` | `auto` | 自动检测或格式 ID，如 `g16log`, `orcaout`, `xtbout` |
 | `-j, --n-jobs` | `-1` | 解析进程数 |
 | `--output-format` | `text` | 最终终端输出使用 `text` 或 `json` |
+
+`--n-jobs -1` 是默认的自动设置，MolOP 会用 `molopconfig.max_jobs` 对其限额。排查 parser 或
+原生库问题时传入 `--n-jobs 1`。parse 级设置会传给后续操作，除非某个操作单独提供
+`--n-jobs`。
 
 ## 可继续链接的操作
 
@@ -54,8 +61,19 @@ molop [全局选项] parse PATTERN [解析选项] 操作 [操作参数] ...
 ## Summary 参数
 
 ```bash
-molop parse "results/*.log" to-summary-df --help
+molop parse "water_mp2.out" to-summary-df --help
 ```
+
+??? example "帮助摘要"
+
+    ```text
+    Usage: molop parse PATTERN to-summary-df [OPTIONS]
+    --mode [file|frame]       Summary mode.  [default: frame]
+    --frame TEXT              Frame selection: all, int, or csv ints.
+    --brief / --full          Use compact or full summary fields.
+    --out FILE                Output file.
+    --format [csv|json]       Output file format.  [default: csv]
+    ```
 
 常用选项：
 
@@ -69,25 +87,39 @@ molop parse "results/*.log" to-summary-df --help
 执行：
 
 ```bash
-molop -q parse "water_mp2.out" \
-  to-summary-df --full --format json
+molop -q parse "water_mp2.out" --parser-detection orcaout --n-jobs 1 \
+  to-summary-df --full --format json --out summary.json
 ```
 
-输出对象包含：
+输出对象包含以下字段（完整 JSON 还会包含其他已解析字段）：
 
-```json
-{
-  "Calc Parameter.Software": "ORCA",
-  "Status.IsNormal": true,
-  "Energy.total_energy.hartree": -74.9993745981
-}
-```
+??? example "JSON 输出"
+
+    ```json
+    {
+      "Calc Parameter.Software": "ORCA",
+      "Status.IsNormal": true,
+      "Energy.total_energy.hartree": -74.9993745981
+    }
+    ```
+
+    生成文件：`summary.json`。
 
 ## Transform 参数
 
 ```bash
 molop parse "input.out" format-transform --help
 ```
+
+??? example "帮助摘要"
+
+    ```text
+    Usage: molop parse PATTERN format-transform [OPTIONS] [EXTRA_ARGS]...
+    --format TEXT           Target writer format id.  [required]
+    --output-dir DIRECTORY  Directory for generated files.
+    --frame TEXT            Frame selection: all, int, or csv ints.
+    --write / --no-write    Write generated files.
+    ```
 
 - `--format FORMAT_ID` 必填。
 - `--frame -1|all|0,2` 选择 frame。
@@ -104,6 +136,12 @@ molop parse "input.out" \
   --keywords "B3LYP def2-SVP Opt" --nprocs 8 --maxcore 2000
 ```
 
+??? example "生成文件"
+
+    ```text
+    next/input.inp
+    ```
+
 ## 查看精确 help
 
 ```bash
@@ -113,6 +151,12 @@ molop parse PATTERN filter-state --help
 molop parse PATTERN to-summary-df --help
 molop parse PATTERN format-transform --help
 ```
+
+??? example "帮助命令的共同形状"
+
+    ```text
+    molop [OPTIONS] parse PATTERN OPERATION [OPTIONS]
+    ```
 
 内部 plan 校验、终止操作约束和动态补全协议见
 [CLI 进阶契约](advanced/cli-contract.md)。

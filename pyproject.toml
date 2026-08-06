@@ -1,21 +1,37 @@
 [project]
 name = "molop"
 dynamic = ["version"]
-description = "Molcule OPerator"
-authors = [{ name = "tmj", email = "mj_t@zju.edu.cn" }]
+description = "A Python library and command-line tool for parsing and processing computational chemistry files."
+authors = [{ name = "Miao-jiong Tang", email = "mj_t@zju.edu.cn" }]
 requires-python = ">=3.10" # python 3.10 or later, follow the main dependence of rdkit
 readme = "README.md"
 license = "MIT"
-maintainers = [{ name = "tmj", email = "mj_t@zju.edu.cn" }]
+maintainers = [{ name = "Miao-jiong Tang", email = "mj_t@zju.edu.cn" }]
 keywords = [
     "cheminformatics",
+    "computational chemistry",
+    "quantum chemistry",
+    "Gaussian",
+    "ORCA",
+    "xTB",
     "xyz2mol",
     "parser",
 ]
 classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Typing :: Typed",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering :: Chemistry",
 ]
 dependencies = [
     "joblib>=1.5.1",
@@ -30,11 +46,15 @@ dependencies = [
     "timeout-decorator>=0.5.0",
     "tqdm>=4.67.1",
     "click>=8.1",
-    "molgr",
+    "molgr>=0.1.2",
 ]
 
 [project.urls]
+Homepage = "https://github.com/gentle1999/MolOP"
 Repository = "https://github.com/gentle1999/MolOP"
+Documentation = "https://gentle1999.github.io/MolOP/"
+Issues = "https://github.com/gentle1999/MolOP/issues"
+Changelog = "https://gentle1999.github.io/MolOP/en/changelog/"
 
 [project.scripts]
 molop = "molop.cli.app:app"
@@ -70,6 +90,8 @@ test = [
 
 publish = [
     "hatch-vcs>=0.5.0",
+    "pip-audit>=2.9.0",
+    "twine>=6.2.0",
 ]
 
 docs = [
@@ -88,6 +110,15 @@ build-backend = "hatchling.build"
 
 [tool.hatch.version]
 source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/LICENSE",
+    "/README.md",
+    "/README.zh.md",
+    "/pyproject.toml",
+    "/src",
+]
 
 [tool.ruff]
 exclude = [".git", ".venv", "__pycache__", "build", "dist", "*.ipynb"]
@@ -135,6 +166,17 @@ filterwarnings = [
 ]
 
 
+[tool.rumdl]
+disable = ["MD033"]
+flavor = "mkdocs"
+line-length = 100
+
+[tool.rumdl.MD013]
+code-blocks = false
+paragraphs = false
+tables = false
+
+
 [tool.mypy]
 plugins = ['pydantic.mypy']
 warn_return_any = false        # 允许函数返回 Any (这对调用未加类型的第三方库很有用)
@@ -154,21 +196,28 @@ no_site_packages = true
 exclude = ["tests", "scripts", "build", "dist"]
 
 
+[tool.pyright]
+typeCheckingMode = "standard"
+include = ["src"]
+exclude = [
+    "**/node_modules",
+    "**/.*",
+    "tests",
+    "scripts",
+    "build",
+    "dist",
+    ".venv",
+    ".mypy_cache",
+    ".ruff_cache",
+    "**/__pycache__",
+]
+reportMissingImports = "none"
+reportMissingModuleSource = "none"
+reportMissingTypeStubs = "none"
+pythonVersion = "3.10"
+
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_typed = true
 warn_required_dynamic_aliases = true
-
-
-[[tool.uv.index]]
-name = "pypi"
-url = "https://mirrors.zju.edu.cn/pypi/web/simple"
-
-[[tool.uv.index]]
-name = "hong"
-url = "http://nas.asymcatml.net:13000/api/packages/tmj/pypi/simple/"
-publish-url = "http://nas.asymcatml.net:13000/api/packages/tmj/pypi/"
-explicit = true
-
-[tool.uv.sources]
-molgr = { git = "http://nas.asymcatml.net:13000/tmj/MolGR", rev = "develop" }

@@ -1,21 +1,48 @@
 site_name: MolOP Documentation
+site_description: Parse computational chemistry files, inspect scientific results, and export structures with MolOP.
 site_dir: public
 repo_url: https://github.com/gentle1999/MolOP.git
-repo_name: gentle1999/MolOP.git
+repo_name: gentle1999/MolOP
 site_url: https://gentle1999.github.io/MolOP/
+edit_uri: edit/main/docs/
 
 theme:
   name: "material"
   features:
+    - navigation.tracking
     - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
     - navigation.footer
+    - toc.follow
     - header.autohide
     - announce.dismiss
     - search.suggest
     - search.highlight
     - search.share
+    - content.action.edit
+    - content.action.view
+    - content.tabs.link
+    - content.footnote.tooltips
+    - content.code.copy
+    - content.code.select
+    - content.code.annotate
   icon:
     repo: fontawesome/brands/github
+    edit: material/pencil
+    view: material/eye
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
 
 extra:
   social:
@@ -42,6 +69,7 @@ plugins:
   - mkdocs-jupyter:
       include:
         - examples/*.ipynb
+      # CI pre-executes notebooks; MkDocs renders the saved outputs.
       execute: false
   - i18n:
       docs_structure: folder
@@ -75,6 +103,7 @@ plugins:
             Gaussian、ORCA 与 xTB 汇总: Gaussian, ORCA, and xTB Summary
             导出能量和热化学 CSV: Export Energy and Thermochemistry CSV
             筛选优化结果与过渡态: Select Optimized Results and Transition States
+            过渡态分析: Transition-state Analysis
             导出结构和下一步输入: Export Structures and Next-Step Inputs
             Notebook 补充: Notebook Supplements
             01-Gaussian 解析与检查: 01-Gaussian Parse and Inspect
@@ -144,6 +173,7 @@ nav:
     - Gaussian、ORCA 与 xTB 汇总: tutorials/qm-summary.md
     - 导出能量和热化学 CSV: tutorials/energy-csv.md
     - 筛选优化结果与过渡态: tutorials/select-results.md
+    - 过渡态分析: tutorials/transition-states.md
     - 导出结构和下一步输入: tutorials/export-inputs.md
     - Notebook 补充:
       - 01-Gaussian 解析与检查: examples/01-gaussian-parse-and-inspect.ipynb
@@ -172,7 +202,8 @@ nav:
       - FileBatchModelDisk: reference/api/filebatchmodeldisk.md
   - 进阶:
     - 精确转换行为: reference/transform_behavior.md
-    - Source evidence 与序列化: reference/api_contracts.md
+    - API 契约: reference/api_contracts.md
+    - Source evidence 与序列化: reference/serialization.md
     - CLI 内部契约: advanced/cli-contract.md
   - 开发者:
     - 开发者概览: developer/overview.md
@@ -199,6 +230,10 @@ nav:
 extra_javascript:
   - javascripts/mathjax.js
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
+  - https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js
+
+extra_css:
+  - stylesheets/extra.css
 
 markdown_extensions:  #Markdown扩展列表
   - abbr
@@ -232,10 +267,15 @@ markdown_extensions:  #Markdown扩展列表
       custom_fences:
         - name: mermaid
           class: mermaid
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.inlinehilite
   - pymdownx.keys
   - pymdownx.magiclink
   - pymdownx.smartsymbols
   - pymdownx.snippets
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.tasklist:
       custom_checkbox: true

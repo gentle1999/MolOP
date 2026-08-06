@@ -1,32 +1,68 @@
 # MolOP
 
-MolOP 用一个 Python API 和一套命令行工具读取计算化学输出、提取结果、批量筛选并导出结构。
+把受支持的计算化学文件直接交给 MolOP：它会根据内容自动识别格式，并将数据归一到统一的
+`batch -> file -> frame` 模型。格式差异止于 reader；读取科学结果、生成完整表格、筛选批次、
+转换结构和接入自动化工作流，始终使用同一套 Python API 与 CLI。
 
-## 三步读取最终能量
+```mermaid
+flowchart TB
+    subgraph inputs["不同来源与文件格式"]
+        direction TB
+        qm["量化软件输出<br/>Gaussian / ORCA / xTB / ..."]
+        qminput["量化计算输入<br/>GJF / ORCA input / ..."]
+        structure["结构文件<br/>XYZ / SDF / SMILES / ..."]
+        future["后续新增格式<br/>注册新的 reader"]
+    end
 
-安装当前版本：
+    parser["MolOP AutoParser<br/>根据文件内容自动选择 reader"]
+    batch["FileBatchModelDisk<br/>batch -> file -> frame<br/>统一科学结果容器"]
 
-```bash
-pip install git+https://github.com/gentle1999/MolOP.git
+    subgraph tasks["统一的下游处理"]
+        direction TB
+        results["读取能量、振动、轨道等结果"]
+        summary["完整表格汇总与批量筛选"]
+        export["结构和输入文件转换与导出"]
+        workflow["自定义分析与自动化流程"]
+    end
+
+    qm --> parser
+    qminput --> parser
+    structure --> parser
+    future --> parser
+    parser --> batch
+    batch --> results
+    batch --> summary
+    batch --> export
+    batch --> workflow
 ```
 
-下载文档使用的 [ORCA 水分子样例](../assets/examples/water_mp2.out)，将它保存为
-`water_mp2.out`，然后运行：
-
-```python
-from molop import AutoParser
-
-batch = AutoParser("water_mp2.out", n_jobs=1)
-frame = batch[0][-1]
-
-print(frame.atoms)
-print(frame.energies.total_energy.m_as("hartree"))
-```
-
-最后一行输出约为 `-74.999374598107`。`batch[0]` 是第一个文件，`[-1]` 是该文件的
-最后一帧。
+当前 reader/writer 覆盖和字段边界见[格式支持概览](reference/format_support.md)。
 
 ## 选择你的任务
+
+<div class="grid cards" markdown>
+
+-   :material-download: **安装并验证**
+
+    [安装](getting_started/installation.md){ .md-button }
+
+-   :material-language-python: **使用 Python API**
+
+    [5 分钟上手](getting_started/quickstart.md){ .md-button }
+
+-   :material-console: **使用 CLI**
+
+    [CLI 初体验](getting_started/cli.md){ .md-button }
+
+-   :material-table: **导出结果表**
+
+    [批量汇总](guides/batch.md){ .md-button }
+
+-   :material-share-variant: **恢复分子图**
+
+    [结构恢复](guides/structure-recovery.md){ .md-button }
+
+</div>
 
 | 要完成的任务 | 从这里开始 |
 | --- | --- |
@@ -35,12 +71,13 @@ print(frame.energies.total_energy.m_as("hartree"))
 | 在 Python 中读取能量、频率、布居或 NMR | [读取计算结果](guides/results.md) |
 | 批量导出 CSV | [批量汇总](guides/batch.md) |
 | 筛选正常结束、优化结果或过渡态 | [过滤与选择](guides/filtering.md) |
+| 从坐标恢复金属配合物分子图 | [结构恢复](guides/structure-recovery.md) |
 | 导出 XYZ、SDF、Gaussian 或 ORCA 输入 | [格式转换与导出](guides/conversion.md) |
 | 查看某种文件能解析哪些数据 | [格式支持概览](reference/format_support.md) |
 
 ## 常见输入
 
-MolOP 对 Gaussian log/fchk/input、ORCA output/input、xTB output、XYZ、SDF/MOL、SMILES
+MolOP 当前对 Gaussian log/fchk/input、ORCA output/input、xTB output、XYZ、SDF/MOL、SMILES
 和 CML 等格式提供专用 reader 或 writer。具体字段和限制以
 [格式支持概览](reference/format_support.md)及各格式页面为准。
 

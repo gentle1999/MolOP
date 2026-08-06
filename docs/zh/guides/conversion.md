@@ -12,15 +12,15 @@ rendered = batch.format_transform("xyz", frame=-1, write_to_disk=False)
 print(rendered[batch[0].file_path])
 ```
 
-输出：
+??? example "输出"
 
-```text
-3
-comment charge 0 multiplicity 1
-O               1.7849140000      1.2624220000      0.5119850000
-H               2.6482370000      1.0729290000      0.1316310000
-H               1.1831680000      1.2568160000     -0.2388350000
-```
+    ```text
+    3
+    comment charge 0 multiplicity 1
+    O               1.7849140000      1.2624220000      0.5119850000
+    H               2.6482370000      1.0729290000      0.1316310000
+    H               1.1831680000      1.2568160000     -0.2388350000
+    ```
 
 返回值是 `{源文件绝对路径: 渲染结果}`。`write_to_disk=False` 时不会创建文件。
 
@@ -38,12 +38,12 @@ batch.format_transform(
 )
 ```
 
-结果目录：
+??? example "生成文件"
 
-```text
-structures/
-  water_mp2.xyz
-```
+    ```text
+    structures/
+      water_mp2.xyz
+    ```
 
 `output_dir` 必须已经存在。输出名称保留文件主名并替换最后一个后缀。
 
@@ -53,7 +53,14 @@ structures/
 final_only = batch.format_transform("xyz", frame=-1)
 all_in_one = batch.format_transform("xyz", frame="all", embed_in_one_file=True)
 one_per_frame = batch.format_transform("xyz", frame="all", embed_in_one_file=False)
+print(len(final_only), len(all_in_one), len(one_per_frame))
 ```
+
+??? example "输出"
+
+    ```text
+    1 1 1
+    ```
 
 `embed_in_one_file=False` 返回字符串列表；写盘时生成带 frame 标识的多个文件，具体命名由
 writer 决定。
@@ -75,16 +82,20 @@ writer 决定。
 ## 生成下一步输入
 
 ```python
+from pathlib import Path
+
+Path("gaussian_inputs").mkdir(exist_ok=True)
 batch.format_transform(
     "gjf",
     output_dir="gaussian_inputs",
     write_to_disk=True,
     route_section="#p B3LYP/6-31G(d) opt",
-    link0_commands="%nprocshared=8",
+    link0_commands={"nprocshared": "8"},
 )
 ```
 
 ```python
+Path("orca_inputs").mkdir(exist_ok=True)
 batch.format_transform(
     "orcainp",
     output_dir="orca_inputs",
@@ -92,7 +103,16 @@ batch.format_transform(
     keywords="B3LYP def2-SVP Opt",
     maxcore=2000,
 )
+print("gaussian_inputs/water_mp2.gjf")
+print("orca_inputs/water_mp2.inp")
 ```
+
+??? example "生成文件"
+
+    ```text
+    gaussian_inputs/water_mp2.gjf
+    orca_inputs/water_mp2.inp
+    ```
 
 writer 特定参数会随格式变化；CLI 可通过补全或格式页面查看。
 
@@ -103,6 +123,12 @@ mkdir -p structures
 molop -q parse "results/*.out" \
   format-transform --format xyz --output-dir structures --frame -1
 ```
+
+??? example "生成文件"
+
+    ```text
+    structures/water_mp2.xyz
+    ```
 
 ## 信息边界
 

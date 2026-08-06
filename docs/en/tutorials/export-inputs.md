@@ -8,7 +8,7 @@ Generate XYZ, Gaussian input, and ORCA input from normally terminated final fram
 from pathlib import Path
 from molop import AutoParser
 
-batch = AutoParser("results/*")
+batch = AutoParser("water_mp2.out", n_jobs=1)
 selected = batch.filter_state("normal")
 
 for directory in ("xyz", "gjf", "orca"):
@@ -33,16 +33,19 @@ selected.format_transform(
 
 ## Output
 
-```text
-xyz/
-  job.xyz
-gjf/
-  job.gjf
-orca/
-  job.inp
-```
+??? example "Created files"
 
-Each source produces one final-frame file named from its stem. Before submission, check
+    ```text
+    xyz/
+      water_mp2.xyz
+    gjf/
+      water_mp2.gjf
+    orca/
+      water_mp2.inp
+    ```
+
+Each source produces one final-frame file named from its stem. For a batch, replace
+`water_mp2.out` with a path or glob. Before submission, check
 route/keywords, resources, charge, multiplicity, and solvent. Conversion does not choose scientific
 settings for you.
 
@@ -53,6 +56,12 @@ molop -q parse "results/*" \
   filter-state --state normal \
   format-transform --format xyz --output-dir xyz
 ```
+
+??? example "Created file"
+
+    ```text
+    xyz/<source stem>.xyz
+    ```
 
 Gaussian and ORCA writers have many dynamic options. Python calls with explicit arguments are often
 easier to audit in batch research workflows.

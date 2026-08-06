@@ -25,13 +25,13 @@ print(len(frame.atoms), frame.coords.shape)
 print(frame.energies.total_energy.m_as("hartree"))
 ```
 
-预期得到：
+??? example "输出"
 
-```text
-orcaout
-3 (3, 3)
--74.999374598107
-```
+    ```text
+    orcaout
+    3 (3, 3)
+    -74.999374598107
+    ```
 
 `AutoParser` 总是返回一个 batch。这里的访问顺序是：
 
@@ -48,15 +48,21 @@ summary = batch.to_summary_df(
     brief=False,
     flatten_columns=True,
 )
-print(summary[[
-    "DiskStorage.FilePath",
-    "Status.IsNormal",
-    "Energy.total_energy.hartree",
-]])
 summary.to_csv("summary.csv", index=False)
+print(summary.shape)
 ```
 
+??? example "完整表格结果"
+
+    ```text
+    (1, 23)
+    ```
+
+    [Notebook 02](../examples/02-batch-summary-filter-select.ipynb) 会把这次调用产生的全部 23 列
+    自动渲染为完整 HTML DataFrame，不创建临时列子集。
+
 `summary.csv` 会包含一行最后一帧结果。`brief=False` 才会包含能量、热化学和振动等扩展列。
+`DiskStorage.FilePath` 默认保存绝对路径；该列的值随运行目录变化。
 
 ## 导出最终结构
 
@@ -72,11 +78,23 @@ batch.format_transform(
 )
 ```
 
+第一次调用打印：
+
+??? example "输出"
+
+    ```text
+    3
+    comment charge 0 multiplicity 1
+    O               1.7849140000      1.2624220000      0.5119850000
+    H               2.6482370000      1.0729290000      0.1316310000
+    H               1.1831680000      1.2568160000     -0.2388350000
+    ```
+
 第一次调用只返回 XYZ 文本；第二次在当前目录写出 `water_mp2.xyz`。
 
 ## 换成自己的文件
 
-只需要替换路径：
+将路径替换为你的输入文件或 glob：
 
 ```python
 gaussian = AutoParser("calculation.log")
