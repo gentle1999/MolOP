@@ -23,6 +23,14 @@ from molop.io.logic.orca.log.parsers.ORCALogFileParser import ORCALogFileParserM
 ORCA_OUTPUT_FIXTURE_DIR = Path(__file__).resolve().parent / "test_files" / "orca" / "output_files"
 MANIFEST_PATH = ORCA_OUTPUT_FIXTURE_DIR / "manifest.json"
 
+pytestmark = pytest.mark.orca_output_corpus
+
+if not MANIFEST_PATH.is_file():
+    pytest.skip(
+        "optional ORCA output fixture corpus manifest is not available",
+        allow_module_level=True,
+    )
+
 
 def _manifest() -> dict[str, Any]:
     return json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
