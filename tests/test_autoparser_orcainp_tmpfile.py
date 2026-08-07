@@ -6,6 +6,7 @@ import pytest
 
 from molop.io import AutoParser  # type: ignore[reportMissingImports]
 from molop.io.base_models.DataClasses import CoordinateContainer, CoordinateParameters
+from molop.io.base_models.FrameParser import FrameParseContext
 from molop.io.base_models.ParseContainers import ModelParseResult
 from molop.io.codec_registry import get_supported_writer_formats
 from molop.io.logic.coords.frame_models.XYZFileFrame import XYZFileFrameMemory
@@ -50,8 +51,6 @@ H 0.0 0.0 0.0
 H 0.7 0.0 0.0
 *
 """
-    parser._block = block
-
     result = parse_orca_input_frame_result(block)
     assert isinstance(result, ModelParseResult)
     assert result.has_value("model_chemistry") is True
@@ -59,7 +58,7 @@ H 0.7 0.0 0.0
     assert metadata["functional"] == "B3LYP-D3BJ"
     assert metadata["request_num_cpu"] == 4
     assert metadata["request_memory"].magnitude == pytest.approx(2000.0)
-    payload = parser._parse_frame()
+    payload = parser._parse_frame(block, context=FrameParseContext(additional_data={}))
 
     assert payload["keywords"] == "B3LYP D3BJ def2-TZVP"
     assert payload["method"] == "DFT"

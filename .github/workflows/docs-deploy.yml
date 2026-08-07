@@ -4,10 +4,23 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
   workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "main or a stable release tag such as v0.2.2"
+        required: true
+        default: main
+        type: string
+      update_latest:
+        description: "Point latest and the site root at this tag (use only for the newest release)"
+        required: true
+        default: false
+        type: boolean
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -18,9 +31,15 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      MOLOP_DOCS_REF: ${{ inputs.source_ref || github.ref_name }}
+      REQUEST_LATEST: ${{ inputs.update_latest || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Cache uv
         uses: actions/cache@v4
@@ -58,13 +77,85 @@ jobs:
           NO_MKDOCS_2_WARNING: "1"
         run: uv run --frozen --group docs mkdocs build --strict -f mkdocs.yml
 
+      - name: Resolve documentation version
+        id: docs-version
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref || github.ref_name }}
+        run: |
+          if [[ "$SOURCE_REF" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            echo "snapshot_kind=tag" >> "$GITHUB_OUTPUT"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            if [[ "$REQUEST_LATEST" == "true" ]]; then
+              echo "update_latest=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "update_latest=false" >> "$GITHUB_OUTPUT"
+            fi
+          elif [[ "$SOURCE_REF" == "main" ]]; then
+            echo "snapshot_kind=development" >> "$GITHUB_OUTPUT"
+            echo "version=main" >> "$GITHUB_OUTPUT"
+            echo "update_latest=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "source_ref must be main or a stable vX.Y.Z tag, got: $SOURCE_REF" >&2
+            exit 1
+          fi
+
+      - name: Configure documentation deployment identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Deploy development snapshot
+        if: steps.docs-version.outputs.snapshot_kind == 'development'
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+        run: >-
+          uv run --frozen --group docs --with mike==2.2.0 mike deploy
+          --push
+          --update-aliases
+          --alias-type copy
+          --title "main (development)"
+          main dev
+
+      - name: Deploy release snapshot
+        if: steps.docs-version.outputs.snapshot_kind == 'tag'
+        env:
+          NO_MKDOCS_2_WARNING: "1"
+          DOCS_VERSION: ${{ steps.docs-version.outputs.version }}
+          UPDATE_LATEST: ${{ steps.docs-version.outputs.update_latest }}
+        run: |
+          if [[ "$UPDATE_LATEST" == "true" ]]; then
+            uv run --frozen --group docs --with mike==2.2.0 mike deploy \
+              --push \
+              --update-aliases \
+              --alias-type copy \
+              --title "MolOP ${DOCS_VERSION}" \
+              "${DOCS_VERSION}" latest
+            uv run --frozen --group docs --with mike==2.2.0 mike set-default --push latest
+          else
+            uv run --frozen --group docs --with mike==2.2.0 mike deploy \
+              --push \
+              --alias-type copy \
+              --title "MolOP ${DOCS_VERSION}" \
+              "${DOCS_VERSION}"
+          fi
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
+
+      - name: Prepare versioned Pages artifact
+        run: |
+          git fetch origin gh-pages
+          git fetch origin main --depth=1
+          mkdir pages-site
+          git archive origin/gh-pages | tar -x -C pages-site
+          git show origin/main:.github/pages-root-404.html > pages-site/404.html
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: public
+          path: pages-site
 
   deploy:
     needs: build

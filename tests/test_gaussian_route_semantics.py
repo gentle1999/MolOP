@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 from molop.io import AutoParser
+from molop.io.base_models.FrameParser import FrameParseContext
 from molop.io.base_models.ParseContainers import ModelParseResult
 from molop.io.logic.gaussian.input.frame_models.GJFFileFrame import (
     GJFFileFrameMemory,
@@ -129,12 +130,10 @@ O 0.0 0.0 0.0
 H 0.0 0.0 0.9
 H 0.8 0.0 0.0
 """
-    parser._block = block
-
     result = parser._parse_block_to_result(block)
     assert isinstance(result, ModelParseResult)
     assert result.has_value("molecule_specifications") is True
-    payload = parser._parse_frame()
+    payload = parser._parse_frame(block, context=FrameParseContext(additional_data={}))
 
     assert payload["link0_commands"].cpu_request() == 4
     assert [(link0.key, link0.value) for link0 in payload["link0_commands"].link0_keywords] == [
@@ -163,7 +162,7 @@ def test_gaussian_link0_container_supports_gjf_and_g16_fakeg_projection() -> Non
 
 def test_gjf_frame_parser_returns_model_ready_additional_sections() -> None:
     parser = GJFFileFrameParserMemory()
-    parser._block = """#p b3lyp/def2svp opt=modredundant
+    block = """#p b3lyp/def2svp opt=modredundant
 
 water
 
@@ -175,7 +174,7 @@ H 0.8 0.0 0.0
 B 1 2 F
 """
 
-    payload = parser._parse_frame()
+    payload = parser._parse_frame(block, context=FrameParseContext(additional_data={}))
 
     assert payload["additional_sections"].strip() == "B 1 2 F"
     assert payload["additional_section_diagnostics"] == []

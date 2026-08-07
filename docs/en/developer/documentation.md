@@ -22,6 +22,21 @@ start must not depend on `tests/test_files/`, a source root, or test environment
 
 Do not hand-maintain a second supported/unsupported matrix in prose.
 
+## Version metadata
+
+The documentation site must identify its source revision and must not present mainline documentation as if it described the current PyPI release. During the build, `scripts/mkdocs_hooks.py` derives these values from Hatch VCS and the complete Git tag history, then exposes them in the site-wide banner:
+
+- source version;
+- Git ref and commit;
+- latest stable release tag;
+- `development` or `release` documentation state.
+
+Documentation workflows must check out with `fetch-depth: 0`; otherwise the latest release tag cannot be resolved reliably. Do not hard-code version numbers in Markdown, `mkdocs.yml`, or the template.
+
+Release deployment uses `mike`: a stable tag is deployed to `/<version>/` and updates `latest`, while `main` is deployed as `main` and updates `dev`. The site root defaults to `latest`. The Pages artifact also installs a root `404.html` that redirects legacy unversioned deep links to `latest`. Do not copy version directories manually or edit `versions.json`.
+
+Source archives without Git metadata may inject build information with `MOLOP_DOCS_SOURCE_VERSION`, `MOLOP_DOCS_RELEASE_VERSION`, `MOLOP_DOCS_COMMIT`, `MOLOP_DOCS_REF`, and `MOLOP_DOCS_CHANNEL`. The channel accepts only `development` or `release`.
+
 ## Output rendering
 
 Treat output as a separate, collapsible part of every Markdown example. In the

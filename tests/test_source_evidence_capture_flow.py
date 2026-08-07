@@ -9,15 +9,16 @@ from typing import Any, ClassVar, cast
 import pytest
 
 import molop.io as io_module
-from molop.io.base_models.source import LocatedSourceSegment, LocatedTextBlock
-from molop.io.codec_types import ParseResult, StructureLevel
+from molop.io.base_models.FrameParser import FrameParseContext
+from molop.io.base_models.source import DecodedSource, LocatedSourceSegment, LocatedTextBlock
+from molop.io.codec_types import ParseOptions, ParseResult, StructureLevel
 from molop.io.codecs._shared.reader_helpers import ParserDiskReader
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
 from molop.io.FileBatchParserDisk import FileBatchParserDisk, single_file_parser
 from molop.io.logic.coords.frame_parsers.XYZFileFrameParser import (
     XYZFileFrameParserMemory,
 )
-from molop.io.logic.coords.parsers.XYZFileParser import XYZFileParserMemory
+from molop.io.logic.coords.parsers.XYZFileParser import XYZFileParserDisk, XYZFileParserMemory
 
 
 file_batch_parser_module = importlib.import_module("molop.io.FileBatchParserDisk")
@@ -61,9 +62,9 @@ class _TrackingXYZFrameParser(XYZFileFrameParserMemory):
         self.seen_structure_flags.append(self.only_extract_structure)
         return super().parse(block, additional_data=additional_data)
 
-    def _parse_frame(self) -> Mapping[str, Any]:
-        self.seen_additional_data.append(self._additional_data)
-        return super()._parse_frame()
+    def _parse_frame(self, block: str, *, context: FrameParseContext) -> Mapping[str, Any]:
+        self.seen_additional_data.append(context.additional_data)
+        return super()._parse_frame(block, context=context)
 
 
 class _TrackingXYZFileParser(XYZFileParserMemory):
@@ -137,6 +138,30 @@ def test_base_parser_capture_is_opt_in() -> None:
     assert "file_frame_index" not in parsed.frames[0].to_unitless_dump_with_unit_keys(
         exclude_none=True
     )
+
+
+def test_memory_parser_accepts_preloaded_bytes_with_exact_source_identity() -> None:
+    raw_bytes = _XYZ_TEXT.replace("\n", "\r\n").encode("utf-8")
+
+    parsed = XYZFileParserMemory(capture_source_evidence=True).parse_bytes(raw_bytes)
+
+    assert parsed.artifact_sha256 == sha256(raw_bytes).hexdigest()
+    assert parsed.file_content == raw_bytes.decode("utf-8")
+    assert parsed[0].source_span is not None
+    assert parsed[0].source_span.end_byte == len(raw_bytes)
+
+
+def test_disk_parser_accepts_decoded_source_without_reopening_path(tmp_path: Path) -> None:
+    virtual_path = tmp_path / "preloaded.xyz"
+    source = DecodedSource.from_bytes(_XYZ_TEXT.encode("utf-8"))
+
+    parsed = XYZFileParserDisk(capture_source_evidence=True).parse_decoded_source(
+        source,
+        file_path=str(virtual_path),
+    )
+
+    assert parsed.file_path == str(virtual_path.resolve())
+    assert parsed.artifact_sha256 == sha256(source.raw_bytes).hexdigest()
 
 
 def test_locator_contract_has_no_splitter_fallback() -> None:
@@ -280,6 +305,7 @@ def test_batch_parser_includes_capture_flag_in_each_task(
 
     assert len(batch) == 1
     assert captured["capture_source_evidence"] is True
+    assert captured["parse_options"] == ParseOptions(capture_source_evidence=True).resolved()
 
 
 def test_parser_disk_reader_configures_parser_capture_flag() -> None:
@@ -304,6 +330,39 @@ def test_parser_disk_reader_configures_parser_capture_flag() -> None:
     reader.read("/tmp/source.xyz", capture_source_evidence=True)
 
     assert captured["init"]["capture_source_evidence"] is True
+
+
+def test_parser_disk_reader_accepts_immutable_parse_options() -> None:
+    captured: dict[str, Any] = {}
+
+    class Parser:
+        def __init__(self, **kwargs: Any) -> None:
+            captured["init"] = kwargs
+
+        def parse(self, path: str, **kwargs: Any) -> object:
+            captured["parse"] = {"path": path, **kwargs}
+            return object()
+
+    reader = ParserDiskReader(
+        format_id="xyz",
+        extensions=frozenset({".xyz"}),
+        level=StructureLevel.COORDS,
+        parser_cls=cast(Any, Parser),
+        priority=1,
+    )
+    options = ParseOptions(
+        total_charge=2,
+        total_multiplicity=3,
+        capture_source_evidence=True,
+        release_file_content=False,
+    )
+
+    reader.read("/tmp/source.xyz", parse_options=options)
+
+    assert captured["init"]["forced_charge"] == 2
+    assert captured["init"]["forced_multiplicity"] == 3
+    assert captured["init"]["capture_source_evidence"] is True
+    assert captured["parse"]["release_file_content"] is False
 
 
 def test_autoparser_passes_capture_flag_to_batch_parser(

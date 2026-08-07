@@ -13,6 +13,8 @@ from rdkit import Chem as _rdkit_chem  # noqa: F401
 
 from molop.config import molopconfig, moloplogger
 from molop.io import AutoParser
+from molop.io.codec_types import ParseOptions
+from molop.io.parse_outcomes import BatchParseResult, FileParseOutcome, ParseFailure
 
 
 try:
@@ -24,6 +26,10 @@ except importlib.metadata.PackageNotFoundError:
 __all__ = [
     "__version__",
     "AutoParser",
+    "BatchParseResult",
+    "FileParseOutcome",
+    "ParseFailure",
+    "ParseOptions",
     "molopconfig",
     "moloplogger",
 ]

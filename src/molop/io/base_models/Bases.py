@@ -17,7 +17,7 @@ import pandas as pd
 from pint._typing import UnitLike
 from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationInfo, model_validator
 from typing_extensions import Self
 
 from molop.config import molopconfig, moloplogger
@@ -228,8 +228,13 @@ class BaseDataClassWithUnit(BaseModel):
         )
 
     @model_validator(mode="after")
-    def __unit_transform__(self) -> Self:
-        if self.set_default_units or molopconfig.force_unit_transform:
+    def __unit_transform__(self, info: ValidationInfo) -> Self:
+        force_unit_transform = molopconfig.force_unit_transform
+        if info.context is not None and "force_unit_transform" in info.context:
+            configured_value = info.context["force_unit_transform"]
+            if configured_value is not None:
+                force_unit_transform = bool(configured_value)
+        if self.set_default_units or force_unit_transform:
             self._transform_units(self.default_units)
             if moloplogger.isEnabledFor(10):
                 moloplogger.debug(f"Data class {self.__class__.__name__} parsed.")

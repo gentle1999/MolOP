@@ -12,6 +12,8 @@ from rdkit import Chem
 from molop.config import molopconfig
 from molop.io.base_models.Molecule import Molecule
 from molop.io.base_models.source import canonical_json_sha256
+from molop.io.codec_types import ParseOptions
+from molop.io.logic.coords.parsers.XYZFileParser import XYZFileParserMemory
 from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
 from molop.io.logic.orca.log.parsers.ORCALogFileParser import ORCALogFileParserMemory
 
@@ -143,6 +145,49 @@ def test_molecule_reads_global_topology_config_at_reconstruction_time(
     }
     assert molecule.topology_reconstruction_backend == "python"
     assert molecule.topology_make_dative_bonds is False
+
+
+def test_parser_options_freeze_lazy_topology_settings(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    molecule_module = importlib.import_module("molop.io.base_models.Molecule")
+    captured: dict[str, Any] = {}
+
+    def capture_config(
+        xyz_block: str,
+        _charge: int,
+        _multiplicity: int,
+        *,
+        backend: str,
+        make_dative_bonds: bool,
+        config: Any,
+    ) -> Chem.Mol:
+        captured.update(
+            backend=backend,
+            make_dative_bonds=make_dative_bonds,
+            config=config,
+        )
+        rdmol = Chem.MolFromXYZBlock(xyz_block)
+        assert rdmol is not None
+        return rdmol
+
+    parsed = XYZFileParserMemory(
+        parse_options=ParseOptions(
+            graph_reconstruction_backend="python",
+            make_dative_bonds=False,
+        )
+    ).parse("3\nwater\nO 0.0 0.0 0.0\nH 0.9572 0.0 0.0\nH -0.2399872 0.927297 0.0\n")
+    frame = parsed[0]
+    monkeypatch.setattr(molopconfig, "graph_reconstruction_backend", "cpp")
+    monkeypatch.setattr(molopconfig, "make_dative_bonds", True)
+    monkeypatch.setattr(molecule_module, "xyz_to_rdmol", capture_config)
+
+    assert frame.rdmol is not None
+    assert captured == {
+        "backend": "python",
+        "make_dative_bonds": False,
+        "config": MOLGR_CONFIG,
+    }
 
 
 def test_topology_v3000_molblock_is_map_free_and_does_not_mutate_cached_rdmol() -> None:

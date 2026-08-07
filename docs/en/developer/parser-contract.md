@@ -87,10 +87,10 @@ This skeleton assumes that `MyFmtFileDisk`, `MyFmtFrameDisk`, and format-specifi
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from molop.io.base_models.FileParser import BaseFileParserDisk
-from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
+from molop.io.base_models.FrameParser import BaseFrameParser, FrameParseContext
 from molop.io.base_models.source import LocatedSourceSegment, LocatedTextBlock
 from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.myfmt.frame_models.MyFmtFrame import MyFmtFrameDisk
@@ -108,8 +108,13 @@ if TYPE_CHECKING:
 
 
 class MyFmtFrameParserMixin:
-    def _parse_frame(self) -> Mapping[str, Any]:
-        block = cast(_HasParseMethod, self)._block
+    def _parse_frame(
+        self,
+        block: str,
+        *,
+        context: FrameParseContext,
+    ) -> Mapping[str, Any]:
+        _ = context
         return extract_myfmt_frame_payload(block)
 
 
@@ -190,6 +195,11 @@ Use `StructureLevel.COORDS` when atoms and coordinates are the reader's minimum 
 | `_update_file_metadata_from_frames()` | Backfill file fields from the first or last frame after parsing. |
 
 Do not override a hook when the format has no corresponding semantics. Keep artifact-wide metadata in `_parse_artifact_metadata()` and segment-scoped metadata in `_parse_segment_metadata()`. Do not copy segment facts such as termination status onto every frame unconditionally.
+
+`BaseFrameParser` passes the exact frame text and an immutable `FrameParseContext` into
+`_parse_frame(...)`. Read file- and segment-level metadata from `context.additional_data`; do not
+store the active block or context on the parser instance. Context metadata is applied after the
+format payload when the frame model is assembled, so context values intentionally own collisions.
 
 #### Builtin and external registration boundary
 

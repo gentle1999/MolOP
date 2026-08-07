@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from enum import Enum, auto
 from typing import Any, cast
 
-from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
+from molop.io.base_models.FrameParser import BaseFrameParser, FrameParseContext, _HasParseMethod
 from molop.io.base_models.ParseContainers import ModelParseResult, TextParseContext
 from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import (
     G16LogFileFrameDisk,
@@ -319,10 +319,11 @@ class G16LogFileFrameParserMixin:
 
         return result
 
-    def _parse_frame(self) -> Mapping[str, Any]:
+    def _parse_frame(self, block: str, *, context: FrameParseContext) -> Mapping[str, Any]:
         """Return model-ready frame fields from the canonical state-machine result."""
+        _ = context
         typed_self = cast(_HasParseMethod, self)
-        result = self._parse_block_to_result(typed_self._block)
+        result = self._parse_block_to_result(block)
         if typed_self.capture_source_evidence:
             result.set("coordinate_source", "observed")
             result.set("coordinate_provenance", "Gaussian source geometry via frame.coords")

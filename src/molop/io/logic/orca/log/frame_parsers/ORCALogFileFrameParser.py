@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from enum import Enum, auto
 from typing import Any, cast
 
-from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
+from molop.io.base_models.FrameParser import BaseFrameParser, FrameParseContext, _HasParseMethod
 from molop.io.base_models.ParseContainers import ModelParseResult
 from molop.io.logic.orca.log.frame_models.ORCALogFileFrame import (
     ORCALogFileFrameDisk,
@@ -73,12 +73,17 @@ class ORCALogFileFrameParserMixin:
                     result.set("coordinate_decimal_places", coordinate_decimal_places)
         return ORCALogParsePhase.ENERGY
 
-    def _run_energy_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
+    def _run_energy_phase(
+        self,
+        text: str,
+        result: ModelParseResult,
+        context: FrameParseContext,
+    ) -> ORCALogParsePhase:
         typed_self = cast(_HasParseMethod, self)
         energies = extract_orca_energies(
             text,
             capture_source_evidence=typed_self.capture_source_evidence,
-            model_chemistry=typed_self._additional_data.get("model_chemistry"),
+            model_chemistry=context.additional_data.get("model_chemistry"),
         )
         if energies is not None:
             result.set("energies", energies)
@@ -157,14 +162,19 @@ class ORCALogFileFrameParserMixin:
             result.set("electronic_states", electronic_states)
         return ORCALogParsePhase.DONE
 
-    def _parse_block_to_result(self, text: str) -> ModelParseResult:
+    def _parse_block_to_result(
+        self,
+        text: str,
+        context: FrameParseContext | None = None,
+    ) -> ModelParseResult:
+        context = context or FrameParseContext(additional_data={})
         result = ModelParseResult({"qm_software": "ORCA"})
         phase = ORCALogParsePhase.STRUCTURE
         while phase is not ORCALogParsePhase.DONE:
             if phase is ORCALogParsePhase.STRUCTURE:
                 phase = self._run_structure_phase(text, result)
             elif phase is ORCALogParsePhase.ENERGY:
-                phase = self._run_energy_phase(text, result)
+                phase = self._run_energy_phase(text, result, context)
             elif phase is ORCALogParsePhase.STRUCTURE_ONLY_CHECK:
                 phase = self._run_structure_only_check()
             elif phase is ORCALogParsePhase.GRADIENT:
@@ -187,9 +197,8 @@ class ORCALogFileFrameParserMixin:
                 raise AssertionError(f"Unexpected ORCA log frame parse phase: {phase!r}")
         return result
 
-    def _parse_frame(self) -> Mapping[str, Any]:
-        text = cast(_HasParseMethod, self)._block
-        return self._parse_block_to_result(text).model_data()
+    def _parse_frame(self, block: str, *, context: FrameParseContext) -> Mapping[str, Any]:
+        return self._parse_block_to_result(block, context).model_data()
 
 
 class ORCALogFileFrameParserMemory(

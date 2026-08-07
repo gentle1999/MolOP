@@ -690,6 +690,56 @@ def test_notebooks_render_saved_outputs_after_ci_execution() -> None:
         assert "--inplace" in workflow_text
 
 
+def test_documentation_exposes_source_and_release_versions() -> None:
+    mkdocs_config = Path("mkdocs.yml").read_text(encoding="utf-8")
+    assert "custom_dir: overrides" in mkdocs_config
+    assert "- 文档版本: versioning.md" in mkdocs_config
+    assert "provider: mike" in mkdocs_config
+
+    template = Path("overrides/main.html").read_text(encoding="utf-8")
+    assert 'class="molop-docs-version"' in template
+    assert "source_version" in template
+    assert "release_version" in template
+
+    hook = Path("scripts/mkdocs_hooks.py").read_text(encoding="utf-8")
+    for variable in (
+        "MOLOP_DOCS_SOURCE_VERSION",
+        "MOLOP_DOCS_RELEASE_VERSION",
+        "MOLOP_DOCS_COMMIT",
+        "MOLOP_DOCS_REF",
+        "MOLOP_DOCS_CHANNEL",
+    ):
+        assert variable in hook
+    assert "MIKE_DOCS_VERSION" in hook
+
+    for locale in ("zh", "en"):
+        version_page = Path("docs") / locale / "versioning.md"
+        assert version_page.is_file()
+        assert "commit" in version_page.read_text(encoding="utf-8").lower()
+
+    for workflow in (
+        Path(".github/workflows/docs-build.yml"),
+        Path(".github/workflows/docs-deploy.yml"),
+    ):
+        workflow_text = workflow.read_text(encoding="utf-8")
+        assert "fetch-depth: 0" in workflow_text
+
+    deploy_workflow = Path(".github/workflows/docs-deploy.yml").read_text(encoding="utf-8")
+    assert 'tags:\n      - "v*"' in deploy_workflow
+    assert "mike deploy" in deploy_workflow
+    assert "main dev" in deploy_workflow
+    assert '"${DOCS_VERSION}" latest' in deploy_workflow
+    assert "mike set-default --push latest" in deploy_workflow
+    assert "git archive origin/gh-pages" in deploy_workflow
+    assert "update_latest" in deploy_workflow
+    assert "--with mike==2.2.0" in deploy_workflow
+    assert "git show origin/main:.github/pages-root-404.html" in deploy_workflow
+
+    root_404 = Path(".github/pages-root-404.html").read_text(encoding="utf-8")
+    assert "latest/" in root_404
+    assert "window.location.replace" in root_404
+
+
 def test_batch_guides_embed_the_complete_notebook_table() -> None:
     directive = (
         "<!-- notebook-output: examples/02-batch-summary-filter-select.ipynb#batch-summary -->"

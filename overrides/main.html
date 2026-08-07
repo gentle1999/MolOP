@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block announce %}
+  {% set info = config.extra.docs_version %}
+  {% set is_english = page and (page.url == "en/" or page.url.startswith("en/")) %}
+  {% if is_english %}
+    {% set version_url = "en/versioning/" %}
+    <div class="molop-docs-version">
+      {% if info.channel == "development" %}
+        <strong>Development documentation</strong>
+        <span>Source <code>{{ info.source_version }}</code></span>
+        <span><code>{{ info.ref }}@{{ info.commit }}</code></span>
+        <span>Latest release <code>{{ info.release_version }}</code></span>
+        <span>Some APIs may not be available in the PyPI release.</span>
+      {% else %}
+        <strong>Release documentation</strong>
+        <span>MolOP <code>{{ info.source_version }}</code></span>
+        <span><code>{{ info.ref }}@{{ info.commit }}</code></span>
+      {% endif %}
+      <a href="{{ version_url | url }}">Version details</a>
+    </div>
+  {% else %}
+    {% set version_url = "versioning/" %}
+    <div class="molop-docs-version">
+      {% if info.channel == "development" %}
+        <strong>开发版文档</strong>
+        <span>源码 <code>{{ info.source_version }}</code></span>
+        <span><code>{{ info.ref }}@{{ info.commit }}</code></span>
+        <span>最近发布 <code>{{ info.release_version }}</code></span>
+        <span>部分 API 可能尚未进入 PyPI 发布版。</span>
+      {% else %}
+        <strong>发布版文档</strong>
+        <span>MolOP <code>{{ info.source_version }}</code></span>
+        <span><code>{{ info.ref }}@{{ info.commit }}</code></span>
+      {% endif %}
+      <a href="{{ version_url | url }}">版本说明</a>
+    </div>
+  {% endif %}
+{% endblock %}

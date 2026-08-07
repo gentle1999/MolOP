@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="robots" content="noindex">
+    <title>MolOP documentation redirect</title>
+    <script>
+      (() => {
+        const base = "/MolOP/";
+        const path = window.location.pathname;
+        const versioned = /^\/MolOP\/(?:latest|main|dev|\d+\.\d+\.\d+)(?:\/|$)/;
+        if (path.startsWith(base) && !versioned.test(path)) {
+          const suffix = path.slice(base.length);
+          window.location.replace(
+            `${base}latest/${suffix}${window.location.search}${window.location.hash}`,
+          );
+        }
+      })();
+    </script>
+  </head>
+  <body>
+    <p><a href="/MolOP/latest/">Open the latest MolOP documentation</a></p>
+  </body>
+</html>

@@ -13,6 +13,7 @@ from typing import (
     Literal,
     Protocol,
     TypeAlias,
+    TypeGuard,
     TypeVar,
     cast,
     overload,
@@ -24,6 +25,7 @@ from molop.config import molopconfig, moloplogger
 from molop.io._batch_format_transform import BatchFormatTransformMixin
 from molop.io.base_models.summary import build_summary_df
 from molop.io.frame_selection import FrameSelector, normalize_frame_selector
+from molop.io.protocols import DiskFileLike
 from molop.utils.progressbar import parallel_map
 
 
@@ -33,30 +35,10 @@ else:
     FileDiskObj: TypeAlias = Any
 
 
-def _looks_like_disk_file(obj: object) -> bool:
-    """Compromise runtime validation.
+def _looks_like_disk_file(obj: object) -> TypeGuard[DiskFileLike]:
+    """Return whether an object satisfies the shared disk-file protocol."""
 
-    We avoid importing concrete file model classes here to prevent import graph
-    coupling. Instead we check for a minimal, file-like surface.
-    """
-
-    if not hasattr(obj, "file_path"):
-        return False
-    file_path = getattr(obj, "file_path", None)
-    if not isinstance(file_path, str) or not file_path:
-        return False
-    return all(
-        hasattr(obj, name)
-        for name in (
-            "filename",
-            "file_format",
-            "__len__",
-            "__getitem__",
-            "format_transform",
-            "to_summary_series",
-            "release_file_content",
-        )
-    )
+    return isinstance(obj, DiskFileLike) and bool(obj.file_path)
 
 
 R = TypeVar("R")

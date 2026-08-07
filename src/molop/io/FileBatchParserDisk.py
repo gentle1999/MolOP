@@ -12,14 +12,15 @@ import os
 import pathlib
 from collections.abc import Iterable, Sequence, Sized
 from contextlib import suppress
-from typing import Any, Protocol, cast
+from typing import Any, Literal, Protocol, cast, overload
 
 from joblib import Parallel, delayed
 
 from molop.config import molopconfig, moloplogger
 from molop.io.codec_exceptions import FormatMismatchError
-from molop.io.codec_types import ParseResult
+from molop.io.codec_types import ParseOptions, ParseResult
 from molop.io.FileBatchModelDisk import FileBatchModelDisk, FileDiskObj, _looks_like_disk_file
+from molop.io.parse_outcomes import BatchParseResult, FileParseOutcome, ParseFailure
 from molop.utils.progressbar import AdaptiveProgress
 
 from . import codec_registry
@@ -29,6 +30,42 @@ class _FileReaderCodec(Protocol):
     format_id: str
 
     def read(self, path: str | pathlib.Path, **kwargs: Any) -> ParseResult[Any]: ...
+
+
+@overload
+def single_file_parser(
+    file_path: str,
+    possible_readers: tuple[_FileReaderCodec, ...],
+    total_charge: int | None = None,
+    total_multiplicity: int | None = None,
+    only_extract_structure: bool = False,
+    only_last_frame: bool = False,
+    capture_source_evidence: bool = False,
+    source_encoding: str = "utf-8",
+    release_file_content: bool = False,
+    *,
+    input_index: int | None = None,
+    parse_options: ParseOptions | None = None,
+    return_outcome: Literal[False] = False,
+) -> FileDiskObj | None: ...
+
+
+@overload
+def single_file_parser(
+    file_path: str,
+    possible_readers: tuple[_FileReaderCodec, ...],
+    total_charge: int | None = None,
+    total_multiplicity: int | None = None,
+    only_extract_structure: bool = False,
+    only_last_frame: bool = False,
+    capture_source_evidence: bool = False,
+    source_encoding: str = "utf-8",
+    release_file_content: bool = False,
+    *,
+    input_index: int | None = None,
+    parse_options: ParseOptions | None = None,
+    return_outcome: Literal[True],
+) -> FileParseOutcome[FileDiskObj]: ...
 
 
 def single_file_parser(
@@ -41,18 +78,67 @@ def single_file_parser(
     capture_source_evidence: bool = False,
     source_encoding: str = "utf-8",
     release_file_content: bool = False,
-) -> FileDiskObj | None:
+    *,
+    input_index: int | None = None,
+    parse_options: ParseOptions | None = None,
+    return_outcome: bool = False,
+) -> FileDiskObj | FileParseOutcome[FileDiskObj] | None:
+    outcome = _single_file_parse_outcome(
+        file_path=file_path,
+        possible_readers=possible_readers,
+        total_charge=total_charge,
+        total_multiplicity=total_multiplicity,
+        only_extract_structure=only_extract_structure,
+        only_last_frame=only_last_frame,
+        capture_source_evidence=capture_source_evidence,
+        source_encoding=source_encoding,
+        release_file_content=release_file_content,
+        input_index=input_index,
+        parse_options=parse_options,
+    )
+    if return_outcome:
+        return outcome
+    return outcome.value if outcome.succeeded else None
+
+
+def _single_file_parse_outcome(
+    file_path: str,
+    possible_readers: tuple[_FileReaderCodec, ...],
+    total_charge: int | None = None,
+    total_multiplicity: int | None = None,
+    only_extract_structure: bool = False,
+    only_last_frame: bool = False,
+    capture_source_evidence: bool = False,
+    source_encoding: str = "utf-8",
+    release_file_content: bool = False,
+    input_index: int | None = None,
+    parse_options: ParseOptions | None = None,
+) -> FileParseOutcome[FileDiskObj]:
+    options = (
+        parse_options
+        or ParseOptions(
+            total_charge=total_charge,
+            total_multiplicity=total_multiplicity,
+            only_extract_structure=only_extract_structure,
+            only_last_frame=only_last_frame,
+            capture_source_evidence=capture_source_evidence,
+            source_encoding=source_encoding,
+            release_file_content=release_file_content,
+        )
+    ).resolved()
     for idx, reader in enumerate(possible_readers):
+        reader_name = getattr(reader, "format_id", reader.__class__.__name__)
         try:
             result = reader.read(
                 file_path,
-                total_charge=total_charge,
-                total_multiplicity=total_multiplicity,
-                only_extract_structure=only_extract_structure,
-                only_last_frame=only_last_frame,
-                capture_source_evidence=capture_source_evidence,
-                source_encoding=source_encoding,
-                release_file_content=release_file_content,
+                total_charge=options.total_charge,
+                total_multiplicity=options.total_multiplicity,
+                only_extract_structure=options.only_extract_structure,
+                only_last_frame=options.only_last_frame,
+                capture_source_evidence=options.capture_source_evidence,
+                source_encoding=options.source_encoding,
+                release_file_content=options.release_file_content,
+                parse_options=options,
             )
             value = result.value
             if hasattr(value, "detected_format_id"):
@@ -64,22 +150,100 @@ def single_file_parser(
                     f"Reader {getattr(reader, 'format_id', reader.__class__.__name__)} returned "
                     f"unexpected value type: {type(value)}"
                 )
-            return cast(FileDiskObj, value)
+            disk_file = cast(FileDiskObj, value)
+            detected = result.detected_format
+            normalized_detected = detected.strip().lower() if detected else None
+            if len(disk_file) == 0:
+                return FileParseOutcome(
+                    file_path=file_path,
+                    status="empty",
+                    value=disk_file,
+                    warnings=result.warnings,
+                    detected_format=normalized_detected,
+                    failure=ParseFailure(
+                        kind="empty_result",
+                        message="Reader returned a file model with no frames.",
+                        reader_format=reader_name,
+                    ),
+                    input_index=input_index,
+                )
+            return FileParseOutcome(
+                file_path=file_path,
+                status="ok",
+                value=disk_file,
+                warnings=result.warnings,
+                detected_format=normalized_detected,
+                input_index=input_index,
+            )
         except FormatMismatchError as e:
-            reader_name = getattr(reader, "format_id", reader.__class__.__name__)
             if idx == len(possible_readers) - 1:
                 moloplogger.error(f"Failed to parse file {file_path} with {reader_name}. {e}")
-                return None
+                return FileParseOutcome(
+                    file_path=file_path,
+                    status="mismatch",
+                    failure=ParseFailure(
+                        kind="format_mismatch",
+                        message=str(e),
+                        reader_format=reader_name,
+                        exception_type=type(e).__name__,
+                    ),
+                    input_index=input_index,
+                )
             moloplogger.debug(
                 f"Failed to parse file {file_path} with {reader_name}, "
                 f"trying {getattr(possible_readers[idx + 1], 'format_id', possible_readers[idx + 1].__class__.__name__)} "
                 "instead"
             )
         except Exception as e:
-            reader_name = getattr(reader, "format_id", reader.__class__.__name__)
             moloplogger.error(f"Failed to parse file {file_path} with {reader_name}. {e}")
-            return None
-    return None
+            return FileParseOutcome(
+                file_path=file_path,
+                status="error",
+                failure=ParseFailure(
+                    kind="parse_error",
+                    message=str(e),
+                    reader_format=reader_name,
+                    exception_type=type(e).__name__,
+                ),
+                input_index=input_index,
+            )
+    return FileParseOutcome(
+        file_path=file_path,
+        status="unsupported",
+        failure=ParseFailure(
+            kind="no_reader",
+            message="No reader candidates were supplied.",
+        ),
+        input_index=input_index,
+    )
+
+
+def _run_single_file_task(**task: Any) -> FileParseOutcome[FileDiskObj]:
+    """Normalize legacy or monkeypatched worker returns to the outcome contract."""
+
+    result = single_file_parser(**task)
+    if isinstance(result, FileParseOutcome):
+        return result
+    file_path = cast(str, task["file_path"])
+    input_index = cast(int | None, task.get("input_index"))
+    if result is not None and _looks_like_disk_file(result):
+        disk_file = cast(FileDiskObj, result)
+        return FileParseOutcome(
+            file_path=file_path,
+            status="ok" if len(disk_file) > 0 else "empty",
+            value=disk_file,
+            detected_format=getattr(disk_file, "detected_format_id", None),
+            input_index=input_index,
+        )
+    return FileParseOutcome(
+        file_path=file_path,
+        status="error",
+        failure=ParseFailure(
+            kind="legacy_none_result",
+            message="Parser task returned no structured outcome.",
+        ),
+        input_index=input_index,
+    )
 
 
 def _length_or_none(value: object) -> int | None:
@@ -197,9 +361,38 @@ class FileBatchParserDisk:
         source_encoding: str = "utf-8",
         release_file_content: bool = True,
         parser_detection: str = "auto",
+        parse_options: ParseOptions | None = None,
     ) -> FileBatchModelDisk[FileDiskObj]:
+        """Parse inputs and return the backward-compatible successful-file batch."""
+
+        return self.parse_with_report(
+            file_paths,
+            total_charge=total_charge,
+            total_multiplicity=total_multiplicity,
+            only_extract_structure=only_extract_structure,
+            only_last_frame=only_last_frame,
+            capture_source_evidence=capture_source_evidence,
+            source_encoding=source_encoding,
+            release_file_content=release_file_content,
+            parser_detection=parser_detection,
+            parse_options=parse_options,
+        ).batch
+
+    def parse_with_report(
+        self,
+        file_paths: Iterable[str] | Iterable[pathlib.Path],
+        total_charge: int | None = None,
+        total_multiplicity: int | None = None,
+        only_extract_structure: bool = False,
+        only_last_frame: bool = False,
+        capture_source_evidence: bool = False,
+        source_encoding: str = "utf-8",
+        release_file_content: bool = True,
+        parser_detection: str = "auto",
+        parse_options: ParseOptions | None = None,
+    ) -> BatchParseResult[FileBatchModelDisk[FileDiskObj], FileDiskObj]:
         """
-        Parses a list of input files and returns a FileBatchModelDisk object.
+        Parse input files and retain one structured outcome for every input path.
 
         Parameters:
             file_paths (Iterable[str]):
@@ -221,15 +414,45 @@ class FileBatchParserDisk:
         """
         hint_format = None if parser_detection == "auto" else parser_detection
         path_count = _length_or_none(file_paths)
+        parse_options = (
+            parse_options
+            or ParseOptions(
+                total_charge=total_charge,
+                total_multiplicity=total_multiplicity,
+                only_extract_structure=only_extract_structure,
+                only_last_frame=only_last_frame,
+                capture_source_evidence=capture_source_evidence,
+                source_encoding=source_encoding,
+                release_file_content=release_file_content,
+            )
+        ).resolved()
 
-        def process_path(file_path: str | pathlib.Path):
+        preflight_outcomes: list[FileParseOutcome[FileDiskObj]] = []
+
+        def process_path(file_path: str | pathlib.Path, input_index: int):
             if isinstance(file_path, pathlib.Path):
                 file_path = file_path.as_posix()
             if not os.path.isfile(file_path):
                 moloplogger.warning(f"{file_path} is not a file.")
-                return None
+                return FileParseOutcome(
+                    file_path=os.path.abspath(file_path),
+                    status="missing",
+                    failure=ParseFailure(
+                        kind="missing_file",
+                        message="Input path is not an existing file.",
+                    ),
+                    input_index=input_index,
+                )
             if file_path.endswith("molop.log"):
-                return None
+                return FileParseOutcome(
+                    file_path=os.path.abspath(file_path),
+                    status="skipped",
+                    failure=ParseFailure(
+                        kind="internal_log",
+                        message="MolOP's own log file is excluded from parsing.",
+                    ),
+                    input_index=input_index,
+                )
             abs_path = os.path.abspath(file_path)
             try:
                 possible_readers = cast(
@@ -239,9 +462,25 @@ class FileBatchParserDisk:
             except codec_registry.UnsupportedFormatError:
                 if parser_detection == "auto":
                     moloplogger.warning(f"Unsupported input file format: {abs_path}")
-                    return None
+                    return FileParseOutcome(
+                        file_path=abs_path,
+                        status="unsupported",
+                        failure=ParseFailure(
+                            kind="unsupported_format",
+                            message="No reader codec is registered for this input path.",
+                        ),
+                        input_index=input_index,
+                    )
                 moloplogger.error(f"Unsupported input file format: {abs_path}")
-                return None
+                return FileParseOutcome(
+                    file_path=abs_path,
+                    status="unsupported",
+                    failure=ParseFailure(
+                        kind="unsupported_format",
+                        message=f"No reader codec is registered for format {parser_detection!r}.",
+                    ),
+                    input_index=input_index,
+                )
             if parser_detection == "auto":
                 possible_readers = _filter_readers_by_probe(abs_path, possible_readers)
             return {
@@ -254,6 +493,9 @@ class FileBatchParserDisk:
                 "capture_source_evidence": capture_source_evidence,
                 "source_encoding": source_encoding,
                 "release_file_content": release_file_content,
+                "parse_options": parse_options,
+                "input_index": input_index,
+                "return_outcome": True,
             }
 
         effective_jobs = (
@@ -296,13 +538,17 @@ class FileBatchParserDisk:
                 progress.close()
 
         def iter_raw_tasks():
-            for file_path in file_paths:
+            for input_index, file_path in enumerate(file_paths):
                 register_input_path()
-                task = process_path(file_path)
-                if task is not None:
-                    yield task
-                else:
+                task_or_outcome = process_path(
+                    cast(str | pathlib.Path, file_path),
+                    input_index,
+                )
+                if isinstance(task_or_outcome, FileParseOutcome):
+                    preflight_outcomes.append(task_or_outcome)
                     mark_input_path_done()
+                else:
+                    yield task_or_outcome
 
         def iter_tasks():
             tasks = iter_raw_tasks()
@@ -321,19 +567,29 @@ class FileBatchParserDisk:
                     maxtasks_per_child=50,
                     return_as="generator_unordered",
                     max_nbytes=molopconfig.parallel_max_size,
-                )(delayed(single_file_parser)(**task) for task in iter_tasks())
+                )(delayed(_run_single_file_task)(**task) for task in iter_tasks())
             else:
-                results = (single_file_parser(**task) for task in iter_tasks())
+                results = (_run_single_file_task(**task) for task in iter_tasks())
 
             parsed_diskfiles: list[FileDiskObj] = []
-            for result in cast(Iterable[FileDiskObj | None], results):
-                if result is not None and len(result) > 0:
-                    parsed_diskfiles.append(result)
+            parse_outcomes = preflight_outcomes
+            for outcome in cast(Iterable[FileParseOutcome[FileDiskObj]], results):
+                parse_outcomes.append(outcome)
+                if outcome.succeeded and outcome.value is not None:
+                    parsed_diskfiles.append(outcome.value)
                 mark_input_path_done()
 
             close_progress()
             parsed_diskfiles.sort(key=lambda diskfile: diskfile.file_path)
-            return FileBatchModelDisk._new_batch_from_sorted_diskfiles(parsed_diskfiles)
+            parse_outcomes.sort(
+                key=lambda outcome: (
+                    outcome.input_index is None,
+                    outcome.input_index if outcome.input_index is not None else 0,
+                    outcome.file_path,
+                )
+            )
+            batch = FileBatchModelDisk._new_batch_from_sorted_diskfiles(parsed_diskfiles)
+            return BatchParseResult(batch=batch, outcomes=tuple(parse_outcomes))
         except Exception:
             close_progress()
             raise

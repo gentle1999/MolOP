@@ -10,10 +10,12 @@ import glob
 import os
 from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeAlias
+from typing import TYPE_CHECKING, Literal, TypeAlias, overload
 
+from molop.io.codec_types import ParseOptions
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
 from molop.io.FileBatchParserDisk import FileBatchParserDisk
+from molop.io.parse_outcomes import BatchParseResult
 
 
 if TYPE_CHECKING:
@@ -82,6 +84,42 @@ def _normalize_file_paths(file_path: PathInput) -> list[Path]:
     return [paths_by_key[key] for key in sorted(paths_by_key)]
 
 
+@overload
+def AutoParser(
+    file_path: PathInput,
+    *,
+    total_charge: int | None = None,
+    total_multiplicity: int | None = None,
+    n_jobs: int = -1,
+    only_extract_structure: bool = False,
+    only_last_frame: bool = False,
+    capture_source_evidence: bool = False,
+    source_encoding: str = "utf-8",
+    release_file_content: bool = True,
+    parser_detection: str = "auto",
+    parse_options: ParseOptions | None = None,
+    return_report: Literal[False] = False,
+) -> FileBatchModelDisk["FileDiskObj"]: ...
+
+
+@overload
+def AutoParser(
+    file_path: PathInput,
+    *,
+    total_charge: int | None = None,
+    total_multiplicity: int | None = None,
+    n_jobs: int = -1,
+    only_extract_structure: bool = False,
+    only_last_frame: bool = False,
+    capture_source_evidence: bool = False,
+    source_encoding: str = "utf-8",
+    release_file_content: bool = True,
+    parser_detection: str = "auto",
+    parse_options: ParseOptions | None = None,
+    return_report: Literal[True],
+) -> BatchParseResult[FileBatchModelDisk["FileDiskObj"], "FileDiskObj"]: ...
+
+
 def AutoParser(
     file_path: PathInput,
     *,
@@ -94,7 +132,12 @@ def AutoParser(
     source_encoding: str = "utf-8",
     release_file_content: bool = True,
     parser_detection: str = "auto",
-) -> FileBatchModelDisk["FileDiskObj"]:
+    parse_options: ParseOptions | None = None,
+    return_report: bool = False,
+) -> (
+    FileBatchModelDisk["FileDiskObj"]
+    | BatchParseResult[FileBatchModelDisk["FileDiskObj"], "FileDiskObj"]
+):
     """
     The Entrypoint of MolOP
 
@@ -119,6 +162,10 @@ def AutoParser(
             if True, release the file content after parsing, else keep the file content in memory.
         parser_detection (str):
             if "auto", use the file extension to detect the parser, else use the given format id.
+        parse_options (ParseOptions | None):
+            immutable parsing options; when provided, these take precedence over individual options.
+        return_report (bool):
+            if True, return the successful batch together with one structured outcome per input.
 
     Returns:
         FileBatchModelDisk: Parsed files sorted by absolute file path.
@@ -134,7 +181,21 @@ def AutoParser(
     ```
     """
     files = _normalize_file_paths(file_path)
-    return FileBatchParserDisk(n_jobs=n_jobs).parse(
+    parser = FileBatchParserDisk(n_jobs=n_jobs)
+    if return_report:
+        return parser.parse_with_report(
+            files,
+            total_charge=total_charge,
+            total_multiplicity=total_multiplicity,
+            only_extract_structure=only_extract_structure,
+            only_last_frame=only_last_frame,
+            capture_source_evidence=capture_source_evidence,
+            source_encoding=source_encoding,
+            release_file_content=release_file_content,
+            parser_detection=parser_detection,
+            parse_options=parse_options,
+        )
+    return parser.parse(
         files,
         total_charge=total_charge,
         total_multiplicity=total_multiplicity,
@@ -144,4 +205,5 @@ def AutoParser(
         source_encoding=source_encoding,
         release_file_content=release_file_content,
         parser_detection=parser_detection,
+        parse_options=parse_options,
     )

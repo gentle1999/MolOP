@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from enum import Enum, auto
 from typing import Any, cast
 
-from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
+from molop.io.base_models.FrameParser import BaseFrameParser, FrameParseContext, _HasParseMethod
 from molop.io.base_models.ParseContainers import ModelParseResult
 from molop.io.logic.gaussian.fchk.output.frame_models.G16FchkFileFrame import (
     G16FchkFileFrameDisk,
@@ -70,10 +70,13 @@ class G16FchkFileFrameParserMixin:
         return G16FchkParsePhase.ENERGY
 
     def _run_energy_phase(
-        self, records: Mapping[str, Any], result: ModelParseResult
+        self,
+        records: Mapping[str, Any],
+        result: ModelParseResult,
+        context: FrameParseContext,
     ) -> G16FchkParsePhase:
         typed_self = cast(_HasParseMethod, self)
-        model_chemistry = typed_self._additional_data.get("model_chemistry")
+        model_chemistry = context.additional_data.get("model_chemistry")
         method = getattr(model_chemistry, "method", None)
         energies = extract_fchk_energies(
             records,
@@ -134,10 +137,13 @@ class G16FchkFileFrameParserMixin:
         return G16FchkParsePhase.NMR
 
     def _run_nmr_phase(
-        self, records: Mapping[str, Any], result: ModelParseResult
+        self,
+        records: Mapping[str, Any],
+        result: ModelParseResult,
+        context: FrameParseContext,
     ) -> G16FchkParsePhase:
         atoms = result.fields.get("atoms")
-        route = cast(_HasParseMethod, self)._additional_data.get("keywords", "")
+        route = context.additional_data.get("keywords", "")
         if (
             isinstance(atoms, list)
             and (nmr := extract_fchk_nmr(records, atoms, route=str(route))) is not None
@@ -161,16 +167,24 @@ class G16FchkFileFrameParserMixin:
         return G16FchkParsePhase.STATUS
 
     def _run_status_phase(
-        self, records: Mapping[str, Any], result: ModelParseResult
+        self,
+        records: Mapping[str, Any],
+        result: ModelParseResult,
+        context: FrameParseContext,
     ) -> G16FchkParsePhase:
         result.set("status", extract_fchk_status(records))
-        task_requests = cast(_HasParseMethod, self)._additional_data.get("task_requests", [])
+        task_requests = context.additional_data.get("task_requests", [])
         optimization = extract_fchk_optimization_status(records, list(task_requests))
         if optimization is not None:
             result.set("geometry_optimization_status", optimization)
         return G16FchkParsePhase.DONE
 
-    def _parse_block_to_result(self, text: str) -> ModelParseResult:
+    def _parse_block_to_result(
+        self,
+        text: str,
+        context: FrameParseContext | None = None,
+    ) -> ModelParseResult:
+        context = context or FrameParseContext(additional_data={})
         records = parse_fchk_frame_records(text)
         result = ModelParseResult({"qm_software": "Gaussian"})
         phase = G16FchkParsePhase.STRUCTURE
@@ -180,7 +194,7 @@ class G16FchkFileFrameParserMixin:
             elif phase is G16FchkParsePhase.STRUCTURE_ONLY_CHECK:
                 phase = self._run_structure_only_check()
             elif phase is G16FchkParsePhase.ENERGY:
-                phase = self._run_energy_phase(records, result)
+                phase = self._run_energy_phase(records, result, context)
             elif phase is G16FchkParsePhase.DERIVATIVES:
                 phase = self._run_derivatives_phase(records, result)
             elif phase is G16FchkParsePhase.ORBITALS:
@@ -190,19 +204,19 @@ class G16FchkFileFrameParserMixin:
             elif phase is G16FchkParsePhase.RESPONSE:
                 phase = self._run_response_phase(records, result)
             elif phase is G16FchkParsePhase.NMR:
-                phase = self._run_nmr_phase(records, result)
+                phase = self._run_nmr_phase(records, result, context)
             elif phase is G16FchkParsePhase.VIBRATIONS:
                 phase = self._run_vibrations_phase(records, result)
             elif phase is G16FchkParsePhase.THERMOCHEMISTRY:
                 phase = self._run_thermochemistry_phase(records, result)
             elif phase is G16FchkParsePhase.STATUS:
-                phase = self._run_status_phase(records, result)
+                phase = self._run_status_phase(records, result, context)
             else:
                 raise AssertionError(f"Unexpected Gaussian fchk parse phase: {phase!r}")
         return result
 
-    def _parse_frame(self) -> Mapping[str, Any]:
-        return self._parse_block_to_result(cast(_HasParseMethod, self)._block).model_data()
+    def _parse_frame(self, block: str, *, context: FrameParseContext) -> Mapping[str, Any]:
+        return self._parse_block_to_result(block, context).model_data()
 
 
 class G16FchkFileFrameParserMemory(

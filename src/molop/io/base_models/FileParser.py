@@ -9,7 +9,7 @@ Description: 请填写简介
 import os
 from abc import abstractmethod
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from enum import Enum
 from hashlib import sha256
 from importlib.metadata import PackageNotFoundError
@@ -20,7 +20,6 @@ from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, cast
 from molgr.config import CONFIG as MOLGR_CONFIG
 from pydantic import Field, PrivateAttr
 
-from molop.config import molopconfig
 from molop.io.base_models.Bases import BaseDataClassWithUnit
 from molop.io.base_models.ChemFile import BaseChemFile
 from molop.io.base_models.ChemFileFrame import BaseChemFileFrame
@@ -40,6 +39,7 @@ from molop.io.base_models.source import (
 )
 from molop.io.base_models.summary import SummaryDict, summary_column
 from molop.io.codec_exceptions import FormatMismatchError
+from molop.io.codec_types import ParseOptions
 
 
 FileT = TypeVar("FileT", bound=BaseChemFile)
@@ -80,6 +80,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
     only_last_frame: bool = Field(default=False, exclude=True, repr=False)
     capture_source_evidence: bool = Field(default=False, exclude=True, repr=False)
     source_encoding: str = Field(default="utf-8", min_length=1, exclude=True, repr=False)
+    parse_options: ParseOptions | None = Field(default=None, exclude=True, repr=False)
 
     @staticmethod
     def _distribution_version(distribution: str) -> str:
@@ -94,22 +95,25 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         charge_override: int | None,
         multiplicity_override: int | None,
         source_encoding: str,
+        parse_options: ParseOptions | None = None,
     ) -> ParserProvenance:
         """Capture versions and all parser-relevant global configuration by value."""
+
+        options = (parse_options or ParseOptions()).resolved()
 
         effective_config: dict[str, Any] = {
             "parser": {
                 "total_charge_override": charge_override,
                 "total_multiplicity_override": multiplicity_override,
-                "only_extract_structure": self.only_extract_structure,
-                "only_last_frame": self.only_last_frame,
-                "capture_source_evidence": self.capture_source_evidence,
+                "only_extract_structure": options.only_extract_structure,
+                "only_last_frame": options.only_last_frame,
+                "capture_source_evidence": options.capture_source_evidence,
                 "source_encoding": source_encoding,
             },
             "molop": {
-                "force_unit_transform": molopconfig.force_unit_transform,
-                "graph_reconstruction_backend": molopconfig.graph_reconstruction_backend,
-                "make_dative_bonds": molopconfig.make_dative_bonds,
+                "force_unit_transform": options.force_unit_transform,
+                "graph_reconstruction_backend": options.graph_reconstruction_backend,
+                "make_dative_bonds": options.make_dative_bonds,
             },
             "molgr": asdict(MOLGR_CONFIG),
         }
@@ -645,6 +649,11 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         metadata.update(context_metadata)
         for field in self._segment_scoped_frame_metadata:
             metadata.pop(field, None)
+        if self.parse_options is not None:
+            metadata["topology_reconstruction_backend"] = (
+                self.parse_options.graph_reconstruction_backend
+            )
+            metadata["topology_make_dative_bonds"] = self.parse_options.make_dative_bonds
         return metadata
 
     @classmethod
@@ -660,6 +669,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         frame_parser = self._frame_parser(
             only_extract_structure=self.only_extract_structure,
             capture_source_evidence=self.capture_source_evidence,
+            parse_options=self.parse_options,
         )
         return cast(FrameT, frame_parser.parse(frame_content, additional_data=additional_data))
 
@@ -746,6 +756,24 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
     ) -> FileT:
         """Run the shared source, metadata, frame, and evidence lifecycle."""
         decoded_source = self._load_source(source, source_type)
+        return self._parse_decoded_source(
+            decoded_source,
+            source_path=source if source_type == "file_path" else None,
+            total_charge=total_charge,
+            total_multiplicity=total_multiplicity,
+        )
+
+    def _parse_decoded_source(
+        self,
+        decoded_source: DecodedSource,
+        *,
+        source_path: str | None = None,
+        total_charge: int | None = None,
+        total_multiplicity: int | None = None,
+    ) -> FileT:
+        """Parse one already-loaded source through the shared in-memory lifecycle."""
+
+        self._file_path = source_path
         file_content = decoded_source.text
         parser_file_content = normalize_parser_line_endings(file_content)
         source_format = self.format_id
@@ -757,18 +785,34 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
             "file_content": file_content,
             "source_format": source_format,
         }
-        if source_type == "file_path":
-            context_metadata["file_path"] = source
+        if source_path is not None:
+            context_metadata["file_path"] = source_path
         self._quick_check_file_format(parser_file_content)
 
         final_charge = total_charge if total_charge is not None else self.forced_charge
         final_multiplicity = (
             total_multiplicity if total_multiplicity is not None else self.forced_multiplicity
         )
+        self.parse_options = replace(
+            self.parse_options
+            or ParseOptions(
+                only_extract_structure=self.only_extract_structure,
+                only_last_frame=self.only_last_frame,
+                capture_source_evidence=self.capture_source_evidence,
+                source_encoding=decoded_source.encoding,
+            ),
+            total_charge=final_charge,
+            total_multiplicity=final_multiplicity,
+            only_extract_structure=self.only_extract_structure,
+            only_last_frame=self.only_last_frame,
+            capture_source_evidence=self.capture_source_evidence,
+            source_encoding=decoded_source.encoding,
+        ).resolved()
         parser_provenance = self._snapshot_parser_provenance(
             charge_override=final_charge,
             multiplicity_override=final_multiplicity,
             source_encoding=decoded_source.encoding,
+            parse_options=self.parse_options,
         )
         if final_charge is not None:
             context_metadata["charge"] = final_charge
@@ -830,7 +874,10 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         )
         metadata.update(context_metadata)
         metadata["parser_provenance"] = parser_provenance
-        _chem_file = self._chem_file.model_validate(metadata)
+        _chem_file = self._chem_file.model_validate(
+            metadata,
+            context={"force_unit_transform": self.parse_options.force_unit_transform},
+        )
         if self.capture_source_evidence:
             decoded_source.prepare_blocks(
                 tuple(
@@ -957,6 +1004,40 @@ class BaseFileParserMemory(BaseFileParser[FileT, FrameT, FrameParserT]):
             _chem_file.release_file_content()
         return _chem_file
 
+    def parse_bytes(
+        self,
+        raw_bytes: bytes,
+        total_charge: int | None = None,
+        total_multiplicity: int | None = None,
+        release_file_content: bool = False,
+    ) -> FileT:
+        """Parse already-loaded source bytes without a filesystem round trip."""
+
+        return self.parse_decoded_source(
+            DecodedSource.from_bytes(raw_bytes, self.source_encoding),
+            total_charge=total_charge,
+            total_multiplicity=total_multiplicity,
+            release_file_content=release_file_content,
+        )
+
+    def parse_decoded_source(
+        self,
+        source: DecodedSource,
+        total_charge: int | None = None,
+        total_multiplicity: int | None = None,
+        release_file_content: bool = False,
+    ) -> FileT:
+        """Parse a decoded in-memory source while preserving exact byte offsets."""
+
+        _chem_file = self._parse_decoded_source(
+            source,
+            total_charge=total_charge,
+            total_multiplicity=total_multiplicity,
+        )
+        if release_file_content:
+            _chem_file.release_file_content()
+        return _chem_file
+
 
 class BaseFileParserDisk(BaseFileParser[FileT, FrameT, FrameParserT]):
     allowed_formats: ClassVar[tuple[str, ...]] = ()
@@ -998,6 +1079,47 @@ class BaseFileParserDisk(BaseFileParser[FileT, FrameT, FrameParserT]):
         _chem_file = self._parse(
             source=file_path,
             source_type="file_path",
+            total_charge=total_charge,
+            total_multiplicity=total_multiplicity,
+        )
+        if release_file_content:
+            _chem_file.release_file_content()
+        return _chem_file
+
+    def parse_bytes(
+        self,
+        raw_bytes: bytes,
+        *,
+        file_path: str,
+        total_charge: int | None = None,
+        total_multiplicity: int | None = None,
+        release_file_content: bool = False,
+    ) -> FileT:
+        """Parse loaded bytes while retaining a disk source identity."""
+
+        return self.parse_decoded_source(
+            DecodedSource.from_bytes(raw_bytes, self.source_encoding),
+            file_path=file_path,
+            total_charge=total_charge,
+            total_multiplicity=total_multiplicity,
+            release_file_content=release_file_content,
+        )
+
+    def parse_decoded_source(
+        self,
+        source: DecodedSource,
+        *,
+        file_path: str,
+        total_charge: int | None = None,
+        total_multiplicity: int | None = None,
+        release_file_content: bool = False,
+    ) -> FileT:
+        """Parse a decoded source without reopening its filesystem path."""
+
+        normalized_path = os.path.abspath(file_path)
+        _chem_file = self._parse_decoded_source(
+            source,
+            source_path=normalized_path,
             total_charge=total_charge,
             total_multiplicity=total_multiplicity,
         )

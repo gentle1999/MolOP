@@ -207,8 +207,12 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         )
 
     def _record_topology_reconstruction_provenance(self) -> None:
-        backend = molopconfig.graph_reconstruction_backend
-        make_dative_bonds = molopconfig.make_dative_bonds
+        backend = self.topology_reconstruction_backend or molopconfig.graph_reconstruction_backend
+        make_dative_bonds = (
+            self.topology_make_dative_bonds
+            if self.topology_make_dative_bonds is not None
+            else molopconfig.make_dative_bonds
+        )
         config = {
             "backend": backend,
             "make_dative_bonds": make_dative_bonds,
@@ -287,13 +291,17 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
                     return None
                 self._topology_reconstruction_attempted = True
                 self._record_topology_reconstruction_provenance()
+                backend = self.topology_reconstruction_backend
+                make_dative_bonds = self.topology_make_dative_bonds
+                assert backend is not None
+                assert make_dative_bonds is not None
                 try:
                     reconstructed = xyz_to_rdmol(
                         self.to_XYZ(),
                         self.charge,
                         self.multiplicity,
-                        backend=molopconfig.graph_reconstruction_backend,
-                        make_dative_bonds=molopconfig.make_dative_bonds,
+                        backend=backend,
+                        make_dative_bonds=make_dative_bonds,
                         config=MOLGR_CONFIG,
                     )
                     if reconstructed is None:

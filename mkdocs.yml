@@ -8,6 +8,7 @@ edit_uri: edit/main/docs/
 
 theme:
   name: "material"
+  custom_dir: overrides
   features:
     - navigation.tracking
     - navigation.tabs
@@ -45,6 +46,8 @@ theme:
         name: Switch to light mode
 
 extra:
+  version:
+    provider: mike
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/gentle1999/MolOP.git
@@ -83,6 +86,7 @@ plugins:
           build: true
           nav_translations:
             首页: Home
+            文档版本: Documentation Version
             快速开始: Quick Start
             安装: Installation
             5 分钟上手: 5-Minute Start
@@ -153,6 +157,7 @@ hooks:
 
 nav:
   - 首页: index.md
+  - 文档版本: versioning.md
   - 快速开始:
     - 安装: getting_started/installation.md
     - 5 分钟上手: getting_started/quickstart.md

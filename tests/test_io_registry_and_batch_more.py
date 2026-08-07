@@ -11,9 +11,10 @@ import pytest
 from molop.io.base_models._format_transform import FrameFormatTransformMixin
 from molop.io.codec_exceptions import ConversionError, FormatMismatchError, UnsupportedFormatError
 from molop.io.codec_registry import Registry
-from molop.io.codec_types import ParseResult, StructureLevel
+from molop.io.codec_types import ParseResult, ParseWarning, StructureLevel
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
 from molop.io.FileBatchParserDisk import FileBatchParserDisk
+from molop.io.parse_outcomes import BatchParseResult, FileParseOutcome
 from molop.unit import atom_ureg
 
 
@@ -768,6 +769,48 @@ def test_single_file_parser_does_not_fall_back_on_parse_error() -> None:
     )
 
     assert parsed is None
+
+
+def test_single_file_parser_outcome_preserves_reader_warnings() -> None:
+    warning = ParseWarning(code="TEST.WARNING", message="reader warning")
+
+    class WarningReader(FakeDiskFileReader):
+        def read(self, path: str | Path, **_kwargs: Any) -> ParseResult[object]:
+            return ParseResult(
+                value=FakeDiskFile(str(path), "xyz", self.format_id),
+                level=StructureLevel.COORDS,
+                warnings=(warning,),
+                detected_format=self.format_id,
+            )
+
+    outcome = filebatchparserdisk_module.single_file_parser(
+        file_path="/tmp/sample.xyz",
+        possible_readers=(WarningReader("xyz"),),
+        return_outcome=True,
+    )
+
+    assert isinstance(outcome, FileParseOutcome)
+    assert outcome.status == "ok"
+    assert outcome.warnings == (warning,)
+
+
+def test_autoparser_report_distinguishes_success_and_missing_input(tmp_path: Path) -> None:
+    valid_path = tmp_path / "valid.xyz"
+    valid_path.write_text("1\nwater\nH 0.0 0.0 0.0\n", encoding="utf-8")
+    missing_path = tmp_path / "missing.xyz"
+
+    report = io_module.AutoParser(
+        [valid_path, missing_path],
+        n_jobs=1,
+        parser_detection="xyz",
+        return_report=True,
+    )
+
+    assert isinstance(report, BatchParseResult)
+    assert report.batch.file_paths == [str(valid_path.resolve())]
+    assert [outcome.status for outcome in report.outcomes] == ["missing", "ok"]
+    assert report.failures[0].failure is not None
+    assert report.failures[0].failure.kind == "missing_file"
 
 
 def test_auto_detection_falls_back_from_orca_to_gaussian_for_shared_out_suffix() -> None:

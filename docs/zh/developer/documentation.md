@@ -22,6 +22,21 @@
 
 不要手写与能力矩阵重复的“支持/不支持”表。
 
+## 版本元数据
+
+文档站必须明确标识其对应的源码，不得让主线文档看起来像当前 PyPI 发布版。`scripts/mkdocs_hooks.py` 在构建时从 Hatch VCS 和完整 Git tag 历史生成以下信息，并由全站横幅展示：
+
+- 源码版本；
+- Git ref 和 commit；
+- 最近稳定发布 tag；
+- `development` 或 `release` 文档状态。
+
+文档工作流的 checkout 必须使用 `fetch-depth: 0`，否则无法可靠解析最近发布 tag。不要在 Markdown、`mkdocs.yml` 或模板中手写版本号。
+
+发布部署使用 `mike`：稳定 tag 发布为 `/<版本>/` 并更新 `latest`，`main` 发布为 `main` 并更新 `dev`；根地址默认指向 `latest`。Pages artifact 还会安装根级 `404.html`，把旧的无版本深链接转到 `latest`。不要手动复制版本目录或修改 `versions.json`。
+
+无 Git 元数据的源码归档可以使用 `MOLOP_DOCS_SOURCE_VERSION`、`MOLOP_DOCS_RELEASE_VERSION`、`MOLOP_DOCS_COMMIT`、`MOLOP_DOCS_REF` 和 `MOLOP_DOCS_CHANNEL` 显式注入构建信息；`MOLOP_DOCS_CHANNEL` 只接受 `development` 或 `release`。
+
 ## 输出渲染
 
 Markdown 示例中的输出必须作为独立的可折叠内容呈现。文档站点使用

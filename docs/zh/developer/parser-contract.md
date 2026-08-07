@@ -82,10 +82,10 @@ MolOP 的 IO 栈刻意分成三层：**解析（parsing）**、**存储（storag
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from molop.io.base_models.FileParser import BaseFileParserDisk
-from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
+from molop.io.base_models.FrameParser import BaseFrameParser, FrameParseContext
 from molop.io.base_models.source import LocatedSourceSegment, LocatedTextBlock
 from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.myfmt.frame_models.MyFmtFrame import MyFmtFrameDisk
@@ -103,8 +103,13 @@ if TYPE_CHECKING:
 
 
 class MyFmtFrameParserMixin:
-    def _parse_frame(self) -> Mapping[str, Any]:
-        block = cast(_HasParseMethod, self)._block
+    def _parse_frame(
+        self,
+        block: str,
+        *,
+        context: FrameParseContext,
+    ) -> Mapping[str, Any]:
+        _ = context
         return extract_myfmt_frame_payload(block)
 
 
@@ -185,6 +190,11 @@ def register(registry: Registry) -> None:
 | `_update_file_metadata_from_frames()` | 在所有 frame 解析后，从首帧或末帧回填文件字段。 |
 
 没有对应语义时不要覆盖这些钩子。文件级 metadata 只放 `_parse_artifact_metadata()`，segment-scoped metadata 只放 `_parse_segment_metadata()`；不要把终止状态等 segment 事实无条件复制成每帧事实。
+
+`BaseFrameParser` 会把精确 frame 原文和不可变 `FrameParseContext` 传入 `_parse_frame(...)`。
+文件级与 segment 级 metadata 应从 `context.additional_data` 读取，不要把当前 block 或 context
+保存到 parser 实例。组装 frame 模型时会在格式 payload 之后应用 context metadata，因此字段冲突
+由 context 值覆盖。
 
 #### 内置与外部注册边界
 

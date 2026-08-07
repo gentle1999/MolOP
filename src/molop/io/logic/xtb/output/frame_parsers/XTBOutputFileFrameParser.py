@@ -4,7 +4,7 @@ from collections.abc import Mapping
 from enum import Enum, auto
 from typing import Any, cast
 
-from molop.io.base_models.FrameParser import BaseFrameParser, _HasParseMethod
+from molop.io.base_models.FrameParser import BaseFrameParser, FrameParseContext, _HasParseMethod
 from molop.io.base_models.ParseContainers import ModelParseResult
 from molop.io.logic.xtb.output.frame_models.XTBOutputFileFrame import (
     XTBOutputFileFrameDisk,
@@ -66,9 +66,10 @@ class XTBOutputFileFrameParserMixin:
         self,
         text: str,
         result: ModelParseResult,
+        context: FrameParseContext,
     ) -> XTBOutputParsePhase:
         typed_self = cast(_HasParseMethod, self)
-        model_chemistry = typed_self._additional_data.get("model_chemistry")
+        model_chemistry = context.additional_data.get("model_chemistry")
         method = getattr(model_chemistry, "method", None)
         energies = extract_xtb_final_energy(
             text,
@@ -132,7 +133,12 @@ class XTBOutputFileFrameParserMixin:
             result.set("running_time", running_time)
         return XTBOutputParsePhase.DONE
 
-    def _parse_block_to_result(self, text: str) -> ModelParseResult:
+    def _parse_block_to_result(
+        self,
+        text: str,
+        context: FrameParseContext | None = None,
+    ) -> ModelParseResult:
+        context = context or FrameParseContext(additional_data={})
         result = ModelParseResult({"qm_software": "xTB"})
         phase = XTBOutputParsePhase.STRUCTURE
         while phase is not XTBOutputParsePhase.DONE:
@@ -141,7 +147,7 @@ class XTBOutputFileFrameParserMixin:
             elif phase is XTBOutputParsePhase.STRUCTURE_ONLY_CHECK:
                 phase = self._run_structure_only_check()
             elif phase is XTBOutputParsePhase.ENERGY:
-                phase = self._run_energy_phase(text, result)
+                phase = self._run_energy_phase(text, result, context)
             elif phase is XTBOutputParsePhase.ORBITALS:
                 phase = self._run_orbitals_phase(text, result)
             elif phase is XTBOutputParsePhase.POPULATIONS:
@@ -160,9 +166,8 @@ class XTBOutputFileFrameParserMixin:
                 raise AssertionError(f"Unexpected xTB output parse phase: {phase!r}")
         return result
 
-    def _parse_frame(self) -> Mapping[str, Any]:
-        text = cast(_HasParseMethod, self)._block
-        return self._parse_block_to_result(text).model_data()
+    def _parse_frame(self, block: str, *, context: FrameParseContext) -> Mapping[str, Any]:
+        return self._parse_block_to_result(block, context).model_data()
 
 
 class XTBOutputFileFrameParserMemory(
