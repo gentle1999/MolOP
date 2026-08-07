@@ -1,0 +1,843 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/changelog/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/changelog/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/command_line_interface/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/command_line_interface/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/command_line_interface/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/concepts/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/concepts/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/contributing/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/contributing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/contributing/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/versioning/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/versioning/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/versioning/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/advanced/cli-contract/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/advanced/cli-contract/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/advanced/cli-contract/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/design/orca_input_model/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/design/orca_input_model/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/design/orca_input_model/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/design/qm_data_model/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/design/qm_data_model/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/design/qm_data_model/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/developer/documentation/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/developer/documentation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/developer/documentation/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/developer/overview/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/developer/overview/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/developer/overview/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/developer/parser-contract/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/developer/parser-contract/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/developer/parser-contract/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/developer/plugins/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/developer/plugins/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/developer/plugins/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/developer/quality/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/developer/quality/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/developer/quality/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/getting_started/cli/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/getting_started/cli/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/getting_started/cli/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/getting_started/installation/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/getting_started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/getting_started/installation/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/getting_started/python-api/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/getting_started/python-api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/getting_started/python-api/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/getting_started/quickstart/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/getting_started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/getting_started/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/guides/batch/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/guides/batch/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/guides/batch/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/guides/cli-recipes/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/guides/cli-recipes/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/guides/cli-recipes/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/guides/conversion/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/guides/conversion/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/guides/conversion/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/guides/filtering/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/guides/filtering/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/guides/filtering/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/guides/parsing/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/guides/parsing/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/guides/parsing/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/guides/results/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/guides/results/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/guides/results/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/guides/structure-recovery/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/guides/structure-recovery/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/guides/structure-recovery/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/guides/troubleshooting/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/guides/troubleshooting/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/guides/troubleshooting/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/api/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/api/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/api/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/api_contracts/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/api_contracts/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/api_contracts/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/format_support/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/format_support/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/format_support/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/model_fields/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/model_fields/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/model_fields/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/serialization/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/serialization/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/serialization/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/transform_behavior/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/transform_behavior/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/transform_behavior/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/api/autoparser/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/api/autoparser/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/api/autoparser/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/api/cli/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/api/cli/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/api/cli/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/api/config/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/api/config/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/api/config/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/api/filebatchmodeldisk/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/api/filebatchmodeldisk/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/api/filebatchmodeldisk/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/api/io/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/api/io/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/api/io/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/api/molop/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/api/molop/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/api/molop/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/api/registry/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/api/registry/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/api/registry/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/api/structure/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/api/structure/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/api/structure/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/api/unit/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/api/unit/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/api/unit/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/api/utils/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/api/utils/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/api/utils/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/formats/cml/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/formats/cml/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/formats/cml/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/formats/fakeg/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/formats/fakeg/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/formats/fakeg/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/formats/g16fchk/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/formats/g16fchk/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/formats/g16fchk/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/formats/g16log/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/formats/g16log/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/formats/g16log/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/formats/gjf/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/formats/gjf/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/formats/gjf/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/formats/openbabel-fallback/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/formats/openbabel-fallback/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/formats/openbabel-fallback/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/formats/orcainp/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/formats/orcainp/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/formats/orcainp/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/formats/orcaout/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/formats/orcaout/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/formats/orcaout/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/formats/sdf/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/formats/sdf/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/formats/sdf/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/formats/smi/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/formats/smi/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/formats/smi/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/formats/xtbout/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/formats/xtbout/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/formats/xtbout/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/reference/formats/xyz/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/reference/formats/xyz/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/reference/formats/xyz/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/tutorials/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/tutorials/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/tutorials/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/tutorials/energy-csv/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/tutorials/energy-csv/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/tutorials/energy-csv/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/tutorials/export-inputs/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/tutorials/export-inputs/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/tutorials/export-inputs/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/tutorials/qm-summary/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/tutorials/qm-summary/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/tutorials/qm-summary/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/tutorials/select-results/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/tutorials/select-results/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/tutorials/select-results/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/tutorials/transition-states/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3/tutorials/transition-states/"/>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3en/tutorials/transition-states/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/changelog/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/changelog/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3changelog/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/command_line_interface/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/command_line_interface/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3command_line_interface/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/concepts/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/concepts/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3concepts/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/contributing/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/contributing/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3contributing/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/versioning/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/versioning/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3versioning/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/advanced/cli-contract/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/advanced/cli-contract/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3advanced/cli-contract/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/design/orca_input_model/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/design/orca_input_model/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3design/orca_input_model/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/design/qm_data_model/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/design/qm_data_model/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3design/qm_data_model/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/developer/documentation/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/developer/documentation/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3developer/documentation/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/developer/overview/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/developer/overview/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3developer/overview/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/developer/parser-contract/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/developer/parser-contract/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3developer/parser-contract/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/developer/plugins/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/developer/plugins/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3developer/plugins/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/developer/quality/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/developer/quality/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3developer/quality/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/getting_started/cli/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/getting_started/cli/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3getting_started/cli/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/getting_started/installation/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/getting_started/installation/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3getting_started/installation/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/getting_started/python-api/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/getting_started/python-api/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3getting_started/python-api/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/getting_started/quickstart/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/getting_started/quickstart/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3getting_started/quickstart/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/guides/batch/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/guides/batch/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3guides/batch/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/guides/cli-recipes/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/guides/cli-recipes/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3guides/cli-recipes/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/guides/conversion/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/guides/conversion/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3guides/conversion/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/guides/filtering/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/guides/filtering/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3guides/filtering/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/guides/parsing/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/guides/parsing/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3guides/parsing/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/guides/results/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/guides/results/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3guides/results/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/guides/structure-recovery/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/guides/structure-recovery/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3guides/structure-recovery/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/guides/troubleshooting/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/guides/troubleshooting/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3guides/troubleshooting/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/api/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/api_contracts/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/api_contracts/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/api_contracts/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/format_support/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/format_support/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/format_support/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/model_fields/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/model_fields/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/model_fields/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/serialization/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/serialization/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/serialization/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/transform_behavior/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/transform_behavior/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/transform_behavior/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/autoparser/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/autoparser/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/api/autoparser/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/cli/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/cli/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/api/cli/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/config/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/config/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/api/config/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/filebatchmodeldisk/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/filebatchmodeldisk/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/api/filebatchmodeldisk/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/io/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/io/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/api/io/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/molop/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/molop/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/api/molop/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/registry/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/registry/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/api/registry/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/structure/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/structure/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/api/structure/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/unit/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/unit/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/api/unit/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/utils/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/api/utils/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/api/utils/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/cml/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/cml/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/formats/cml/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/fakeg/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/fakeg/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/formats/fakeg/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/g16fchk/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/g16fchk/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/formats/g16fchk/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/g16log/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/g16log/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/formats/g16log/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/gjf/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/gjf/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/formats/gjf/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/openbabel-fallback/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/openbabel-fallback/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/formats/openbabel-fallback/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/orcainp/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/orcainp/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/formats/orcainp/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/orcaout/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/orcaout/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/formats/orcaout/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/sdf/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/sdf/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/formats/sdf/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/smi/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/smi/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/formats/smi/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/xtbout/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/xtbout/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/formats/xtbout/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/xyz/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/reference/formats/xyz/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3reference/formats/xyz/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/tutorials/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/tutorials/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3tutorials/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/tutorials/energy-csv/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/tutorials/energy-csv/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3tutorials/energy-csv/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/tutorials/export-inputs/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/tutorials/export-inputs/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3tutorials/export-inputs/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/tutorials/qm-summary/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/tutorials/qm-summary/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3tutorials/qm-summary/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/tutorials/select-results/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/tutorials/select-results/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3tutorials/select-results/"/>
+    </url>
+    <url>
+        <loc>https://gentle1999.github.io/MolOP/0.2.3/en/tutorials/transition-states/</loc>
+        <lastmod>2026-08-07</lastmod>
+        <changefreq>daily</changefreq>
+        <xhtml:link rel="alternate" hreflang="en" href="https://gentle1999.github.io/MolOP/0.2.3/en/tutorials/transition-states/"/>
+        <xhtml:link rel="alternate" hreflang="zh" href="https://gentle1999.github.io/MolOP/0.2.3tutorials/transition-states/"/>
+    </url>
+</urlset>

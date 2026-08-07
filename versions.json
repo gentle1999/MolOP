@@ -5,5 +5,12 @@
     "aliases": [
       "dev"
     ]
+  },
+  {
+    "version": "0.2.3",
+    "title": "MolOP 0.2.3",
+    "aliases": [
+      "latest"
+    ]
   }
 ]
