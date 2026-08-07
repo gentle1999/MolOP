@@ -9,7 +9,6 @@ def test_config_defaults():
     config = MolOPConfig()
     assert config.show_progress_bar is True
     assert config.max_jobs == 16
-    assert config.max_structure_recovery_time == 10.0
     assert config.log_to_file is False
 
 

@@ -1,11 +1,11 @@
 import sys  # noqa: I001
-from collections.abc import Generator
 from pathlib import Path
 
 # Keep MolOP's RDKit initialization ahead of Open Babel's native extension.
 # isort: off
 import pytest
-from molop.structure.GraphReconstruction import xyz_to_omol_no_metal
+from rdkit import Chem
+from molgr.interface import xyz_to_rdmol
 from openbabel import pybel
 # isort: on
 
@@ -18,13 +18,6 @@ from _helpers_structure import (
     build_water_rdmol,
     build_water_xyz_block,
 )
-
-
-@pytest.fixture(autouse=True)
-def clear_xyz_cache() -> Generator[None, None, None]:
-    xyz_to_omol_no_metal.cache_clear()
-    yield
-    xyz_to_omol_no_metal.cache_clear()
 
 
 def test_xyz_helpers_generate_valid_blocks() -> None:
@@ -58,9 +51,9 @@ def test_rdkit_helpers_generate_deterministic_conformers() -> None:
     assert (origin.x, origin.y, origin.z) == pytest.approx((0.0, 0.0, 0.0), abs=1e-12)
 
 
-def test_structure_backends_and_cache_smoke() -> None:
-    recovered = xyz_to_omol_no_metal(build_water_xyz_block())
+def test_molgr_structure_recovery_smoke() -> None:
+    recovered = xyz_to_rdmol(build_water_xyz_block())
 
-    assert recovered is not None
-    assert recovered.OBMol.NumAtoms() == 3
-    assert xyz_to_omol_no_metal.cache_info().currsize >= 1
+    assert recovered.GetNumAtoms() == 3
+    assert recovered.GetNumBonds() == 2
+    assert Chem.MolToSmiles(recovered) == "[H]O[H]"

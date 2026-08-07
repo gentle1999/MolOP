@@ -127,7 +127,7 @@ FORMAT_CASES: tuple[
         register_g16log,
         "g16log",
         ".out",
-        (FIXTURE_ROOT / "g16log" / "H2O.log").read_text(),
+        (FIXTURE_ROOT / "g16log" / "H2O.log").read_text(encoding="utf-8"),
     ),
     (
         ORCALogFileParserMemory,
@@ -135,7 +135,7 @@ FORMAT_CASES: tuple[
         register_orcaout,
         "orcaout",
         ".log",
-        (FIXTURE_ROOT / "orca" / "opt_orca.out").read_text(),
+        (FIXTURE_ROOT / "orca" / "opt_orca.out").read_text(encoding="utf-8"),
     ),
 )
 
@@ -176,7 +176,7 @@ def test_disk_parsers_set_source_format_independently_of_file_extension(
     source: str,
 ) -> None:
     path = tmp_path / f"source{suffix}"
-    path.write_text(source)
+    path.write_text(source, encoding="utf-8")
 
     parsed = disk_parser().parse(str(path))
 

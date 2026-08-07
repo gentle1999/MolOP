@@ -36,6 +36,7 @@ from molop.io.base_models.source import (
     SourceSegmentEvidence,
     SourceSpan,
     canonical_json_sha256,
+    normalize_parser_line_endings,
 )
 from molop.io.base_models.summary import SummaryDict, summary_column
 from molop.io.codec_exceptions import FormatMismatchError
@@ -746,6 +747,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         """Run the shared source, metadata, frame, and evidence lifecycle."""
         decoded_source = self._load_source(source, source_type)
         file_content = decoded_source.text
+        parser_file_content = normalize_parser_line_endings(file_content)
         source_format = self.format_id
         if not source_format or source_format != source_format.strip().lower():
             raise ValueError(
@@ -757,7 +759,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         }
         if source_type == "file_path":
             context_metadata["file_path"] = source
-        self._quick_check_file_format(file_content)
+        self._quick_check_file_format(parser_file_content)
 
         final_charge = total_charge if total_charge is not None else self.forced_charge
         final_multiplicity = (
@@ -773,7 +775,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         if final_multiplicity is not None:
             context_metadata["multiplicity"] = final_multiplicity
 
-        artifact_metadata = dict(self._parse_artifact_metadata(file_content) or {})
+        artifact_metadata = dict(self._parse_artifact_metadata(parser_file_content) or {})
         located_segments = self._validated_located_segments(file_content)
         segment_layouts = [
             (
@@ -813,7 +815,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
                 selected_source_frames,
                 dict(
                     self._parse_segment_metadata(
-                        located_segment.segment.text(file_content),
+                        normalize_parser_line_endings(located_segment.segment.text(file_content)),
                         artifact_metadata=artifact_metadata,
                     )
                     or {}
@@ -891,10 +893,12 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
                 _chem_file.source_segments.append(segment_evidence)
                 _chem_file.source_diagnostics.extend(segment_evidence.diagnostics)
             for segment_frame_index, frame_block in selected_source_frames:
+                exact_frame_content = frame_block.text(file_content)
                 frame = self._parse_frame(
-                    frame_block.text(file_content),
+                    normalize_parser_line_endings(exact_frame_content),
                     additional_data=frame_metadata,
                 )
+                frame.frame_content = exact_frame_content
                 self._apply_forced_charge_and_multiplicity(
                     frame,
                     charge=final_charge,

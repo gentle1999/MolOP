@@ -301,22 +301,27 @@ def _completion_source(shell: str) -> str:
     return comp_cls(app, {}, "molop", "_MOLOP_COMPLETE").source()
 
 
+def _completion_home() -> Path:
+    home = os.environ.get("HOME")
+    return Path(home) if home else Path.home()
+
+
 def _completion_source_path(shell: str) -> Path:
-    return Path.home() / ".config" / "molop" / "completions" / shell / f"molop.{shell}"
+    return _completion_home() / ".config" / "molop" / "completions" / shell / f"molop.{shell}"
 
 
 def _completion_rc_path(shell: str) -> Path:
     if shell == "bash":
-        return Path.home() / ".bashrc"
+        return _completion_home() / ".bashrc"
     if shell == "zsh":
-        return Path.home() / ".zshrc"
+        return _completion_home() / ".zshrc"
     raise click.ClickException(f"No rc file is managed for shell: {shell}")
 
 
 def _install_completion_script(shell: str) -> Path:
     source = _completion_source(shell)
     if shell == "fish":
-        target = Path.home() / ".config" / "fish" / "completions" / "molop.fish"
+        target = _completion_home() / ".config" / "fish" / "completions" / "molop.fish"
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(source, encoding="utf-8")
         return target

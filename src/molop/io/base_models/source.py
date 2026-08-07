@@ -15,6 +15,12 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from typing_extensions import Self
 
 
+def normalize_parser_line_endings(text: str) -> str:
+    """Return a platform-independent text view for scientific parsing."""
+
+    return text.replace("\r\n", "\n").replace("\r", "\n")
+
+
 class SourceSpan(BaseModel):
     """Half-open byte, character, and line offsets in one decoded source."""
 
@@ -310,4 +316,5 @@ __all__ = [
     "SourceSegmentEvidence",
     "SourceSpan",
     "canonical_json_sha256",
+    "normalize_parser_line_endings",
 ]

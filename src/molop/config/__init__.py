@@ -50,12 +50,6 @@ class MolOPConfig(BaseModel):
     max_jobs: int = Field(default=16, description="Maximum number of parallel jobs")
 
     # --- Advanced Settings ---
-    strict_structure_recovery: bool = Field(
-        default=False, description="Whether to perform strict structure recovery"
-    )
-    max_structure_recovery_time: float = Field(
-        default=10.0, description="Maximum structure recovery time (seconds)"
-    )
     graph_reconstruction_backend: Literal["cpp", "python"] = Field(
         default="cpp", description="Backend for graph reconstruction"
     )

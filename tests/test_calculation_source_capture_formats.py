@@ -140,6 +140,29 @@ def test_calculation_source_capture_uses_exact_parser_blocks(
         assert frame.frame_content == parsed.file_content[start_char:end_char]
 
 
+def test_gaussian_crlf_parsing_preserves_exact_source_evidence() -> None:
+    lf_text = (FIXTURE_ROOT / "g16log" / "H2O.log").read_bytes().decode("utf-8")
+    lf_text = lf_text.replace("\r\n", "\n").replace("\r", "\n")
+    crlf_text = lf_text.replace("\n", "\r\n")
+    raw_bytes = crlf_text.encode("utf-8")
+
+    parsed = G16LogFileParserMemory(capture_source_evidence=True).parse(crlf_text)
+
+    assert parsed.artifact_sha256 == sha256(raw_bytes).hexdigest()
+    assert parsed.artifact_size_bytes == len(raw_bytes)
+    assert parsed.frames
+    for frame in parsed.frames:
+        assert frame.source_span is not None
+        assert frame.source_block_sha256 is not None
+        _assert_hashed_span(raw_bytes, frame.source_span, frame.source_block_sha256)
+        assert (
+            frame.frame_content
+            == crlf_text[frame.source_span.start_char : frame.source_span.end_char]
+        )
+        if frame.forces is not None:
+            assert frame.forces.shape == (len(frame.atoms), 3)
+
+
 @pytest.mark.parametrize(("parser_cls", "fixture"), FORMAT_CASES)
 def test_only_last_frame_retains_true_source_indices(
     parser_cls: type[Any],

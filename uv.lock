@@ -1565,7 +1565,6 @@ dependencies = [
     { name = "scipy", version = "1.15.3", source = { registry = "https://mirrors.zju.edu.cn/pypi/web/simple" }, marker = "python_full_version < '3.11'" },
     { name = "scipy", version = "1.17.1", source = { registry = "https://mirrors.zju.edu.cn/pypi/web/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "tabulate" },
-    { name = "timeout-decorator" },
     { name = "tqdm" },
 ]
 
@@ -1621,7 +1620,6 @@ requires-dist = [
     { name = "regex", specifier = "<=2025.7.33" },
     { name = "scipy", specifier = ">=1.15.3" },
     { name = "tabulate", specifier = ">=0.9.0" },
-    { name = "timeout-decorator", specifier = ">=0.5.0" },
     { name = "tqdm", specifier = ">=4.67.1" },
 ]
 
@@ -3746,12 +3744,6 @@ sdist = { url = "https://mirrors.zju.edu.cn/pypi/web/packages/46/58/8c37dea7bbf7
 wheels = [
     { url = "https://mirrors.zju.edu.cn/pypi/web/packages/99/55/db07de81b5c630da5cbf5c7df646580ca26dfaefa593667fc6f2fe016d2e/tabulate-0.10.0-py3-none-any.whl", hash = "sha256:f0b0622e567335c8fabaaa659f1b33bcb6ddfe2e496071b743aa113f8774f2d3" },
 ]
-
-[[package]]
-name = "timeout-decorator"
-version = "0.5.0"
-source = { registry = "https://mirrors.zju.edu.cn/pypi/web/simple" }
-sdist = { url = "https://mirrors.zju.edu.cn/pypi/web/packages/80/f8/0802dd14c58b5d3d72bb9caa4315535f58787a1dc50b81bbbcaaa15451be/timeout-decorator-0.5.0.tar.gz", hash = "sha256:6a2f2f58db1c5b24a2cc79de6345760377ad8bdc13813f5265f6c3e63d16b3d7" }
 
 [[package]]
 name = "tinycss2"

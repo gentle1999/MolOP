@@ -244,7 +244,7 @@ def test_g16fchk_only_extract_structure_skips_property_arrays() -> None:
 
 def test_g16fchk_autoparser_preserves_single_source_span() -> None:
     fixture_path = FIXTURE_DIR / "dsgdb9nsd_000001-3.fchk"
-    source = fixture_path.read_text(encoding="utf-8")
+    source = fixture_path.read_bytes().decode("utf-8")
     batch = AutoParser(str(fixture_path), capture_source_evidence=True)
     parsed = cast(G16FchkFileDisk, batch[0])
 

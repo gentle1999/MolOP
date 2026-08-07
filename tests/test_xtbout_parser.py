@@ -213,7 +213,7 @@ Global electrophilicity index (eV):    1.2345
 
 def test_autoparser_detects_xtbout_and_preserves_source_evidence() -> None:
     fixture_path = FIXTURE_DIR / "xtb_6_3_2_opt.out"
-    source_text = fixture_path.read_text(encoding="utf-8")
+    source_text = fixture_path.read_bytes().decode("utf-8")
     batch = AutoParser(str(fixture_path), capture_source_evidence=True)
     parsed = cast(XTBOutputFileDisk, batch[0])
     frame = parsed.frames[0]
