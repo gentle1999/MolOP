@@ -56,10 +56,15 @@ def _stable_release_version(repo_root: Path) -> str:
     return "unreleased"
 
 
-def _source_version(repo_root: Path) -> str:
+def _source_version(repo_root: Path, *, source_ref: str = "", exact_tag: str = "") -> str:
     override = os.environ.get("MOLOP_DOCS_SOURCE_VERSION", "").strip()
     if override:
         return override
+
+    stable_ref = source_ref or exact_tag
+    match = STABLE_TAG_RE.fullmatch(stable_ref)
+    if match is not None:
+        return match.group(1)
 
     try:
         from hatch_vcs.version_source import VCSVersionSource
@@ -89,10 +94,10 @@ def _docs_version_info() -> dict[str, str]:
         or exact_tag
         or "detached"
     )
+    exact_release = STABLE_TAG_RE.fullmatch(exact_tag)
     release_version = _stable_release_version(repo_root)
     mike_version = os.environ.get("MIKE_DOCS_VERSION", "").strip()
     dirty = bool(_git_output(repo_root, "status", "--porcelain"))
-    exact_release = STABLE_TAG_RE.fullmatch(exact_tag)
     if mike_version:
         inferred_channel = (
             "release" if STABLE_TAG_RE.fullmatch(mike_version) is not None else "development"
@@ -109,7 +114,7 @@ def _docs_version_info() -> dict[str, str]:
 
     return {
         "channel": channel,
-        "source_version": _source_version(repo_root),
+        "source_version": _source_version(repo_root, source_ref=ref, exact_tag=exact_tag),
         "release_version": release_version,
         "ref": ref,
         "commit": short_commit,

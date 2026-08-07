@@ -61,6 +61,34 @@ jobs:
       - name: Install dependencies
         run: uv sync --frozen --group docs
 
+      - name: Resolve documentation version
+        id: docs-version
+        shell: bash
+        env:
+          SOURCE_REF: ${{ inputs.source_ref || github.ref_name }}
+        run: |
+          if [[ "$SOURCE_REF" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            VERSION="${BASH_REMATCH[1]}"
+            echo "snapshot_kind=tag" >> "$GITHUB_OUTPUT"
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "source_version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "channel=release" >> "$GITHUB_OUTPUT"
+            if [[ "$REQUEST_LATEST" == "true" ]]; then
+              echo "update_latest=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "update_latest=false" >> "$GITHUB_OUTPUT"
+            fi
+          elif [[ "$SOURCE_REF" == "main" ]]; then
+            echo "snapshot_kind=development" >> "$GITHUB_OUTPUT"
+            echo "version=main" >> "$GITHUB_OUTPUT"
+            echo "source_version=" >> "$GITHUB_OUTPUT"
+            echo "channel=development" >> "$GITHUB_OUTPUT"
+            echo "update_latest=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "source_ref must be main or a stable vX.Y.Z tag, got: $SOURCE_REF" >&2
+            exit 1
+          fi
+
       - name: Execute documentation notebooks
         run: |
           uv run --frozen --group docs jupyter nbconvert \
@@ -75,31 +103,9 @@ jobs:
       - name: Build docs
         env:
           NO_MKDOCS_2_WARNING: "1"
+          MOLOP_DOCS_SOURCE_VERSION: ${{ steps.docs-version.outputs.source_version }}
+          MOLOP_DOCS_CHANNEL: ${{ steps.docs-version.outputs.channel }}
         run: uv run --frozen --group docs mkdocs build --strict -f mkdocs.yml
-
-      - name: Resolve documentation version
-        id: docs-version
-        shell: bash
-        env:
-          SOURCE_REF: ${{ inputs.source_ref || github.ref_name }}
-        run: |
-          if [[ "$SOURCE_REF" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
-            VERSION="${BASH_REMATCH[1]}"
-            echo "snapshot_kind=tag" >> "$GITHUB_OUTPUT"
-            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-            if [[ "$REQUEST_LATEST" == "true" ]]; then
-              echo "update_latest=true" >> "$GITHUB_OUTPUT"
-            else
-              echo "update_latest=false" >> "$GITHUB_OUTPUT"
-            fi
-          elif [[ "$SOURCE_REF" == "main" ]]; then
-            echo "snapshot_kind=development" >> "$GITHUB_OUTPUT"
-            echo "version=main" >> "$GITHUB_OUTPUT"
-            echo "update_latest=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "source_ref must be main or a stable vX.Y.Z tag, got: $SOURCE_REF" >&2
-            exit 1
-          fi
 
       - name: Configure documentation deployment identity
         run: |

@@ -734,6 +734,13 @@ def test_documentation_exposes_source_and_release_versions() -> None:
     assert "update_latest" in deploy_workflow
     assert "--with mike==2.2.0" in deploy_workflow
     assert "git show origin/main:.github/pages-root-404.html" in deploy_workflow
+    assert deploy_workflow.index("name: Resolve documentation version") < deploy_workflow.index(
+        "name: Build docs"
+    )
+    assert "MOLOP_DOCS_SOURCE_VERSION: ${{ steps.docs-version.outputs.source_version }}" in (
+        deploy_workflow
+    )
+    assert "MOLOP_DOCS_CHANNEL: ${{ steps.docs-version.outputs.channel }}" in deploy_workflow
 
     root_404 = Path(".github/pages-root-404.html").read_text(encoding="utf-8")
     assert "latest/" in root_404
