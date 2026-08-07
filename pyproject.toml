@@ -58,6 +58,11 @@ Changelog = "https://gentle1999.github.io/MolOP/en/changelog/"
 [project.scripts]
 molop = "molop.cli.app:app"
 
+[[tool.uv.index]]
+name = "pypi"
+url = "https://pypi.org/simple"
+default = true
+
 
 [dependency-groups]
 dev = [
