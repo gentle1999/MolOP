@@ -7,10 +7,15 @@
     ]
   },
   {
-    "version": "0.2.3",
-    "title": "MolOP 0.2.3",
+    "version": "0.2.4",
+    "title": "MolOP 0.2.4",
     "aliases": [
       "latest"
     ]
+  },
+  {
+    "version": "0.2.3",
+    "title": "MolOP 0.2.3",
+    "aliases": []
   }
 ]
