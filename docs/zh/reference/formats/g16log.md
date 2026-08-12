@@ -40,7 +40,7 @@ Gaussian 输出语法。
 | <!-- feature-area:Route keywords and calculation setup -->Route keywords 与计算设置 | 部分支持 | 原始 route 文本，以及可识别的模型化学、任务类型、色散、溶剂化、布居请求和 HF 设置。 | 测试外的方法专有关键字可能仍保留为 raw 文本。 |
 | <!-- feature-area:Input and standard orientations -->Input/standard orientation | 样例覆盖 | Gaussian 打印的 input orientation 与 standard orientation 中的原子和坐标。 | Distance matrix 和 stoichiometry 打印块不作为独立结构化字段声明。 |
 | <!-- feature-area:Rotational constants -->Rotational constants | 样例覆盖 | Gaussian 输出中的转动常数，以帧级频率量暴露。 | 不单独保留 principal-axis 诊断文本。 |
-| <!-- feature-area:SCF and electronic energies -->SCF 与电子能量 | 部分支持 | SCF、reference/electronic 和方法相关能量；主 log 中的能量优先于 archive-tail 重复值。 | 只声明已测试能量字段；不保证所有 post-HF 或 correction energy 表都结构化。 |
+| <!-- feature-area:SCF and electronic energies -->SCF 与电子能量 | 部分支持 | SCF、Gaussian External、reference/electronic 和方法相关能量；主 log 中的能量优先于 archive-tail 重复值。 | External 能量要求 Gaussian 的 `External calculation of energy ...` / `Energy= ... NIter= ...` 返回结果或 `RExternal` archive 记录；不保证所有 post-HF 或 correction energy 表都结构化。 |
 | <!-- feature-area:Molecular orbitals and population analysis -->分子轨道与布居分析 | 部分支持 | 轨道能级/占据数，Mulliken charge/spin、APT、Lowdin、Hirshfeld/CM5、NPA、ESP charge series，electronic spatial extent、多极矩，以及存在时的早期 polarizability。 | 不解析轨道系数矩阵、NBO 轨道/键级细节，以及没有可识别逐原子表格的方案。 |
 | <!-- feature-area:Vibrational frequencies and IR intensities -->振动频率与 IR 强度 | 部分支持 | 频率、约化质量、力常数、IR 强度、逐模式位移向量和虚频标记。 | Raman、VCD 等其他谱学变体只有在后续明确覆盖时才声明支持。 |
 | <!-- feature-area:Thermochemistry -->热力学 | 部分支持 | 温度、压力、分子质量、惯性矩、转动对称数、转动/振动温度、转动常数、ZPVE、热能、焓、Gibbs 自由能、熵和热容。 | 覆盖主要面向 frequency 类型 Gaussian 输出和已有样例。 |
@@ -49,7 +49,7 @@ Gaussian 输出语法。
 | <!-- feature-area:Cartesian gradients and forces -->Cartesian gradients/forces | 部分支持 | Gaussian forces 区段中的 Cartesian force 数组。 | 只声明归一化 force 数组；辅助 force diagnostics 不单独记录。 |
 | <!-- feature-area:Cartesian Hessian -->Cartesian Hessian | 部分支持 | Gaussian second-derivative 区段中的 Cartesian Hessian 数据。 | 契约是归一化 Hessian 字段，不是每个 second-derivative 诊断项。 |
 | <!-- feature-area:Geometry optimization convergence -->几何优化收敛 | 部分支持 | Berny 优化摘要，包括收敛阈值、force/displacement、energy change 和 optimized-state 标记。 | 测试样例外的 optimizer diagnostics 可能仍是非结构化。 |
-| <!-- feature-area:Gaussian archive section -->Gaussian archive section | 部分支持 | Archive-tail 中的 metadata、坐标、能量、热力学、polarizability 和 Hessian fallback/补充字段。 | 已从主 log 解析出的字段优先；archive-tail 不会凭空生成 live status、temperature 或 pressure。 |
+| <!-- feature-area:Gaussian archive section -->Gaussian archive section | 部分支持 | Archive-tail 中的 metadata、坐标、能量、热力学、polarizability 和 Hessian fallback/补充字段。 | 已从主 log 解析出的字段优先；只有明确的 `RExternal` 加 archive 能量会提供电子计算成功证据，不会推断 temperature 或 pressure。 |
 | <!-- feature-area:Termination status -->终止状态 | 部分支持 | Gaussian 终止证据属于 segment，并参与文件级聚合，不复制到 frame。 | Frame status 只保留 frame-local SCF 证据；结构化解析诊断之外的失败分类不做推断。 |
 | <!-- feature-area:CPU and elapsed time -->CPU 与 elapsed time | 样例覆盖 | Job CPU / elapsed-time 风格记录会累计到运行时间字段。 | Per-link timing rows 不作为独立 timing record 暴露。 |
 | <!-- feature-area:Link1 multi-step jobs -->Link1 多步任务 | 部分支持 | Link1 section 元数据会传播到后续帧，使多步 Gaussian 任务保留逐帧上下文。 | 低层 link 边界行不作为用户级记录暴露。 |
@@ -72,7 +72,7 @@ Gaussian 输出语法。
 | standard orientation | 样例覆盖 | `standard_coords`、变换矩阵 | 支持 | 不支持 | 可计算 input/standard 刚体变换；缺少 input orientation 时可能用 standard orientation 回填坐标。 |
 | 仅结构快速解析 | 支持 | atoms、coords 和基础 frame 数据 | 不适用 | 不适用 | `only_extract_structure` 在 orientation 后停止，不提取能量、频率、热化学等昂贵字段。 |
 | rotational constants | 样例覆盖 | `rotation_constants` | Raw/有限 | 不支持 | 以 GHz 数组暴露；fakeG 没有完整的规范化 rotational-constant renderer。 |
-| SCF/reference energy | 支持 | `energies.reference_energy`、energy observations | 支持 | 不支持 | 从 `SCF Done` 提取；fakeG 统一写成 `E(SCF)`，不保留原方法标签和 cycle 详情。 |
+| SCF/reference energy | 支持 | `energies.reference_energy`、energy observations | 支持 | 不支持 | 从 `SCF Done`、成功的 Gaussian External 能量返回或对应 `RExternal` archive 记录提取；fakeG 统一写成 `E(SCF)`，不保留原方法标签和 cycle 详情。 |
 | MP2、MP3、MP4、MP5 | 部分 | `energies.mp*_energy` | 不支持 | 不支持 | 覆盖当前正则识别的 `EUMP*`/MP5 打印；并非所有 MP correction 和 spin-component 表。 |
 | CCSD、CCSD(T) | 部分 | `energies.ccsd_energy`、`ccsd_t_energy` | 不支持 | 不支持 | 覆盖已测试总能量行；其他 coupled-cluster 变体和 correction table 不保证。 |
 | archive energy fallback | 部分 | 合并后的 `energies` | 间接 | 不支持 | 主 log observation 优先，archive 只补充缺失/重复能量，不覆盖更强的 live 证据。 |

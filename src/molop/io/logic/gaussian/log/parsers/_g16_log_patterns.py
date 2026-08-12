@@ -171,6 +171,20 @@ class G16LogPatterns:
         r"(?P<energy>\s*-?\d+\.\d*)",
         description="The SCF energy and functional used in the Gaussian calculation. link 502",
     )
+    EXTERNAL_ENERGY_RESULT = MolOPPattern(
+        content_pattern=(
+            r"^[ \t]*External calculation of energy"
+            r"(?: and first derivatives|, first and second derivatives)?\.[ \t]*\r?\n"
+            r"(?:(?![ \t]*(?:External calculation of energy|Error termination|"
+            r"Normal termination))[^\r\n]*(?:\r?\n|$)){0,32}?"
+            rf"^[ \t]*Energy=[ \t]*(?P<energy>{_FLOAT})[ \t]+"
+            r"NIter=[ \t]*(?P<niter>\d+)\.[ \t]*$"
+        ),
+        content_repeat=0,
+        description=(
+            "An energy returned successfully through Gaussian's External interface. link 402"
+        ),
+    )
     SPIN_SPIN_SQUERE = MolOPPattern(
         content_pattern=r"<S\*\*2>=(?P<spin_square>\s*-?\d+\.\d*)\s+"
         r"S=(?P<spin_quantum_number>\s*-?\d+\.\d*)",

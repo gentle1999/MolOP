@@ -412,11 +412,13 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="SCF and electronic energies",
                 support="partial",
-                scope="SCF, reference, electronic, and method-specific energies are exposed where present; values printed in the main log take precedence over duplicate archive-tail values.",
-                limitations="Only tested energy fields are advertised; not every Gaussian post-HF or correction energy table is guaranteed structured.",
+                scope="SCF, Gaussian External, reference, electronic, and method-specific energies are exposed where present; values printed in the main log take precedence over duplicate archive-tail values.",
+                limitations="External energies require Gaussian's explicit External result or RExternal archive record; not every Gaussian post-HF or correction energy table is guaranteed structured.",
                 tests=(
                     "tests/test_g16log_state_machine_parser.py::test_g16log_state_machine_frame_parser_matches_file_parser_frames",
                     "tests/test_g16log_state_machine_parser.py::test_g16log_state_machine_preserves_live_reference_energy_over_archive_value",
+                    "tests/test_g16log_state_machine_parser.py::test_g16log_state_machine_parses_external_energy_and_status",
+                    "tests/test_g16log_state_machine_parser.py::test_g16log_external_archive_frame_uses_archive_energy_as_success_evidence",
                     "tests/test_g16log_component_tree.py::test_g16log_cycle_component_renders_scf_summary_from_frame_data",
                 ),
             ),
@@ -511,7 +513,7 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
                 area="Gaussian archive section",
                 support="partial",
                 scope="Archive-tail data can provide metadata, coordinates, energies, thermochemistry, polarizability, and Hessian fallback or augmentation fields.",
-                limitations="Live parsed fields take precedence where applicable; archive-tail data does not invent live status, temperature, or pressure fields.",
+                limitations="Live parsed fields take precedence where applicable; only explicit RExternal plus archive energy supplies electronic-success evidence, while temperature and pressure are not inferred.",
                 tests=(
                     "tests/test_g16log_state_machine_parser.py::test_g16log_state_machine_uses_archive_energies_without_inventing_live_status",
                     "tests/test_g16log_component_tree_payloads.py::test_g16log_component_tree_major_components_expose_model_payloads",

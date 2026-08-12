@@ -193,10 +193,81 @@ def test_gaussian_normal_termination_does_not_fabricate_scf_convergence() -> Non
     assert status.scf_converged is None
 
 
+def test_gaussian_external_energy_is_successful_electronic_calculation_evidence() -> None:
+    status = extract_g16_termination_status(
+        TextParseContext(
+            " External calculation of energy and first derivatives.\n"
+            ' Running external command "calculator input.json R"\n'
+            '         output file      "/tmp/Gau-1.EOu"\n'
+            " Energy=    -858.897871     NIter=   0.\n"
+            " Normal termination of Gaussian 16 at Mon Jan  1 00:00:00 2024.\n"
+        )
+    )
+
+    assert status is not None
+    assert status.normal_terminated is True
+    assert status.scf_converged is True
+
+
+def test_gaussian_isolated_energy_line_does_not_fabricate_scf_convergence() -> None:
+    status = extract_g16_termination_status(
+        TextParseContext(
+            " Energy=    -858.897871     NIter=   0.\n"
+            " Normal termination of Gaussian 16 at Mon Jan  1 00:00:00 2024.\n"
+        )
+    )
+
+    assert status is not None
+    assert status.normal_terminated is True
+    assert status.scf_converged is None
+
+
+def test_gaussian_external_archive_energy_is_success_evidence() -> None:
+    status = extract_g16_termination_status(
+        TextParseContext(
+            " 1\\1\\GINC-HOST\\FOpt\\RExternal='calculator input.json'\\ZDO\\Molecule\\User"
+            "\\01-Jan-2024\\0\\\\# opt external('calculator input.json')\\\\Title\\\\0,1"
+            "\\H,0.,0.,0.\\\\Version=ES64L-G16RevA.03\\HF=-1.23456789\\RMSD=0.000e+00\\@\n"
+        )
+    )
+
+    assert status is not None
+    assert status.normal_terminated is None
+    assert status.scf_converged is True
+
+
+def test_gaussian_non_external_archive_energy_does_not_fabricate_scf_convergence() -> None:
+    status = extract_g16_termination_status(
+        TextParseContext(
+            " 1\\1\\GINC-HOST\\FOpt\\RB3LYP\\6-31G(d)\\Molecule\\User\\01-Jan-2024\\0"
+            "\\\\# opt b3lyp/6-31g(d)\\\\Title\\\\0,1\\H,0.,0.,0.\\\\Version="
+            "ES64L-G16RevA.03\\HF=-1.23456789\\RMSD=0.000e+00\\@\n"
+        )
+    )
+
+    assert status is None
+
+
 def test_gaussian_explicit_scf_failure_is_preserved_independently_of_termination() -> None:
     status = extract_g16_termination_status(
         TextParseContext(
             " Convergence failure -- run terminated.\n"
+            " Error termination via Lnk1e in /tmp/l502.exe at Mon Jan  1 00:00:00 2024.\n"
+        )
+    )
+
+    assert status is not None
+    assert status.normal_terminated is False
+    assert status.scf_converged is False
+
+
+def test_gaussian_later_scf_failure_overrides_external_energy_success() -> None:
+    status = extract_g16_termination_status(
+        TextParseContext(
+            " External calculation of energy, first and second derivatives.\n"
+            ' Running external command "calculator input.json R"\n'
+            " Energy=    -858.897871     NIter=   0.\n"
+            " SCF failed to converge\n"
             " Error termination via Lnk1e in /tmp/l502.exe at Mon Jan  1 00:00:00 2024.\n"
         )
     )

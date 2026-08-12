@@ -16,6 +16,7 @@ from molop.io.logic.gaussian.log.locators import (
     locate_g16_section_frames,
     locate_g16_sections,
 )
+from molop.io.logic.gaussian.log.parsers._g16_log_patterns import g16_log_patterns
 from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
 
 
@@ -192,6 +193,53 @@ def test_g16log_state_machine_preserves_live_reference_energy_over_archive_value
     assert frame.energies.reference_energy.to("hartree").m == pytest.approx(
         parsed_frame.energies.reference_energy.to("hartree").m
     )
+
+
+def test_g16log_state_machine_parses_external_energy_and_status() -> None:
+    block = _last_frame_block(FIXTURES[0])
+    matched = g16_log_patterns.SCF_ENERGY_AND_FUNCTIONAL.search(block)
+    assert matched is not None
+    block = (
+        block[: matched.start()]
+        + " External calculation of energy and first derivatives.\n"
+        + ' Running external command "calculator input.json R"\n'
+        + " Energy=    -123.456789     NIter=   0.\n"
+        + block[matched.end() :]
+    )
+
+    frame = G16LogFileFrameParserMemory(capture_source_evidence=True).parse(block)
+
+    assert frame.energies is not None
+    assert frame.energies.reference_energy is not None
+    assert frame.energies.reference_energy.to("hartree").m == pytest.approx(-123.456789)
+    assert frame.status is not None
+    assert frame.status.scf_converged is True
+    assert frame.is_error is False
+    assert any(
+        observation.source_label == "Gaussian External Energy"
+        for observation in frame.energies.observations
+    )
+
+
+def test_g16log_external_archive_frame_uses_archive_energy_as_success_evidence() -> None:
+    block = _last_frame_block(ARCHIVE_ONLY_FIXTURE)
+    archive_start = block.find("1\\1\\GINC")
+    assert archive_start >= 0
+    functional_start = block.find("\\RCCSD-FC\\", archive_start)
+    assert functional_start >= 0
+    block = (
+        block[:functional_start]
+        + "\\RExternal='calculator input.json'\\"
+        + block[functional_start + len("\\RCCSD-FC\\") :]
+    )
+
+    frame = G16LogFileFrameParserMemory().parse(block)
+
+    assert frame.energies is not None
+    assert frame.energies.reference_energy is not None
+    assert frame.status is not None
+    assert frame.status.scf_converged is True
+    assert frame.is_error is False
 
 
 def test_g16log_component_tree_is_model_derived_view():

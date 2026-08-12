@@ -11,6 +11,10 @@ from molop.io.base_models.ParseContainers import TextParseContext
 from molop.io.base_models.SearchPattern import MolOPPattern
 from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.gaussian.log.parsers._g16_log_patterns import g16_log_patterns
+from molop.io.logic.gaussian.log.parsers._g16log_archive_tail import (
+    extract_archive_tail_block,
+    parse_archive_tail_energies,
+)
 from molop.unit import atom_ureg
 from molop.utils.functions import find_rigid_transform
 
@@ -193,6 +197,15 @@ def extract_g16_termination_status(
         (matched.start(), True)
         for matched in g16_log_patterns.SCF_ENERGY_AND_FUNCTIONAL.find_matches(context.content)
     ]
+    scf_evidence.extend(
+        (matched.start(), True)
+        for matched in g16_log_patterns.EXTERNAL_ENERGY_RESULT.find_matches(context.content)
+    )
+    archive_text, _remaining_content = extract_archive_tail_block(context.content)
+    if archive_text is not None:
+        normalized_archive = archive_text.replace("\n ", "")
+        if "\\RExternal=" in normalized_archive and parse_archive_tail_energies(archive_text):
+            scf_evidence.append((context.content.find(archive_text), True))
     for marker in (
         "Convergence failure -- run terminated.",
         "SCF has not converged",

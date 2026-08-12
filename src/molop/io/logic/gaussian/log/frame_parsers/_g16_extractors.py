@@ -126,13 +126,24 @@ def extract_energies_and_total_spin_from_state(
             )
 
     focus_content, next_cursor = _focus_from_state(SCF_ENERGIES, state)
-    if focus_content == "":
+    external_matches = g16_log_patterns.EXTERNAL_ENERGY_RESULT.find_matches(state.remaining_content)
+    if focus_content == "" and not external_matches:
         return None, None
-    state.advance_to(next_cursor)
+    if focus_content:
+        state.advance_to(next_cursor)
+    else:
+        focus_content = state.remaining_content
     if matches := g16_log_patterns.SCF_ENERGY_AND_FUNCTIONAL.find_matches(focus_content):
         reference_energy = float(matches[0].group("energy")) * atom_ureg.hartree
         scf_energies_dict["reference_energy"] = reference_energy
         observe("reference", reference_energy, "SCF Done")
+    elif external_matches:
+        reference_energy = (
+            float(external_matches[0].group("energy").replace("D", "E").replace("d", "e"))
+            * atom_ureg.hartree
+        )
+        scf_energies_dict["reference_energy"] = reference_energy
+        observe("reference", reference_energy, "Gaussian External Energy")
     if matches := g16_log_patterns.SPIN_SPIN_SQUERE.find_matches(focus_content):
         total_spin_dict["spin_square"] = float(matches[0].group("spin_square"))
         total_spin_dict["spin_quantum_number"] = float(matches[0].group("spin_quantum_number"))
