@@ -109,8 +109,8 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.4.dev1+g5e8720ea0.d20260807</code></span>
-        <span><code>main@5e8720ea0b38</code></span>
+        <span>源码 <code>0.2.4.dev2+g89b9aea5a.d20260812</code></span>
+        <span><code>main@89b9aea5aaa5</code></span>
         <span>最近发布 <code>0.2.3</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
@@ -3192,8 +3192,8 @@ Gaussian 输出语法。</p>
 <tr>
 <td><!-- feature-area:SCF and electronic energies -->SCF 与电子能量</td>
 <td>部分支持</td>
-<td>SCF、reference/electronic 和方法相关能量；主 log 中的能量优先于 archive-tail 重复值。</td>
-<td>只声明已测试能量字段；不保证所有 post-HF 或 correction energy 表都结构化。</td>
+<td>SCF、Gaussian External、reference/electronic 和方法相关能量；主 log 中的能量优先于 archive-tail 重复值。</td>
+<td>External 能量要求 Gaussian 的 <code>External calculation of energy ...</code> / <code>Energy= ... NIter= ...</code> 返回结果或 <code>RExternal</code> archive 记录；不保证所有 post-HF 或 correction energy 表都结构化。</td>
 </tr>
 <tr>
 <td><!-- feature-area:Molecular orbitals and population analysis -->分子轨道与布居分析</td>
@@ -3247,7 +3247,7 @@ Gaussian 输出语法。</p>
 <td><!-- feature-area:Gaussian archive section -->Gaussian archive section</td>
 <td>部分支持</td>
 <td>Archive-tail 中的 metadata、坐标、能量、热力学、polarizability 和 Hessian fallback/补充字段。</td>
-<td>已从主 log 解析出的字段优先；archive-tail 不会凭空生成 live status、temperature 或 pressure。</td>
+<td>已从主 log 解析出的字段优先；只有明确的 <code>RExternal</code> 加 archive 能量会提供电子计算成功证据，不会推断 temperature 或 pressure。</td>
 </tr>
 <tr>
 <td><!-- feature-area:Termination status -->终止状态</td>
@@ -3376,7 +3376,7 @@ Gaussian 输出语法。</p>
 <td><code>energies.reference_energy</code>、energy observations</td>
 <td>支持</td>
 <td>不支持</td>
-<td>从 <code>SCF Done</code> 提取；fakeG 统一写成 <code>E(SCF)</code>，不保留原方法标签和 cycle 详情。</td>
+<td>从 <code>SCF Done</code>、成功的 Gaussian External 能量返回或对应 <code>RExternal</code> archive 记录提取；fakeG 统一写成 <code>E(SCF)</code>，不保留原方法标签和 cycle 详情。</td>
 </tr>
 <tr>
 <td>MP2、MP3、MP4、MP5</td>

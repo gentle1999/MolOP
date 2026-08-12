@@ -111,8 +111,8 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.4.dev1+g5e8720ea0.d20260807</code></span>
-        <span><code>main@5e8720ea0b38</code></span>
+        <span>Source <code>0.2.4.dev2+g89b9aea5a.d20260812</code></span>
+        <span><code>main@89b9aea5aaa5</code></span>
         <span>Latest release <code>0.2.3</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
@@ -3198,8 +3198,8 @@ coverage.</p>
 <tr>
 <td><!-- feature-area:SCF and electronic energies -->SCF and electronic energies</td>
 <td>Partial</td>
-<td>SCF, reference/electronic, and method-specific energies; main-log values take precedence over duplicate archive-tail values.</td>
-<td>Only tested energy fields are advertised; not every post-HF or correction energy table is guaranteed structured.</td>
+<td>SCF, Gaussian External, reference/electronic, and method-specific energies; main-log values take precedence over duplicate archive-tail values.</td>
+<td>External energies require Gaussian&rsquo;s <code>External calculation of energy ...</code> / <code>Energy= ... NIter= ...</code> result or an <code>RExternal</code> archive record; not every post-HF or correction energy table is guaranteed structured.</td>
 </tr>
 <tr>
 <td><!-- feature-area:Molecular orbitals and population analysis -->Molecular orbitals and population analysis</td>
@@ -3253,7 +3253,7 @@ coverage.</p>
 <td><!-- feature-area:Gaussian archive section -->Gaussian archive section</td>
 <td>Partial</td>
 <td>Archive-tail metadata, coordinates, energies, thermochemistry, polarizability, and Hessian fallback or augmentation fields.</td>
-<td>Main-log fields take precedence where applicable; archive-tail data does not invent live status, temperature, or pressure.</td>
+<td>Main-log fields take precedence where applicable; only explicit <code>RExternal</code> plus archive energy supplies electronic-success evidence, while temperature and pressure are not inferred.</td>
 </tr>
 <tr>
 <td><!-- feature-area:Termination status -->Termination status</td>
@@ -3383,7 +3383,7 @@ matrix, fakeG indicates whether the field can participate in the
 <td><code>energies.reference_energy</code>, energy observations</td>
 <td>Supported</td>
 <td>Unsupported</td>
-<td>Extracted from <code>SCF Done</code>; fakeG emits <code>E(SCF)</code> without the original method label or cycle history.</td>
+<td>Extracted from <code>SCF Done</code>, a successful Gaussian External energy result, or its <code>RExternal</code> archive record; fakeG emits <code>E(SCF)</code> without the original method label or cycle history.</td>
 </tr>
 <tr>
 <td>MP2, MP3, MP4, MP5</td>
