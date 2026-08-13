@@ -1,3 +1,4 @@
+import importlib
 import sys
 import warnings
 from collections.abc import Callable, Iterable
@@ -55,9 +56,11 @@ def _is_notebook() -> bool:
 def _detect_best_backend() -> TqdmType:
     if _is_notebook():
         try:
-            from tqdm.notebook import tqdm_notebook as nb_tqdm
+            notebook_module = importlib.import_module("tqdm.notebook")
+            nb_tqdm = notebook_module.tqdm_notebook
 
-            return nb_tqdm
+            if getattr(notebook_module, "IProgress", None) is not None:
+                return nb_tqdm
         except ImportError:
             pass
     else:
@@ -86,7 +89,13 @@ def AdaptiveProgress(
             warnings.filterwarnings("ignore", category=TqdmExperimentalWarning)
         else:
             warnings.filterwarnings("ignore", message=".*rich is experimental/alpha.*")
-        obj = tqdm_factory(iterable, *args, **kwargs)
+        try:
+            obj = tqdm_factory(iterable, *args, **kwargs)
+        except ImportError:
+            if _best_tqdm_cls is st_tqdm:
+                raise
+            _best_tqdm_cls = st_tqdm
+            obj = st_tqdm(iterable, *args, **kwargs)
     if iterable is None:
         return cast(TqdmObj, obj)
     return cast(Iterable[T], obj)

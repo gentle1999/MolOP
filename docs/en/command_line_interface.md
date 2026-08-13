@@ -19,6 +19,7 @@ needed.
 | --- | --- |
 | `-v, --verbose` | Show more detailed logs |
 | `-q, --quiet` | Suppress progress and non-result output for scripts |
+| `--max-jobs N` | Set a process-wide worker ceiling for parsing and operations |
 | `--version` | Show the version |
 | `-h, --help` | Show help |
 
@@ -27,13 +28,68 @@ needed.
 | Option | Default | Purpose |
 | --- | --- | --- |
 | `PATTERN` | required | One path or glob |
+| `--input PATH_OR_GLOB` | none | Add another path or glob; repeat the option for more inputs |
 | `--parser-detection` | `auto` | Automatic detection or an ID such as `g16log`, `orcaout`, `xtbout` |
 | `-j, --n-jobs` | `-1` | Parser process count |
 | `--output-format` | `text` | Final terminal output as `text` or `json` |
+| `--total-charge` | source value | Override molecular charge for every input |
+| `--total-multiplicity` | source value | Override spin multiplicity for every input |
+| `--only-extract-structure` | off | Skip energies, frequencies, and other non-structural results |
+| `--only-last-frame` | off | Retain only the final frame from each file |
+| `--capture-source-evidence` | off | Capture supported source spans, hashes, and parser provenance |
+| `--source-encoding` | `utf-8` | Strict text decoding and source-offset encoding |
+| `--release-file-content / --keep-file-content` | release | Release or retain raw source text after parsing |
+| `--force-unit-transform / --no-force-unit-transform` | configured value | Override unit conversion for this parse |
+| `--graph-reconstruction-backend` | configured value | Use the `cpp` or `python` graph backend for this parse |
+| `--make-dative-bonds / --no-make-dative-bonds` | configured value | Override dative-bond reconstruction for this parse |
+| `--report` | off | Return one parse outcome per supplied input instead of a batch |
 
-`--n-jobs -1` is the default automatic setting. MolOP caps it with `molopconfig.max_jobs`; pass
-`--n-jobs 1` when diagnosing a parser or native-library issue. The parse-level value is inherited by
-later operations unless an operation supplies its own `--n-jobs`.
+`--n-jobs -1` is the default automatic setting. MolOP uses the process-aware CPU limit and the
+optional `molopconfig.max_jobs` ceiling; pass `--n-jobs 1` when diagnosing a parser or native-library
+issue. Every parse and operation command defaults independently to `-1`. Use global `--max-jobs N` to
+cap the entire command, or pass a positive `--n-jobs` on one operation when it needs a lower limit.
+
+The charge and multiplicity options apply to every matched input, so split heterogeneous inputs into
+separate commands. `--only-extract-structure` is a fast path and deliberately omits non-structural
+scientific results. The unit and topology options are immutable per-command overrides; when omitted,
+they inherit `molopconfig` without changing process-global configuration.
+
+Add multiple input specifications without relying on one broad glob:
+
+```bash
+molop -q parse "gaussian/*.log" \
+  --input "orca/*.out" \
+  --input selected.xyz \
+  --only-last-frame \
+  to-summary-df --full --out summary.csv
+```
+
+??? example "Created file"
+
+    ```text
+    Summary written to summary.csv
+    ```
+
+## Parse outcome report
+
+Use `--report` to audit successful, missing, unsupported, empty, and failed inputs. It is a terminal
+parse mode and cannot be combined with operation commands.
+
+```bash
+molop -q parse "results/*.log" \
+  --input required.out \
+  --report --output-format json > parse-report.json
+```
+
+??? example "Created file"
+
+    ```text
+    parse-report.json
+    ```
+
+The JSON object contains `summary` counts and an ordered `outcomes` array. Each outcome includes the
+input index, absolute path, status, detected format, parser warnings, and a serializable failure when
+applicable. The default text output is a tab-separated diagnostic table.
 
 ## Chainable operations
 

@@ -28,8 +28,7 @@ produces one row; inputs that do not parse produce no row.
 
 ## Parallel batch operations
 
-Parsing defaults to automatic parallelism. Batch operations in the Python API default to one
-worker; pass `n_jobs=-1` when summary, filtering, or conversion should use the same automatic limit:
+Parsing and batch operations default to automatic parallelism with `n_jobs=-1`:
 
 ```python
 from molop import AutoParser
@@ -45,9 +44,10 @@ summary = normal.to_summary_df(
 summary.to_csv("normal.csv", index=False)
 ```
 
-`n_jobs=-1` is capped by `molopconfig.max_jobs`; set that global configuration before creating the
-batch when a lower ceiling is required. Use `n_jobs=1` while diagnosing a parser or a native-library
-failure. The CLI inherits its parse-level `--n-jobs` value for later operations.
+`n_jobs=-1` follows the process-aware CPU limit. With the default `max_jobs=None`, it respects
+scheduler/container quotas and CPU affinity; set `molopconfig.max_jobs` before creating the batch when
+a lower ceiling is required. Use `n_jobs=1` while diagnosing a parser or a native-library failure.
+CLI parse and operation commands have the same independent default.
 
 For a custom per-file operation, use `parallel_execute` and return explicit values:
 

@@ -4,9 +4,15 @@ from typing import cast
 import pytest
 
 from molop.io import AutoParser
+from molop.io.base_models.ParseContainers import TextParseContext
+from molop.io.logic.gaussian.log.parsers._g16_log_file_extractors import (
+    extract_g16_symbolic_coordinates,
+    normalize_g16_element_symbol,
+)
 
 
 FIXTURE = Path("tests/test_files/g16log/2-TS1-Opt.log")
+LOWERCASE_ELEMENT_FIXTURE = Path("tests/test_files/g16log/175108.log")
 
 
 def _parse_fixture():
@@ -76,6 +82,51 @@ def test_g16log_public_qm_result_fields_are_available() -> None:
     assert frame.hessian_orientation == "unknown"
     assert frame.polarizability is not None
     assert frame.polarizability.dipole is not None
+
+
+def test_g16log_accepts_lowercase_elements_in_symbolic_z_matrix() -> None:
+    source = LOWERCASE_ELEMENT_FIXTURE.read_text(encoding="utf-8")
+    symbols, symbolic_coords = extract_g16_symbolic_coordinates(TextParseContext(source))
+
+    assert symbols is not None
+    assert symbolic_coords is not None
+    assert len(symbols) == 89
+    assert symbolic_coords.shape == (89, 3)
+    assert symbols[0] == "H"
+    assert all(symbol == normalize_g16_element_symbol(symbol) for symbol in symbols)
+
+    result = AutoParser(
+        LOWERCASE_ELEMENT_FIXTURE.as_posix(),
+        parser_detection="g16log",
+        n_jobs=1,
+        return_report=True,
+    )
+
+    assert result.outcomes[0].status == "ok"
+    parsed_file = result.batch[0]
+    frame = parsed_file[0]
+
+    assert len(frame.atoms) == 89
+    assert symbols == frame.atom_symbols
+    assert frame.coords.shape == (89, 3)
+    assert frame.standard_coords is not None
+    assert frame.standard_coords.shape == (89, 3)
+    assert frame.standard_orientation_transformation_matrix is not None
+
+
+@pytest.mark.parametrize(
+    ("source", "expected"),
+    [("h", "H"), ("cu", "Cu"), ("CU", "Cu"), ("mO", "Mo")],
+)
+def test_g16_element_symbols_are_normalized_to_periodic_table_spelling(
+    source: str, expected: str
+) -> None:
+    assert normalize_g16_element_symbol(source) == expected
+
+
+def test_g16_element_symbol_normalization_rejects_unknown_symbols() -> None:
+    with pytest.raises(ValueError, match="Unknown Gaussian element symbol"):
+        normalize_g16_element_symbol("Xx")
 
 
 def test_g16log_force_and_hessian_conventions_are_machine_readable() -> None:

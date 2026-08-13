@@ -10,8 +10,9 @@ molop parse PATTERN [解析选项] 操作 [操作选项] ...
                                       -> 终止操作
 ```
 
-`PATTERN` 可以是文件路径或 glob。解析后，返回 batch 的操作可以继续连接；返回摘要、渲染文本
-或路径 mapping 的操作必须位于末尾。CLI 会在读取文件前检查这条规则。
+`PATTERN` 可以是文件路径或 glob；可重复传入 `--input PATH_OR_GLOB` 追加输入范围。解析后，
+返回 batch 的操作可以继续连接；返回摘要、渲染文本或路径 mapping 的操作必须位于末尾。CLI 会
+在读取文件前检查这条规则。`--report` 也是终止解析模式，不能再连接操作命令。
 
 以下示例使用随文档提供的 [water_mp2.out](../../assets/examples/water_mp2.out)。
 

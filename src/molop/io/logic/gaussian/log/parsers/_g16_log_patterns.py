@@ -10,6 +10,7 @@ from molop.io.base_models.SearchPattern import MolOPPattern
 
 
 _FLOAT = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[DEde][-+]?\d+)?"
+_ROTATIONAL_CONSTANT = rf"(?:{_FLOAT}|\*+)"
 
 
 class G16LogPatterns:
@@ -84,7 +85,7 @@ class G16LogPatterns:
         start_pattern="Symbolic Z-matrix:",
         start_regex=False,
         end_pattern=r"^\s*\n",
-        content_pattern=r"^\s*(?P<symbol>[A-Z][a-z]*)\s+(?P<x>\s*-?\d+\.\d*)"
+        content_pattern=r"^\s*(?P<symbol>[A-Za-z]{1,3})\s+(?P<x>\s*-?\d+\.\d*)"
         r"(?P<y>\s*-?\d+\.\d*)(?P<z>\s*-?\d+\.\d*)",
         content_repeat=0,
         description="The initial input coordinates of the Gaussian calculation. link 101",
@@ -118,7 +119,9 @@ class G16LogPatterns:
     )
     ROTATIONAL_CONST = MolOPPattern(
         content_pattern=r"^\s*Rotational constants \(GHZ\):\s*"
-        r"(?P<a>\d+.\d+|\*+)\s*(?P<b>\d+.\d+|\*+)\s*(?P<c>\d+.\d+|\*+)",
+        rf"(?P<a>{_ROTATIONAL_CONSTANT})\s+"
+        rf"(?P<b>{_ROTATIONAL_CONSTANT})\s+"
+        rf"(?P<c>{_ROTATIONAL_CONSTANT})",
         description="The rotational constants of the coordinates. link 202",
     )
     BASIS_SET = MolOPPattern(
@@ -312,16 +315,17 @@ class G16LogPatterns:
         end_pattern="Beta  Orbitals:",
         end_regex=False,
         content_pattern=r"^\s*(?P<occupancy>Occupied|Virtual|)\s*"
-        r"(?P<symbols>(?:\([A-Z0-9]+\)\s*){1,12})\n",
+        r"(?P<symbols>(?:\(\??[A-Z0-9]+\)\s*){1,12})\n",
         content_repeat=0,
         description="The alpha molecular orbitals symmetry of the Gaussian calculation. link 601",
     )
     MOLECULAR_ORBITALS_SYMMETRY_BETA = MolOPPattern(
         start_pattern="Beta  Orbitals:",
         start_regex=False,
-        end_pattern=r"^\s*The electronic state is (?:.*)\.",
+        end_pattern=r"^\s*(?:The electronic state is (?:.*)\.|"
+        r"(?:Alpha|Beta)\s+(?:occ\.|virt\.) eigenvalues --)",
         content_pattern=r"^\s*(?P<occupancy>Occupied|Virtual|)\s*"
-        r"(?P<symbols>(?:\([A-Z0-9]+\)\s*){1,12})\n",
+        r"(?P<symbols>(?:\(\??[A-Z0-9]+\)\s*){1,12})\n",
         content_repeat=0,
         description="The beta molecular orbitals symmetry of the Gaussian calculation. link 601",
     )
@@ -330,7 +334,7 @@ class G16LogPatterns:
         start_regex=False,
         end_pattern=r"^\s*The electronic state is (?:.*)\.",
         content_pattern=r"^\s*(?P<occupancy>Occupied|Virtual|)\s*"
-        r"(?P<symbols>(?:\([A-Z0-9]+\)\s*){1,12})\n",
+        r"(?P<symbols>(?:\(\??[A-Z0-9]+\)\s*){1,12})\n",
         content_repeat=0,
         description="The molecular orbitals symmetry of the Gaussian calculation. link 601",
     )
@@ -542,8 +546,10 @@ class G16LogPatterns:
         description="The rotational temperatures of the Gaussian calculation. link 716",
     )
     ROTATIONAL_CONST_IN_FREQUENCY_ANALYSIS = MolOPPattern(
-        content_pattern=r"^\s*Rotational constants \(GHZ\):(?P<a>\s*\d+\.\d*)"
-        r"(?P<b>\s*\d+\.\d*)(?P<c>\s*\d+\.\d*)",
+        content_pattern=r"^\s*Rotational constants \(GHZ\):\s*"
+        rf"(?P<a>{_ROTATIONAL_CONSTANT})\s+"
+        rf"(?P<b>{_ROTATIONAL_CONSTANT})\s+"
+        rf"(?P<c>{_ROTATIONAL_CONSTANT})",
         description="The rotational constants of the Gaussian calculation. link 716",
     )
     VIBRATIONAL_TEMPERATURE = MolOPPattern(

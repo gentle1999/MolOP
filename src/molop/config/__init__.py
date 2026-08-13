@@ -7,9 +7,12 @@ Description: 请填写简介
 """
 
 import logging  # noqa: I001
-import multiprocessing
+import os
 import sys
-from typing import Literal
+from contextlib import suppress
+from typing import Any, Literal
+
+from joblib import cpu_count as joblib_cpu_count
 
 # RDKit must initialize before Open Babel; loading Open Babel first causes an
 # ELF symbol collision between the bundled native libraries.
@@ -36,6 +39,19 @@ stream_handler.setFormatter(sh_formatter)
 
 moloplogger.setLevel(logging.INFO)
 
+MAX_JOBS_ENV_VAR = "MOLOP_MAX_JOBS"
+
+
+def available_cpu_count() -> int:
+    """Return the logical CPUs currently available to this process."""
+
+    counts = [joblib_cpu_count(), os.cpu_count()]
+    if hasattr(os, "sched_getaffinity"):
+        with suppress(OSError):
+            counts.append(len(os.sched_getaffinity(0)))
+    positive_counts = [int(count) for count in counts if count is not None and count > 0]
+    return min(positive_counts, default=1)
+
 
 class MolOPConfig(BaseModel):
     """
@@ -43,11 +59,15 @@ class MolOPConfig(BaseModel):
     Used to manage settings related to molecule processing, fingerprint generation, and logging.
     """
 
-    model_config = ConfigDict(arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True, validate_assignment=True)
 
     # --- General Settings ---
     show_progress_bar: bool = Field(default=True, description="Whether to display the progress bar")
-    max_jobs: int = Field(default=16, description="Maximum number of parallel jobs")
+    max_jobs: int | None = Field(
+        default=None,
+        ge=1,
+        description="Maximum parallel jobs; None uses all CPUs available to the process",
+    )
 
     # --- Advanced Settings ---
     graph_reconstruction_backend: Literal["cpp", "python"] = Field(
@@ -71,10 +91,12 @@ class MolOPConfig(BaseModel):
         default=True, description="Whether to use DOF effect drawer"
     )
 
-    def __init__(self, **data):
+    def __init__(self, **data: Any):
         """
         Initializes the configuration object and configures the logger based on current settings.
         """
+        if "max_jobs" not in data and (env_max_jobs := os.environ.get(MAX_JOBS_ENV_VAR)):
+            data["max_jobs"] = env_max_jobs
         super().__init__(**data)
         sys.setrecursionlimit(self.max_recursion_depth)
         # Set log state based on initial configuration values
@@ -150,12 +172,17 @@ class MolOPConfig(BaseModel):
         self.max_recursion_depth = depth
         logging.info(f"Maximum recursion depth set to {depth}")
 
-    def set_n_jobs(self, n_jobs: int):
-        return (
-            min(n_jobs, multiprocessing.cpu_count())
-            if n_jobs > 0
-            else min(multiprocessing.cpu_count(), self.max_jobs)
-        )
+    @property
+    def effective_max_jobs(self) -> int:
+        """Current process-aware worker limit after applying ``max_jobs``."""
+
+        available_jobs = available_cpu_count()
+        return available_jobs if self.max_jobs is None else min(available_jobs, self.max_jobs)
+
+    def set_n_jobs(self, n_jobs: int) -> int:
+        """Resolve automatic or explicit parallelism within the effective worker limit."""
+
+        return self.effective_max_jobs if n_jobs <= 0 else min(n_jobs, self.effective_max_jobs)
 
     def set_dof_effect_drawer(self, enable: bool):
         """
@@ -174,7 +201,7 @@ try:
     molopconfig.set_log_level("INFO")
 except ValidationError as e:
     logging.error(f"Configuration validation failed: {e}")
-    molopconfig = MolOPConfig()
+    molopconfig = MolOPConfig(max_jobs=None)
     molopconfig.quiet()
     molopconfig.disable_file_logging()
     logging.critical(

@@ -28,8 +28,7 @@ print(summary.shape)
 
 ## 批处理并行
 
-解析默认使用自动并行。Python API 中的 batch 操作默认使用一个 worker；需要让汇总、筛选或
-转换也使用自动并行上限时，显式传入 `n_jobs=-1`：
+解析和 batch 操作默认使用 `n_jobs=-1` 的自动并行：
 
 ```python
 from molop import AutoParser
@@ -45,8 +44,9 @@ summary = normal.to_summary_df(
 summary.to_csv("normal.csv", index=False)
 ```
 
-`n_jobs=-1` 受 `molopconfig.max_jobs` 限制；需要更低上限时，在创建 batch 前修改全局配置。
-排查 parser 或原生库问题时使用 `n_jobs=1`。CLI 会把 parse 级 `--n-jobs` 传给后续操作。
+`n_jobs=-1` 会跟随当前进程可用 CPU。默认 `max_jobs=None` 时会尊重调度器/容器配额和 CPU
+affinity；需要更低上限时，在创建 batch 前修改 `molopconfig.max_jobs`。排查 parser 或原生库
+问题时使用 `n_jobs=1`。CLI 的 parse 和操作命令也独立默认使用 `-1`。
 
 需要对每个文件执行自定义操作时，使用 `parallel_execute` 并显式返回结果：
 

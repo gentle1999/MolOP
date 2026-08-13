@@ -11,9 +11,10 @@ molop parse PATTERN [parse options] OPERATION [operation options] ...
                                                      -> terminal operation
 ```
 
-`PATTERN` is a path or glob. After parsing, operations that return a batch can be followed by more
-operations. Operations that return a summary, rendered text, or path mapping must be last. The CLI
-checks this rule before reading files.
+`PATTERN` is a path or glob; repeat `--input PATH_OR_GLOB` for additional input groups. After parsing,
+operations that return a batch can be followed by more operations. Operations that return a summary,
+rendered text, or path mapping must be last. The CLI checks this rule before reading files. The
+`--report` parse mode is also terminal and cannot be combined with operations.
 
 The examples below use the bundled [water_mp2.out](../../assets/examples/water_mp2.out).
 

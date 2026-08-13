@@ -5,10 +5,12 @@ import pytest
 from molop.config import MolOPConfig, molopconfig
 
 
-def test_config_defaults():
+def test_config_defaults(monkeypatch):
+    monkeypatch.delenv("MOLOP_MAX_JOBS", raising=False)
     config = MolOPConfig()
     assert config.show_progress_bar is True
-    assert config.max_jobs == 16
+    assert config.max_jobs is None
+    assert config.effective_max_jobs >= 1
     assert config.log_to_file is False
 
 

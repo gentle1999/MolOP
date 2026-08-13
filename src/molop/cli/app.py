@@ -43,8 +43,31 @@ def _version() -> str:
 
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
-PARSE_VALUE_OPTIONS = {"--parser-detection", "--n-jobs", "-j", "--output-format"}
-PARSE_FLAG_OPTIONS = {"--help", "-h"}
+PARSE_VALUE_OPTIONS = {
+    "--parser-detection",
+    "--n-jobs",
+    "-j",
+    "--output-format",
+    "--input",
+    "--total-charge",
+    "--total-multiplicity",
+    "--source-encoding",
+    "--graph-reconstruction-backend",
+}
+PARSE_FLAG_OPTIONS = {
+    "--help",
+    "-h",
+    "--only-extract-structure",
+    "--only-last-frame",
+    "--capture-source-evidence",
+    "--release-file-content",
+    "--keep-file-content",
+    "--force-unit-transform",
+    "--no-force-unit-transform",
+    "--make-dative-bonds",
+    "--no-make-dative-bonds",
+    "--report",
+}
 FORMAT_TRANSFORM_STATIC_OPTIONS = {
     "--format",
     "--output-dir",
@@ -360,15 +383,23 @@ def _replace_completion_block(existing: str, block: str) -> str:
 @click.group(context_settings=CONTEXT_SETTINGS, no_args_is_help=True)
 @click.option("--verbose", "-v", is_flag=True, help="Enable verbose output.")
 @click.option("--quiet", "-q", is_flag=True, help="Enable quiet mode.")
+@click.option(
+    "--max-jobs",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Set the process-wide parallel worker limit.",
+)
 @click.version_option(version=_version(), prog_name="molop")
-def _app_callback(verbose: bool = False, quiet: bool = False) -> None:
+def _app_callback(verbose: bool = False, quiet: bool = False, max_jobs: int | None = None) -> None:
     """MolOP: Molecule OPerator CLI."""
     if verbose and quiet:
         verbose = False
 
-    if verbose or quiet:
+    if verbose or quiet or max_jobs is not None:
         from molop.config import molopconfig
 
+        if max_jobs is not None:
+            molopconfig.max_jobs = max_jobs
         if quiet:
             molopconfig.quiet()
         if verbose:
@@ -423,6 +454,12 @@ def completion_install(shell: Literal["auto", "bash", "zsh", "fish"] = "auto") -
 )
 @click.argument("pattern")
 @click.option(
+    "--input",
+    "additional_patterns",
+    multiple=True,
+    help="Additional path or glob; repeat for multiple inputs.",
+)
+@click.option(
     "--parser-detection", default="auto", show_default=True, help="Parser detection mode."
 )
 @click.option("--n-jobs", "-j", default=-1, show_default=True, help="Number of parallel jobs.")
@@ -433,11 +470,83 @@ def completion_install(shell: Literal["auto", "bash", "zsh", "fish"] = "auto") -
     show_default=True,
     help="Default terminal output format.",
 )
+@click.option(
+    "--total-charge",
+    type=int,
+    default=None,
+    help="Override the molecular charge for every input file.",
+)
+@click.option(
+    "--total-multiplicity",
+    type=click.IntRange(min=1),
+    default=None,
+    help="Override the spin multiplicity for every input file.",
+)
+@click.option(
+    "--only-extract-structure",
+    is_flag=True,
+    help="Skip non-structural results for faster parsing.",
+)
+@click.option(
+    "--only-last-frame",
+    is_flag=True,
+    help="Retain only the final frame from each input file.",
+)
+@click.option(
+    "--capture-source-evidence",
+    is_flag=True,
+    help="Capture format-supported source spans and provenance.",
+)
+@click.option(
+    "--source-encoding",
+    default="utf-8",
+    show_default=True,
+    help="Text encoding used for strict source decoding.",
+)
+@click.option(
+    "--release-file-content/--keep-file-content",
+    default=True,
+    show_default=True,
+    help="Release or retain raw source text after parsing.",
+)
+@click.option(
+    "--force-unit-transform/--no-force-unit-transform",
+    default=None,
+    help="Override the configured unit-conversion policy.",
+)
+@click.option(
+    "--graph-reconstruction-backend",
+    type=click.Choice(["cpp", "python"]),
+    default=None,
+    help="Override the configured molecular graph reconstruction backend.",
+)
+@click.option(
+    "--make-dative-bonds/--no-make-dative-bonds",
+    default=None,
+    help="Override the configured dative-bond reconstruction policy.",
+)
+@click.option(
+    "--report",
+    is_flag=True,
+    help="Print one structured parse outcome per input; cannot be chained with operations.",
+)
 def _parse_callback(
     pattern: str,
+    additional_patterns: tuple[str, ...] = (),
     parser_detection: str = "auto",
     n_jobs: int = -1,
     output_format: Literal["text", "json"] = "text",
+    total_charge: int | None = None,
+    total_multiplicity: int | None = None,
+    only_extract_structure: bool = False,
+    only_last_frame: bool = False,
+    capture_source_evidence: bool = False,
+    source_encoding: str = "utf-8",
+    release_file_content: bool = True,
+    force_unit_transform: bool | None = None,
+    graph_reconstruction_backend: Literal["cpp", "python"] | None = None,
+    make_dative_bonds: bool | None = None,
+    report: bool = False,
 ) -> None:
     """Parse files into a FileBatchModelDisk state, then run operation commands."""
 
@@ -449,17 +558,41 @@ parse: ParseChainGroup = cast(ParseChainGroup, _parse_callback)
 def execute_parse_chain(
     operations: list[OperationCall],
     pattern: str,
+    additional_patterns: tuple[str, ...] = (),
     parser_detection: str = "auto",
     n_jobs: int = -1,
     output_format: Literal["text", "json"] = "text",
+    total_charge: int | None = None,
+    total_multiplicity: int | None = None,
+    only_extract_structure: bool = False,
+    only_last_frame: bool = False,
+    capture_source_evidence: bool = False,
+    source_encoding: str = "utf-8",
+    release_file_content: bool = True,
+    force_unit_transform: bool | None = None,
+    graph_reconstruction_backend: Literal["cpp", "python"] | None = None,
+    make_dative_bonds: bool | None = None,
+    report: bool = False,
 ) -> None:
     try:
         plan = build_plan(
             BatchInputConfig(
                 pattern=pattern,
+                additional_patterns=additional_patterns,
                 parser_detection=parser_detection,
                 n_jobs=n_jobs,
                 output_format=output_format,
+                total_charge=total_charge,
+                total_multiplicity=total_multiplicity,
+                only_extract_structure=only_extract_structure,
+                only_last_frame=only_last_frame,
+                capture_source_evidence=capture_source_evidence,
+                source_encoding=source_encoding,
+                release_file_content=release_file_content,
+                force_unit_transform=force_unit_transform,
+                graph_reconstruction_backend=graph_reconstruction_backend,
+                make_dative_bonds=make_dative_bonds,
+                report=report,
             ),
             operations,
         )
@@ -480,13 +613,11 @@ def _operation_call(name: str, params: object) -> OperationCall:
     help="Calculation state to keep.",
 )
 @click.option("--negate", is_flag=True, help="Invert the filter.")
-@click.option(
-    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
-)
+@click.option("--n-jobs", type=int, default=-1, show_default=True, help="Number of parallel jobs.")
 def filter_state(
     state: Literal["ts", "error", "opt", "normal", "thermal", "no-img"],
     negate: bool = False,
-    n_jobs: int | None = None,
+    n_jobs: int = -1,
 ) -> OperationCall:
     """Filter the current batch by calculation state."""
     return _operation_call(
@@ -509,14 +640,12 @@ def filter_state(
     show_default=True,
     help="Comparison operator.",
 )
-@click.option(
-    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
-)
+@click.option("--n-jobs", type=int, default=-1, show_default=True, help="Number of parallel jobs.")
 def filter_value(
     target: Literal["charge", "multiplicity", "format"],
     value: str,
     compare: Literal["==", "!=", ">", "<", ">=", "<="] = "==",
-    n_jobs: int | None = None,
+    n_jobs: int = -1,
 ) -> OperationCall:
     """Filter the current batch by charge, multiplicity, or file format."""
     return _operation_call(
@@ -528,9 +657,7 @@ def filter_value(
 @parse.command("filter-by-codec")
 @click.option("--codec-id", required=True, help="Detected reader codec id to keep.")
 @click.option("--negate", is_flag=True, help="Invert the filter.")
-@click.option(
-    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
-)
+@click.option("--n-jobs", type=int, default=-1, show_default=True, help="Number of parallel jobs.")
 @click.option(
     "--on-missing",
     type=click.Choice(["keep", "drop", "error"]),
@@ -541,7 +668,7 @@ def filter_value(
 def filter_by_codec(
     codec_id: str,
     negate: bool = False,
-    n_jobs: int | None = None,
+    n_jobs: int = -1,
     on_missing: Literal["keep", "drop", "error"] = "drop",
 ) -> OperationCall:
     """Filter the current batch by detected reader codec id."""
@@ -598,9 +725,7 @@ def sample(n: int = 10, seed: int | None = None) -> OperationCall:
     default=None,
     help="Write generated files. Without --output-dir, files are written next to each source file.",
 )
-@click.option(
-    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
-)
+@click.option("--n-jobs", type=int, default=-1, show_default=True, help="Number of parallel jobs.")
 @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED, cls=DynamicFormatOptionsArgument)
 def format_transform(
     target_format: str,
@@ -608,7 +733,7 @@ def format_transform(
     frame: str = "-1",
     embed: bool = True,
     write_to_disk: bool | None = None,
-    n_jobs: int | None = None,
+    n_jobs: int = -1,
     extra_args: tuple[str, ...] = (),
 ) -> OperationCall:
     """Transform the current batch to another file format."""
@@ -637,9 +762,7 @@ def format_transform(
 @click.option(
     "--frame", default="-1", show_default=True, help="Frame selection: all, int, or csv ints."
 )
-@click.option(
-    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
-)
+@click.option("--n-jobs", type=int, default=-1, show_default=True, help="Number of parallel jobs.")
 @click.option(
     "--brief/--full",
     default=True,
@@ -673,7 +796,7 @@ def format_transform(
 def to_summary_df(
     mode: Literal["file", "frame"] = "frame",
     frame: str = "-1",
-    n_jobs: int | None = None,
+    n_jobs: int = -1,
     brief: bool = True,
     flatten_columns: bool = True,
     on_missing_frame: Literal["skip", "error"] = "skip",
@@ -705,9 +828,7 @@ def to_summary_df(
 @click.option("--sub-img-height", default=200, show_default=True, help="Sub-image height.")
 @click.option("--max-mols", default=16, show_default=True, help="Maximum molecules to render.")
 @click.option("--use-svg/--no-use-svg", default=None, help="Force SVG output mode.")
-@click.option(
-    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
-)
+@click.option("--n-jobs", type=int, default=-1, show_default=True, help="Number of parallel jobs.")
 def draw_grid_image(
     out: Path,
     mols_per_row: int = 4,
@@ -715,7 +836,7 @@ def draw_grid_image(
     sub_img_height: int = 200,
     max_mols: int = 16,
     use_svg: bool | None = None,
-    n_jobs: int | None = None,
+    n_jobs: int = -1,
 ) -> OperationCall:
     """Render a molecule grid image from the current batch."""
     return _operation_call(
@@ -740,12 +861,10 @@ def draw_grid_image(
     show_default=True,
     help="Grouping key.",
 )
-@click.option(
-    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
-)
+@click.option("--n-jobs", type=int, default=-1, show_default=True, help="Number of parallel jobs.")
 def groupby(
     key: Literal["detected_format_id", "file_format", "state"] = "detected_format_id",
-    n_jobs: int | None = None,
+    n_jobs: int = -1,
 ) -> OperationCall:
     """Group current batch files and print grouped paths."""
     return _operation_call("groupby", GroupByParams(key=key, n_jobs=n_jobs))
@@ -758,10 +877,8 @@ def groupby(
     required=True,
     help="Destination directory.",
 )
-@click.option(
-    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
-)
-def copy_to(output_dir: Path, n_jobs: int | None = None) -> OperationCall:
+@click.option("--n-jobs", type=int, default=-1, show_default=True, help="Number of parallel jobs.")
+def copy_to(output_dir: Path, n_jobs: int = -1) -> OperationCall:
     """Copy current batch files to a directory."""
     return _operation_call("copy-to", CopyToParams(output_dir=output_dir, n_jobs=n_jobs))
 
@@ -773,10 +890,8 @@ def copy_to(output_dir: Path, n_jobs: int | None = None) -> OperationCall:
     required=True,
     help="Destination directory.",
 )
-@click.option(
-    "--n-jobs", type=int, default=None, help="Number of parallel jobs for this operation."
-)
-def move_to(output_dir: Path, n_jobs: int | None = None) -> OperationCall:
+@click.option("--n-jobs", type=int, default=-1, show_default=True, help="Number of parallel jobs.")
+def move_to(output_dir: Path, n_jobs: int = -1) -> OperationCall:
     """Move current batch files to a directory."""
     return _operation_call("move-to", MoveToParams(output_dir=output_dir, n_jobs=n_jobs))
 

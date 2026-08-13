@@ -85,10 +85,10 @@ structures = AutoParser(
 )
 ```
 
-`AutoParser` 默认使用 `n_jobs=-1`。MolOP 会将它解析为 CPU 数量与全局配置
-`molopconfig.max_jobs` 中较小的值。传入正整数可指定 worker 数量；小批量或排查问题时使用
-`n_jobs=1`。汇总、筛选和转换操作也支持 `n_jobs`；Python 方法默认值为 `1`，需要并行时应
-显式传入。CLI 的 parse 级 `--n-jobs` 会传给后续操作，除非某个操作单独覆盖它。
+`AutoParser` 和所有 batch 操作默认使用 `n_jobs=-1`。MolOP 会将它解析为当前进程可用 CPU 与
+全局 `molopconfig.max_jobs` 上限中较小的值。默认 `max_jobs=None` 时，会跟随调度器/容器配额和
+CPU affinity；需要进程级上限时设置正整数。传入正整数 `n_jobs` 可指定 worker 数量；小批量或
+排查问题时使用 `n_jobs=1`。CLI 的 parse 和操作命令也都独立默认使用 `-1`。
 
 `only_extract_structure=True` 会跳过非结构结果，不适合提取能量或热化学。
 

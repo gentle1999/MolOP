@@ -1,8 +1,9 @@
 import sys
-from types import SimpleNamespace
+from types import ModuleType, SimpleNamespace
 from typing import Any
 
 import pytest
+from tqdm import tqdm as st_tqdm
 
 import molop.utils.progressbar as progressbar_module
 from molop.utils.progressbar import AdaptiveProgress, _is_notebook, parallel_map
@@ -137,6 +138,37 @@ def test_is_notebook_returns_true_when_ipkernelapp_present_in_config(
         SimpleNamespace(get_ipython=lambda: ipython_instance),
     )
     assert _is_notebook() is True
+
+
+def test_adaptive_progress_falls_back_when_notebook_widgets_are_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    notebook_module = ModuleType("tqdm.notebook")
+    notebook_module.IProgress = None  # type: ignore[attr-defined]
+    notebook_module.tqdm_notebook = object  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "tqdm.notebook", notebook_module)
+    monkeypatch.setattr(progressbar_module, "_is_notebook", lambda: True)
+    monkeypatch.setattr(progressbar_module, "_best_tqdm_cls", None)
+
+    progress = AdaptiveProgress([1, 2], disable=True)
+
+    assert list(progress) == [1, 2]
+    assert progressbar_module._best_tqdm_cls is st_tqdm
+
+
+def test_adaptive_progress_falls_back_when_notebook_backend_initialization_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class BrokenNotebookProgress:
+        def __init__(self, *_args: Any, **_kwargs: Any) -> None:
+            raise ImportError("IProgress not found")
+
+    monkeypatch.setattr(progressbar_module, "_best_tqdm_cls", BrokenNotebookProgress)
+
+    progress = AdaptiveProgress([1, 2], disable=True)
+
+    assert list(progress) == [1, 2]
+    assert progressbar_module._best_tqdm_cls is st_tqdm
 
 
 def test_parallel_map_joblib_kwargs_defaults(monkeypatch: pytest.MonkeyPatch) -> None:

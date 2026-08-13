@@ -21,6 +21,9 @@ from molop.cli.state_machine import (
     build_plan,
     parse_dynamic_options,
 )
+from molop.config import molopconfig
+from molop.io.FileBatchModelDisk import FileBatchModelDisk
+from molop.io.parse_outcomes import BatchParseResult, FileParseOutcome
 
 
 runner = CliRunner()
@@ -43,12 +46,52 @@ def test_top_level_only_exposes_parse_business_command() -> None:
         assert old_command not in result.stdout
 
 
+def test_global_max_jobs_sets_process_worker_ceiling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(molopconfig, "max_jobs", None)
+    monkeypatch.setattr(state_machine, "AutoParser", lambda *_args, **_kwargs: FileBatchModelDisk())
+
+    result = runner.invoke(app, ["--max-jobs", "3", "-q", "parse", "dummy.xyz"])
+
+    assert result.exit_code == 0, result.output
+    assert molopconfig.max_jobs == 3
+
+
+def test_global_max_jobs_rejects_non_positive_values() -> None:
+    result = runner.invoke(app, ["--max-jobs", "0", "parse", "dummy.xyz"])
+
+    assert result.exit_code != 0
+    assert "x>=1" in result.output
+
+
 def test_parse_operation_is_registered_as_click_command() -> None:
     result = runner.invoke(app, ["parse", "dummy.log", "format-transform", "--help"])
 
     assert result.exit_code == 0
     assert "--format" in result.stdout
     assert "--output-dir" in result.stdout
+
+
+def test_parse_help_exposes_public_parse_options() -> None:
+    result = runner.invoke(app, ["parse", "--help"])
+
+    assert result.exit_code == 0
+    for option in (
+        "--input",
+        "--total-charge",
+        "--total-multiplicity",
+        "--only-extract-structure",
+        "--only-last-frame",
+        "--capture-source-evidence",
+        "--source-encoding",
+        "--keep-file-content",
+        "--force-unit-transform",
+        "--graph-reconstruction-backend",
+        "--make-dative-bonds",
+        "--report",
+    ):
+        assert option in result.stdout
 
 
 def test_dynamic_format_options_parse_generic_click_extras() -> None:
@@ -247,6 +290,130 @@ def test_terminal_operation_cannot_be_followed_by_batch_operation(
     assert called is False
 
 
+def test_parse_options_are_forwarded_as_one_immutable_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def _capture_auto_parser(file_path, **kwargs):
+        captured["file_path"] = file_path
+        captured.update(kwargs)
+        return FileBatchModelDisk()
+
+    monkeypatch.setattr(state_machine, "AutoParser", _capture_auto_parser)
+    config = BatchInputConfig(
+        pattern="first.log",
+        additional_patterns=("second.out", "inputs/*.xyz"),
+        parser_detection="g16log",
+        n_jobs=3,
+        total_charge=-1,
+        total_multiplicity=2,
+        only_extract_structure=True,
+        only_last_frame=True,
+        capture_source_evidence=True,
+        source_encoding="utf-16",
+        release_file_content=False,
+        force_unit_transform=True,
+        graph_reconstruction_backend="python",
+        make_dative_bonds=False,
+    )
+
+    state_machine.execute_plan(build_plan(config, []))
+
+    assert captured["file_path"] == ["first.log", "second.out", "inputs/*.xyz"]
+    assert captured["n_jobs"] == 3
+    assert captured["parser_detection"] == "g16log"
+    assert captured["return_report"] is False
+    options = captured["parse_options"]
+    assert options.total_charge == -1
+    assert options.total_multiplicity == 2
+    assert options.only_extract_structure is True
+    assert options.only_last_frame is True
+    assert options.capture_source_evidence is True
+    assert options.source_encoding == "utf-16"
+    assert options.release_file_content is False
+    assert options.force_unit_transform is True
+    assert options.graph_reconstruction_backend == "python"
+    assert options.make_dative_bonds is False
+
+
+def test_parse_report_cannot_be_chained_before_reading_files(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    called = False
+
+    def _fail_if_called(*_args, **_kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("AutoParser must not be called for invalid plans")
+
+    monkeypatch.setattr(state_machine, "AutoParser", _fail_if_called)
+
+    with pytest.raises(CliUsageError, match="--report cannot be combined"):
+        build_plan(
+            BatchInputConfig(pattern="dummy.log", report=True),
+            [
+                OperationCall(
+                    spec=OPERATION_REGISTRY["sample"],
+                    params=state_machine.SampleParams(n=1),
+                )
+            ],
+        )
+
+    assert called is False
+
+
+def test_parse_report_renders_all_input_outcomes_as_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    batch = FileBatchModelDisk()
+    report = BatchParseResult(
+        batch=batch,
+        outcomes=(
+            FileParseOutcome(
+                file_path="/tmp/first.xyz",
+                status="ok",
+                detected_format="xyz",
+                input_index=0,
+            ),
+            FileParseOutcome(
+                file_path="/tmp/missing.xyz",
+                status="missing",
+                input_index=1,
+            ),
+        ),
+    )
+    captured: dict[str, object] = {}
+
+    def _return_report(file_path, **kwargs):
+        captured["file_path"] = file_path
+        captured.update(kwargs)
+        return report
+
+    monkeypatch.setattr(state_machine, "AutoParser", _return_report)
+
+    result = runner.invoke(
+        app,
+        [
+            "-q",
+            "parse",
+            "first.xyz",
+            "--input",
+            "missing.xyz",
+            "--report",
+            "--output-format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert captured["file_path"] == ["first.xyz", "missing.xyz"]
+    assert captured["return_report"] is True
+    payload = json.loads(result.stdout)
+    assert payload["summary"] == {"failed": 1, "succeeded": 1, "total": 2}
+    assert [outcome["status"] for outcome in payload["outcomes"]] == ["ok", "missing"]
+
+
 def test_to_summary_df_params_preserve_all_frame_and_options() -> None:
     params = ToSummaryDfParams(
         frame="all",
@@ -266,6 +433,16 @@ def test_to_summary_df_params_preserve_all_frame_and_options() -> None:
         "flatten_columns": True,
         "on_missing_frame": "error",
     }
+
+
+def test_operation_n_jobs_defaults_to_minus_one_independently_of_parse() -> None:
+    input_config = BatchInputConfig(pattern="dummy.log", n_jobs=8)
+
+    assert ToSummaryDfParams().method_kwargs(input_config)["n_jobs"] == -1
+    assert (
+        state_machine.FormatTransformParams(format="xyz").method_kwargs(input_config)["n_jobs"]
+        == -1
+    )
 
 
 def test_parse_filter_sample_outputs_batch_paths_json() -> None:
@@ -296,6 +473,37 @@ def test_parse_filter_sample_outputs_batch_paths_json() -> None:
     paths = json.loads(result.stdout)
     assert len(paths) == 1
     assert paths[0].endswith("h2_grad_orca.inp")
+
+
+def test_parse_overrides_charge_multiplicity_and_retains_only_last_frame() -> None:
+    result = runner.invoke(
+        app,
+        [
+            "-q",
+            "parse",
+            "tests/test_files/g16log/1.log",
+            "--parser-detection",
+            "g16log",
+            "--n-jobs",
+            "1",
+            "--total-charge",
+            "-1",
+            "--total-multiplicity",
+            "2",
+            "--only-last-frame",
+            "to-summary-df",
+            "--frame",
+            "all",
+            "--format",
+            "json",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    rows = json.loads(result.stdout)
+    assert len(rows) == 1
+    assert rows[0]["General.Charge"] == -1
+    assert rows[0]["General.Multiplicity"] == 2
 
 
 def test_parse_format_transform_writes_output(tmp_path: Path) -> None:

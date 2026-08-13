@@ -71,7 +71,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         self,
         func: Callable[..., R],
         desc: str = "",
-        n_jobs: int = 1,
+        n_jobs: int = -1,
         return_as: Literal["list", "generator", "generator_unordered"] = "list",
         *args: Any,
         _diskfiles_snapshot: Sequence[TFileDisk] | None = None,
@@ -83,7 +83,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         self,
         func: Callable[..., R],
         desc: str = "",
-        n_jobs: int = 1,
+        n_jobs: int = -1,
         return_as: Literal["list", "generator", "generator_unordered"] = "list",
         *args: Any,
         _diskfiles_snapshot: Sequence[TFileDisk] | None = None,
@@ -95,7 +95,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         self,
         func: Callable[..., R],
         desc: str = "",
-        n_jobs: int = 1,
+        n_jobs: int = -1,
         return_as: Literal["list", "generator", "generator_unordered"] = "list",
         *args: Any,  # do not use this parameter
         _diskfiles_snapshot: Sequence[TFileDisk] | None = None,
@@ -106,7 +106,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         self,
         func: Callable[..., R],
         desc: str = "",
-        n_jobs: int = 1,
+        n_jobs: int = -1,
         return_as: Literal["list", "generator", "generator_unordered"] = "list",
         *args: Any,  # do not use this parameter
         _diskfiles_snapshot: Sequence[TFileDisk] | None = None,
@@ -122,7 +122,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         Parameters:
             func (Callable[..., R]): The function to execute.
             desc (str, optional): The description to show in the progress bar. Defaults to "".
-            n_jobs (int, optional): The number of jobs to use. Defaults to 1.
+            n_jobs (int, optional): The number of jobs to use. Defaults to -1.
             return_as (Literal["list", "generator", "generator_unordered"], optional): The return mode to use. Defaults to "list".
             _diskfiles_snapshot (Sequence[TFileDisk] | None, optional): Internal precomputed
                 batch snapshot used by callers that need the same item order for zipping results.
@@ -368,7 +368,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         self,
         state: Literal["ts", "error", "opt", "normal", "thermal", "no-img"],
         negate: bool = False,
-        n_jobs: int = 1,
+        n_jobs: int = -1,
     ) -> FileBatchModelDisk[TFileDisk]:
         """
         Filter the files based on their state using the new execution engine.
@@ -454,7 +454,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         target: Literal["charge", "multiplicity", "format"],
         value: str | float | int,
         compare: Literal["==", "!=", ">", "<", ">=", "<="] = "==",
-        n_jobs: int = 1,
+        n_jobs: int = -1,
     ) -> FileBatchModelDisk[TFileDisk]:
         """
         Filter with updated operator module and parallel execution.
@@ -504,7 +504,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
     def filter_custom(
         self,
         condition: Callable[[TFileDisk], bool],
-        n_jobs: int = 1,
+        n_jobs: int = -1,
     ) -> FileBatchModelDisk[TFileDisk]:
         """
         Filter the files based on a custom callable condition.
@@ -533,7 +533,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         )
 
     def groupby(
-        self, key_func: Callable[[TFileDisk], str], n_jobs: int = 1
+        self, key_func: Callable[[TFileDisk], str], n_jobs: int = -1
     ) -> dict[str, FileBatchModelDisk[TFileDisk]]:
         """
         Group the files into multiple batches based on a key function.
@@ -567,7 +567,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         codec_id: str,
         *,
         negate: bool = False,
-        n_jobs: int = 1,
+        n_jobs: int = -1,
         on_missing: Literal["keep", "drop", "error"] = "drop",
     ) -> FileBatchModelDisk[TFileDisk]:
         """Filter batch by detected reader codec id.
@@ -622,7 +622,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         self,
         mode: Literal["file", "frame"] = "frame",
         frame: FrameSelector = -1,
-        n_jobs: int = 1,
+        n_jobs: int = -1,
         *,
         brief: bool = True,
         flatten_columns: bool = False,
@@ -700,7 +700,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         subImgSize: tuple[int, int] = (200, 200),
         maxMols: int = 16,
         useSVG: bool = True,
-        n_jobs: int = 1,
+        n_jobs: int = -1,
         **kwargs: Any,
     ):
         """
@@ -785,7 +785,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         sampled_files = random.sample(list(self.__diskfiles.values()), n)
         return self.new_batch(sampled_files)
 
-    def copy_to(self, output_dir: str, n_jobs: int = 1):
+    def copy_to(self, output_dir: str, n_jobs: int = -1):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
 
@@ -802,7 +802,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         desc = f"Copying files to {output_dir} with {molopconfig.set_n_jobs(n_jobs)} jobs"
         return self.parallel_execute(copy, desc, n_jobs, return_as="list", return_results=True)
 
-    def move_to(self, output_dir: str, n_jobs: int = 1):
+    def move_to(self, output_dir: str, n_jobs: int = -1):
         if not os.path.exists(output_dir):
             os.makedirs(output_dir, exist_ok=True)
 

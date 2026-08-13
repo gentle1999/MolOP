@@ -5,6 +5,7 @@ from inspect import Parameter, signature
 import pytest
 
 from molop.cli.app import FORMAT_TRANSFORM_STATIC_OPTIONS
+from molop.cli.app import app as cli_app
 from molop.cli.state_machine import (
     OPERATION_REGISTRY,
     BatchInputConfig,
@@ -15,6 +16,7 @@ from molop.cli.state_machine import (
     ToSummaryDfParams,
     build_plan,
 )
+from molop.io import AutoParser
 from molop.io._batch_format_transform import BatchFormatTransformMixin
 from molop.io.base_models._format_transform import (
     FormatTransformMixin,
@@ -22,7 +24,9 @@ from molop.io.base_models._format_transform import (
 )
 from molop.io.base_models.ChemFile import BaseChemFile
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
+from molop.io.FileBatchParserDisk import FileBatchParserDisk
 from molop.io.frame_selection import normalize_frame_selector
+from molop.utils.progressbar import parallel_map
 
 
 def test_format_transform_public_signature_contract() -> None:
@@ -67,7 +71,7 @@ def test_format_transform_public_signature_contract() -> None:
     assert batch_sig.parameters["frame"].default == -1
     assert batch_sig.parameters["embed_in_one_file"].default is True
     assert batch_sig.parameters["write_to_disk"].default is False
-    assert batch_sig.parameters["n_jobs"].default == 1
+    assert batch_sig.parameters["n_jobs"].default == -1
 
 
 def test_to_summary_df_public_signature_contract() -> None:
@@ -83,7 +87,7 @@ def test_to_summary_df_public_signature_contract() -> None:
     assert sig.parameters["mode"].default == "frame"
     assert sig.parameters["frame"].default == -1
     assert "frames" not in sig.parameters
-    assert sig.parameters["n_jobs"].default == 1
+    assert sig.parameters["n_jobs"].default == -1
     assert sig.parameters["brief"].kind is Parameter.KEYWORD_ONLY
     assert sig.parameters["brief"].default is True
     assert sig.parameters["flatten_columns"].kind is Parameter.KEYWORD_ONLY
@@ -96,11 +100,52 @@ def test_parallel_execute_public_signature_contract() -> None:
     sig = signature(FileBatchModelDisk.parallel_execute)
 
     assert sig.parameters["desc"].default == ""
-    assert sig.parameters["n_jobs"].default == 1
+    assert sig.parameters["n_jobs"].default == -1
     assert sig.parameters["return_as"].default == "list"
     assert sig.parameters["return_results"].default is None
     assert sig.parameters["_diskfiles_snapshot"].kind is Parameter.KEYWORD_ONLY
     assert sig.parameters["_diskfiles_snapshot"].default is None
+
+
+def test_all_public_n_jobs_defaults_are_minus_one() -> None:
+    callables = (
+        AutoParser,
+        FileBatchParserDisk,
+        parallel_map,
+        FileBatchModelDisk.parallel_execute,
+        FileBatchModelDisk.filter_state,
+        FileBatchModelDisk.filter_value,
+        FileBatchModelDisk.filter_custom,
+        FileBatchModelDisk.groupby,
+        FileBatchModelDisk.filter_by_codec_id,
+        FileBatchModelDisk.to_summary_df,
+        FileBatchModelDisk.draw_grid_image,
+        FileBatchModelDisk.copy_to,
+        FileBatchModelDisk.move_to,
+        BatchFormatTransformMixin.format_transform,
+    )
+
+    for callable_obj in callables:
+        assert signature(callable_obj).parameters["n_jobs"].default == -1
+
+    parse_command = cli_app.commands["parse"]
+    commands = (parse_command, *parse_command.commands.values())
+    n_jobs_options = [
+        parameter
+        for command in commands
+        for parameter in command.params
+        if parameter.name == "n_jobs"
+    ]
+    assert n_jobs_options
+    assert all(option.default == -1 for option in n_jobs_options)
+
+    operation_models = {
+        operation.params_model
+        for operation in OPERATION_REGISTRY.values()
+        if "n_jobs" in operation.params_model.model_fields
+    }
+    assert operation_models
+    assert all(model.model_fields["n_jobs"].default == -1 for model in operation_models)
 
 
 def test_frame_selector_contract() -> None:

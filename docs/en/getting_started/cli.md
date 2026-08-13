@@ -20,7 +20,8 @@ molop parse --help
               to-summary-df
     ```
 
-Every data operation starts with `molop parse PATTERN`. `PATTERN` can be a path or a shell glob.
+Every data operation starts with `molop parse PATTERN`. `PATTERN` can be a path or a shell glob; add
+repeatable `--input PATH_OR_GLOB` options when one command must cover several input groups.
 
 ## Export a summary CSV
 

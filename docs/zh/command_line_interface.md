@@ -18,6 +18,7 @@ molop [全局选项] parse PATTERN [解析选项] 操作 [操作参数] ...
 | --- | --- |
 | `-v, --verbose` | 显示更详细日志 |
 | `-q, --quiet` | 抑制进度和非结果输出，适合脚本 |
+| `--max-jobs N` | 为解析和操作设置进程级 worker 上限 |
 | `--version` | 显示版本 |
 | `-h, --help` | 显示帮助 |
 
@@ -26,13 +27,67 @@ molop [全局选项] parse PATTERN [解析选项] 操作 [操作参数] ...
 | 选项 | 默认值 | 作用 |
 | --- | --- | --- |
 | `PATTERN` | 必填 | 单路径或 glob |
+| `--input PATH_OR_GLOB` | 无 | 追加路径或 glob；可重复传入 |
 | `--parser-detection` | `auto` | 自动检测或格式 ID，如 `g16log`, `orcaout`, `xtbout` |
 | `-j, --n-jobs` | `-1` | 解析进程数 |
 | `--output-format` | `text` | 最终终端输出使用 `text` 或 `json` |
+| `--total-charge` | 原文值 | 覆盖所有输入的分子电荷 |
+| `--total-multiplicity` | 原文值 | 覆盖所有输入的自旋多重度 |
+| `--only-extract-structure` | 关闭 | 跳过能量、频率等非结构结果 |
+| `--only-last-frame` | 关闭 | 每个文件只保留最后一帧 |
+| `--capture-source-evidence` | 关闭 | 捕获格式支持的原文位置、摘要与 parser provenance |
+| `--source-encoding` | `utf-8` | 严格文本解码和原文偏移所用编码 |
+| `--release-file-content / --keep-file-content` | 释放 | 解析后释放或保留原文文本 |
+| `--force-unit-transform / --no-force-unit-transform` | 配置值 | 覆盖本次解析的单位转换策略 |
+| `--graph-reconstruction-backend` | 配置值 | 本次解析使用 `cpp` 或 `python` 图重建后端 |
+| `--make-dative-bonds / --no-make-dative-bonds` | 配置值 | 覆盖本次解析的配位键重建策略 |
+| `--report` | 关闭 | 不返回 batch，改为保留每个输入的解析结果 |
 
-`--n-jobs -1` 是默认的自动设置，MolOP 会用 `molopconfig.max_jobs` 对其限额。排查 parser 或
-原生库问题时传入 `--n-jobs 1`。parse 级设置会传给后续操作，除非某个操作单独提供
-`--n-jobs`。
+`--n-jobs -1` 是默认的自动设置。MolOP 会使用当前进程可用 CPU 和可选的
+`molopconfig.max_jobs` 上限；排查 parser 或原生库问题时传入 `--n-jobs 1`。parse 和每个操作
+命令都独立默认使用 `-1`。使用全局 `--max-jobs N` 限制整条命令；某个操作需要更低上限时，在
+该操作上显式传入正整数 `--n-jobs`。
+
+电荷和多重度覆盖会作用于每个匹配输入；混合电荷或多重度的数据应拆成不同命令。
+`--only-extract-structure` 是快速路径，会按约定省略非结构科学结果。单位和拓扑参数只覆盖本次
+命令；未指定时继承 `molopconfig`，不会修改进程级全局配置。
+
+可组合多个输入范围，无需依赖一个过宽的 glob：
+
+```bash
+molop -q parse "gaussian/*.log" \
+  --input "orca/*.out" \
+  --input selected.xyz \
+  --only-last-frame \
+  to-summary-df --full --out summary.csv
+```
+
+??? example "生成文件"
+
+    ```text
+    Summary written to summary.csv
+    ```
+
+## 逐文件解析报告
+
+使用 `--report` 审计成功、缺失、不支持、空结果和解析失败的输入。该选项是终止解析模式，不能
+再连接操作命令。
+
+```bash
+molop -q parse "results/*.log" \
+  --input required.out \
+  --report --output-format json > parse-report.json
+```
+
+??? example "生成文件"
+
+    ```text
+    parse-report.json
+    ```
+
+JSON 对象包含 `summary` 计数和保持输入顺序的 `outcomes` 数组。每条结果包含输入序号、绝对
+路径、状态、检测格式、parser warning，以及可序列化的失败信息。默认文本输出是制表符分隔的
+诊断表。
 
 ## 可继续链接的操作
 

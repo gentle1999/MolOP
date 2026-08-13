@@ -86,12 +86,12 @@ structures = AutoParser(
 )
 ```
 
-`AutoParser` defaults to `n_jobs=-1`. MolOP resolves this to the smaller of the CPU count and the
-global `molopconfig.max_jobs` limit. Pass a positive integer to request a specific worker count, or
-use `n_jobs=1` for a small batch or debugging. The same `n_jobs` option is available on summary,
-filter, and transform operations; Python methods default to `1`, so pass it explicitly when those
-steps should also run in parallel. The CLI parse-level `--n-jobs` is used by later operations unless
-an operation-level value overrides it.
+`AutoParser` and all batch operations default to `n_jobs=-1`. MolOP resolves this to the smaller of
+the process-aware CPU limit and the global `molopconfig.max_jobs` ceiling. With the default
+`max_jobs=None`, the limit follows scheduler/container quotas and CPU affinity. Set a positive
+`max_jobs` for a process-wide ceiling. Pass a positive `n_jobs` to request a specific worker count, or
+use `n_jobs=1` for a small batch or debugging. The CLI parse and operation commands follow the same
+independent `-1` default.
 
 `only_extract_structure=True` skips non-structural results and is unsuitable for extracting energy
 or thermochemistry.

@@ -1,1 +1,4 @@
 docs/assets/examples/*.log whitespace=-trailing-space
+tests/test_files/g16log/109920.log whitespace=-trailing-space
+tests/test_files/g16log/119907.log whitespace=-trailing-space
+tests/test_files/g16log/175108.log whitespace=-trailing-space

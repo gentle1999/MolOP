@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from molop import AutoParser
@@ -24,6 +25,12 @@ TERMINAL_ARCHIVE_ENERGY_FIXTURE = (
     / "test_files"
     / "g16log"
     / "000000000000_000016928457_00_conf_01_ts.107c60f3cfcb.log"
+)
+LINEAR_ROTATIONAL_CONSTANT_FIXTURE = (
+    Path(__file__).resolve().parent / "test_files" / "g16log" / "109920.log"
+)
+THERMOCHEMISTRY_LINEAR_FIXTURE = (
+    Path(__file__).resolve().parent / "test_files" / "g16log" / "dsgdb9nsd_000484-1+.log"
 )
 
 
@@ -68,6 +75,41 @@ def test_default_g16log_parser_handles_concatenated_frequency_values() -> None:
     assert vibrations.atom_order == "source"
     assert vibrations.normalization == "unknown"
     assert vibrations.mass_weighting == "unknown"
+
+
+def test_linear_rotational_constant_overflow_marker_maps_to_infinity() -> None:
+    file_model = AutoParser(
+        str(LINEAR_ROTATIONAL_CONSTANT_FIXTURE),
+        parser_detection="g16log",
+        n_jobs=1,
+    )[0]
+
+    marked_frame = next(
+        frame
+        for frame in file_model
+        if frame.rotation_constants is not None
+        and np.isinf(frame.rotation_constants.to("GHz").magnitude).any()
+    )
+    constants = marked_frame.rotation_constants.to("GHz").magnitude
+
+    assert constants.tolist() == pytest.approx([np.inf, 19.4684817, 19.4684613])
+
+
+def test_thermochemistry_rotational_constant_overflow_marker_maps_to_infinity() -> None:
+    file_model = AutoParser(
+        str(THERMOCHEMISTRY_LINEAR_FIXTURE),
+        parser_detection="g16log",
+        n_jobs=1,
+    )[0]
+    thermal = next(
+        frame.thermal_informations
+        for frame in file_model
+        if frame.thermal_informations is not None
+        and frame.thermal_informations.rotational_constants is not None
+    )
+
+    constants = thermal.rotational_constants.to("GHz").magnitude
+    assert constants.tolist() == pytest.approx([np.inf, 1.38922, 1.38922])
 
 
 def test_g16log_vibrational_temperatures_reference_frequency_mode_indices() -> None:

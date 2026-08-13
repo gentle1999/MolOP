@@ -1,3 +1,6 @@
+import pytest
+from pydantic import ValidationError
+
 import molop.config as config_module
 
 
@@ -50,7 +53,7 @@ def test_set_n_jobs_boundaries(monkeypatch):
     logger = config_module.moloplogger
     stream_before = config_module.stream_handler in logger.handlers
     file_before = config_module.file_handler in logger.handlers
-    monkeypatch.setattr(config_module.multiprocessing, "cpu_count", lambda: 8)
+    monkeypatch.setattr(config_module, "available_cpu_count", lambda: 8)
     monkeypatch.setattr(
         type(config_module.dofconfig),
         "enable_ipython_integration",
@@ -60,7 +63,7 @@ def test_set_n_jobs_boundaries(monkeypatch):
     config = config_module.MolOPConfig(max_jobs=6)
 
     assert config.set_n_jobs(3) == 3
-    assert config.set_n_jobs(99) == 8
+    assert config.set_n_jobs(99) == 6
     assert config.set_n_jobs(0) == 6
     assert config.set_n_jobs(-4) == 6
 
@@ -70,6 +73,64 @@ def test_set_n_jobs_boundaries(monkeypatch):
         _add_once(logger, config_module.stream_handler)
     if file_before:
         _add_once(logger, config_module.file_handler)
+
+
+def test_auto_max_jobs_uses_process_available_cpu_count(monkeypatch):
+    monkeypatch.setattr(config_module, "available_cpu_count", lambda: 24)
+    monkeypatch.setattr(
+        type(config_module.dofconfig),
+        "enable_ipython_integration",
+        lambda _self, _enable: None,
+    )
+
+    config = config_module.MolOPConfig(max_jobs=None)
+
+    assert config.effective_max_jobs == 24
+    assert config.set_n_jobs(-1) == 24
+    assert config.set_n_jobs(100) == 24
+
+
+def test_available_cpu_count_uses_most_restrictive_process_limit(monkeypatch):
+    monkeypatch.setattr(config_module, "joblib_cpu_count", lambda: 12)
+    monkeypatch.setattr(config_module.os, "cpu_count", lambda: 32)
+    monkeypatch.setattr(config_module.os, "sched_getaffinity", lambda _pid: set(range(8)))
+
+    assert config_module.available_cpu_count() == 8
+
+
+def test_max_jobs_environment_default_and_explicit_override(monkeypatch):
+    monkeypatch.setenv(config_module.MAX_JOBS_ENV_VAR, "4")
+    monkeypatch.setattr(config_module, "available_cpu_count", lambda: 12)
+    monkeypatch.setattr(
+        type(config_module.dofconfig),
+        "enable_ipython_integration",
+        lambda _self, _enable: None,
+    )
+
+    environment_config = config_module.MolOPConfig()
+    automatic_config = config_module.MolOPConfig(max_jobs=None)
+    explicit_config = config_module.MolOPConfig(max_jobs=7)
+
+    assert environment_config.max_jobs == 4
+    assert environment_config.effective_max_jobs == 4
+    assert automatic_config.max_jobs is None
+    assert automatic_config.effective_max_jobs == 12
+    assert explicit_config.effective_max_jobs == 7
+
+
+def test_max_jobs_rejects_non_positive_values(monkeypatch):
+    monkeypatch.setattr(
+        type(config_module.dofconfig),
+        "enable_ipython_integration",
+        lambda _self, _enable: None,
+    )
+
+    with pytest.raises(ValidationError):
+        config_module.MolOPConfig(max_jobs=0)
+
+    config = config_module.MolOPConfig(max_jobs=2)
+    with pytest.raises(ValidationError):
+        config.max_jobs = 0
 
 
 def test_quiet_verbose_handler_toggling_without_duplicates(monkeypatch):

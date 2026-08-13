@@ -5,6 +5,7 @@ from typing import Any
 
 import numpy as np
 from pint.facets.plain import PlainQuantity
+from rdkit import Chem
 
 from molop.io.base_models.DataClasses import ImplicitSolvation, Status
 from molop.io.base_models.ParseContainers import TextParseContext
@@ -26,6 +27,23 @@ _GAUSSIAN_FINGERPRINTS = (
     "This is part of the Gaussian(R)",
     "Gaussian, Inc.",
 )
+_PERIODIC_TABLE = Chem.GetPeriodicTable()
+
+
+def normalize_g16_element_symbol(symbol: str) -> str:
+    """Normalize a Gaussian element token and reject symbols outside the periodic table."""
+
+    normalized = symbol.strip()
+    if not normalized or not normalized.isascii() or not normalized.isalpha():
+        raise ValueError(f"Invalid Gaussian element symbol: {symbol!r}")
+    normalized = normalized[0].upper() + normalized[1:].lower()
+    try:
+        atomic_number = _PERIODIC_TABLE.GetAtomicNumber(normalized)
+    except RuntimeError as exc:
+        raise ValueError(f"Unknown Gaussian element symbol: {symbol!r}") from exc
+    if atomic_number <= 0:
+        raise ValueError(f"Unknown Gaussian element symbol: {symbol!r}")
+    return _PERIODIC_TABLE.GetElementSymbol(atomic_number)
 
 
 def ensure_g16_output_content(file_content: str) -> None:
@@ -121,11 +139,32 @@ def extract_g16_coordinates(
     return None
 
 
+def extract_g16_symbolic_coordinates(
+    context: TextParseContext,
+) -> tuple[list[str], np.ndarray[Any, Any]] | tuple[None, None]:
+    focus_content = context.split(g16_log_patterns.INITIAL_INPUT_COORDS)
+    matches = g16_log_patterns.INITIAL_INPUT_COORDS.find_matches(focus_content)
+    if not matches:
+        return None, None
+    symbols = [normalize_g16_element_symbol(matched.group("symbol")) for matched in matches]
+    coords = np.array(
+        [
+            [
+                float(matched.group("x")),
+                float(matched.group("y")),
+                float(matched.group("z")),
+            ]
+            for matched in matches
+        ]
+    )
+    return symbols, coords
+
+
 def extract_g16_standard_orientation_transformation_matrix(
     context: TextParseContext,
 ) -> np.ndarray[Any, Any] | None:
-    coords = extract_g16_coordinates(context, g16_log_patterns.INITIAL_INPUT_COORDS)
-    if coords is None:
+    symbols, coords = extract_g16_symbolic_coordinates(context)
+    if symbols is None or coords is None:
         return None
     standard_coords = extract_g16_coordinates(context, g16_log_patterns.STANDARD_COORDS)
     if standard_coords is None:

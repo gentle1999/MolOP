@@ -858,7 +858,7 @@ def _render_batch_stub(specs: list[_RenderSpec]) -> str:
         lines.append("        frame: FrameSelector = -1,")
         lines.append("        embed_in_one_file: bool = True,")
         lines.append("        write_to_disk: bool = False,")
-        lines.append("        n_jobs: int = 1,")
+        lines.append("        n_jobs: int = -1,")
         lines.append("        *,")
         lines.append("        graph_policy: GraphPolicy | None = None,")
         for p in s.params:
@@ -885,7 +885,7 @@ def _render_batch_stub(specs: list[_RenderSpec]) -> str:
     lines.append("        frame: FrameSelector = -1,")
     lines.append("        embed_in_one_file: bool = True,")
     lines.append("        write_to_disk: bool = False,")
-    lines.append("        n_jobs: int = 1,")
+    lines.append("        n_jobs: int = -1,")
     lines.append("        *,")
     lines.append("        graph_policy: GraphPolicy | None = None,")
     lines.append("        **kwargs: Any,")

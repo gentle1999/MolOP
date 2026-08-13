@@ -35,6 +35,7 @@ from molop.io.logic.gaussian.log.frame_parsers._g16_shared import (
     _trim_molecular_orbital_symmetries,
     extract_coords,
     extract_rotation_constants,
+    parse_rotational_constant,
 )
 from molop.io.logic.gaussian.log.parsers._g16_log_patterns import g16_log_patterns
 from molop.io.logic.gaussian.log.parsers._g16log_archive_tail import (
@@ -563,7 +564,9 @@ def extract_thermal_infos_from_state(state: ParseState) -> dict[str, Any] | None
         source_content
     ):
         thermal_dict["rotational_constants"] = (
-            np.array([float(matches[0].group(axis)) for axis in ("a", "b", "c")])
+            np.array(
+                [parse_rotational_constant(matches[0].group(axis)) for axis in ("a", "b", "c")]
+            )
             * atom_ureg.gigahertz
         )
     if matches := g16_log_patterns.VIBRATIONAL_TEMPERATURE.find_matches(source_content):

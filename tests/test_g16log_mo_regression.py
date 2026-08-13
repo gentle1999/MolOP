@@ -22,6 +22,7 @@ def test_default_g16log_parser_preserves_open_shell_mo_counts() -> None:
 
 
 MERGED_VALUE_FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "6-INT4-Opt.log"
+MISSING_SEPARATOR_FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "119907.log"
 
 
 def test_default_g16log_parser_handles_concatenated_orbital_energies() -> None:
@@ -35,3 +36,35 @@ def test_default_g16log_parser_handles_concatenated_orbital_energies() -> None:
     assert mos.HOMO_id is not None
     assert mos.electronic_state == "1-A"
     assert len(mos.beta_energies) == len(mos.beta_occupancies)
+
+
+def test_g16log_orbital_energies_without_separators_remain_aligned() -> None:
+    file_model = AutoParser(
+        str(MISSING_SEPARATOR_FIXTURE),
+        parser_detection="g16log",
+        n_jobs=1,
+    )[0]
+    mos = file_model[0].molecular_orbitals
+
+    assert mos is not None
+    assert mos.alpha_energies[:5].to("hartree").magnitude.tolist() == [
+        -255.98335,
+        -255.98334,
+        -255.98328,
+        -29.93880,
+        -29.93880,
+    ]
+    assert len(mos.alpha_energies) == 429
+    assert len(mos.alpha_occupancies) == 429
+    assert len(mos.alpha_symmetries) == 429
+    assert len(mos.beta_energies) == 429
+    assert len(mos.beta_occupancies) == 429
+    assert len(mos.beta_symmetries) == 429
+    assert mos.HOMO_id == 123
+    assert mos.beta_HOMO_id == 122
+    # Initial-guess orbital 4 is ``(E)``; the converged population-analysis
+    # block reports it as ``(?A)``. Only the latter belongs in the frame model.
+    assert mos.alpha_symmetries[3] == "(?A)"
+    assert mos.beta_symmetries[3] == "(?A)"
+    assert "(?B)" in mos.alpha_symmetries
+    assert "(?B)" in mos.beta_symmetries

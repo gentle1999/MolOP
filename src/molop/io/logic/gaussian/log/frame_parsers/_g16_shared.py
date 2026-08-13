@@ -54,14 +54,21 @@ def extract_rotation_constants(block: str) -> NumpyQuantity | None:
         return (
             np.array(
                 [
-                    float(matched.group("a")),
-                    float(matched.group("b")),
-                    float(matched.group("c")),
+                    parse_rotational_constant(matched.group("a")),
+                    parse_rotational_constant(matched.group("b")),
+                    parse_rotational_constant(matched.group("c")),
                 ],
             )
             * atom_ureg.gigahertz
         )
     return None
+
+
+def parse_rotational_constant(token: str) -> float:
+    value = token.strip()
+    if value and set(value) == {"*"}:
+        return float("inf")
+    return float(value.replace("D", "E").replace("d", "E"))
 
 
 def _extract_float_tokens(text: str, *, decimal_places: int | None = None) -> list[float]:
@@ -148,7 +155,7 @@ def _extract_molecular_orbital_payload_from_text(focus_content: str) -> dict[str
         else:
             continue
 
-        values = _extract_float_tokens(energies, decimal_places=5)
+        values = _parse_orbital_line_values(energies)
         if orbital_type == "Alpha":
             temp_alpha_orbitals.extend(values)
             temp_alpha_occupancies.extend([occ_stat == "occ."] * len(values))

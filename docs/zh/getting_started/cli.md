@@ -20,7 +20,8 @@ molop parse --help
               to-summary-df
     ```
 
-所有业务操作都从 `molop parse PATTERN` 开始。`PATTERN` 可以是单个路径或 shell glob。
+所有业务操作都从 `molop parse PATTERN` 开始。`PATTERN` 可以是单个路径或 shell glob；一条命令
+需要覆盖多组输入时，可重复添加 `--input PATH_OR_GLOB`。
 
 ## 导出摘要 CSV
 

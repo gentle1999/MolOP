@@ -1,0 +1,989 @@
+ Entering Gaussian System, Link 0=g09
+ Input=175108.gjf
+ Output=175108.log
+ Initial command:
+ /cpfs01/projects-HDD/cfff-4405968bce88_HDD/zhaoxingyue/g09/l1.exe "/cpfs01/projects-HDD/cfff-4405968bce88_HDD/zhaoxingyue/g09_scratch/Gau-57865.inp" -scrdir="/cpfs01/projects-HDD/cfff-4405968bce88_HDD/zhaoxingyue/g09_scratch/"
+ Entering Link 1 = /cpfs01/projects-HDD/cfff-4405968bce88_HDD/zhaoxingyue/g09/l1.exe PID=     57867.
+  
+ Copyright (c) 1988,1990,1992,1993,1995,1998,2003,2009,2013,
+            Gaussian, Inc.  All Rights Reserved.
+  
+ This is part of the Gaussian(R) 09 program.  It is based on
+ the Gaussian(R) 03 system (copyright 2003, Gaussian, Inc.),
+ the Gaussian(R) 98 system (copyright 1998, Gaussian, Inc.),
+ the Gaussian(R) 94 system (copyright 1995, Gaussian, Inc.),
+ the Gaussian 92(TM) system (copyright 1992, Gaussian, Inc.),
+ the Gaussian 90(TM) system (copyright 1990, Gaussian, Inc.),
+ the Gaussian 88(TM) system (copyright 1988, Gaussian, Inc.),
+ the Gaussian 86(TM) system (copyright 1986, Carnegie Mellon
+ University), and the Gaussian 82(TM) system (copyright 1983,
+ Carnegie Mellon University). Gaussian is a federally registered
+ trademark of Gaussian, Inc.
+  
+ This software contains proprietary and confidential information,
+ including trade secrets, belonging to Gaussian, Inc.
+  
+ This software is provided under written license and may be
+ used, copied, transmitted, or stored only in accord with that
+ written license.
+  
+ The following legend is applicable only to US Government
+ contracts under FAR:
+  
+                    RESTRICTED RIGHTS LEGEND
+  
+ Use, reproduction and disclosure by the US Government is
+ subject to restrictions as set forth in subparagraphs (a)
+ and (c) of the Commercial Computer Software - Restricted
+ Rights clause in FAR 52.227-19.
+  
+ Gaussian, Inc.
+ 340 Quinnipiac St., Bldg. 40, Wallingford CT 06492
+  
+  
+ ---------------------------------------------------------------
+ Warning -- This program may not be used in any manner that
+ competes with the business of Gaussian, Inc. or will provide
+ assistance to any competitor of Gaussian, Inc.  The licensee
+ of this program is prohibited from giving any competitor of
+ Gaussian, Inc. access to this program.  By using this program,
+ the user acknowledges that Gaussian, Inc. is engaged in the
+ business of creating and licensing software in the field of
+ computational chemistry and represents and warrants to the
+ licensee that it is not a competitor of Gaussian, Inc. and that
+ it will not use this program in any manner prohibited above.
+ ---------------------------------------------------------------
+  
+
+ Cite this work as:
+ Gaussian 09, Revision D.01,
+ M. J. Frisch, G. W. Trucks, H. B. Schlegel, G. E. Scuseria, 
+ M. A. Robb, J. R. Cheeseman, G. Scalmani, V. Barone, B. Mennucci, 
+ G. A. Petersson, H. Nakatsuji, M. Caricato, X. Li, H. P. Hratchian, 
+ A. F. Izmaylov, J. Bloino, G. Zheng, J. L. Sonnenberg, M. Hada, 
+ M. Ehara, K. Toyota, R. Fukuda, J. Hasegawa, M. Ishida, T. Nakajima, 
+ Y. Honda, O. Kitao, H. Nakai, T. Vreven, J. A. Montgomery, Jr., 
+ J. E. Peralta, F. Ogliaro, M. Bearpark, J. J. Heyd, E. Brothers, 
+ K. N. Kudin, V. N. Staroverov, T. Keith, R. Kobayashi, J. Normand, 
+ K. Raghavachari, A. Rendell, J. C. Burant, S. S. Iyengar, J. Tomasi, 
+ M. Cossi, N. Rega, J. M. Millam, M. Klene, J. E. Knox, J. B. Cross, 
+ V. Bakken, C. Adamo, J. Jaramillo, R. Gomperts, R. E. Stratmann, 
+ O. Yazyev, A. J. Austin, R. Cammi, C. Pomelli, J. W. Ochterski, 
+ R. L. Martin, K. Morokuma, V. G. Zakrzewski, G. A. Voth, 
+ P. Salvador, J. J. Dannenberg, S. Dapprich, A. D. Daniels, 
+ O. Farkas, J. B. Foresman, J. V. Ortiz, J. Cioslowski, 
+ and D. J. Fox, Gaussian, Inc., Wallingford CT, 2013.
+ 
+ ******************************************
+ Gaussian 09:  ES64L-G09RevD.01 24-Apr-2013
+                16-Jul-2026 
+ ******************************************
+ %nproc=16
+ Will use up to   16 processors via shared memory.
+ %mem=32GB
+ ----------------------------------------------------------------------
+ # p opt(TS,calcfc,noeigen) freq b3lyp/def2svp EmpiricalDispersion=GD3B
+ J geom=PrintInputOrient
+ ----------------------------------------------------------------------
+ 1/5=1,10=4,11=1,14=-1,18=20,26=3,38=1/1,3;
+ 2/9=2110,12=2,17=6,18=5,40=1/2;
+ 3/5=43,7=101,11=2,16=1,25=1,30=1,71=2,74=-5,124=41,140=1/1,2,3;
+ 4//1;
+ 5/5=2,38=5/2;
+ 8/6=4,10=90,11=11/1;
+ 11/6=1,8=1,9=11,15=111,16=1/1,2,10;
+ 10/6=1,13=1/2;
+ 6/7=2,8=2,9=2,10=2,28=1/1;
+ 7/10=1,18=20,25=1/1,2,3,16;
+ 1/5=1,10=4,11=1,14=-1,18=20,26=3/3(2);
+ 2/9=2110/2;
+ 99//99;
+ 2/9=2110/2;
+ 3/5=43,7=101,11=2,16=1,25=1,30=1,71=1,74=-5,124=41/1,2,3;
+ 4/5=5,16=3,69=1/1;
+ 5/5=2,38=5/2;
+ 7//1,2,3,16;
+ 1/5=1,11=1,14=-1,18=20,26=3/3(-5);
+ 2/9=2110/2;
+ 6/7=2,8=2,9=2,10=2,19=2,28=1/1;
+ 99/9=1/99;
+ ----------------------------------------------------------------------
+ All-Calculations-004.tar/10.1039/C8CP00858B/c8cp00858b1/08_1_2.tar.zst
+ ----------------------------------------------------------------------
+ Symbolic Z-matrix:
+ Charge =  1 Multiplicity = 2
+ h                     98.88211   151.35794   147.37922 
+ C                     98.67701   150.33384   146.93825 
+ O                     98.4247   150.19747   145.74611 
+ N                     98.73047   149.33165   147.8331 
+ H                     98.50601   148.3615   147.59456 
+ H                     98.95285   149.47549   148.82144 
+ h                     103.36932   140.50817   144.26331 
+ C                     102.99518   141.44865   143.76134 
+ O                     103.77246   142.29497   143.33043 
+ N                     101.64284   141.48241   143.6995 
+ H                     101.14164   140.72206   144.16927 
+ C                     100.82201   142.54236   143.13147 
+ H                     100.66744   143.34626   143.86574 
+ h                     101.2889   143.00928   142.22766 
+ C                     99.45804   141.96577   142.72777 
+ O                     99.28504   140.78431   142.47213 
+ N                     98.48002   142.90494   142.56665 
+ H                     98.65166   143.8503   142.90041 
+ C                     97.19187   142.68437   141.90674 
+ H                     96.76404   143.68816   141.82085 
+ h                     97.33078   142.27385   140.87353 
+ C                     96.22244   141.80533   142.72591 
+ O                     95.77039   140.75254   142.29319 
+ N                     95.92413   142.2896   143.95804 
+ H                     96.28607   143.18232   144.27582 
+ C                     95.02066   141.6095   144.8738 
+ H                     95.07272   142.18272   145.79993 
+ h                     93.95773   141.62093   144.52472 
+ C                     95.44643   140.16022   145.22211 
+ O                     94.66766   139.21615   145.12065 
+ N                     96.72353   140.03066   145.69238 
+ H                     97.3161   140.8518   145.76591 
+ C                     97.27682   138.73585   146.04419 
+ H                     96.57145   138.01161   145.62723 
+ C                     98.65265   138.46386   145.39379 
+ H                     98.58793   138.7455   144.34095 
+ H                     98.84329   137.39378   145.48272 
+ S                     100.1493   139.22945   146.15695 
+ C                     97.34982   138.36411   147.54398 
+ O                     97.62217   137.19012   147.79996 
+ N                     97.19062   139.34504   148.46804 
+ H                     96.92785   140.27808   148.17553 
+ C                     97.23896   139.17914   149.92591 
+ H                     97.09201   140.17561   150.3399 
+ C                     96.1033   138.3056   150.44951 
+ H                     96.21245   137.28655   150.09603 
+ H                     96.08767   138.32376   151.54919 
+ O                     94.86292   138.83674   149.92305 
+ H                     94.11846   138.47473   150.49273 
+ h                     98.22775   138.84389   150.32592 
+ h                     98.47702   145.74565   151.50205 
+ C                     98.09265   144.84827   152.07772 
+ O                     97.81548   144.93783   153.27263 
+ N                     97.95653   143.74648   151.32424 
+ H                     98.2488   143.75863   150.34928 
+ C                     97.53068   142.48603   151.89816 
+ H                     97.5327   141.74934   151.09888 
+ H                     98.24076   142.15438   152.6646 
+ h                     96.51458   142.49065   152.34884 
+ h                     93.70431   143.46592   152.77479 
+ C                     92.93897   142.68273   152.58177 
+ H                     93.25762   141.7845   153.12242 
+ H                     91.98402   143.01039   153.00918 
+ O                     92.73422   142.42561   151.20701 
+ H                     93.60888   142.09425   150.90181 
+ h                     92.94743   140.97138   148.09609 
+ C                     93.43319   141.97244   148.17164 
+ H                     93.36844   142.49272   147.21856 
+ H                     92.93264   142.55431   148.94468 
+ C                     94.86144   141.76483   148.57487 
+ O                     95.80652   141.82159   147.82002 
+ O                     95.00655   141.44928   149.8956 
+ h                     93.2904   145.55455   148.90884 
+ C                     94.16139   145.42064   148.2557 
+ S                     95.69442   144.93971   149.02536 
+ C                     94.1372   145.71034   146.93733 
+ S                     95.51385   145.43291   145.84227 
+ h                     93.29237   146.23796   146.5834 
+ O                     105.90245   146.98379   145.68474 
+ H                     105.49605   146.99757   144.78344 
+ H                     105.26465   146.41682   146.15468 
+ Cu                    99.69908   141.33225   146.50067 
+ S                     98.89494   143.58997   146.0914 
+ Mo                    97.34395   145.14562   147.34727 
+ O                     98.73893   144.1017   148.61454 
+ O                     97.95207   146.73889   147.37036 
+ C                     99.51817   143.43992   147.82467 
+ O                     100.47918   142.72983   148.12175 
+ H                     94.96293   140.45667   150.05466 
+ 
+ Add virtual bond connecting atoms H89        and O48        Dist= 3.08D+00.
+ Add virtual bond connecting atoms O86        and H5         Dist= 3.27D+00.
+ Add virtual bond connecting atoms H55        and O85        Dist= 3.47D+00.
+ Add virtual bond connecting atoms H57        and H44        Dist= 3.41D+00.
+ Add virtual bond connecting atoms O72        and H65        Dist= 3.48D+00.
+ Add virtual bond connecting atoms H80        and O9         Dist= 9.85D+00.
+ Add virtual bond connecting atoms H81        and O9         Dist= 9.85D+00.
+
+ GradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGrad
+ Berny optimization.
+ Initialization pass.
+                           ----------------------------
+                           !    Initial Parameters    !
+                           ! (Angstroms and Degrees)  !
+ --------------------------                            --------------------------
+ ! Name  Definition              Value          Derivative Info.                !
+ --------------------------------------------------------------------------------
+ ! R1    R(1,2)                  1.1337         calculate D2E/DX2 analytically  !
+ ! R2    R(2,3)                  1.2262         calculate D2E/DX2 analytically  !
+ ! R3    R(2,4)                  1.3446         calculate D2E/DX2 analytically  !
+ ! R4    R(4,5)                  1.024          calculate D2E/DX2 analytically  !
+ ! R5    R(4,6)                  1.0232         calculate D2E/DX2 analytically  !
+ ! R6    R(5,86)                 1.7292         calculate D2E/DX2 analytically  !
+ ! R7    R(7,8)                  1.1298         calculate D2E/DX2 analytically  !
+ ! R8    R(8,9)                  1.2272         calculate D2E/DX2 analytically  !
+ ! R9    R(8,10)                 1.3542         calculate D2E/DX2 analytically  !
+ ! R10   R(9,80)                 5.215          calculate D2E/DX2 analytically  !
+ ! R11   R(9,81)                 5.2147         calculate D2E/DX2 analytically  !
+ ! R12   R(10,11)                1.0247         calculate D2E/DX2 analytically  !
+ ! R13   R(10,12)                1.456          calculate D2E/DX2 analytically  !
+ ! R14   R(12,13)                1.0997         calculate D2E/DX2 analytically  !
+ ! R15   R(12,14)                1.1193         calculate D2E/DX2 analytically  !
+ ! R16   R(12,15)                1.5349         calculate D2E/DX2 analytically  !
+ ! R17   R(15,16)                1.2211         calculate D2E/DX2 analytically  !
+ ! R18   R(15,17)                1.3655         calculate D2E/DX2 analytically  !
+ ! R19   R(17,18)                1.0171         calculate D2E/DX2 analytically  !
+ ! R20   R(17,19)                1.4641         calculate D2E/DX2 analytically  !
+ ! R21   R(19,20)                1.0945         calculate D2E/DX2 analytically  !
+ ! R22   R(19,21)                1.1204         calculate D2E/DX2 analytically  !
+ ! R23   R(19,22)                1.5439         calculate D2E/DX2 analytically  !
+ ! R24   R(22,23)                1.2247         calculate D2E/DX2 analytically  !
+ ! R25   R(22,24)                1.3571         calculate D2E/DX2 analytically  !
+ ! R26   R(24,25)                1.0144         calculate D2E/DX2 analytically  !
+ ! R27   R(24,26)                1.4551         calculate D2E/DX2 analytically  !
+ ! R28   R(26,27)                1.0904         calculate D2E/DX2 analytically  !
+ ! R29   R(26,28)                1.1188         calculate D2E/DX2 analytically  !
+ ! R30   R(26,29)                1.5502         calculate D2E/DX2 analytically  !
+ ! R31   R(29,30)                1.228          calculate D2E/DX2 analytically  !
+ ! R32   R(29,31)                1.3671         calculate D2E/DX2 analytically  !
+ ! R33   R(31,32)                1.0153         calculate D2E/DX2 analytically  !
+ ! R34   R(31,33)                1.4514         calculate D2E/DX2 analytically  !
+ ! R35   R(33,34)                1.0936         calculate D2E/DX2 analytically  !
+ ! R36   R(33,35)                1.5459         calculate D2E/DX2 analytically  !
+ ! R37   R(33,39)                1.5469         calculate D2E/DX2 analytically  !
+ ! R38   R(35,36)                1.0918         calculate D2E/DX2 analytically  !
+ ! R39   R(35,37)                1.0906         calculate D2E/DX2 analytically  !
+ ! R40   R(35,38)                1.8462         calculate D2E/DX2 analytically  !
+ ! R41   R(38,82)                2.1778         calculate D2E/DX2 analytically  !
+ ! R42   R(39,40)                1.2321         calculate D2E/DX2 analytically  !
+ ! R43   R(39,41)                1.357          calculate D2E/DX2 analytically  !
+ ! R44   R(41,42)                1.0125         calculate D2E/DX2 analytically  !
+ ! R45   R(41,43)                1.4681         calculate D2E/DX2 analytically  !
+ ! R46   R(43,44)                1.089          calculate D2E/DX2 analytically  !
+ ! R47   R(43,45)                1.5254         calculate D2E/DX2 analytically  !
+ ! R48   R(43,50)                1.1181         calculate D2E/DX2 analytically  !
+ ! R49   R(44,57)                1.8019         calculate D2E/DX2 analytically  !
+ ! R50   R(45,46)                1.0841         calculate D2E/DX2 analytically  !
+ ! R51   R(45,47)                1.0999         calculate D2E/DX2 analytically  !
+ ! R52   R(45,48)                1.4484         calculate D2E/DX2 analytically  !
+ ! R53   R(48,49)                1.0049         calculate D2E/DX2 analytically  !
+ ! R54   R(48,89)                1.6283         calculate D2E/DX2 analytically  !
+ ! R55   R(51,52)                1.1333         calculate D2E/DX2 analytically  !
+ ! R56   R(52,53)                1.2299         calculate D2E/DX2 analytically  !
+ ! R57   R(52,54)                1.3417         calculate D2E/DX2 analytically  !
+ ! R58   R(54,55)                1.0179         calculate D2E/DX2 analytically  !
+ ! R59   R(54,56)                1.4489         calculate D2E/DX2 analytically  !
+ ! R60   R(55,85)                1.835          calculate D2E/DX2 analytically  !
+ ! R61   R(56,57)                1.087          calculate D2E/DX2 analytically  !
+ ! R62   R(56,58)                1.0962         calculate D2E/DX2 analytically  !
+ ! R63   R(56,59)                1.1116         calculate D2E/DX2 analytically  !
+ ! R64   R(60,61)                1.1119         calculate D2E/DX2 analytically  !
+ ! R65   R(61,62)                1.0957         calculate D2E/DX2 analytically  !
+ ! R66   R(61,63)                1.0963         calculate D2E/DX2 analytically  !
+ ! R67   R(61,64)                1.4135         calculate D2E/DX2 analytically  !
+ ! R68   R(64,65)                0.9839         calculate D2E/DX2 analytically  !
+ ! R69   R(65,72)                1.839          calculate D2E/DX2 analytically  !
+ ! R70   R(66,67)                1.1153         calculate D2E/DX2 analytically  !
+ ! R71   R(67,68)                1.0878         calculate D2E/DX2 analytically  !
+ ! R72   R(67,69)                1.0894         calculate D2E/DX2 analytically  !
+ ! R73   R(67,70)                1.4985         calculate D2E/DX2 analytically  !
+ ! R74   R(70,71)                1.2109         calculate D2E/DX2 analytically  !
+ ! R75   R(70,72)                1.3656         calculate D2E/DX2 analytically  !
+ ! R76   R(72,89)                1.0062         calculate D2E/DX2 analytically  !
+ ! R77   R(73,74)                1.0969         calculate D2E/DX2 analytically  !
+ ! R78   R(74,75)                1.7815         calculate D2E/DX2 analytically  !
+ ! R79   R(74,76)                1.35           calculate D2E/DX2 analytically  !
+ ! R80   R(75,84)                2.3621         calculate D2E/DX2 analytically  !
+ ! R81   R(76,77)                1.7808         calculate D2E/DX2 analytically  !
+ ! R82   R(76,78)                1.0571         calculate D2E/DX2 analytically  !
+ ! R83   R(77,84)                2.3868         calculate D2E/DX2 analytically  !
+ ! R84   R(79,80)                0.9888         calculate D2E/DX2 analytically  !
+ ! R85   R(79,81)                0.9742         calculate D2E/DX2 analytically  !
+ ! R86   R(82,83)                2.4314         calculate D2E/DX2 analytically  !
+ ! R87   R(83,84)                2.5304         calculate D2E/DX2 analytically  !
+ ! R88   R(83,87)                1.848          calculate D2E/DX2 analytically  !
+ ! R89   R(84,85)                2.1545         calculate D2E/DX2 analytically  !
+ ! R90   R(84,86)                1.7055         calculate D2E/DX2 analytically  !
+ ! R91   R(85,87)                1.2919         calculate D2E/DX2 analytically  !
+ ! R92   R(87,88)                1.2313         calculate D2E/DX2 analytically  !
+ ! A1    A(1,2,3)              121.055          calculate D2E/DX2 analytically  !
+ ! A2    A(1,2,4)              114.0307         calculate D2E/DX2 analytically  !
+ ! A3    A(3,2,4)              124.9128         calculate D2E/DX2 analytically  !
+ ! A4    A(2,4,5)              122.8489         calculate D2E/DX2 analytically  !
+ ! A5    A(2,4,6)              123.1404         calculate D2E/DX2 analytically  !
+ ! A6    A(5,4,6)              113.9441         calculate D2E/DX2 analytically  !
+ ! A7    A(7,8,9)              121.3539         calculate D2E/DX2 analytically  !
+ ! A8    A(7,8,10)             111.8232         calculate D2E/DX2 analytically  !
+ ! A9    A(9,8,10)             126.8179         calculate D2E/DX2 analytically  !
+ ! A10   A(8,9,80)             137.1681         calculate D2E/DX2 analytically  !
+ ! A11   A(8,9,81)             122.4229         calculate D2E/DX2 analytically  !
+ ! A12   A(80,9,81)             16.6159         calculate D2E/DX2 analytically  !
+ ! A13   A(8,10,11)            116.681          calculate D2E/DX2 analytically  !
+ ! A14   A(8,10,12)            126.7952         calculate D2E/DX2 analytically  !
+ ! A15   A(11,10,12)           116.3144         calculate D2E/DX2 analytically  !
+ ! A16   A(10,12,13)           110.5442         calculate D2E/DX2 analytically  !
+ ! A17   A(10,12,14)           112.5533         calculate D2E/DX2 analytically  !
+ ! A18   A(10,12,15)           109.2758         calculate D2E/DX2 analytically  !
+ ! A19   A(13,12,14)           107.0281         calculate D2E/DX2 analytically  !
+ ! A20   A(13,12,15)           108.9856         calculate D2E/DX2 analytically  !
+ ! A21   A(14,12,15)           108.3609         calculate D2E/DX2 analytically  !
+ ! A22   A(12,15,16)           122.9852         calculate D2E/DX2 analytically  !
+ ! A23   A(12,15,17)           114.1512         calculate D2E/DX2 analytically  !
+ ! A24   A(16,15,17)           122.6352         calculate D2E/DX2 analytically  !
+ ! A25   A(15,17,18)           118.6652         calculate D2E/DX2 analytically  !
+ ! A26   A(15,17,19)           125.4331         calculate D2E/DX2 analytically  !
+ ! A27   A(18,17,19)           115.874          calculate D2E/DX2 analytically  !
+ ! A28   A(17,19,20)           103.9523         calculate D2E/DX2 analytically  !
+ ! A29   A(17,19,21)           111.2088         calculate D2E/DX2 analytically  !
+ ! A30   A(17,19,22)           113.5214         calculate D2E/DX2 analytically  !
+ ! A31   A(20,19,21)           108.1871         calculate D2E/DX2 analytically  !
+ ! A32   A(20,19,22)           108.5642         calculate D2E/DX2 analytically  !
+ ! A33   A(21,19,22)           111.01           calculate D2E/DX2 analytically  !
+ ! A34   A(19,22,23)           122.2586         calculate D2E/DX2 analytically  !
+ ! A35   A(19,22,24)           114.6196         calculate D2E/DX2 analytically  !
+ ! A36   A(23,22,24)           123.1203         calculate D2E/DX2 analytically  !
+ ! A37   A(22,24,25)           121.3358         calculate D2E/DX2 analytically  !
+ ! A38   A(22,24,26)           122.7578         calculate D2E/DX2 analytically  !
+ ! A39   A(25,24,26)           115.831          calculate D2E/DX2 analytically  !
+ ! A40   A(24,26,27)           105.0209         calculate D2E/DX2 analytically  !
+ ! A41   A(24,26,28)           112.8758         calculate D2E/DX2 analytically  !
+ ! A42   A(24,26,29)           114.0687         calculate D2E/DX2 analytically  !
+ ! A43   A(27,26,28)           107.7574         calculate D2E/DX2 analytically  !
+ ! A44   A(27,26,29)           106.7098         calculate D2E/DX2 analytically  !
+ ! A45   A(28,26,29)           109.9126         calculate D2E/DX2 analytically  !
+ ! A46   A(26,29,30)           121.7353         calculate D2E/DX2 analytically  !
+ ! A47   A(26,29,31)           114.991          calculate D2E/DX2 analytically  !
+ ! A48   A(30,29,31)           123.229          calculate D2E/DX2 analytically  !
+ ! A49   A(29,31,32)           119.5703         calculate D2E/DX2 analytically  !
+ ! A50   A(29,31,33)           121.6051         calculate D2E/DX2 analytically  !
+ ! A51   A(32,31,33)           118.7825         calculate D2E/DX2 analytically  !
+ ! A52   A(31,33,34)           104.6263         calculate D2E/DX2 analytically  !
+ ! A53   A(31,33,35)           113.2196         calculate D2E/DX2 analytically  !
+ ! A54   A(31,33,39)           117.866          calculate D2E/DX2 analytically  !
+ ! A55   A(34,33,35)           107.284          calculate D2E/DX2 analytically  !
+ ! A56   A(34,33,39)           103.9424         calculate D2E/DX2 analytically  !
+ ! A57   A(35,33,39)           108.8827         calculate D2E/DX2 analytically  !
+ ! A58   A(33,35,36)           107.9129         calculate D2E/DX2 analytically  !
+ ! A59   A(33,35,37)           107.0916         calculate D2E/DX2 analytically  !
+ ! A60   A(33,35,38)           118.3327         calculate D2E/DX2 analytically  !
+ ! A61   A(36,35,37)           110.006          calculate D2E/DX2 analytically  !
+ ! A62   A(36,35,38)           109.8589         calculate D2E/DX2 analytically  !
+ ! A63   A(37,35,38)           103.384          calculate D2E/DX2 analytically  !
+ ! A64   A(35,38,82)           107.3411         calculate D2E/DX2 analytically  !
+ ! A65   A(33,39,40)           116.1593         calculate D2E/DX2 analytically  !
+ ! A66   A(33,39,41)           118.7486         calculate D2E/DX2 analytically  !
+ ! A67   A(40,39,41)           124.9768         calculate D2E/DX2 analytically  !
+ ! A68   A(39,41,42)           119.99           calculate D2E/DX2 analytically  !
+ ! A69   A(39,41,43)           126.2047         calculate D2E/DX2 analytically  !
+ ! A70   A(42,41,43)           113.5514         calculate D2E/DX2 analytically  !
+ ! A71   A(41,43,44)           105.6437         calculate D2E/DX2 analytically  !
+ ! A72   A(41,43,45)           112.3995         calculate D2E/DX2 analytically  !
+ ! A73   A(41,43,50)           114.7257         calculate D2E/DX2 analytically  !
+ ! A74   A(44,43,45)           107.0406         calculate D2E/DX2 analytically  !
+ ! A75   A(44,43,50)           104.9333         calculate D2E/DX2 analytically  !
+ ! A76   A(45,43,50)           111.3395         calculate D2E/DX2 analytically  !
+ ! A77   A(43,44,57)           157.8618         calculate D2E/DX2 analytically  !
+ ! A78   A(43,45,46)           110.5734         calculate D2E/DX2 analytically  !
+ ! A79   A(43,45,47)           110.1385         calculate D2E/DX2 analytically  !
+ ! A80   A(43,45,48)           107.6262         calculate D2E/DX2 analytically  !
+ ! A81   A(46,45,47)           110.0551         calculate D2E/DX2 analytically  !
+ ! A82   A(46,45,48)           108.2044         calculate D2E/DX2 analytically  !
+ ! A83   A(47,45,48)           110.1922         calculate D2E/DX2 analytically  !
+ ! A84   A(45,48,49)           107.2339         calculate D2E/DX2 analytically  !
+ ! A85   A(45,48,89)           106.4298         calculate D2E/DX2 analytically  !
+ ! A86   A(49,48,89)           110.9817         calculate D2E/DX2 analytically  !
+ ! A87   A(51,52,53)           120.8154         calculate D2E/DX2 analytically  !
+ ! A88   A(51,52,54)           113.5394         calculate D2E/DX2 analytically  !
+ ! A89   A(53,52,54)           125.6286         calculate D2E/DX2 analytically  !
+ ! A90   A(52,54,55)           119.9306         calculate D2E/DX2 analytically  !
+ ! A91   A(52,54,56)           121.4487         calculate D2E/DX2 analytically  !
+ ! A92   A(55,54,56)           118.3044         calculate D2E/DX2 analytically  !
+ ! A93   A(54,56,57)           107.3237         calculate D2E/DX2 analytically  !
+ ! A94   A(54,56,58)           110.4721         calculate D2E/DX2 analytically  !
+ ! A95   A(54,56,59)           115.1913         calculate D2E/DX2 analytically  !
+ ! A96   A(57,56,58)           107.9304         calculate D2E/DX2 analytically  !
+ ! A97   A(57,56,59)           107.6159         calculate D2E/DX2 analytically  !
+ ! A98   A(58,56,59)           108.0537         calculate D2E/DX2 analytically  !
+ ! A99   A(44,57,56)           154.3128         calculate D2E/DX2 analytically  !
+ ! A100  A(60,61,62)           106.9519         calculate D2E/DX2 analytically  !
+ ! A101  A(60,61,63)           108.7441         calculate D2E/DX2 analytically  !
+ ! A102  A(60,61,64)           113.3693         calculate D2E/DX2 analytically  !
+ ! A103  A(62,61,63)           107.8151         calculate D2E/DX2 analytically  !
+ ! A104  A(62,61,64)           111.8946         calculate D2E/DX2 analytically  !
+ ! A105  A(63,61,64)           107.9002         calculate D2E/DX2 analytically  !
+ ! A106  A(61,64,65)           103.5444         calculate D2E/DX2 analytically  !
+ ! A107  A(64,65,72)           164.4749         calculate D2E/DX2 analytically  !
+ ! A108  A(66,67,68)           110.1231         calculate D2E/DX2 analytically  !
+ ! A109  A(66,67,69)           109.1098         calculate D2E/DX2 analytically  !
+ ! A110  A(66,67,70)           107.9988         calculate D2E/DX2 analytically  !
+ ! A111  A(68,67,69)           109.8118         calculate D2E/DX2 analytically  !
+ ! A112  A(68,67,70)           111.0246         calculate D2E/DX2 analytically  !
+ ! A113  A(69,67,70)           108.7232         calculate D2E/DX2 analytically  !
+ ! A114  A(67,70,71)           124.7259         calculate D2E/DX2 analytically  !
+ ! A115  A(67,70,72)           113.174          calculate D2E/DX2 analytically  !
+ ! A116  A(71,70,72)           122.0592         calculate D2E/DX2 analytically  !
+ ! A117  A(65,72,70)           111.553          calculate D2E/DX2 analytically  !
+ ! A118  A(65,72,89)           103.0935         calculate D2E/DX2 analytically  !
+ ! A119  A(70,72,89)           112.0992         calculate D2E/DX2 analytically  !
+ ! A120  A(73,74,75)           117.3231         calculate D2E/DX2 analytically  !
+ ! A121  A(73,74,76)           122.7555         calculate D2E/DX2 analytically  !
+ ! A122  A(75,74,76)           119.6853         calculate D2E/DX2 analytically  !
+ ! A123  A(74,75,84)           105.6924         calculate D2E/DX2 analytically  !
+ ! A124  A(74,76,77)           123.5879         calculate D2E/DX2 analytically  !
+ ! A125  A(74,76,78)           116.6413         calculate D2E/DX2 analytically  !
+ ! A126  A(77,76,78)           119.3208         calculate D2E/DX2 analytically  !
+ ! A127  A(76,77,84)           102.9293         calculate D2E/DX2 analytically  !
+ ! A128  A(80,79,81)           100.2962         calculate D2E/DX2 analytically  !
+ ! A129  A(9,80,79)            112.1629         calculate D2E/DX2 analytically  !
+ ! A130  A(9,81,79)            112.712          calculate D2E/DX2 analytically  !
+ ! A131  A(38,82,83)           159.7903         calculate D2E/DX2 analytically  !
+ ! A132  A(82,83,84)           133.6352         calculate D2E/DX2 analytically  !
+ ! A133  A(82,83,87)            69.8291         calculate D2E/DX2 analytically  !
+ ! A134  A(84,83,87)            77.944          calculate D2E/DX2 analytically  !
+ ! A135  A(75,84,77)            85.5839         calculate D2E/DX2 analytically  !
+ ! A136  A(75,84,83)           136.64           calculate D2E/DX2 analytically  !
+ ! A137  A(75,84,85)            89.5443         calculate D2E/DX2 analytically  !
+ ! A138  A(75,84,86)           108.7126         calculate D2E/DX2 analytically  !
+ ! A139  A(77,84,83)           103.3575         calculate D2E/DX2 analytically  !
+ ! A140  A(77,84,85)           157.771          calculate D2E/DX2 analytically  !
+ ! A141  A(77,84,86)            99.7581         calculate D2E/DX2 analytically  !
+ ! A142  A(83,84,85)            66.2449         calculate D2E/DX2 analytically  !
+ ! A143  A(83,84,86)           111.2528         calculate D2E/DX2 analytically  !
+ ! A144  A(85,84,86)           102.346          calculate D2E/DX2 analytically  !
+ ! A145  A(55,85,84)           118.2753         calculate D2E/DX2 analytically  !
+ ! A146  A(55,85,87)           130.0398         calculate D2E/DX2 analytically  !
+ ! A147  A(84,85,87)           106.2078         calculate D2E/DX2 analytically  !
+ ! A148  A(83,87,85)           109.1729         calculate D2E/DX2 analytically  !
+ ! A149  A(83,87,88)           122.4352         calculate D2E/DX2 analytically  !
+ ! A150  A(85,87,88)           128.2195         calculate D2E/DX2 analytically  !
+ ! A151  L(4,5,86,79,-1)       187.0823         calculate D2E/DX2 analytically  !
+ ! A152  L(54,55,85,40,-1)     189.7325         calculate D2E/DX2 analytically  !
+ ! A153  L(5,86,84,9,-1)       185.0133         calculate D2E/DX2 analytically  !
+ ! A154  L(48,89,72,7,-1)      173.0685         calculate D2E/DX2 analytically  !
+ ! A155  L(4,5,86,79,-2)       175.6515         calculate D2E/DX2 analytically  !
+ ! A156  L(54,55,85,40,-2)     177.1042         calculate D2E/DX2 analytically  !
+ ! A157  L(5,86,84,9,-2)       174.9152         calculate D2E/DX2 analytically  !
+ ! A158  L(48,89,72,7,-2)      168.0666         calculate D2E/DX2 analytically  !
+ ! D1    D(1,2,4,5)            175.8046         calculate D2E/DX2 analytically  !
+ ! D2    D(1,2,4,6)             -1.048          calculate D2E/DX2 analytically  !
+ ! D3    D(3,2,4,5)             -3.7606         calculate D2E/DX2 analytically  !
+ ! D4    D(3,2,4,6)            179.3869         calculate D2E/DX2 analytically  !
+ ! D5    D(2,4,84,75)         -119.068          calculate D2E/DX2 analytically  !
+ ! D6    D(2,4,84,77)          -31.0785         calculate D2E/DX2 analytically  !
+ ! D7    D(2,4,84,83)           80.0828         calculate D2E/DX2 analytically  !
+ ! D8    D(2,4,84,85)          148.8688         calculate D2E/DX2 analytically  !
+ ! D9    D(6,4,84,75)           50.4895         calculate D2E/DX2 analytically  !
+ ! D10   D(6,4,84,77)          138.479          calculate D2E/DX2 analytically  !
+ ! D11   D(6,4,84,83)         -110.3596         calculate D2E/DX2 analytically  !
+ ! D12   D(6,4,84,85)          -41.5737         calculate D2E/DX2 analytically  !
+ ! D13   D(7,8,9,80)          -103.5292         calculate D2E/DX2 analytically  !
+ ! D14   D(7,8,9,81)           -93.4686         calculate D2E/DX2 analytically  !
+ ! D15   D(10,8,9,80)           77.3511         calculate D2E/DX2 analytically  !
+ ! D16   D(10,8,9,81)           87.4117         calculate D2E/DX2 analytically  !
+ ! D17   D(7,8,10,11)            5.0132         calculate D2E/DX2 analytically  !
+ ! D18   D(7,8,10,12)          179.5311         calculate D2E/DX2 analytically  !
+ ! D19   D(9,8,10,11)         -175.7966         calculate D2E/DX2 analytically  !
+ ! D20   D(9,8,10,12)           -1.2787         calculate D2E/DX2 analytically  !
+ ! D21   D(8,9,80,79)           56.6637         calculate D2E/DX2 analytically  !
+ ! D22   D(81,9,80,79)          25.6215         calculate D2E/DX2 analytically  !
+ ! D23   D(8,9,81,79)          178.395          calculate D2E/DX2 analytically  !
+ ! D24   D(80,9,81,79)         -26.1444         calculate D2E/DX2 analytically  !
+ ! D25   D(8,10,12,13)         -83.7151         calculate D2E/DX2 analytically  !
+ ! D26   D(8,10,12,14)          35.9064         calculate D2E/DX2 analytically  !
+ ! D27   D(8,10,12,15)         156.3429         calculate D2E/DX2 analytically  !
+ ! D28   D(11,10,12,13)         90.8203         calculate D2E/DX2 analytically  !
+ ! D29   D(11,10,12,14)       -149.5582         calculate D2E/DX2 analytically  !
+ ! D30   D(11,10,12,15)        -29.1217         calculate D2E/DX2 analytically  !
+ ! D31   D(10,12,15,16)        -24.1428         calculate D2E/DX2 analytically  !
+ ! D32   D(10,12,15,17)        161.2219         calculate D2E/DX2 analytically  !
+ ! D33   D(13,12,15,16)       -145.0386         calculate D2E/DX2 analytically  !
+ ! D34   D(13,12,15,17)         40.3261         calculate D2E/DX2 analytically  !
+ ! D35   D(14,12,15,16)         98.8264         calculate D2E/DX2 analytically  !
+ ! D36   D(14,12,15,17)        -75.809          calculate D2E/DX2 analytically  !
+ ! D37   D(12,15,17,18)        -12.494          calculate D2E/DX2 analytically  !
+ ! D38   D(12,15,17,19)        165.5099         calculate D2E/DX2 analytically  !
+ ! D39   D(16,15,17,18)        172.8495         calculate D2E/DX2 analytically  !
+ ! D40   D(16,15,17,19)         -9.1466         calculate D2E/DX2 analytically  !
+ ! D41   D(15,17,19,20)       -170.6337         calculate D2E/DX2 analytically  !
+ ! D42   D(15,17,19,21)        -54.4414         calculate D2E/DX2 analytically  !
+ ! D43   D(15,17,19,22)         71.5972         calculate D2E/DX2 analytically  !
+ ! D44   D(18,17,19,20)          7.4197         calculate D2E/DX2 analytically  !
+ ! D45   D(18,17,19,21)        123.612          calculate D2E/DX2 analytically  !
+ ! D46   D(18,17,19,22)       -110.3494         calculate D2E/DX2 analytically  !
+ ! D47   D(17,19,22,23)       -121.0993         calculate D2E/DX2 analytically  !
+ ! D48   D(17,19,22,24)         58.4737         calculate D2E/DX2 analytically  !
+ ! D49   D(20,19,22,23)        123.8402         calculate D2E/DX2 analytically  !
+ ! D50   D(20,19,22,24)        -56.5868         calculate D2E/DX2 analytically  !
+ ! D51   D(21,19,22,23)          5.0445         calculate D2E/DX2 analytically  !
+ ! D52   D(21,19,22,24)       -175.3824         calculate D2E/DX2 analytically  !
+ ! D53   D(19,22,24,25)          2.7814         calculate D2E/DX2 analytically  !
+ ! D54   D(19,22,24,26)        179.4898         calculate D2E/DX2 analytically  !
+ ! D55   D(23,22,24,25)       -177.6497         calculate D2E/DX2 analytically  !
+ ! D56   D(23,22,24,26)         -0.9412         calculate D2E/DX2 analytically  !
+ ! D57   D(22,24,26,27)        174.1491         calculate D2E/DX2 analytically  !
+ ! D58   D(22,24,26,28)        -68.7247         calculate D2E/DX2 analytically  !
+ ! D59   D(22,24,26,29)         57.668          calculate D2E/DX2 analytically  !
+ ! D60   D(25,24,26,27)         -8.9742         calculate D2E/DX2 analytically  !
+ ! D61   D(25,24,26,28)        108.152          calculate D2E/DX2 analytically  !
+ ! D62   D(25,24,26,29)       -125.4553         calculate D2E/DX2 analytically  !
+ ! D63   D(24,26,29,30)       -128.7955         calculate D2E/DX2 analytically  !
+ ! D64   D(24,26,29,31)         53.5618         calculate D2E/DX2 analytically  !
+ ! D65   D(27,26,29,30)        115.7081         calculate D2E/DX2 analytically  !
+ ! D66   D(27,26,29,31)        -61.9346         calculate D2E/DX2 analytically  !
+ ! D67   D(28,26,29,30)         -0.8708         calculate D2E/DX2 analytically  !
+ ! D68   D(28,26,29,31)       -178.5135         calculate D2E/DX2 analytically  !
+ ! D69   D(26,29,31,32)         -1.4946         calculate D2E/DX2 analytically  !
+ ! D70   D(26,29,31,33)       -179.1049         calculate D2E/DX2 analytically  !
+ ! D71   D(30,29,31,32)       -179.0978         calculate D2E/DX2 analytically  !
+ ! D72   D(30,29,31,33)          3.2919         calculate D2E/DX2 analytically  !
+ ! D73   D(29,31,33,34)         12.8999         calculate D2E/DX2 analytically  !
+ ! D74   D(29,31,33,35)        129.3924         calculate D2E/DX2 analytically  !
+ ! D75   D(29,31,33,39)       -101.9131         calculate D2E/DX2 analytically  !
+ ! D76   D(32,31,33,34)       -164.7287         calculate D2E/DX2 analytically  !
+ ! D77   D(32,31,33,35)        -48.2362         calculate D2E/DX2 analytically  !
+ ! D78   D(32,31,33,39)         80.4582         calculate D2E/DX2 analytically  !
+ ! D79   D(31,33,35,36)        -45.9719         calculate D2E/DX2 analytically  !
+ ! D80   D(31,33,35,37)       -164.3671         calculate D2E/DX2 analytically  !
+ ! D81   D(31,33,35,38)         79.4705         calculate D2E/DX2 analytically  !
+ ! D82   D(34,33,35,36)         68.9418         calculate D2E/DX2 analytically  !
+ ! D83   D(34,33,35,37)        -49.4533         calculate D2E/DX2 analytically  !
+ ! D84   D(34,33,35,38)       -165.6158         calculate D2E/DX2 analytically  !
+ ! D85   D(39,33,35,36)       -179.1498         calculate D2E/DX2 analytically  !
+ ! D86   D(39,33,35,37)         62.455          calculate D2E/DX2 analytically  !
+ ! D87   D(39,33,35,38)        -53.7074         calculate D2E/DX2 analytically  !
+ ! D88   D(31,33,39,40)        168.9066         calculate D2E/DX2 analytically  !
+ ! D89   D(31,33,39,41)        -14.8005         calculate D2E/DX2 analytically  !
+ ! D90   D(34,33,39,40)         53.7202         calculate D2E/DX2 analytically  !
+ ! D91   D(34,33,39,41)       -129.9869         calculate D2E/DX2 analytically  !
+ ! D92   D(35,33,39,40)        -60.3876         calculate D2E/DX2 analytically  !
+ ! D93   D(35,33,39,41)        115.9054         calculate D2E/DX2 analytically  !
+ ! D94   D(33,35,38,82)        -48.0429         calculate D2E/DX2 analytically  !
+ ! D95   D(36,35,38,82)         76.4475         calculate D2E/DX2 analytically  !
+ ! D96   D(37,35,38,82)       -166.1755         calculate D2E/DX2 analytically  !
+ ! D97   D(35,38,82,83)        -45.2041         calculate D2E/DX2 analytically  !
+ ! D98   D(33,39,41,42)          6.6724         calculate D2E/DX2 analytically  !
+ ! D99   D(33,39,41,43)       -179.5057         calculate D2E/DX2 analytically  !
+ ! D100  D(40,39,41,42)       -177.3889         calculate D2E/DX2 analytically  !
+ ! D101  D(40,39,41,43)         -3.5671         calculate D2E/DX2 analytically  !
+ ! D102  D(39,41,43,44)        178.8307         calculate D2E/DX2 analytically  !
+ ! D103  D(39,41,43,45)        -64.7733         calculate D2E/DX2 analytically  !
+ ! D104  D(39,41,43,50)         63.7706         calculate D2E/DX2 analytically  !
+ ! D105  D(42,41,43,44)         -7.0053         calculate D2E/DX2 analytically  !
+ ! D106  D(42,41,43,45)        109.3908         calculate D2E/DX2 analytically  !
+ ! D107  D(42,41,43,50)       -122.0654         calculate D2E/DX2 analytically  !
+ ! D108  D(41,43,44,57)       -102.3899         calculate D2E/DX2 analytically  !
+ ! D109  D(45,43,44,57)        137.6285         calculate D2E/DX2 analytically  !
+ ! D110  D(50,43,44,57)         19.2267         calculate D2E/DX2 analytically  !
+ ! D111  D(41,43,45,46)         66.2832         calculate D2E/DX2 analytically  !
+ ! D112  D(41,43,45,47)       -171.8613         calculate D2E/DX2 analytically  !
+ ! D113  D(41,43,45,48)        -51.7111         calculate D2E/DX2 analytically  !
+ ! D114  D(44,43,45,46)       -178.1615         calculate D2E/DX2 analytically  !
+ ! D115  D(44,43,45,47)        -56.306          calculate D2E/DX2 analytically  !
+ ! D116  D(44,43,45,48)         63.8443         calculate D2E/DX2 analytically  !
+ ! D117  D(50,43,45,46)        -64.0125         calculate D2E/DX2 analytically  !
+ ! D118  D(50,43,45,47)         57.843          calculate D2E/DX2 analytically  !
+ ! D119  D(50,43,45,48)        177.9933         calculate D2E/DX2 analytically  !
+ ! D120  D(43,44,57,56)       -113.519          calculate D2E/DX2 analytically  !
+ ! D121  D(43,45,48,49)       -161.3983         calculate D2E/DX2 analytically  !
+ ! D122  D(43,45,48,89)        -42.5603         calculate D2E/DX2 analytically  !
+ ! D123  D(46,45,48,49)         79.0879         calculate D2E/DX2 analytically  !
+ ! D124  D(46,45,48,89)       -162.0742         calculate D2E/DX2 analytically  !
+ ! D125  D(47,45,48,49)        -41.282          calculate D2E/DX2 analytically  !
+ ! D126  D(47,45,48,89)         77.556          calculate D2E/DX2 analytically  !
+ ! D127  D(45,48,72,65)       -122.364          calculate D2E/DX2 analytically  !
+ ! D128  D(45,48,72,70)        119.3842         calculate D2E/DX2 analytically  !
+ ! D129  D(49,48,72,65)         -2.7385         calculate D2E/DX2 analytically  !
+ ! D130  D(49,48,72,70)       -120.9903         calculate D2E/DX2 analytically  !
+ ! D131  D(51,52,54,55)          3.9505         calculate D2E/DX2 analytically  !
+ ! D132  D(51,52,54,56)        177.3821         calculate D2E/DX2 analytically  !
+ ! D133  D(53,52,54,55)       -177.5331         calculate D2E/DX2 analytically  !
+ ! D134  D(53,52,54,56)         -4.1016         calculate D2E/DX2 analytically  !
+ ! D135  D(52,54,85,84)        -77.2296         calculate D2E/DX2 analytically  !
+ ! D136  D(52,54,85,87)        129.6954         calculate D2E/DX2 analytically  !
+ ! D137  D(56,54,85,84)        106.76           calculate D2E/DX2 analytically  !
+ ! D138  D(56,54,85,87)        -46.3151         calculate D2E/DX2 analytically  !
+ ! D139  D(52,54,56,57)       -178.0276         calculate D2E/DX2 analytically  !
+ ! D140  D(52,54,56,58)        -60.5966         calculate D2E/DX2 analytically  !
+ ! D141  D(52,54,56,59)         62.1671         calculate D2E/DX2 analytically  !
+ ! D142  D(55,54,56,57)         -4.4926         calculate D2E/DX2 analytically  !
+ ! D143  D(55,54,56,58)        112.9384         calculate D2E/DX2 analytically  !
+ ! D144  D(55,54,56,59)       -124.2979         calculate D2E/DX2 analytically  !
+ ! D145  D(54,56,57,44)       -163.3495         calculate D2E/DX2 analytically  !
+ ! D146  D(58,56,57,44)         77.5723         calculate D2E/DX2 analytically  !
+ ! D147  D(59,56,57,44)        -38.8189         calculate D2E/DX2 analytically  !
+ ! D148  D(60,61,64,65)         62.3808         calculate D2E/DX2 analytically  !
+ ! D149  D(62,61,64,65)        -58.6817         calculate D2E/DX2 analytically  !
+ ! D150  D(63,61,64,65)       -177.1263         calculate D2E/DX2 analytically  !
+ ! D151  D(61,64,65,72)       -179.5081         calculate D2E/DX2 analytically  !
+ ! D152  D(64,65,72,70)         24.6645         calculate D2E/DX2 analytically  !
+ ! D153  D(64,65,72,89)        -95.8102         calculate D2E/DX2 analytically  !
+ ! D154  D(66,67,70,71)        102.0946         calculate D2E/DX2 analytically  !
+ ! D155  D(66,67,70,72)        -75.6156         calculate D2E/DX2 analytically  !
+ ! D156  D(68,67,70,71)        -18.7304         calculate D2E/DX2 analytically  !
+ ! D157  D(68,67,70,72)        163.5594         calculate D2E/DX2 analytically  !
+ ! D158  D(69,67,70,71)       -139.6387         calculate D2E/DX2 analytically  !
+ ! D159  D(69,67,70,72)         42.6512         calculate D2E/DX2 analytically  !
+ ! D160  D(67,70,72,65)        -25.7237         calculate D2E/DX2 analytically  !
+ ! D161  D(67,70,72,89)         89.3171         calculate D2E/DX2 analytically  !
+ ! D162  D(71,70,72,65)        156.4969         calculate D2E/DX2 analytically  !
+ ! D163  D(71,70,72,89)        -88.4624         calculate D2E/DX2 analytically  !
+ ! D164  D(73,74,75,84)       -170.1714         calculate D2E/DX2 analytically  !
+ ! D165  D(76,74,75,84)          4.4011         calculate D2E/DX2 analytically  !
+ ! D166  D(73,74,76,77)       -177.1393         calculate D2E/DX2 analytically  !
+ ! D167  D(73,74,76,78)         10.6284         calculate D2E/DX2 analytically  !
+ ! D168  D(75,74,76,77)          8.5955         calculate D2E/DX2 analytically  !
+ ! D169  D(75,74,76,78)       -163.6368         calculate D2E/DX2 analytically  !
+ ! D170  D(74,75,84,77)        -10.4711         calculate D2E/DX2 analytically  !
+ ! D171  D(74,75,84,83)       -115.2868         calculate D2E/DX2 analytically  !
+ ! D172  D(74,75,84,85)       -168.7628         calculate D2E/DX2 analytically  !
+ ! D173  D(74,75,84,86)         88.3483         calculate D2E/DX2 analytically  !
+ ! D174  D(74,76,77,84)        -16.3442         calculate D2E/DX2 analytically  !
+ ! D175  D(78,76,77,84)        155.6914         calculate D2E/DX2 analytically  !
+ ! D176  D(76,77,84,75)         13.245          calculate D2E/DX2 analytically  !
+ ! D177  D(76,77,84,83)        150.2285         calculate D2E/DX2 analytically  !
+ ! D178  D(76,77,84,85)         91.1193         calculate D2E/DX2 analytically  !
+ ! D179  D(76,77,84,86)        -95.0084         calculate D2E/DX2 analytically  !
+ ! D180  D(81,79,80,9)         -42.2772         calculate D2E/DX2 analytically  !
+ ! D181  D(80,79,81,9)          42.4877         calculate D2E/DX2 analytically  !
+ ! D182  D(38,82,83,84)        127.1826         calculate D2E/DX2 analytically  !
+ ! D183  D(38,82,83,87)        176.0578         calculate D2E/DX2 analytically  !
+ ! D184  D(82,83,84,75)        -18.4811         calculate D2E/DX2 analytically  !
+ ! D185  D(82,83,84,77)       -116.308          calculate D2E/DX2 analytically  !
+ ! D186  D(82,83,84,85)         42.9171         calculate D2E/DX2 analytically  !
+ ! D187  D(82,83,84,86)        137.4756         calculate D2E/DX2 analytically  !
+ ! D188  D(87,83,84,75)        -64.786          calculate D2E/DX2 analytically  !
+ ! D189  D(87,83,84,77)       -162.6129         calculate D2E/DX2 analytically  !
+ ! D190  D(87,83,84,85)         -3.3878         calculate D2E/DX2 analytically  !
+ ! D191  D(87,83,84,86)         91.1707         calculate D2E/DX2 analytically  !
+ ! D192  D(82,83,87,85)       -140.6384         calculate D2E/DX2 analytically  !
+ ! D193  D(82,83,87,88)         34.9517         calculate D2E/DX2 analytically  !
+ ! D194  D(84,83,87,85)          5.4798         calculate D2E/DX2 analytically  !
+ ! D195  D(84,83,87,88)       -178.93           calculate D2E/DX2 analytically  !
+ ! D196  D(75,84,85,55)         -8.6336         calculate D2E/DX2 analytically  !
+ ! D197  D(75,84,85,87)        147.8669         calculate D2E/DX2 analytically  !
+ ! D198  D(77,84,85,55)        -85.748          calculate D2E/DX2 analytically  !
+ ! D199  D(77,84,85,87)         70.7524         calculate D2E/DX2 analytically  !
+ ! D200  D(83,84,85,55)       -151.5619         calculate D2E/DX2 analytically  !
+ ! D201  D(83,84,85,87)          4.9386         calculate D2E/DX2 analytically  !
+ ! D202  D(86,84,85,55)        100.4342         calculate D2E/DX2 analytically  !
+ ! D203  D(86,84,85,87)       -103.0654         calculate D2E/DX2 analytically  !
+ ! D204  D(55,85,87,83)        146.1392         calculate D2E/DX2 analytically  !
+ ! D205  D(55,85,87,88)        -29.1227         calculate D2E/DX2 analytically  !
+ ! D206  D(84,85,87,83)         -6.5589         calculate D2E/DX2 analytically  !
+ ! D207  D(84,85,87,88)        178.1793         calculate D2E/DX2 analytically  !
+ --------------------------------------------------------------------------------
+ Trust Radius=3.00D-01 FncErr=1.00D-07 GrdErr=1.00D-06
+ Number of steps in this run=    467 maximum allowed number of steps=    534.
+ Search for a saddle point of order  1.
+ GradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGradGrad
+
+                          Input orientation:                          
+ ---------------------------------------------------------------------
+ Center     Atomic      Atomic             Coordinates (Angstroms)
+ Number     Number       Type             X           Y           Z
+ ---------------------------------------------------------------------
+      1          1           0       98.882108  151.357940  147.379222
+      2          6           0       98.677014  150.333840  146.938252
+      3          8           0       98.424696  150.197472  145.746109
+      4          7           0       98.730469  149.331654  147.833096
+      5          1           0       98.506011  148.361496  147.594556
+      6          1           0       98.952853  149.475486  148.821436
+      7          1           0      103.369320  140.508174  144.263305
+      8          6           0      102.995184  141.448654  143.761340
+      9          8           0      103.772460  142.294974  143.330427
+     10          7           0      101.642839  141.482413  143.699503
+     11          1           0      101.141642  140.722065  144.169267
+     12          6           0      100.822014  142.542364  143.131472
+     13          1           0      100.667443  143.346265  143.865743
+     14          1           0      101.288905  143.009281  142.227658
+     15          6           0       99.458036  141.965766  142.727770
+     16          8           0       99.285036  140.784314  142.472133
+     17          7           0       98.480023  142.904938  142.566652
+     18          1           0       98.651655  143.850304  142.900406
+     19          6           0       97.191865  142.684368  141.906736
+     20          1           0       96.764040  143.688157  141.820849
+     21          1           0       97.330781  142.273852  140.873533
+     22          6           0       96.222439  141.805327  142.725906
+     23          8           0       95.770388  140.752544  142.293195
+     24          7           0       95.924132  142.289596  143.958045
+     25          1           0       96.286067  143.182319  144.275817
+     26          6           0       95.020660  141.609504  144.873800
+     27          1           0       95.072723  142.182723  145.799926
+     28          1           0       93.957735  141.620929  144.524718
+     29          6           0       95.446430  140.160221  145.222111
+     30          8           0       94.667662  139.216153  145.120650
+     31          7           0       96.723535  140.030663  145.692383
+     32          1           0       97.316102  140.851804  145.765910
+     33          6           0       97.276824  138.735855  146.044193
+     34          1           0       96.571447  138.011613  145.627233
+     35          6           0       98.652650  138.463862  145.393790
+     36          1           0       98.587929  138.745499  144.340945
+     37          1           0       98.843288  137.393778  145.482723
+     38         16           0      100.149301  139.229452  146.156946
+     39          6           0       97.349816  138.364108  147.543977
+     40          8           0       97.622172  137.190118  147.799964
+     41          7           0       97.190624  139.345041  148.468043
+     42          1           0       96.927849  140.278079  148.175534
+     43          6           0       97.238961  139.179135  149.925913
+     44          1           0       97.092012  140.175611  150.339897
+     45          6           0       96.103304  138.305597  150.449511
+     46          1           0       96.212451  137.286554  150.096033
+     47          1           0       96.087672  138.323756  151.549190
+     48          8           0       94.862919  138.836740  149.923049
+     49          1           0       94.118461  138.474730  150.492732
+     50          1           0       98.227749  138.843893  150.325915
+     51          1           0       98.477020  145.745648  151.502047
+     52          6           0       98.092652  144.848274  152.077716
+     53          8           0       97.815480  144.937831  153.272631
+     54          7           0       97.956532  143.746477  151.324244
+     55          1           0       98.248804  143.758629  150.349277
+     56          6           0       97.530680  142.486034  151.898157
+     57          1           0       97.532697  141.749341  151.098882
+     58          1           0       98.240757  142.154376  152.664597
+     59          1           0       96.514581  142.490649  152.348835
+     60          1           0       93.704308  143.465917  152.774787
+     61          6           0       92.938969  142.682726  152.581766
+     62          1           0       93.257622  141.784504  153.122418
+     63          1           0       91.984017  143.010394  153.009176
+     64          8           0       92.734223  142.425608  151.207010
+     65          1           0       93.608883  142.094251  150.901806
+     66          1           0       92.947432  140.971379  148.096091
+     67          6           0       93.433191  141.972445  148.171642
+     68          1           0       93.368438  142.492721  147.218559
+     69          1           0       92.932637  142.554310  148.944680
+     70          6           0       94.861436  141.764829  148.574871
+     71          8           0       95.806521  141.821594  147.820015
+     72          8           0       95.006548  141.449281  149.895599
+     73          1           0       93.290395  145.554548  148.908835
+     74          6           0       94.161386  145.420639  148.255698
+     75         16           0       95.694421  144.939712  149.025365
+     76          6           0       94.137197  145.710344  146.937334
+     77         16           0       95.513846  145.432912  145.842268
+     78          1           0       93.292370  146.237958  146.583399
+     79          8           0      105.902447  146.983791  145.684740
+     80          1           0      105.496050  146.997572  144.783439
+     81          1           0      105.264654  146.416820  146.154680
+     82         29           0       99.699080  141.332250  146.500674
+     83         16           0       98.894938  143.589974  146.091398
+     84         42           0       97.343947  145.145624  147.347272
+     85          8           0       98.738934  144.101700  148.614536
+     86          8           0       97.952074  146.738889  147.370357
+     87          6           0       99.518173  143.439918  147.824668
+     88          8           0      100.479184  142.729830  148.121745
+     89          1           0       94.962933  140.456671  150.054658
+ ---------------------------------------------------------------------
+ Stoichiometry    C21H40CuMoN7O15S4(1+,2)
+ Framework group  C1[X(C21H40CuMoN7O15S4)]
+ Deg. of freedom   261
+ Full point group                 C1      NOp   1
+ Largest Abelian subgroup         C1      NOp   1
+ Largest concise Abelian subgroup C1      NOp   1
+                         Standard orientation:                         
+ ---------------------------------------------------------------------
+ Center     Atomic      Atomic             Coordinates (Angstroms)
+ Number     Number       Type             X           Y           Z
+ ---------------------------------------------------------------------
+      1          1           0       -0.600497    8.665240    0.740904
+      2          6           0       -0.785971    7.567256    0.953811
+      3          8           0       -1.500653    7.215641    1.886046
+      4          7           0       -0.153892    6.731685    0.111033
+      5          1           0       -0.176422    5.713521    0.217446
+      6          1           0        0.429635    7.055328   -0.664667
+      7          1           0       -5.876949   -1.671862   -2.845849
+      8          6           0       -6.002287   -0.888918   -2.041027
+      9          8           0       -6.846584   -0.003500   -2.137461
+     10          7           0       -5.141515   -1.081015   -1.013422
+     11          1           0       -4.453863   -1.832679   -1.123611
+     12          6           0       -5.016833   -0.262650    0.184343
+     13          1           0       -4.371709    0.606938   -0.007843
+     14          1           0       -6.002304    0.132299    0.538942
+     15          6           0       -4.399409   -1.103311    1.310376
+     16          8           0       -4.468271   -2.322000    1.344482
+     17          7           0       -3.866960   -0.367029    2.329640
+     18          1           0       -3.738271    0.632753    2.193843
+     19          6           0       -3.491897   -0.886500    3.646063
+     20          1           0       -3.272813    0.011879    4.231658
+     21          1           0       -4.349887   -1.419429    4.131004
+     22          6           0       -2.230588   -1.776443    3.620775
+     23          8           0       -2.244227   -2.940587    4.000937
+     24          7           0       -1.118435   -1.167229    3.137407
+     25          1           0       -1.128992   -0.190839    2.862667
+     26          6           0        0.169498   -1.838071    3.044703
+     27          1           0        0.819335   -1.131916    2.526960
+     28          1           0        0.623197   -2.048737    4.045491
+     29          6           0        0.148283   -3.132241    2.191653
+     30          8           0        0.599022   -4.192897    2.615780
+     31          7           0       -0.358642   -2.984548    0.930641
+     32          1           0       -0.704753   -2.077734    0.632802
+     33          6           0       -0.463392   -4.107112    0.016691
+     34          1           0       -0.296815   -4.988735    0.641937
+     35          6           0       -1.867335   -4.250252   -0.614463
+     36          1           0       -2.606158   -4.143215    0.182202
+     37          1           0       -1.924850   -5.250713   -1.044698
+     38         16           0       -2.307816   -3.150246   -2.030253
+     39          6           0        0.601823   -4.233918   -1.097810
+     40          8           0        0.613868   -5.297747   -1.719166
+     41          7           0        1.390132   -3.163937   -1.371998
+     42          1           0        1.345544   -2.339160   -0.786398
+     43          6           0        2.439949   -3.100087   -2.396231
+     44          1           0        2.841569   -2.089269   -2.342476
+     45          6           0        3.593421   -4.055389   -2.106678
+     46          1           0        3.262128   -5.085211   -2.177528
+     47          1           0        4.419652   -3.875705   -2.810185
+     48          8           0        4.032411   -3.813762   -0.747732
+     49          1           0        4.955690   -4.200604   -0.659885
+     50          1           0        2.075050   -3.209614   -3.447394
+     51          1           0        2.752484    3.740740   -2.887651
+     52          6           0        3.440923    2.889848   -3.181671
+     53          8           0        4.512888    3.111710   -3.742327
+     54          7           0        2.977678    1.680318   -2.831460
+     55          1           0        2.058349    1.593006   -2.403274
+     56          6           0        3.694101    0.468264   -3.173664
+     57          1           0        3.102772   -0.369807   -2.813764
+     58          1           0        3.787922    0.372562   -4.261632
+     59          1           0        4.709751    0.378030   -2.731054
+     60          1           0        6.906165    0.944962   -0.760123
+     61          6           0        7.279321    0.029739   -0.250701
+     62          1           0        7.470391   -0.715038   -1.031371
+     63          1           0        8.235399    0.261015    0.233454
+     64          8           0        6.397754   -0.459423    0.740029
+     65          1           0        5.586191   -0.688835    0.233361
+     66          1           0        3.952774   -2.309671    2.301025
+     67          6           0        3.679052   -1.244027    2.118589
+     68          1           0        3.013295   -0.889213    2.902247
+     69          1           0        4.585827   -0.640511    2.103185
+     70          6           0        3.021362   -1.158412    0.774827
+     71          8           0        1.827419   -1.065105    0.595915
+     72          8           0        3.905154   -1.245649   -0.262599
+     73          1           0        4.307191    2.338827    2.523437
+     74          6           0        3.239165    2.249464    2.290027
+     75         16           0        2.784169    2.139907    0.571059
+     76          6           0        2.276150    2.331133    3.232645
+     77         16           0        0.541793    2.116317    2.890359
+     78          1           0        2.577916    2.658237    4.191457
+     79          8           0       -6.547191    5.263785   -4.194331
+     80          1           0       -6.943399    5.077593   -3.307739
+     81          1           0       -5.768600    4.679047   -4.163384
+     82         29           0       -1.759448   -1.118785   -1.468943
+     83         16           0       -1.533029    0.894763   -0.125133
+     84         42           0        0.432350    2.353085    0.517849
+     85          8           0        0.441354    1.746548   -1.549458
+     86          8           0        0.035255    4.008272    0.410538
+     87          6           0       -0.664448    1.107001   -1.742441
+     88          8           0       -1.085560    0.611877   -2.788165
+     89          1           0        4.056423   -2.197403   -0.552010
+ ---------------------------------------------------------------------
+ Rotational constants (GHZ):      0.0441794      0.0415920      0.0311822
+ Standard basis: def2SVP (5D, 7F)
+ There are   993 symmetry adapted cartesian basis functions of A   symmetry.
+ There are   936 symmetry adapted basis functions of A   symmetry.
+   936 basis functions,  1649 primitive gaussians,   993 cartesian basis functions
+   221 alpha electrons      220 beta electrons
+       nuclear repulsion energy      9800.7381335302 Hartrees.
+ NAtoms=   89 NActive=   89 NUniq=   89 SFac= 1.00D+00 NAtFMM=   60 NAOKFM=T Big=T
+ Integral buffers will be    131072 words long.
+ Raffenetti 2 integral format.
+ Two-electron integral symmetry is turned on.
+ Nuclear repulsion after empirical dispersion term =     9800.5097417034 Hartrees.
+ One-electron integrals computed using PRISM.
+   1 Symmetry operations used in ECPInt.
+ ECPInt:  NShTT=   93528 NPrTT=  350692 LenC2=   69019 LenP2D=  157043.
+ LDataN:  DoStor=T MaxTD1= 7 Len=  274
+ NBasis=   936 RedAO= T EigKep=  1.32D-03  NBF=   936
+ NBsUse=   936 1.00D-06 EigRej= -1.00D+00 NBFU=   936
+ Defaulting to unpruned grid for atomic number  42.
+ ExpMin= 3.30D-02 ExpMax= 7.64D+04 ExpMxC= 1.15D+04 IAcc=3 IRadAn=         5 AccDes= 0.00D+00
+ Harris functional with IExCor=  402 and IRadAn=       5 diagonalized for initial guess.
+ HarFok:  IExCor=  402 AccDes= 0.00D+00 IRadAn=         5 IDoV= 1 UseB2=F ITyADJ=14
+ ICtDFT=  3500011 ScaDFX=  1.000000  1.000000  1.000000  1.000000
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ FoFCou: FMM=F IPFlag=           0 FMFlag=      100000 FMFlg1=        2001
+         NFxFlg=           0 DoJE=T BraDBF=F KetDBF=T FulRan=T
+         wScrn=  0.000000 ICntrl=     500 IOpCl=  0 I1Cent=   200000004 NGrid=           0
+         NMat0=    1 NMatS0=      1 NMatT0=    0 NMatD0=    1 NMtDS0=    0 NMtDT0=    0
+ Petite list used in FoFCou.
+ Initial guess <Sx>= 0.0000 <Sy>= 0.0000 <Sz>= 0.5000 <S**2>= 0.7500 S= 0.5000
+ Requested convergence on RMS density matrix=1.00D-08 within 128 cycles.
+ Requested convergence on MAX density matrix=1.00D-06.
+ Requested convergence on             energy=1.00D-06.
+ No special actions if energy rises.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ Defaulting to unpruned grid for atomic number  42.
+ EnCoef did     4 forward-backward iterations
+ EnCoef did   100 forward-backward iterations
+ EnCoef did   100 forward-backward iterations
+ EnCoef did   100 forward-backward iterations
+ EnCoef did     3 forward-backward iterations
+ EnCoef did     3 forward-backward iterations
+ EnCoef did     2 forward-backward iterations
+ EnCoef did     5 forward-backward iterations
+ EnCoef did     5 forward-backward iterations
+ EnCoef did     2 forward-backward iterations
+ EnCoef did     3 forward-backward iterations
+ EnCoef did     4 forward-backward iterations
+ EnCoef did     4 forward-backward iterations
+ EnCoef did     4 forward-backward iterations
+ EnCoef did     2 forward-backward iterations
+ EnCoef did     5 forward-backward iterations
+ EnCoef did     1 forward-backward iterations
+ EnCoef did     2 forward-backward iterations
+ Restarting incremental Fock formation.
+ EnCoef did     3 forward-backward iterations
+ EnCoef did     1 forward-backward iterations
+ EnCoef did     2 forward-backward iterations
+ EnCoef did     2 forward-backward iterations
+ EnCoef did     3 forward-backward iterations
+ EnCoef did     2 forward-backward iterations
+ EnCoef did   100 forward-backward iterations
+ EnCoef did     2 forward-backward iterations
+ EnCoef did     1 forward-backward iterations
+ Restarting incremental Fock formation.
+ Restarting incremental Fock formation.
+ Restarting incremental Fock formation.
+ Restarting incremental Fock formation.
+ Restarting incremental Fock formation.
+ >>>>>>>>>> Convergence criterion not met.
+ SCF Done:  E(UB3LYP) =  -5635.26132086     A.U. after  129 cycles
+            NFock=128  Conv=0.78D-06     -V/T= 2.0133
+ <Sx>= 0.0000 <Sy>= 0.0000 <Sz>= 0.5000 <S**2>= 1.7624 S= 0.9186
+ <L.S>= 0.000000000000E+00
+ Annihilation of the first spin contaminant:
+ S**2 before annihilation     1.7624,   after     0.7976
+ Convergence failure -- run terminated.
+ Error termination via Lnk1e in /cpfs01/projects-HDD/cfff-4405968bce88_HDD/zhaoxingyue/g09/l502.exe at Thu Jul 16 17:16:54 2026.
+ Job cpu time:       0 days 19 hours 57 minutes 40.1 seconds.
+ File lengths (MBytes):  RWF=  15964 Int=      0 D2E=      0 Chk=    104 Scr=      8

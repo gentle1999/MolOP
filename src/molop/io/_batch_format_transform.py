@@ -21,7 +21,7 @@ class _HasParallelExecute(Protocol):
         self,
         func: Any,
         desc: str = "",
-        n_jobs: int = 1,
+        n_jobs: int = -1,
         *,
         return_results: bool | None = None,
     ) -> Any: ...
@@ -35,7 +35,7 @@ class BatchFormatTransformMixin:
         frame: FrameSelector = -1,
         embed_in_one_file: bool = True,
         write_to_disk: bool = False,
-        n_jobs: int = 1,
+        n_jobs: int = -1,
         **kwargs: Any,
     ) -> dict[str, str | list[str]]:
         if write_to_disk and output_dir is not None:

@@ -11,8 +11,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from molop.cli.shared.frames import parse_frame_selection
 from molop.io import AutoParser
+from molop.io.codec_types import ParseOptions
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
 from molop.io.frame_selection import FrameSelector
+from molop.io.parse_outcomes import BatchParseResult, FileParseOutcome
 
 
 ReturnKind = Literal["batch", "terminal"]
@@ -44,30 +46,58 @@ class CliModel(BaseModel):
 
 class BatchInputConfig(CliModel):
     pattern: str
+    additional_patterns: tuple[str, ...] = ()
     parser_detection: str = "auto"
     n_jobs: int = -1
     output_format: OutputFormat = "text"
+    total_charge: int | None = None
+    total_multiplicity: int | None = None
+    only_extract_structure: bool = False
+    only_last_frame: bool = False
+    capture_source_evidence: bool = False
+    source_encoding: str = "utf-8"
+    release_file_content: bool = True
+    force_unit_transform: bool | None = None
+    graph_reconstruction_backend: Literal["cpp", "python"] | None = None
+    make_dative_bonds: bool | None = None
+    report: bool = False
+
+    def parse_options(self) -> ParseOptions:
+        return ParseOptions(
+            total_charge=self.total_charge,
+            total_multiplicity=self.total_multiplicity,
+            only_extract_structure=self.only_extract_structure,
+            only_last_frame=self.only_last_frame,
+            capture_source_evidence=self.capture_source_evidence,
+            source_encoding=self.source_encoding,
+            release_file_content=self.release_file_content,
+            force_unit_transform=self.force_unit_transform,
+            graph_reconstruction_backend=self.graph_reconstruction_backend,
+            make_dative_bonds=self.make_dative_bonds,
+        )
+
+    def parser_input(self) -> str | list[str]:
+        if not self.additional_patterns:
+            return self.pattern
+        return [self.pattern, *self.additional_patterns]
 
 
 class OperationParams(CliModel):
     def method_kwargs(self, input_config: BatchInputConfig) -> dict[str, Any]:
-        kwargs = self.model_dump(exclude_none=True)
-        if "n_jobs" in self.__class__.model_fields and "n_jobs" not in kwargs:
-            kwargs["n_jobs"] = input_config.n_jobs
-        return kwargs
+        return self.model_dump(exclude_none=True)
 
 
 class FilterStateParams(OperationParams):
     state: Literal["ts", "error", "opt", "normal", "thermal", "no-img"]
     negate: bool = False
-    n_jobs: int | None = None
+    n_jobs: int = -1
 
 
 class FilterValueParams(OperationParams):
     target: Literal["charge", "multiplicity", "format"]
     value: str | float | int
     compare: Literal["==", "!=", ">", "<", ">=", "<="] = "=="
-    n_jobs: int | None = None
+    n_jobs: int = -1
 
     @field_validator("value", mode="before")
     @classmethod
@@ -87,7 +117,7 @@ class FilterValueParams(OperationParams):
 class FilterByCodecParams(OperationParams):
     codec_id: str
     negate: bool = False
-    n_jobs: int | None = None
+    n_jobs: int = -1
     on_missing: Literal["keep", "drop", "error"] = "drop"
 
 
@@ -102,7 +132,7 @@ class FormatTransformParams(OperationParams):
     frame: str = "-1"
     embed: bool = True
     write_to_disk: bool | None = None
-    n_jobs: int | None = None
+    n_jobs: int = -1
     format_options: dict[str, Any] = Field(default_factory=dict)
 
     def method_kwargs(self, input_config: BatchInputConfig) -> dict[str, Any]:
@@ -115,7 +145,7 @@ class FormatTransformParams(OperationParams):
             "frame": parse_cli_frame_selection(self.frame),
             "embed_in_one_file": self.embed,
             "write_to_disk": should_write,
-            "n_jobs": self.n_jobs if self.n_jobs is not None else input_config.n_jobs,
+            "n_jobs": self.n_jobs,
             **self.format_options,
         }
         if should_write and self.output_dir is not None:
@@ -126,7 +156,7 @@ class FormatTransformParams(OperationParams):
 class ToSummaryDfParams(OperationParams):
     mode: Literal["file", "frame"] = "frame"
     frame: str = "-1"
-    n_jobs: int | None = None
+    n_jobs: int = -1
     out: Path | None = None
     format: Literal["csv", "json"] = "csv"
     brief: bool = True
@@ -138,7 +168,7 @@ class ToSummaryDfParams(OperationParams):
         return {
             "mode": self.mode,
             "frame": frame_selection,
-            "n_jobs": self.n_jobs if self.n_jobs is not None else input_config.n_jobs,
+            "n_jobs": self.n_jobs,
             "brief": self.brief,
             "flatten_columns": self.flatten_columns,
             "on_missing_frame": self.on_missing_frame,
@@ -152,7 +182,7 @@ class DrawGridImageParams(OperationParams):
     sub_img_height: int = 200
     max_mols: int = 16
     use_svg: bool | None = None
-    n_jobs: int | None = None
+    n_jobs: int = -1
 
     def method_kwargs(self, input_config: BatchInputConfig) -> dict[str, Any]:
         use_svg = self.out.suffix.lower() == ".svg" if self.use_svg is None else self.use_svg
@@ -161,23 +191,23 @@ class DrawGridImageParams(OperationParams):
             "subImgSize": (self.sub_img_width, self.sub_img_height),
             "maxMols": self.max_mols,
             "useSVG": use_svg,
-            "n_jobs": self.n_jobs if self.n_jobs is not None else input_config.n_jobs,
+            "n_jobs": self.n_jobs,
         }
 
 
 class GroupByParams(OperationParams):
     key: Literal["detected_format_id", "file_format", "state"] = "detected_format_id"
-    n_jobs: int | None = None
+    n_jobs: int = -1
 
 
 class CopyToParams(OperationParams):
     output_dir: Path
-    n_jobs: int | None = None
+    n_jobs: int = -1
 
     def method_kwargs(self, input_config: BatchInputConfig) -> dict[str, Any]:
         return {
             "output_dir": str(self.output_dir),
-            "n_jobs": self.n_jobs if self.n_jobs is not None else input_config.n_jobs,
+            "n_jobs": self.n_jobs,
         }
 
 
@@ -225,6 +255,8 @@ def infer_return_kind(method: Callable[..., Any]) -> ReturnKind:
 
 
 def validate_plan(plan: BatchPlan) -> None:
+    if plan.input.report and plan.operations:
+        raise CliUsageError("--report cannot be combined with operation commands.")
     for index, operation in enumerate(plan.operations):
         is_last = index == len(plan.operations) - 1
         if operation.spec.return_kind == "terminal" and not is_last:
@@ -242,9 +274,11 @@ def build_plan(input_config: BatchInputConfig, operations: Sequence[OperationCal
 
 def execute_plan(plan: BatchPlan) -> object:
     state: object = AutoParser(
-        plan.input.pattern,
+        plan.input.parser_input(),
         n_jobs=plan.input.n_jobs,
         parser_detection=plan.input.parser_detection,
+        parse_options=plan.input.parse_options(),
+        return_report=plan.input.report,
     )
     for operation in plan.operations:
         if not isinstance(state, FileBatchModelDisk):
@@ -255,6 +289,10 @@ def execute_plan(plan: BatchPlan) -> object:
 
 def render_result(result: object, plan: BatchPlan) -> None:
     if _result_is_file_output_only(plan):
+        return
+
+    if isinstance(result, BatchParseResult):
+        _render_parse_report(result, output_format=plan.input.output_format)
         return
 
     if isinstance(result, FileBatchModelDisk):
@@ -399,6 +437,59 @@ def _render_json_or_text(value: object, output_format: OutputFormat) -> None:
     click.echo(str(value))
 
 
+def _render_parse_report(
+    report: BatchParseResult[object, object], *, output_format: OutputFormat
+) -> None:
+    outcomes = [_parse_outcome_payload(outcome) for outcome in report.outcomes]
+    summary = {
+        "total": len(outcomes),
+        "succeeded": len(report.succeeded),
+        "failed": len(report.failures),
+    }
+    payload = {
+        "summary": summary,
+        "outcomes": outcomes,
+    }
+    if output_format == "json":
+        click.echo(json.dumps(payload, indent=2, sort_keys=True))
+        return
+
+    click.echo(
+        f"total={summary['total']}\tsucceeded={summary['succeeded']}\tfailed={summary['failed']}"
+    )
+    click.echo("status\tformat\tpath\tmessage")
+    for outcome in outcomes:
+        failure = outcome["failure"]
+        message = failure["message"] if isinstance(failure, dict) else ""
+        click.echo(
+            f"{outcome['status']}\t{outcome['detected_format'] or ''}\t"
+            f"{outcome['file_path']}\t{message}"
+        )
+
+
+def _parse_outcome_payload(outcome: FileParseOutcome[object]) -> dict[str, object]:
+    failure = outcome.failure
+    return {
+        "input_index": outcome.input_index,
+        "file_path": outcome.file_path,
+        "status": outcome.status,
+        "detected_format": outcome.detected_format,
+        "warnings": [
+            {"code": warning.code, "message": warning.message} for warning in outcome.warnings
+        ],
+        "failure": (
+            {
+                "kind": failure.kind,
+                "message": failure.message,
+                "reader_format": failure.reader_format,
+                "exception_type": failure.exception_type,
+            }
+            if failure is not None
+            else None
+        ),
+    }
+
+
 def _render_summary_df(
     df: pd.DataFrame, params: ToSummaryDfParams, output_format: OutputFormat
 ) -> None:
@@ -460,8 +551,9 @@ def _groupby_handler(
     input_config: BatchInputConfig,
 ) -> object:
     typed = _ensure_params(params, GroupByParams)
-    n_jobs = typed.n_jobs if typed.n_jobs is not None else input_config.n_jobs
-    return batch.groupby(key_func=lambda diskfile: _group_key(diskfile, typed.key), n_jobs=n_jobs)
+    return batch.groupby(
+        key_func=lambda diskfile: _group_key(diskfile, typed.key), n_jobs=typed.n_jobs
+    )
 
 
 def _ensure_params(params: OperationParams, expected_type: type[Any]) -> Any:
