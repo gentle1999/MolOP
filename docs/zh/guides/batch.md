@@ -44,9 +44,9 @@ summary = normal.to_summary_df(
 summary.to_csv("normal.csv", index=False)
 ```
 
-`n_jobs=-1` 会跟随当前进程可用 CPU。默认 `max_jobs=None` 时会尊重调度器/容器配额和 CPU
-affinity；需要更低上限时，在创建 batch 前修改 `molopconfig.max_jobs`。排查 parser 或原生库
-问题时使用 `n_jobs=1`。CLI 的 parse 和操作命令也独立默认使用 `-1`。
+`n_jobs=-1` 会跟随当前进程可用 CPU。默认 `max_jobs=None` 时，会尊重系统能够暴露的调度器/
+容器配额和 CPU affinity；需要更低上限时，在创建 batch 前修改 `molopconfig.max_jobs`。排查
+parser 或原生库问题时使用 `n_jobs=1`。CLI 的 parse 和操作命令也独立默认使用 `-1`。
 
 需要对每个文件执行自定义操作时，使用 `parallel_execute` 并显式返回结果：
 

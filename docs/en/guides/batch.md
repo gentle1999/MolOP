@@ -45,9 +45,10 @@ summary.to_csv("normal.csv", index=False)
 ```
 
 `n_jobs=-1` follows the process-aware CPU limit. With the default `max_jobs=None`, it respects
-scheduler/container quotas and CPU affinity; set `molopconfig.max_jobs` before creating the batch when
-a lower ceiling is required. Use `n_jobs=1` while diagnosing a parser or a native-library failure.
-CLI parse and operation commands have the same independent default.
+observable scheduler/container quotas and CPU affinity where the platform exposes them; set
+`molopconfig.max_jobs` before creating the batch when a lower ceiling is required. Use `n_jobs=1`
+while diagnosing a parser or a native-library failure. CLI parse and operation commands have the same
+independent default.
 
 For a custom per-file operation, use `parallel_execute` and return explicit values:
 

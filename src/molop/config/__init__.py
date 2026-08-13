@@ -9,7 +9,6 @@ Description: 请填写简介
 import logging  # noqa: I001
 import os
 import sys
-from contextlib import suppress
 from typing import Any, Literal
 
 from joblib import cpu_count as joblib_cpu_count
@@ -43,14 +42,9 @@ MAX_JOBS_ENV_VAR = "MOLOP_MAX_JOBS"
 
 
 def available_cpu_count() -> int:
-    """Return the logical CPUs currently available to this process."""
+    """Return joblib/loky's process-aware logical CPU limit."""
 
-    counts = [joblib_cpu_count(), os.cpu_count()]
-    if hasattr(os, "sched_getaffinity"):
-        with suppress(OSError):
-            counts.append(len(os.sched_getaffinity(0)))
-    positive_counts = [int(count) for count in counts if count is not None and count > 0]
-    return min(positive_counts, default=1)
+    return max(int(joblib_cpu_count()), 1)
 
 
 class MolOPConfig(BaseModel):

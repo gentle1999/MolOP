@@ -1,3 +1,5 @@
+import importlib.metadata
+
 import pytest
 from pydantic import ValidationError
 
@@ -90,12 +92,26 @@ def test_auto_max_jobs_uses_process_available_cpu_count(monkeypatch):
     assert config.set_n_jobs(100) == 24
 
 
-def test_available_cpu_count_uses_most_restrictive_process_limit(monkeypatch):
-    monkeypatch.setattr(config_module, "joblib_cpu_count", lambda: 12)
-    monkeypatch.setattr(config_module.os, "cpu_count", lambda: 32)
-    monkeypatch.setattr(config_module.os, "sched_getaffinity", lambda _pid: set(range(8)))
+def test_available_cpu_count_uses_joblib_process_limit(monkeypatch):
+    monkeypatch.setattr(config_module, "joblib_cpu_count", lambda: 8)
 
     assert config_module.available_cpu_count() == 8
+
+
+def test_available_cpu_count_never_falls_below_one(monkeypatch):
+    monkeypatch.setattr(config_module, "joblib_cpu_count", lambda: 0)
+
+    assert config_module.available_cpu_count() == 1
+
+
+def test_available_cpu_count_matches_joblib_runtime_limit():
+    assert config_module.available_cpu_count() == config_module.joblib_cpu_count()
+
+
+def test_runtime_metadata_declares_psutil_for_affinity_fallback():
+    requirements = importlib.metadata.requires("molop") or []
+
+    assert any(requirement.lower().startswith("psutil") for requirement in requirements)
 
 
 def test_max_jobs_environment_default_and_explicit_override(monkeypatch):

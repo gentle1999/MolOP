@@ -10,8 +10,16 @@ global configuration only when the policy should apply to subsequent calls.
 ## Parallelism defaults
 
 `max_jobs` defaults to `None`, which means automatic process-aware detection. MolOP takes the most
-restrictive value from joblib's scheduler/container quota, CPU affinity, and `os.cpu_count()`. Thus
-`n_jobs=-1` uses all CPUs available to the current process, without exceeding a scheduler allocation.
+restrictive observable value from joblib/loky's scheduler and container limits, `os.cpu_count()`, and
+the current process affinity where the operating system exposes it. The direct psutil dependency
+enables joblib's affinity fallback on Windows and other supported platforms. Thus
+`n_jobs=-1` uses the CPUs available to the current process without exceeding a detected allocation.
+
+Linux supports affinity and cgroup quota detection. Windows affinity is read through psutil and
+joblib also applies its safe worker limit for Windows process pools. macOS does not expose a portable
+per-process CPU-affinity API, so its automatic value uses the CPUs visible to the process and any
+joblib limit. On every platform, use `max_jobs`, `MOLOP_MAX_JOBS`, or `LOKY_MAX_CPU_COUNT` when the
+runtime allocation is not observable from the operating system.
 
 Set a positive `max_jobs` to impose a process-wide ceiling:
 

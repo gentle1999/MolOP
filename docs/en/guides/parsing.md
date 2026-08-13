@@ -88,10 +88,10 @@ structures = AutoParser(
 
 `AutoParser` and all batch operations default to `n_jobs=-1`. MolOP resolves this to the smaller of
 the process-aware CPU limit and the global `molopconfig.max_jobs` ceiling. With the default
-`max_jobs=None`, the limit follows scheduler/container quotas and CPU affinity. Set a positive
-`max_jobs` for a process-wide ceiling. Pass a positive `n_jobs` to request a specific worker count, or
-use `n_jobs=1` for a small batch or debugging. The CLI parse and operation commands follow the same
-independent `-1` default.
+`max_jobs=None`, the limit follows observable scheduler/container quotas and CPU affinity where the
+platform exposes them. Set a positive `max_jobs` for a process-wide ceiling. Pass a positive `n_jobs`
+to request a specific worker count, or use `n_jobs=1` for a small batch or debugging. The CLI parse
+and operation commands follow the same independent `-1` default.
 
 `only_extract_structure=True` skips non-structural results and is unsuitable for extracting energy
 or thermochemistry.
