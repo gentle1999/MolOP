@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.4.dev2+g89b9aea5a.d20260812</code></span>
-        <span><code>main@89b9aea5aaa5</code></span>
-        <span>Latest release <code>0.2.3</code></span>
+        <span>Source <code>0.2.5.dev1+gdefc1d9a0.d20260813</code></span>
+        <span><code>main@defc1d9a05ed</code></span>
+        <span>Latest release <code>0.2.4</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -3345,8 +3345,7 @@
 <p>Replace <code>water_mp2.out</code> with <code>results/*.out</code> to process a batch. Each successfully parsed file
 produces one row; inputs that do not parse produce no row.</p>
 <h2 id="parallel_batch_operations">Parallel batch operations<a class="headerlink" href="#parallel_batch_operations" title="Permanent link">&para;</a></h2>
-<p>Parsing defaults to automatic parallelism. Batch operations in the Python API default to one
-worker; pass <code>n_jobs=-1</code> when summary, filtering, or conversion should use the same automatic limit:</p>
+<p>Parsing and batch operations default to automatic parallelism with <code>n_jobs=-1</code>:</p>
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><a href="#__codelineno-2-1"><span class="linenos" data-linenos=" 1 "></span></a><span class="kn">from</span><span class="w"> </span><span class="nn">molop</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoParser</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2"></a><a href="#__codelineno-2-2"><span class="linenos" data-linenos=" 2 "></span></a>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3"></a><a href="#__codelineno-2-3"><span class="linenos" data-linenos=" 3 "></span></a><span class="n">batch</span> <span class="o">=</span> <span class="n">AutoParser</span><span class="p">(</span><span class="s2">&quot;results/*.out&quot;</span><span class="p">)</span>
@@ -3359,9 +3358,10 @@ worker; pass <code>n_jobs=-1</code> when summary, filtering, or conversion shoul
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10"></a><a href="#__codelineno-2-10"><span class="linenos" data-linenos="10 "></span></a><span class="p">)</span>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11"></a><a href="#__codelineno-2-11"><span class="linenos" data-linenos="11 "></span></a><span class="n">summary</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">&quot;normal.csv&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </span></code></pre></div>
-<p><code>n_jobs=-1</code> is capped by <code>molopconfig.max_jobs</code>; set that global configuration before creating the
-batch when a lower ceiling is required. Use <code>n_jobs=1</code> while diagnosing a parser or a native-library
-failure. The CLI inherits its parse-level <code>--n-jobs</code> value for later operations.</p>
+<p><code>n_jobs=-1</code> follows the process-aware CPU limit. With the default <code>max_jobs=None</code>, it respects
+scheduler/container quotas and CPU affinity; set <code>molopconfig.max_jobs</code> before creating the batch when
+a lower ceiling is required. Use <code>n_jobs=1</code> while diagnosing a parser or a native-library failure.
+CLI parse and operation commands have the same independent default.</p>
 <p>For a custom per-file operation, use <code>parallel_execute</code> and return explicit values:</p>
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a><a href="#__codelineno-3-1"><span class="linenos" data-linenos="1 "></span></a><span class="k">def</span><span class="w"> </span><span class="nf">file_format</span><span class="p">(</span><span class="n">parsed_file</span><span class="p">):</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2"></a><a href="#__codelineno-3-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="k">return</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">detected_format_id</span>

@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.4.dev2+g89b9aea5a.d20260812</code></span>
-        <span><code>main@89b9aea5aaa5</code></span>
-        <span>Latest release <code>0.2.3</code></span>
+        <span>Source <code>0.2.5.dev1+gdefc1d9a0.d20260813</code></span>
+        <span><code>main@defc1d9a05ed</code></span>
+        <span>Latest release <code>0.2.4</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -3262,12 +3262,12 @@ content. For ambiguous extensions, provide a format ID:</p>
 </span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6"></a><a href="#__codelineno-7-6"><span class="linenos" data-linenos="6 "></span></a>    <span class="n">only_extract_structure</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
 </span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7"></a><a href="#__codelineno-7-7"><span class="linenos" data-linenos="7 "></span></a><span class="p">)</span>
 </span></code></pre></div>
-<p><code>AutoParser</code> defaults to <code>n_jobs=-1</code>. MolOP resolves this to the smaller of the CPU count and the
-global <code>molopconfig.max_jobs</code> limit. Pass a positive integer to request a specific worker count, or
-use <code>n_jobs=1</code> for a small batch or debugging. The same <code>n_jobs</code> option is available on summary,
-filter, and transform operations; Python methods default to <code>1</code>, so pass it explicitly when those
-steps should also run in parallel. The CLI parse-level <code>--n-jobs</code> is used by later operations unless
-an operation-level value overrides it.</p>
+<p><code>AutoParser</code> and all batch operations default to <code>n_jobs=-1</code>. MolOP resolves this to the smaller of
+the process-aware CPU limit and the global <code>molopconfig.max_jobs</code> ceiling. With the default
+<code>max_jobs=None</code>, the limit follows scheduler/container quotas and CPU affinity. Set a positive
+<code>max_jobs</code> for a process-wide ceiling. Pass a positive <code>n_jobs</code> to request a specific worker count, or
+use <code>n_jobs=1</code> for a small batch or debugging. The CLI parse and operation commands follow the same
+independent <code>-1</code> default.</p>
 <p><code>only_extract_structure=True</code> skips non-structural results and is unsuitable for extracting energy
 or thermochemistry.</p>
 <h2 id="find_failed_inputs">Find failed inputs<a class="headerlink" href="#find_failed_inputs" title="Permanent link">&para;</a></h2>

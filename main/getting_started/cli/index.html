@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.4.dev2+g89b9aea5a.d20260812</code></span>
-        <span><code>main@89b9aea5aaa5</code></span>
-        <span>最近发布 <code>0.2.3</code></span>
+        <span>源码 <code>0.2.5.dev1+gdefc1d9a0.d20260813</code></span>
+        <span><code>main@defc1d9a05ed</code></span>
+        <span>最近发布 <code>0.2.4</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../../versioning/">版本说明</a>
@@ -3193,7 +3193,8 @@
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6"></a><a href="#__codelineno-1-6"><span class="linenos" data-linenos="6 "></span></a>          to-summary-df
 </span></code></pre></div>
 </details>
-<p>所有业务操作都从 <code>molop parse PATTERN</code> 开始。<code>PATTERN</code> 可以是单个路径或 shell glob。</p>
+<p>所有业务操作都从 <code>molop parse PATTERN</code> 开始。<code>PATTERN</code> 可以是单个路径或 shell glob；一条命令
+需要覆盖多组输入时，可重复添加 <code>--input PATH_OR_GLOB</code>。</p>
 <h2 id="csv">导出摘要 CSV<a class="headerlink" href="#csv" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><a href="#__codelineno-2-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>-q<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;results/*.out&quot;</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2"></a><a href="#__codelineno-2-2"><span class="linenos" data-linenos="2 "></span></a><span class="w">  </span>to-summary-df<span class="w"> </span>--full<span class="w"> </span>--out<span class="w"> </span>summary.csv

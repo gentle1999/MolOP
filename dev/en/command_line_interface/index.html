@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.4.dev2+g89b9aea5a.d20260812</code></span>
-        <span><code>main@89b9aea5aaa5</code></span>
-        <span>Latest release <code>0.2.3</code></span>
+        <span>Source <code>0.2.5.dev1+gdefc1d9a0.d20260813</code></span>
+        <span><code>main@defc1d9a05ed</code></span>
+        <span>Latest release <code>0.2.4</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../versioning/">Version details</a>
@@ -2018,6 +2018,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#parse_outcome_report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parse outcome report
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#chainable_operations" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3120,6 +3131,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#parse_outcome_report" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Parse outcome report
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#chainable_operations" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3234,6 +3256,10 @@ needed.</p>
 <td>Suppress progress and non-result output for scripts</td>
 </tr>
 <tr>
+<td><code>--max-jobs N</code></td>
+<td>Set a process-wide worker ceiling for parsing and operations</td>
+</tr>
+<tr>
 <td><code>--version</code></td>
 <td>Show the version</td>
 </tr>
@@ -3259,6 +3285,11 @@ needed.</p>
 <td>One path or glob</td>
 </tr>
 <tr>
+<td><code>--input PATH_OR_GLOB</code></td>
+<td>none</td>
+<td>Add another path or glob; repeat the option for more inputs</td>
+</tr>
+<tr>
 <td><code>--parser-detection</code></td>
 <td><code>auto</code></td>
 <td>Automatic detection or an ID such as <code>g16log</code>, <code>orcaout</code>, <code>xtbout</code></td>
@@ -3273,11 +3304,98 @@ needed.</p>
 <td><code>text</code></td>
 <td>Final terminal output as <code>text</code> or <code>json</code></td>
 </tr>
+<tr>
+<td><code>--total-charge</code></td>
+<td>source value</td>
+<td>Override molecular charge for every input</td>
+</tr>
+<tr>
+<td><code>--total-multiplicity</code></td>
+<td>source value</td>
+<td>Override spin multiplicity for every input</td>
+</tr>
+<tr>
+<td><code>--only-extract-structure</code></td>
+<td>off</td>
+<td>Skip energies, frequencies, and other non-structural results</td>
+</tr>
+<tr>
+<td><code>--only-last-frame</code></td>
+<td>off</td>
+<td>Retain only the final frame from each file</td>
+</tr>
+<tr>
+<td><code>--capture-source-evidence</code></td>
+<td>off</td>
+<td>Capture supported source spans, hashes, and parser provenance</td>
+</tr>
+<tr>
+<td><code>--source-encoding</code></td>
+<td><code>utf-8</code></td>
+<td>Strict text decoding and source-offset encoding</td>
+</tr>
+<tr>
+<td><code>--release-file-content / --keep-file-content</code></td>
+<td>release</td>
+<td>Release or retain raw source text after parsing</td>
+</tr>
+<tr>
+<td><code>--force-unit-transform / --no-force-unit-transform</code></td>
+<td>configured value</td>
+<td>Override unit conversion for this parse</td>
+</tr>
+<tr>
+<td><code>--graph-reconstruction-backend</code></td>
+<td>configured value</td>
+<td>Use the <code>cpp</code> or <code>python</code> graph backend for this parse</td>
+</tr>
+<tr>
+<td><code>--make-dative-bonds / --no-make-dative-bonds</code></td>
+<td>configured value</td>
+<td>Override dative-bond reconstruction for this parse</td>
+</tr>
+<tr>
+<td><code>--report</code></td>
+<td>off</td>
+<td>Return one parse outcome per supplied input instead of a batch</td>
+</tr>
 </tbody>
 </table>
-<p><code>--n-jobs -1</code> is the default automatic setting. MolOP caps it with <code>molopconfig.max_jobs</code>; pass
-<code>--n-jobs 1</code> when diagnosing a parser or native-library issue. The parse-level value is inherited by
-later operations unless an operation supplies its own <code>--n-jobs</code>.</p>
+<p><code>--n-jobs -1</code> is the default automatic setting. MolOP uses the process-aware CPU limit and the
+optional <code>molopconfig.max_jobs</code> ceiling; pass <code>--n-jobs 1</code> when diagnosing a parser or native-library
+issue. Every parse and operation command defaults independently to <code>-1</code>. Use global <code>--max-jobs N</code> to
+cap the entire command, or pass a positive <code>--n-jobs</code> on one operation when it needs a lower limit.</p>
+<p>The charge and multiplicity options apply to every matched input, so split heterogeneous inputs into
+separate commands. <code>--only-extract-structure</code> is a fast path and deliberately omits non-structural
+scientific results. The unit and topology options are immutable per-command overrides; when omitted,
+they inherit <code>molopconfig</code> without changing process-global configuration.</p>
+<p>Add multiple input specifications without relying on one broad glob:</p>
+<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a><a href="#__codelineno-1-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>-q<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;gaussian/*.log&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2"></a><a href="#__codelineno-1-2"><span class="linenos" data-linenos="2 "></span></a><span class="w">  </span>--input<span class="w"> </span><span class="s2">&quot;orca/*.out&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3"></a><a href="#__codelineno-1-3"><span class="linenos" data-linenos="3 "></span></a><span class="w">  </span>--input<span class="w"> </span>selected.xyz<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4"></a><a href="#__codelineno-1-4"><span class="linenos" data-linenos="4 "></span></a><span class="w">  </span>--only-last-frame<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5"></a><a href="#__codelineno-1-5"><span class="linenos" data-linenos="5 "></span></a><span class="w">  </span>to-summary-df<span class="w"> </span>--full<span class="w"> </span>--out<span class="w"> </span>summary.csv
+</span></code></pre></div>
+<details class="example">
+<summary>Created file</summary>
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><a href="#__codelineno-2-1"><span class="linenos" data-linenos="1 "></span></a>Summary written to summary.csv
+</span></code></pre></div>
+</details>
+<h2 id="parse_outcome_report">Parse outcome report<a class="headerlink" href="#parse_outcome_report" title="Permanent link">&para;</a></h2>
+<p>Use <code>--report</code> to audit successful, missing, unsupported, empty, and failed inputs. It is a terminal
+parse mode and cannot be combined with operation commands.</p>
+<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a><a href="#__codelineno-3-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>-q<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;results/*.log&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2"></a><a href="#__codelineno-3-2"><span class="linenos" data-linenos="2 "></span></a><span class="w">  </span>--input<span class="w"> </span>required.out<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-3"><a id="__codelineno-3-3" name="__codelineno-3-3"></a><a href="#__codelineno-3-3"><span class="linenos" data-linenos="3 "></span></a><span class="w">  </span>--report<span class="w"> </span>--output-format<span class="w"> </span>json<span class="w"> </span>&gt;<span class="w"> </span>parse-report.json
+</span></code></pre></div>
+<details class="example">
+<summary>Created file</summary>
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><a href="#__codelineno-4-1"><span class="linenos" data-linenos="1 "></span></a>parse-report.json
+</span></code></pre></div>
+</details>
+<p>The JSON object contains <code>summary</code> counts and an ordered <code>outcomes</code> array. Each outcome includes the
+input index, absolute path, status, detected format, parser warnings, and a serializable failure when
+applicable. The default text output is a tab-separated diagnostic table.</p>
 <h2 id="chainable_operations">Chainable operations<a class="headerlink" href="#chainable_operations" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3355,16 +3473,16 @@ later operations unless an operation supplies its own <code>--n-jobs</code>.</p>
 </table>
 <p>A terminal operation must end the operation chain.</p>
 <h2 id="summary_options">Summary options<a class="headerlink" href="#summary_options" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a><a href="#__codelineno-1-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;water_mp2.out&quot;</span><span class="w"> </span>to-summary-df<span class="w"> </span>--help
+<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a><a href="#__codelineno-5-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;water_mp2.out&quot;</span><span class="w"> </span>to-summary-df<span class="w"> </span>--help
 </span></code></pre></div>
 <details class="example">
 <summary>Help summary</summary>
-<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><a href="#__codelineno-2-1"><span class="linenos" data-linenos="1 "></span></a>Usage: molop parse PATTERN to-summary-df [OPTIONS]
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2"></a><a href="#__codelineno-2-2"><span class="linenos" data-linenos="2 "></span></a>--mode [file|frame]       Summary mode.  [default: frame]
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3"></a><a href="#__codelineno-2-3"><span class="linenos" data-linenos="3 "></span></a>--frame TEXT              Frame selection: all, int, or csv ints.
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4"></a><a href="#__codelineno-2-4"><span class="linenos" data-linenos="4 "></span></a>--brief / --full          Use compact or full summary fields.
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5"></a><a href="#__codelineno-2-5"><span class="linenos" data-linenos="5 "></span></a>--out FILE                Output file.
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6"></a><a href="#__codelineno-2-6"><span class="linenos" data-linenos="6 "></span></a>--format [csv|json]       Output file format.  [default: csv]
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><a href="#__codelineno-6-1"><span class="linenos" data-linenos="1 "></span></a>Usage: molop parse PATTERN to-summary-df [OPTIONS]
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a><a href="#__codelineno-6-2"><span class="linenos" data-linenos="2 "></span></a>--mode [file|frame]       Summary mode.  [default: frame]
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3"></a><a href="#__codelineno-6-3"><span class="linenos" data-linenos="3 "></span></a>--frame TEXT              Frame selection: all, int, or csv ints.
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4"></a><a href="#__codelineno-6-4"><span class="linenos" data-linenos="4 "></span></a>--brief / --full          Use compact or full summary fields.
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5"></a><a href="#__codelineno-6-5"><span class="linenos" data-linenos="5 "></span></a>--out FILE                Output file.
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6"></a><a href="#__codelineno-6-6"><span class="linenos" data-linenos="6 "></span></a>--format [csv|json]       Output file format.  [default: csv]
 </span></code></pre></div>
 </details>
 <p>Common options:</p>
@@ -3377,30 +3495,30 @@ later operations unless an operation supplies its own <code>--n-jobs</code>.</p>
 <li><code>--out PATH --format csv|json</code>: output path and format.</li>
 </ul>
 <p>Run:</p>
-<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a><a href="#__codelineno-3-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>-q<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;water_mp2.out&quot;</span><span class="w"> </span>--parser-detection<span class="w"> </span>orcaout<span class="w"> </span>--n-jobs<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2"></a><a href="#__codelineno-3-2"><span class="linenos" data-linenos="2 "></span></a><span class="w">  </span>to-summary-df<span class="w"> </span>--full<span class="w"> </span>--format<span class="w"> </span>json<span class="w"> </span>--out<span class="w"> </span>summary.json
+<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a><a href="#__codelineno-7-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>-q<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;water_mp2.out&quot;</span><span class="w"> </span>--parser-detection<span class="w"> </span>orcaout<span class="w"> </span>--n-jobs<span class="w"> </span><span class="m">1</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2"></a><a href="#__codelineno-7-2"><span class="linenos" data-linenos="2 "></span></a><span class="w">  </span>to-summary-df<span class="w"> </span>--full<span class="w"> </span>--format<span class="w"> </span>json<span class="w"> </span>--out<span class="w"> </span>summary.json
 </span></code></pre></div>
 <p>The output object includes the following fields (the full JSON also contains other parsed fields):</p>
 <details class="example">
 <summary>JSON output</summary>
-<div class="language-json highlight"><span class="filename">JSON</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><a href="#__codelineno-4-1"><span class="linenos" data-linenos="1 "></span></a><span class="p">{</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2"></a><a href="#__codelineno-4-2"><span class="linenos" data-linenos="2 "></span></a><span class="w">  </span><span class="nt">&quot;Calc Parameter.Software&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ORCA&quot;</span><span class="p">,</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3"></a><a href="#__codelineno-4-3"><span class="linenos" data-linenos="3 "></span></a><span class="w">  </span><span class="nt">&quot;Status.IsNormal&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4"></a><a href="#__codelineno-4-4"><span class="linenos" data-linenos="4 "></span></a><span class="w">  </span><span class="nt">&quot;Energy.total_energy.hartree&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-74.9993745981</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5"></a><a href="#__codelineno-4-5"><span class="linenos" data-linenos="5 "></span></a><span class="p">}</span>
+<div class="language-json highlight"><span class="filename">JSON</span><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><a href="#__codelineno-8-1"><span class="linenos" data-linenos="1 "></span></a><span class="p">{</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2"></a><a href="#__codelineno-8-2"><span class="linenos" data-linenos="2 "></span></a><span class="w">  </span><span class="nt">&quot;Calc Parameter.Software&quot;</span><span class="p">:</span><span class="w"> </span><span class="s2">&quot;ORCA&quot;</span><span class="p">,</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3"></a><a href="#__codelineno-8-3"><span class="linenos" data-linenos="3 "></span></a><span class="w">  </span><span class="nt">&quot;Status.IsNormal&quot;</span><span class="p">:</span><span class="w"> </span><span class="kc">true</span><span class="p">,</span>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4"></a><a href="#__codelineno-8-4"><span class="linenos" data-linenos="4 "></span></a><span class="w">  </span><span class="nt">&quot;Energy.total_energy.hartree&quot;</span><span class="p">:</span><span class="w"> </span><span class="mf">-74.9993745981</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5"></a><a href="#__codelineno-8-5"><span class="linenos" data-linenos="5 "></span></a><span class="p">}</span>
 </span></code></pre></div>
 <p>Created file: <code>summary.json</code>.</p>
 </details>
 <h2 id="transform_options">Transform options<a class="headerlink" href="#transform_options" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a><a href="#__codelineno-5-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;input.out&quot;</span><span class="w"> </span>format-transform<span class="w"> </span>--help
+<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1"></a><a href="#__codelineno-9-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;input.out&quot;</span><span class="w"> </span>format-transform<span class="w"> </span>--help
 </span></code></pre></div>
 <details class="example">
 <summary>Help summary</summary>
-<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><a href="#__codelineno-6-1"><span class="linenos" data-linenos="1 "></span></a>Usage: molop parse PATTERN format-transform [OPTIONS] [EXTRA_ARGS]...
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a><a href="#__codelineno-6-2"><span class="linenos" data-linenos="2 "></span></a>--format TEXT           Target writer format id.  [required]
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3"></a><a href="#__codelineno-6-3"><span class="linenos" data-linenos="3 "></span></a>--output-dir DIRECTORY  Directory for generated files.
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4"></a><a href="#__codelineno-6-4"><span class="linenos" data-linenos="4 "></span></a>--frame TEXT            Frame selection: all, int, or csv ints.
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5"></a><a href="#__codelineno-6-5"><span class="linenos" data-linenos="5 "></span></a>--write / --no-write    Write generated files.
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a><a href="#__codelineno-10-1"><span class="linenos" data-linenos="1 "></span></a>Usage: molop parse PATTERN format-transform [OPTIONS] [EXTRA_ARGS]...
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2"></a><a href="#__codelineno-10-2"><span class="linenos" data-linenos="2 "></span></a>--format TEXT           Target writer format id.  [required]
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3"></a><a href="#__codelineno-10-3"><span class="linenos" data-linenos="3 "></span></a>--output-dir DIRECTORY  Directory for generated files.
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4"></a><a href="#__codelineno-10-4"><span class="linenos" data-linenos="4 "></span></a>--frame TEXT            Frame selection: all, int, or csv ints.
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5"></a><a href="#__codelineno-10-5"><span class="linenos" data-linenos="5 "></span></a>--write / --no-write    Write generated files.
 </span></code></pre></div>
 </details>
 <ul>
@@ -3412,25 +3530,25 @@ later operations unless an operation supplies its own <code>--n-jobs</code>.</p>
 <li><code>--no-write</code> returns rendered output even when an output directory is present.</li>
 </ul>
 <p>Writer-specific options follow static options:</p>
-<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a><a href="#__codelineno-7-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;input.out&quot;</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2"></a><a href="#__codelineno-7-2"><span class="linenos" data-linenos="2 "></span></a><span class="w">  </span>format-transform<span class="w"> </span>--format<span class="w"> </span>orcainp<span class="w"> </span>--output-dir<span class="w"> </span>next<span class="w"> </span><span class="se">\</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3"></a><a href="#__codelineno-7-3"><span class="linenos" data-linenos="3 "></span></a><span class="w">  </span>--keywords<span class="w"> </span><span class="s2">&quot;B3LYP def2-SVP Opt&quot;</span><span class="w"> </span>--nprocs<span class="w"> </span><span class="m">8</span><span class="w"> </span>--maxcore<span class="w"> </span><span class="m">2000</span>
+<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1"></a><a href="#__codelineno-11-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;input.out&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2"></a><a href="#__codelineno-11-2"><span class="linenos" data-linenos="2 "></span></a><span class="w">  </span>format-transform<span class="w"> </span>--format<span class="w"> </span>orcainp<span class="w"> </span>--output-dir<span class="w"> </span>next<span class="w"> </span><span class="se">\</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3"></a><a href="#__codelineno-11-3"><span class="linenos" data-linenos="3 "></span></a><span class="w">  </span>--keywords<span class="w"> </span><span class="s2">&quot;B3LYP def2-SVP Opt&quot;</span><span class="w"> </span>--nprocs<span class="w"> </span><span class="m">8</span><span class="w"> </span>--maxcore<span class="w"> </span><span class="m">2000</span>
 </span></code></pre></div>
 <details class="example">
 <summary>Created file</summary>
-<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><a href="#__codelineno-8-1"><span class="linenos" data-linenos="1 "></span></a>next/input.inp
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1"></a><a href="#__codelineno-12-1"><span class="linenos" data-linenos="1 "></span></a>next/input.inp
 </span></code></pre></div>
 </details>
 <h2 id="inspect_exact_help">Inspect exact help<a class="headerlink" href="#inspect_exact_help" title="Permanent link">&para;</a></h2>
-<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1"></a><a href="#__codelineno-9-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>--help
-</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2"></a><a href="#__codelineno-9-2"><span class="linenos" data-linenos="2 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span>--help
-</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3"></a><a href="#__codelineno-9-3"><span class="linenos" data-linenos="3 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span>PATTERN<span class="w"> </span>filter-state<span class="w"> </span>--help
-</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4"></a><a href="#__codelineno-9-4"><span class="linenos" data-linenos="4 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span>PATTERN<span class="w"> </span>to-summary-df<span class="w"> </span>--help
-</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5"></a><a href="#__codelineno-9-5"><span class="linenos" data-linenos="5 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span>PATTERN<span class="w"> </span>format-transform<span class="w"> </span>--help
+<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1"></a><a href="#__codelineno-13-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>--help
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2"></a><a href="#__codelineno-13-2"><span class="linenos" data-linenos="2 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span>--help
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3"></a><a href="#__codelineno-13-3"><span class="linenos" data-linenos="3 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span>PATTERN<span class="w"> </span>filter-state<span class="w"> </span>--help
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4"></a><a href="#__codelineno-13-4"><span class="linenos" data-linenos="4 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span>PATTERN<span class="w"> </span>to-summary-df<span class="w"> </span>--help
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5"></a><a href="#__codelineno-13-5"><span class="linenos" data-linenos="5 "></span></a>molop<span class="w"> </span>parse<span class="w"> </span>PATTERN<span class="w"> </span>format-transform<span class="w"> </span>--help
 </span></code></pre></div>
 <details class="example">
 <summary>Common help shape</summary>
-<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a><a href="#__codelineno-10-1"><span class="linenos" data-linenos="1 "></span></a>molop [OPTIONS] parse PATTERN OPERATION [OPTIONS]
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1"></a><a href="#__codelineno-14-1"><span class="linenos" data-linenos="1 "></span></a>molop [OPTIONS] parse PATTERN OPERATION [OPTIONS]
 </span></code></pre></div>
 </details>
 <p>See the <a href="../advanced/cli-contract/">Advanced CLI contract</a> for internal plan validation, terminal

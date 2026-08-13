@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.4.dev2+g89b9aea5a.d20260812</code></span>
-        <span><code>main@89b9aea5aaa5</code></span>
-        <span>Latest release <code>0.2.3</code></span>
+        <span>Source <code>0.2.5.dev1+gdefc1d9a0.d20260813</code></span>
+        <span><code>main@defc1d9a05ed</code></span>
+        <span>Latest release <code>0.2.4</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -3187,9 +3187,10 @@ for the complete option surface.</p>
 <div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><a href="#__codelineno-0-1"><span class="linenos" data-linenos="1 "></span></a>molop parse PATTERN [parse options] OPERATION [operation options] ...
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a><a href="#__codelineno-0-2"><span class="linenos" data-linenos="2 "></span></a>                                                     -&gt; terminal operation
 </span></code></pre></div>
-<p><code>PATTERN</code> is a path or glob. After parsing, operations that return a batch can be followed by more
-operations. Operations that return a summary, rendered text, or path mapping must be last. The CLI
-checks this rule before reading files.</p>
+<p><code>PATTERN</code> is a path or glob; repeat <code>--input PATH_OR_GLOB</code> for additional input groups. After parsing,
+operations that return a batch can be followed by more operations. Operations that return a summary,
+rendered text, or path mapping must be last. The CLI checks this rule before reading files. The
+<code>--report</code> parse mode is also terminal and cannot be combined with operations.</p>
 <p>The examples below use the bundled <a href="../../../assets/examples/water_mp2.out">water_mp2.out</a>.</p>
 <h2 id="common_chains">Common chains<a class="headerlink" href="#common_chains" title="Permanent link">&para;</a></h2>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:3"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><input id="__tabbed_1_3" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Filter by codec</label><label for="__tabbed_1_2">Summary</label><label for="__tabbed_1_3">Conversion</label></div>

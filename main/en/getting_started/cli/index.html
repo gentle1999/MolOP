@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.4.dev2+g89b9aea5a.d20260812</code></span>
-        <span><code>main@89b9aea5aaa5</code></span>
-        <span>Latest release <code>0.2.3</code></span>
+        <span>Source <code>0.2.5.dev1+gdefc1d9a0.d20260813</code></span>
+        <span><code>main@defc1d9a05ed</code></span>
+        <span>Latest release <code>0.2.4</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -3195,7 +3195,8 @@
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6"></a><a href="#__codelineno-1-6"><span class="linenos" data-linenos="6 "></span></a>          to-summary-df
 </span></code></pre></div>
 </details>
-<p>Every data operation starts with <code>molop parse PATTERN</code>. <code>PATTERN</code> can be a path or a shell glob.</p>
+<p>Every data operation starts with <code>molop parse PATTERN</code>. <code>PATTERN</code> can be a path or a shell glob; add
+repeatable <code>--input PATH_OR_GLOB</code> options when one command must cover several input groups.</p>
 <h2 id="export_a_summary_csv">Export a summary CSV<a class="headerlink" href="#export_a_summary_csv" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><a href="#__codelineno-2-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>-q<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;results/*.out&quot;</span><span class="w"> </span><span class="se">\</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2"></a><a href="#__codelineno-2-2"><span class="linenos" data-linenos="2 "></span></a><span class="w">  </span>to-summary-df<span class="w"> </span>--full<span class="w"> </span>--out<span class="w"> </span>summary.csv
