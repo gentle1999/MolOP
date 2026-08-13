@@ -111,8 +111,8 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.5.dev1+gdefc1d9a0.d20260813</code></span>
-        <span><code>main@defc1d9a05ed</code></span>
+        <span>Source <code>0.2.5.dev2+ga98d1562e.d20260813</code></span>
+        <span><code>main@a98d1562e9d5</code></span>
         <span>Latest release <code>0.2.4</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
@@ -3264,10 +3264,10 @@ content. For ambiguous extensions, provide a format ID:</p>
 </span></code></pre></div>
 <p><code>AutoParser</code> and all batch operations default to <code>n_jobs=-1</code>. MolOP resolves this to the smaller of
 the process-aware CPU limit and the global <code>molopconfig.max_jobs</code> ceiling. With the default
-<code>max_jobs=None</code>, the limit follows scheduler/container quotas and CPU affinity. Set a positive
-<code>max_jobs</code> for a process-wide ceiling. Pass a positive <code>n_jobs</code> to request a specific worker count, or
-use <code>n_jobs=1</code> for a small batch or debugging. The CLI parse and operation commands follow the same
-independent <code>-1</code> default.</p>
+<code>max_jobs=None</code>, the limit follows observable scheduler/container quotas and CPU affinity where the
+platform exposes them. Set a positive <code>max_jobs</code> for a process-wide ceiling. Pass a positive <code>n_jobs</code>
+to request a specific worker count, or use <code>n_jobs=1</code> for a small batch or debugging. The CLI parse
+and operation commands follow the same independent <code>-1</code> default.</p>
 <p><code>only_extract_structure=True</code> skips non-structural results and is unsuitable for extracting energy
 or thermochemistry.</p>
 <h2 id="find_failed_inputs">Find failed inputs<a class="headerlink" href="#find_failed_inputs" title="Permanent link">&para;</a></h2>

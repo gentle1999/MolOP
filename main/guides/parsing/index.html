@@ -109,8 +109,8 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.5.dev1+gdefc1d9a0.d20260813</code></span>
-        <span><code>main@defc1d9a05ed</code></span>
+        <span>源码 <code>0.2.5.dev2+ga98d1562e.d20260813</code></span>
+        <span><code>main@a98d1562e9d5</code></span>
         <span>最近发布 <code>0.2.4</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
@@ -3260,9 +3260,10 @@
 </span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7"></a><a href="#__codelineno-7-7"><span class="linenos" data-linenos="7 "></span></a><span class="p">)</span>
 </span></code></pre></div>
 <p><code>AutoParser</code> 和所有 batch 操作默认使用 <code>n_jobs=-1</code>。MolOP 会将它解析为当前进程可用 CPU 与
-全局 <code>molopconfig.max_jobs</code> 上限中较小的值。默认 <code>max_jobs=None</code> 时，会跟随调度器/容器配额和
-CPU affinity；需要进程级上限时设置正整数。传入正整数 <code>n_jobs</code> 可指定 worker 数量；小批量或
-排查问题时使用 <code>n_jobs=1</code>。CLI 的 parse 和操作命令也都独立默认使用 <code>-1</code>。</p>
+全局 <code>molopconfig.max_jobs</code> 上限中较小的值。默认 <code>max_jobs=None</code> 时，会跟随系统能够暴露的
+调度器/容器配额和 CPU affinity；需要进程级上限时设置正整数。传入正整数 <code>n_jobs</code> 可指定
+worker 数量；小批量或排查问题时使用 <code>n_jobs=1</code>。CLI 的 parse 和操作命令也都独立默认使用
+<code>-1</code>。</p>
 <p><code>only_extract_structure=True</code> 会跳过非结构结果，不适合提取能量或热化学。</p>
 <h2 id="_6">发现失败文件<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><a href="#__codelineno-8-1"><span class="linenos" data-linenos=" 1 "></span></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
