@@ -376,7 +376,14 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         smi = self.to_SMILES()
         if not smi:
             return ""
-        canonical = canonical_smiles(smi)
+        try:
+            canonical = canonical_smiles(smi)
+        except Exception as e:
+            # RDKit's CanonSmiles reparses the string and may pass None to
+            # MolToSmiles when the reconstructed graph is not sanitizable.
+            moloplogger.error(f"Canonical SMILES building failed: {e}")
+            self._canonical_smiles_cache = ""
+            return ""
         self._canonical_smiles_cache = canonical
         return canonical
 

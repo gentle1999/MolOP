@@ -236,6 +236,7 @@ def test_calc_frame_topology_reconstruction_failure_is_structured(
     frame = parsed[-1]
 
     assert frame.rdmol is None
+    assert frame.to_canonical_SMILES() == ""
     assert frame.topology_v3000_molblock is None
     assert frame.topology_reconstruction_status == "failed"
     assert frame.topology_reconstruction_backend is not None

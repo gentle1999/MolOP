@@ -7,6 +7,8 @@ import pytest
 from rdkit import Chem
 
 from molop.io import AutoParser
+from molop.io.base_models.Molecule import Molecule
+from molop.unit import atom_ureg
 
 
 def test_xyz_frame_writer_uses_explicit_comment_override(tmp_path: Path) -> None:
@@ -52,6 +54,23 @@ def test_smi_reader_uses_first_token_and_writer_canonicalizes(tmp_path: Path) ->
 
     assert frame.to_canonical_SMILES() == "CCO"
     assert rendered == "CCO"
+
+
+def test_canonical_smiles_returns_empty_for_unparseable_reconstructed_graph() -> None:
+    atom_count = 6
+    molecule = Molecule(
+        atoms=[6, 1, 1, 1, 1, 1],
+        coords=[[0.0, 0.0, 0.0]] * atom_count * atom_ureg.angstrom,
+        bonds=[(0, atom_index, 0, 0) for atom_index in range(1, atom_count)],
+        formal_charges=[0] * atom_count,
+        formal_num_radicals=[0] * atom_count,
+    )
+
+    smiles = molecule.to_SMILES()
+    assert smiles
+    assert Chem.MolFromSmiles(smiles) is None
+    assert molecule.to_canonical_SMILES() == ""
+    assert molecule.to_canonical_SMILES() == ""
 
 
 def test_openbabel_unknown_extension_fallback_keeps_first_molecule_coordinates(
