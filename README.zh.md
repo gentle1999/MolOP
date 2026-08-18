@@ -134,6 +134,23 @@ structures/water_mp2.xyz
 
 将 `water_mp2.out` 替换为自己的文件路径或 glob，即可处理一批文件。
 
+### 绘制轨迹并导出过渡态候选
+
+解析后的多 frame 文件可以输出 GIF 或动画 SVG；包含单个虚频的计算文件还可以导出基于几何的
+前后体候选：
+
+```python
+from molop import AutoParser
+
+trajectory = AutoParser("trajectory.log", n_jobs=1)[0]
+ts_frame = next(frame for frame in trajectory if frame.is_TS)
+trajectory.draw_animation(file_path="trajectory.gif")
+pre_path, post_path = ts_frame.save_pre_post_ts("ts-endpoints", format="sdf")
+```
+
+详见[过渡态分析教程](https://gentle1999.github.io/MolOP/tutorials/transition-states/)，其中说明了
+frame 筛选、振动动图、批量导出以及“候选结构不是优化结构”的边界。
+
 ## 支持范围
 
 - QM 输出：Gaussian log/fchk、ORCA output、xTB output。
@@ -141,6 +158,7 @@ structures/water_mp2.xyz
 - 结构格式：XYZ、SDF/MOL、SMILES，以及 CML writer。
 - 公共结果：结构、能量、热化学、振动、轨道、原子布居、偶极/极化率、
   NMR 和计算状态，具体取决于格式和源文件打印内容。
+- 可视化：轨迹和振动 GIF/SVG 动图，以及基于几何的过渡态前后体候选。
 
 精确 reader/writer 状态和字段边界见
 [格式支持概览](https://gentle1999.github.io/MolOP/reference/format_support/)。
@@ -155,6 +173,7 @@ MolOP 不运行量子化学计算，也不是专用分子查看器或分子动�
 - [过滤与选择](https://gentle1999.github.io/MolOP/guides/filtering/)
 - [格式转换与导出](https://gentle1999.github.io/MolOP/guides/conversion/)
 - [可选的结构恢复与分子图可视化](https://gentle1999.github.io/MolOP/guides/structure-recovery/)
+- [过渡态分析与动图](https://gentle1999.github.io/MolOP/tutorials/transition-states/)
 - [贡献指南](https://gentle1999.github.io/MolOP/contributing/)
 
 ## 开发

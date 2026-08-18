@@ -136,6 +136,23 @@ structures/water_mp2.xyz
 
 Replace `water_mp2.out` with a path or glob for your own batch.
 
+### Render trajectories and transition-state candidates
+
+Parsed multi-frame files can be rendered as GIF or animated SVG, and calculation files with one
+imaginary mode can export geometry-based pre- and post-TS candidates:
+
+```python
+from molop import AutoParser
+
+trajectory = AutoParser("trajectory.log", n_jobs=1)[0]
+ts_frame = next(frame for frame in trajectory if frame.is_TS)
+trajectory.draw_animation(file_path="trajectory.gif")
+pre_path, post_path = ts_frame.save_pre_post_ts("ts-endpoints", format="sdf")
+```
+
+See the [transition-state analysis tutorial](https://gentle1999.github.io/MolOP/en/tutorials/transition-states/)
+for frame selection, vibration animation, batch export, and the non-optimized endpoint boundary.
+
 ## Supported scope
 
 - QM outputs: Gaussian log/fchk, ORCA output, and xTB output.
@@ -144,6 +161,8 @@ Replace `water_mp2.out` with a path or glob for your own batch.
 - Common results: structures, energies, thermochemistry, vibrations, orbitals,
   atomic populations, dipole/polarizability, NMR, and calculation status,
   depending on the format and printed source content.
+- Visualization: trajectory and vibration GIF/SVG animations, plus geometry-based transition-state
+  endpoint candidates.
 
 See the
 [format overview](https://gentle1999.github.io/MolOP/en/reference/format_support/)
@@ -160,6 +179,7 @@ molecular viewer or molecular dynamics engine.
 - [Filter and select](https://gentle1999.github.io/MolOP/en/guides/filtering/)
 - [Convert and export](https://gentle1999.github.io/MolOP/en/guides/conversion/)
 - [Optional structure recovery and graph visualization](https://gentle1999.github.io/MolOP/en/guides/structure-recovery/)
+- [Transition-state analysis and animations](https://gentle1999.github.io/MolOP/en/tutorials/transition-states/)
 - [Contributing](https://gentle1999.github.io/MolOP/en/contributing/)
 
 ## Development

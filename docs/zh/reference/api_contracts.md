@@ -10,6 +10,8 @@
 | 解析文件和 glob | [`AutoParser(...)`](#autoparser) | `FileBatchModelDisk` |
 | 选择 frame | [Frame 选择](#frame-selector) | 规范化后的 frame 索引 |
 | 格式转换 | [`format_transform(...)`](#format_transform) | 渲染文本或路径映射 |
+| 绘制轨迹 | [`draw_animation(...)`](#draw_animation) | GIF 或动画 SVG |
+| 导出 TS 前后体 | [`save_pre_post_ts(...)`](#save_pre_post_ts) | 前后体路径映射 |
 | 生成表格 | [`to_summary_df(...)`](#to_summary_df) | `pandas.DataFrame` |
 | 对每个文件运行函数 | [`parallel_execute(...)`](#parallel_execute) | 结果或 `None` |
 | 使用命令行 | [CLI 命令参考](../command_line_interface.md) | 末端操作结果 |
@@ -92,6 +94,33 @@ Batch 转换对单个文件失败时记录 warning，并为该文件返回空字
 检查日志。
 
 writer domain、frame 组合和格式专用行为见[转换行为](transform_behavior.md)。
+
+## `draw_animation`
+
+```python
+animation = parsed_file.draw_animation(
+    image_format="gif",
+    file_path="trajectory.gif",
+    duration=120,
+)
+```
+
+`draw_animation` 会渲染所有能够得到 RDKit 分子图的 frame；无法绘制的 frame 会被跳过。默认
+legend 保留 frame ID，并在可用时加入 TS 标记和总能量。`image_format` 支持 `"gif"` 与
+`"svg"`；`duration` 可以是一个正整数，也可以按原始 frame 提供序列。发生跳帧时，
+`duration`、`legends` 和 highlight 列表等按 frame 对齐的序列会同步过滤。
+
+## `save_pre_post_ts`
+
+```python
+file_exports = parsed_file.save_pre_post_ts("ts-endpoints", format="sdf")
+batch_exports = batch.save_pre_post_ts("ts-endpoints-batch", format="sdf", n_jobs=2)
+```
+
+文件级返回 `{frame_id: (pre_path, post_path)}`；batch 级返回值再增加源文件路径这一层。混合
+batch 中不支持该操作的文件会记录 warning 并跳过。唯一 source stem 保持原名；重复 stem 会追加
+稳定的源路径摘要，避免覆盖其他文件的结果。导出的前后体是基于几何的候选，不是优化后的真实
+反应物或产物。
 
 ## `to_summary_df`
 

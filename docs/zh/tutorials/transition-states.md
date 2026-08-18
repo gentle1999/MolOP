@@ -75,8 +75,8 @@ print("频率（cm^-1）：", vibrations.frequencies.m_as("cm^-1"))
 
 ## 沿虚频生成结构
 
-`ts_vibration` 沿第一个振动模式位移坐标，并返回候选 `Molecule`。它要求 `frame.is_TS` 为真，且
-可能因基本拥挤检查而跳过部分几何：
+`ts_vibration` 沿唯一虚频模式位移坐标，并返回候选 `Molecule`。它要求 `frame.is_TS` 为真，且可能
+因基本拥挤检查而跳过部分几何：
 
 ```python
 candidates = ts_frame.ts_vibration(ratio=1.75, steps=7)
@@ -89,6 +89,31 @@ print("候选几何数：", len(candidates))
 
     图像由一个具有单个虚频的真实解析 frame 生成。每个面板对应 `ts_vibration(...)`
     返回候选中成功恢复出分子图的一项；二维布局用于比较连接关系，不代表优化后的反应路径。
+
+## 绘制动图
+
+对任一解析文件调用 `draw_animation(...)`，即可将可绘制 frame 输出为 GIF 或动画 SVG，适用于优化、IRC
+和扫描轨迹。无法重建 RDKit 分子图的 frame 会被跳过；只有所有 frame 都不可绘制时才报错。默认 legend
+保留原始 frame ID；过渡态 frame 会标记 `TS`，有总能量时还会加入能量。
+
+```python
+trajectory = ts_batch[0]
+trajectory.draw_animation(file_path="trajectory.gif", duration=120, size=(640, 480))
+trajectory.draw_animation(
+    image_format="svg",
+    file_path="trajectory.svg",
+    duration=120,
+    size=(640, 480),
+)
+```
+
+指定振动模式时使用 `draw_vibration_animation(...)`；`draw_ts_vibration_animation(...)` 会自动选择唯一虚频。
+两者的默认 legend 都包含模式序号、频率和候选位置。传入 `legends=[...]` 可自行指定标签。
+
+```python
+ts_frame.draw_vibration_animation(vibration_id=0, file_path="mode-0.gif", steps=9)
+ts_frame.draw_ts_vibration_animation(file_path="ts-imaginary-mode.gif", steps=9)
+```
 
 ## 推断前后体候选与键变化
 
@@ -114,6 +139,39 @@ if difference is not None:
 `possible_pre_post_ts` 返回基于几何的前后体候选，不是优化后的真实反应物和产物。
 `to_diff_rdmol` 在无法推断出支持的断键差异时可能返回 `None`。自动反应流程使用这些结果前，
 仍需检查原子映射、连接关系和原始计算结果。
+
+使用 `save_pre_post_ts(...)` 可直接将一对候选写成 XYZ（默认）或 SDF 文件；SDF 会保留重建的分子图和
+推断得到的三维构象：
+
+```python
+pre_path, post_path = ts_frame.save_pre_post_ts("ts-endpoints", prefix="candidate")
+sdf_pre_path, sdf_post_path = ts_frame.save_pre_post_ts(
+    "ts-endpoints", prefix="candidate", format="sdf"
+)
+print(pre_path, post_path)
+```
+
+??? example "端点文件路径"
+
+    ```text
+    ts-endpoints/candidate_pre.xyz ts-endpoints/candidate_post.xyz
+    ```
+
+文件保留推断出的三维候选几何，不是已经优化的真实反应物和产物。
+
+省略 `prefix` 时，带磁盘来源信息的 frame 会将源文件 stem 和 frame ID 加入生成的文件名；仅存在于内存中的
+frame 则回退为 `ts_frame_<id>`。
+
+在解析后的计算文件上调用同名方法，会导出其中全部 TS frame；在批处理对象上调用时，每个支持该操作的
+计算文件会写入以完整文件 stem 命名的独立目录，不支持 TS 前后体导出的文件会记录警告并跳过。若不同
+目录中的源文件具有相同 stem，MolOP 会追加稳定的源路径摘要，保证输出目录彼此独立：
+
+```python
+file_endpoints = trajectory.save_pre_post_ts("ts-endpoints", format="sdf")
+batch_endpoints = ts_batch.save_pre_post_ts("ts-endpoints-batch", format="sdf", n_jobs=4)
+```
+
+两种返回值均以原始 frame ID 为键；批处理返回值额外以源文件路径作为最外层键。
 
 ## 相关操作
 

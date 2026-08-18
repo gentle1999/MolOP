@@ -11,6 +11,8 @@ the [parser contract](../developer/parser-contract.md).
 | Parse files and globs | [`AutoParser(...)`](#autoparser) | `FileBatchModelDisk` |
 | Select frames | [Frame selector](#frame-selector) | Normalized frame indices |
 | Convert formats | [`format_transform(...)`](#format_transform) | Rendered text or path mapping |
+| Render trajectories | [`draw_animation(...)`](#draw_animation) | GIF or animated SVG |
+| Export TS endpoints | [`save_pre_post_ts(...)`](#save_pre_post_ts) | Endpoint path mapping |
 | Build a table | [`to_summary_df(...)`](#to_summary_df) | `pandas.DataFrame` |
 | Run one function per file | [`parallel_execute(...)`](#parallel_execute) | Results or `None` |
 | Compose from the shell | [CLI command reference](../command_line_interface.md) | A terminal operation result |
@@ -101,6 +103,35 @@ inspect the log when a mapping contains an empty string or list.
 
 See [transform behavior](transform_behavior.md) for writer domains, frame
 composition, and format-specific details.
+
+## `draw_animation`
+
+```python
+animation = parsed_file.draw_animation(
+    image_format="gif",
+    file_path="trajectory.gif",
+    duration=120,
+)
+```
+
+`draw_animation` renders every frame with a usable RDKit graph. Invalid frames are skipped, and
+default legends retain frame IDs, TS status, and total energy when available. `image_format` accepts
+`"gif"` or `"svg"`; `duration` may be one positive integer or one value per original frame. When
+frames are skipped, frame-aligned sequences such as `duration`, `legends`, and highlight lists are
+filtered to the retained frames.
+
+## `save_pre_post_ts`
+
+```python
+file_exports = parsed_file.save_pre_post_ts("ts-endpoints", format="sdf")
+batch_exports = batch.save_pre_post_ts("ts-endpoints-batch", format="sdf", n_jobs=2)
+```
+
+The file-level method returns `{frame_id: (pre_path, post_path)}` and the batch-level method adds
+the source path as its outer key. Only calculation files with this operation are exported; other
+files in a mixed batch are skipped with a warning. Unique source stems are retained, while duplicate
+stems receive a stable source-path digest to prevent overwriting another file's results. The
+endpoints are geometry-based candidates, not optimized reactant or product structures.
 
 ## `to_summary_df`
 

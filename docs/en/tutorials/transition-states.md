@@ -76,9 +76,9 @@ imaginary modes alone is not a reaction-path validation.
 
 ## Generate structures along the mode
 
-`ts_vibration` displaces coordinates along the first vibration and returns candidate `Molecule`
-objects. It requires `frame.is_TS` to be true and may omit geometries that violate basic crowding
-checks:
+`ts_vibration` displaces coordinates along the unique imaginary mode and returns candidate
+`Molecule` objects. It requires `frame.is_TS` to be true and may omit geometries that violate basic
+crowding checks:
 
 ```python
 candidates = ts_frame.ts_vibration(ratio=1.75, steps=7)
@@ -92,6 +92,33 @@ print("candidate geometries:", len(candidates))
     The image is generated from a real parsed frame with one imaginary mode. Each panel is a
     `ts_vibration(...)` candidate for which graph reconstruction succeeded. The two-dimensional
     layout compares connectivity; it is not an optimized reaction path.
+
+## Render animations
+
+Use `draw_animation(...)` on any parsed file to render its valid frames as a GIF or animated SVG.
+This covers optimization, IRC, and scan trajectories. Frames that cannot reconstruct an RDKit graph
+are skipped; rendering fails only when no frame is drawable. The default legend retains the original
+frame ID, adds `TS` for transition-state frames, and includes total energy when available.
+
+```python
+trajectory = ts_batch[0]
+trajectory.draw_animation(file_path="trajectory.gif", duration=120, size=(640, 480))
+trajectory.draw_animation(
+    image_format="svg",
+    file_path="trajectory.svg",
+    duration=120,
+    size=(640, 480),
+)
+```
+
+For a selected normal mode, use `draw_vibration_animation(...)`; the TS-specific method selects the
+unique imaginary mode automatically. Their default legends include the mode index, frequency, and
+candidate position. Pass `legends=[...]` to either method to supply labels explicitly.
+
+```python
+ts_frame.draw_vibration_animation(vibration_id=0, file_path="mode-0.gif", steps=9)
+ts_frame.draw_ts_vibration_animation(file_path="ts-imaginary-mode.gif", steps=9)
+```
 
 ## Infer endpoint candidates and bond changes
 
@@ -119,6 +146,41 @@ if difference is not None:
 structures. `to_diff_rdmol` can return `None` when no supported bond-breaking difference is inferred.
 Review atom mapping, connectivity, and the original calculation before using either result in an
 automated reaction workflow.
+
+Write the pair as XYZ (the default) or SDF files with `save_pre_post_ts(...)`. SDF retains the
+reconstructed graph and the inferred three-dimensional conformer:
+
+```python
+pre_path, post_path = ts_frame.save_pre_post_ts("ts-endpoints", prefix="candidate")
+sdf_pre_path, sdf_post_path = ts_frame.save_pre_post_ts(
+    "ts-endpoints", prefix="candidate", format="sdf"
+)
+print(pre_path, post_path)
+```
+
+??? example "Endpoint file paths"
+
+    ```text
+    ts-endpoints/candidate_pre.xyz ts-endpoints/candidate_post.xyz
+    ```
+
+The files preserve the inferred three-dimensional candidate geometries. They are not optimized
+reactant and product structures.
+
+When `prefix` is omitted, disk-backed frames include the source filename stem and frame ID in the
+generated names; memory-only frames fall back to `ts_frame_<id>`.
+
+Call the same method on a parsed calculation file to export every TS frame. On a batch, each supported
+calculation file receives a separate directory named with its complete filename stem. Files without
+TS endpoint-export support are skipped with a warning. If source files in different directories have
+the same stem, MolOP adds a stable source-path digest to keep their output directories distinct:
+
+```python
+file_endpoints = trajectory.save_pre_post_ts("ts-endpoints", format="sdf")
+batch_endpoints = ts_batch.save_pre_post_ts("ts-endpoints-batch", format="sdf", n_jobs=4)
+```
+
+Both mappings are keyed by original frame ID; the batch mapping adds the source path as its outer key.
 
 ## Related operations
 

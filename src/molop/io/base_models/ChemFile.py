@@ -7,7 +7,10 @@ Description: 请填写简介
 """
 
 import importlib
+import os
 from collections.abc import Iterator, Sequence
+from contextlib import suppress
+from pathlib import Path
 from sys import getsizeof
 from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, cast, overload
 
@@ -48,6 +51,7 @@ from molop.io.base_models.source import (
 from molop.io.base_models.summary import SummaryDict, build_summary_df, summary_column, summary_item
 from molop.io.frame_selection import FrameSelector, normalize_frame_selector
 from molop.unit import atom_ureg
+from molop.visualization.animation import AnimationFormat, render_molecule_animation
 
 
 FrameT = TypeVar("FrameT", bound=BaseChemFileFrame)
@@ -227,6 +231,48 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
             summary_column("General", "FileSize"): self._format_file_size(),
         }
 
+    def draw_animation(
+        self,
+        *,
+        image_format: AnimationFormat = "gif",
+        file_path: os.PathLike[str] | str | None = None,
+        duration: int | Sequence[int] = 200,
+        loop: int = 0,
+        legends: Sequence[str | None] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Render every file frame as an animated GIF or SVG.
+
+        This is suitable for optimization, IRC, scan, and other multi-frame
+        coordinate trajectories. Frames without a usable RDKit graph are
+        omitted; rendering raises only when no retained frame is drawable.
+        """
+
+        frame_legends = legends
+        if frame_legends is None:
+            frame_legends = [self._animation_frame_legend(frame) for frame in self.frames]
+        return render_molecule_animation(
+            self.frames,
+            image_format=image_format,
+            file_path=file_path,
+            duration=duration,
+            loop=loop,
+            legends=frame_legends,
+            **kwargs,
+        )
+
+    @staticmethod
+    def _animation_frame_legend(frame: BaseChemFileFrame) -> str:
+        parts = [f"Frame {frame.frame_id}"]
+        if frame.is_TS:
+            parts.append("TS")
+        energies = getattr(frame, "energies", None)
+        total_energy = getattr(energies, "total_energy", None)
+        if total_energy is not None:
+            with suppress(AttributeError, TypeError, ValueError):
+                parts.append(f"E = {float(total_energy.m_as('hartree')):.6f} hartree")
+        return " | ".join(parts)
+
     def to_summary_df(
         self,
         brief: bool = True,
@@ -397,6 +443,33 @@ class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):
         default=None,
         description="Geometry optimization status of the last frame",
     )
+
+    def save_pre_post_ts(
+        self,
+        output_dir: os.PathLike[str] | str,
+        *,
+        format: Literal["xyz", "sdf"] = "xyz",
+        ratio: float = 1.75,
+        steps: int = 7,
+        ratio_attempts: Sequence[float] | None = None,
+    ) -> dict[int, tuple[Path, Path]]:
+        """Export endpoint candidates for every transition-state frame in this file.
+
+        Each result is keyed by its original frame ID. Files without transition-state
+        frames return an empty mapping.
+        """
+
+        return {
+            frame.frame_id: frame.save_pre_post_ts(
+                output_dir,
+                format=format,
+                ratio=ratio,
+                steps=steps,
+                ratio_attempts=ratio_attempts,
+            )
+            for frame in self.frames
+            if frame.is_TS
+        }
 
     @property
     def sort_by_optimization(self) -> Sequence[BaseCalcFrame]:

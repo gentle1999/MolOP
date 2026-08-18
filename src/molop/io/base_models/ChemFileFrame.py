@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 from collections.abc import Sequence
 from io import StringIO
+from pathlib import Path
 from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, cast
 
 import numpy as np
@@ -57,6 +58,7 @@ from molop.io.base_models.summary import SummaryDict, summary_column, summary_it
 from molop.structure.StructureTransformation import check_crowding
 from molop.unit import atom_ureg
 from molop.utils.types import OMol, PintArrayN, PintArrayNx3, PintSquareMatrix, RdMol
+from molop.visualization.animation import AnimationFormat, render_molecule_animation
 
 
 class _HasCoords(Protocol):
@@ -801,7 +803,8 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 vibration_id = 0
             if self.vibrations is None:
                 raise ValueError("No vibrations found in this frame")
-            assert len(self.vibrations) > vibration_id, f"Invalid vibration id {vibration_id}"
+            if vibration_id < 0 or vibration_id >= len(self.vibrations):
+                raise IndexError(f"Invalid vibration id {vibration_id}")
             vibration = self.vibrations[vibration_id]
         assert vibration.vibration_mode.m.shape == self.coords.m.shape, "Invalid vibration mode"
 
@@ -842,6 +845,72 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             temp_moleculues.append(molecule)
         return temp_moleculues
 
+    def draw_vibration_animation(
+        self,
+        vibration_id: int | None = None,
+        vibration: Vibration | None = None,
+        *,
+        ratio: float = 1.75,
+        steps: int = 7,
+        image_format: AnimationFormat = "gif",
+        file_path: os.PathLike[str] | str | None = None,
+        duration: int | Sequence[int] = 200,
+        loop: int = 0,
+        legends: Sequence[str | None] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Render structures displaced along one normal mode as an animation."""
+
+        candidates = self.vibrate(
+            vibration_id=vibration_id,
+            vibration=vibration,
+            ratio=ratio,
+            steps=steps,
+        )
+        candidate_legends = legends
+        if candidate_legends is None:
+            candidate_legends = self._vibration_animation_legends(
+                candidates,
+                vibration_id=vibration_id,
+                vibration=vibration,
+            )
+        return render_molecule_animation(
+            candidates,
+            image_format=image_format,
+            file_path=file_path,
+            duration=duration,
+            loop=loop,
+            legends=candidate_legends,
+            **kwargs,
+        )
+
+    def _vibration_animation_legends(
+        self,
+        candidates: Sequence[Molecule],
+        *,
+        vibration_id: int | None,
+        vibration: Vibration | None,
+    ) -> list[str]:
+        selected_vibration = vibration
+        selected_id = vibration_id
+        if selected_vibration is None:
+            selected_id = 0 if selected_id is None else selected_id
+            assert self.vibrations is not None
+            selected_vibration = self.vibrations[selected_id]
+
+        mode_label = "Mode" if selected_id is None else f"Mode {selected_id}"
+        frequency_label = "frequency unavailable"
+        if selected_vibration.frequency is not None:
+            try:
+                frequency = float(selected_vibration.frequency.m_as("cm^-1"))
+                frequency_label = f"frequency = {frequency:.2f} cm^-1"
+            except (AttributeError, TypeError, ValueError):
+                pass
+        return [
+            f"{mode_label} | {frequency_label} | geometry {index}/{len(candidates)}"
+            for index in range(1, len(candidates) + 1)
+        ]
+
     def get_QRC(self, ratio: float = 1.75, vibration_id: int = 0) -> list[Molecule]:
         assert self.vibrations is not None and self.vibrations[vibration_id].is_imaginary, (
             "Must be an imaginary vibration"
@@ -865,9 +934,42 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         Returns:
             List[BaseMolFrameParser]: A list of base block parsers for transition state vibration calculations.
         """
-        assert self.is_TS, "Must be a TS frame"
+        return self.vibrate(vibration_id=self._ts_vibration_id(), ratio=ratio, steps=steps)
 
-        return self.vibrate(vibration_id=0, ratio=ratio, steps=steps)
+    def draw_ts_vibration_animation(
+        self,
+        *,
+        ratio: float = 1.75,
+        steps: int = 7,
+        image_format: AnimationFormat = "gif",
+        file_path: os.PathLike[str] | str | None = None,
+        duration: int | Sequence[int] = 200,
+        loop: int = 0,
+        legends: Sequence[str | None] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        """Render the unique imaginary mode of a transition-state frame."""
+
+        return self.draw_vibration_animation(
+            vibration_id=self._ts_vibration_id(),
+            ratio=ratio,
+            steps=steps,
+            image_format=image_format,
+            file_path=file_path,
+            duration=duration,
+            loop=loop,
+            legends=legends,
+            **kwargs,
+        )
+
+    def _ts_vibration_id(self) -> int:
+        if not self.is_TS:
+            raise ValueError("Must be a TS frame")
+        assert self.vibrations is not None
+        imaginary_idxs = self.vibrations.imaginary_idxs
+        if len(imaginary_idxs) != 1:
+            raise ValueError("A TS frame must have exactly one imaginary vibration")
+        return imaginary_idxs[0]
 
     def possible_pre_post_ts(
         self,
@@ -917,6 +1019,75 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             reactant_rdmol.RemoveAllConformers() if reactant_rdmol is not None else None
             product_rdmol.RemoveAllConformers() if product_rdmol is not None else None
         return reactant_rdmol, product_rdmol
+
+    def save_pre_post_ts(
+        self,
+        output_dir: os.PathLike[str] | str,
+        *,
+        prefix: str | None = None,
+        format: Literal["xyz", "sdf"] = "xyz",
+        ratio: float = 1.75,
+        steps: int = 7,
+        ratio_attempts: Sequence[float] | None = None,
+    ) -> tuple[Path, Path]:
+        """Save inferred pre- and post-TS endpoint candidates.
+
+        The endpoints are geometric candidates from :meth:`possible_pre_post_ts`,
+        not separately optimized reactant and product structures.
+
+        Parameters:
+            output_dir: Directory for the exported endpoint files.
+            prefix: Filename prefix. Defaults to the source filename stem and
+                frame ID when the frame has file metadata, otherwise the frame ID.
+            format: Endpoint format, either ``"xyz"`` or ``"sdf"``. SDF
+                preserves the reconstructed molecular graph and 3D conformer.
+        """
+
+        normalized_format = format.lower()
+        if normalized_format not in {"xyz", "sdf"}:
+            raise ValueError(f"Unsupported endpoint format: {format!r}. Use 'xyz' or 'sdf'.")
+
+        pre_rdmol, post_rdmol = self.possible_pre_post_ts(
+            show_3D=True,
+            ratio=ratio,
+            steps=steps,
+            ratio_attempts=ratio_attempts,
+        )
+        source_prefix = getattr(self, "pure_filename", None)
+        if not source_prefix:
+            filename = getattr(self, "filename", None)
+            if filename:
+                source_prefix = Path(str(filename)).stem
+        if not source_prefix:
+            file_path = getattr(self, "file_path", None)
+            if file_path:
+                source_prefix = Path(str(file_path)).stem
+        name_prefix = prefix or (
+            f"{source_prefix}_frame_{self.frame_id:03d}"
+            if source_prefix
+            else f"ts_frame_{self.frame_id:03d}"
+        )
+        destination = Path(output_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+        pre_path = destination / f"{name_prefix}_pre.{normalized_format}"
+        post_path = destination / f"{name_prefix}_post.{normalized_format}"
+
+        if normalized_format == "xyz":
+            pre_path.write_text(Molecule.from_rdmol(pre_rdmol).to_XYZ(), encoding="utf-8")
+            post_path.write_text(Molecule.from_rdmol(post_rdmol).to_XYZ(), encoding="utf-8")
+        else:
+            for endpoint_name, rdmol, path in (
+                ("pre-TS endpoint candidate", pre_rdmol, pre_path),
+                ("post-TS endpoint candidate", post_rdmol, post_path),
+            ):
+                endpoint_rdmol = Chem.Mol(rdmol)
+                endpoint_rdmol.SetProp("_Name", endpoint_name)
+                writer = Chem.SDWriter(str(path))
+                try:
+                    writer.write(endpoint_rdmol)
+                finally:
+                    writer.close()
+        return pre_path, post_path
 
     def to_diff_rdmol(self, *, ratio: float = 1.75, steps: int = 7) -> RdMol | None:
         """

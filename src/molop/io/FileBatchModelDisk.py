@@ -4,8 +4,10 @@ import operator
 import os
 import random
 import shutil
-from collections import OrderedDict
+from collections import Counter, OrderedDict
 from collections.abc import Callable, Iterable, Iterator, MutableMapping, Sequence
+from hashlib import sha256
+from pathlib import Path
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -39,6 +41,33 @@ def _looks_like_disk_file(obj: object) -> TypeGuard[DiskFileLike]:
     """Return whether an object satisfies the shared disk-file protocol."""
 
     return isinstance(obj, DiskFileLike) and bool(obj.file_path)
+
+
+def _endpoint_output_directories(
+    diskfiles: Sequence[DiskFileLike], destination: Path
+) -> dict[str, Path]:
+    source_paths = [str(diskfile.file_path) for diskfile in diskfiles]
+    stems = [Path(source_path).stem or "source" for source_path in source_paths]
+    stem_counts = Counter(stem.casefold() for stem in stems)
+    used_names: set[str] = set()
+    output_directories: dict[str, Path] = {}
+
+    for source_path, stem in zip(source_paths, stems, strict=True):
+        directory_name = stem
+        if stem_counts[stem.casefold()] > 1 or directory_name.casefold() in used_names:
+            path_digest = sha256(os.fsencode(os.path.abspath(source_path))).hexdigest()[:12]
+            directory_name = f"{stem}-{path_digest}"
+
+        candidate = directory_name
+        duplicate_index = 2
+        while candidate.casefold() in used_names:
+            candidate = f"{directory_name}-{duplicate_index}"
+            duplicate_index += 1
+
+        used_names.add(candidate.casefold())
+        output_directories[source_path] = destination / candidate
+
+    return output_directories
 
 
 R = TypeVar("R")
@@ -693,6 +722,68 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         """
         for diskfile in self:
             diskfile.release_file_content()
+
+    def save_pre_post_ts(
+        self,
+        output_dir: os.PathLike[str] | str,
+        *,
+        format: Literal["xyz", "sdf"] = "xyz",
+        ratio: float = 1.75,
+        steps: int = 7,
+        ratio_attempts: Sequence[float] | None = None,
+        n_jobs: int = -1,
+    ) -> dict[str, dict[int, tuple[Path, Path]]]:
+        """Export endpoint candidates for every TS frame in every calculation file.
+
+        Each supported source file receives a separate directory. Unique filename
+        stems are retained; duplicate stems gain a stable source-path digest to
+        prevent overwrites. Files without endpoint-export support are skipped with
+        a warning. The result maps supported source paths to the frame-ID-to-endpoint
+        mappings returned by each file.
+        """
+
+        destination = Path(output_dir)
+        destination.mkdir(parents=True, exist_ok=True)
+
+        diskfiles = self._snapshot_diskfiles()
+        exportable_diskfiles: list[TFileDisk] = []
+        for diskfile in diskfiles:
+            if callable(getattr(diskfile, "save_pre_post_ts", None)):
+                exportable_diskfiles.append(diskfile)
+            else:
+                moloplogger.warning(
+                    f"Skipping {diskfile.file_path}: "
+                    f"{type(diskfile).__name__} does not support TS endpoint export"
+                )
+        output_directories = _endpoint_output_directories(
+            cast(Sequence[DiskFileLike], exportable_diskfiles), destination
+        )
+
+        def export_file(diskfile: TFileDisk) -> tuple[str, dict[int, tuple[Path, Path]]]:
+            save_endpoints = getattr(diskfile, "save_pre_post_ts", None)
+            assert callable(save_endpoints)
+            source_path = str(diskfile.file_path)
+            exports = cast(
+                dict[int, tuple[Path, Path]],
+                save_endpoints(
+                    output_directories[source_path],
+                    format=format,
+                    ratio=ratio,
+                    steps=steps,
+                    ratio_attempts=ratio_attempts,
+                ),
+            )
+            return source_path, exports
+
+        desc = f"Exporting TS endpoint candidates with {molopconfig.set_n_jobs(n_jobs)} jobs"
+        results = self.parallel_execute(
+            export_file,
+            desc,
+            n_jobs,
+            _diskfiles_snapshot=exportable_diskfiles,
+            return_results=True,
+        )
+        return dict(results)
 
     def draw_grid_image(
         self,
