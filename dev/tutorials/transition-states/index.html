@@ -109,8 +109,8 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.6.dev1+g1bacacff1.d20260813</code></span>
-        <span><code>main@1bacacff171f</code></span>
+        <span>源码 <code>0.2.5.post2.dev1+gd2c4cdd5b.d20260818</code></span>
+        <span><code>main@d2c4cdd5b88b</code></span>
         <span>最近发布 <code>0.2.5</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
@@ -1310,7 +1310,7 @@
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
-        推断前后体候选与键变化
+        绘制动图
       
     </span>
   </a>
@@ -1319,6 +1319,17 @@
       
         <li class="md-nav__item">
   <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        推断前后体候选与键变化
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
     <span class="md-ellipsis">
       
         相关操作
@@ -3107,7 +3118,7 @@
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
-        推断前后体候选与键变化
+        绘制动图
       
     </span>
   </a>
@@ -3116,6 +3127,17 @@
       
         <li class="md-nav__item">
   <a href="#_5" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        推断前后体候选与键变化
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
     <span class="md-ellipsis">
       
         相关操作
@@ -3217,8 +3239,8 @@
 </details>
 <p>需要结合频率正负、位移方向和化学含义复核。虚频数量本身不能证明反应路径正确。</p>
 <h2 id="_3">沿虚频生成结构<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
-<p><code>ts_vibration</code> 沿第一个振动模式位移坐标，并返回候选 <code>Molecule</code>。它要求 <code>frame.is_TS</code> 为真，且
-可能因基本拥挤检查而跳过部分几何：</p>
+<p><code>ts_vibration</code> 沿唯一虚频模式位移坐标，并返回候选 <code>Molecule</code>。它要求 <code>frame.is_TS</code> 为真，且可能
+因基本拥挤检查而跳过部分几何：</p>
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><a href="#__codelineno-6-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">candidates</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">ts_vibration</span><span class="p">(</span><span class="n">ratio</span><span class="o">=</span><span class="mf">1.75</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">7</span><span class="p">)</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a><a href="#__codelineno-6-2"><span class="linenos" data-linenos="2 "></span></a><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;候选几何数：&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidates</span><span class="p">))</span>
 </span></code></pre></div>
@@ -3228,16 +3250,34 @@
 <p>图像由一个具有单个虚频的真实解析 frame 生成。每个面板对应 <code>ts_vibration(...)</code>
 返回候选中成功恢复出分子图的一项；二维布局用于比较连接关系，不代表优化后的反应路径。</p>
 </details>
-<h2 id="_4">推断前后体候选与键变化<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a><a href="#__codelineno-7-1"><span class="linenos" data-linenos="1 "></span></a><span class="k">try</span><span class="p">:</span>
-</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2"></a><a href="#__codelineno-7-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">reactant</span><span class="p">,</span> <span class="n">product</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">possible_pre_post_ts</span><span class="p">(</span><span class="n">show_3D</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3"></a><a href="#__codelineno-7-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="nb">print</span><span class="p">(</span><span class="n">reactant</span><span class="o">.</span><span class="n">GetNumAtoms</span><span class="p">(),</span> <span class="n">product</span><span class="o">.</span><span class="n">GetNumAtoms</span><span class="p">())</span>
-</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4"></a><a href="#__codelineno-7-4"><span class="linenos" data-linenos="4 "></span></a><span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
-</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5"></a><a href="#__codelineno-7-5"><span class="linenos" data-linenos="5 "></span></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;前后体推断失败：&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
-</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6"></a><a href="#__codelineno-7-6"><span class="linenos" data-linenos="6 "></span></a>
-</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7"></a><a href="#__codelineno-7-7"><span class="linenos" data-linenos="7 "></span></a><span class="n">difference</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">to_diff_rdmol</span><span class="p">()</span>
-</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8"></a><a href="#__codelineno-7-8"><span class="linenos" data-linenos="8 "></span></a><span class="k">if</span> <span class="n">difference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
-</span><span id="__span-7-9"><a id="__codelineno-7-9" name="__codelineno-7-9"></a><a href="#__codelineno-7-9"><span class="linenos" data-linenos="9 "></span></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;差异图键数：&quot;</span><span class="p">,</span> <span class="n">difference</span><span class="o">.</span><span class="n">GetNumBonds</span><span class="p">())</span>
+<h2 id="_4">绘制动图<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
+<p>对任一解析文件调用 <code>draw_animation(...)</code>，即可将可绘制 frame 输出为 GIF 或动画 SVG，适用于优化、IRC
+和扫描轨迹。无法重建 RDKit 分子图的 frame 会被跳过；只有所有 frame 都不可绘制时才报错。默认 legend
+保留原始 frame ID；过渡态 frame 会标记 <code>TS</code>，有总能量时还会加入能量。</p>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a><a href="#__codelineno-7-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">trajectory</span> <span class="o">=</span> <span class="n">ts_batch</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2"></a><a href="#__codelineno-7-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">trajectory</span><span class="o">.</span><span class="n">draw_animation</span><span class="p">(</span><span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;trajectory.gif&quot;</span><span class="p">,</span> <span class="n">duration</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span> <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">640</span><span class="p">,</span> <span class="mi">480</span><span class="p">))</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3"></a><a href="#__codelineno-7-3"><span class="linenos" data-linenos="3 "></span></a><span class="n">trajectory</span><span class="o">.</span><span class="n">draw_animation</span><span class="p">(</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4"></a><a href="#__codelineno-7-4"><span class="linenos" data-linenos="4 "></span></a>    <span class="n">image_format</span><span class="o">=</span><span class="s2">&quot;svg&quot;</span><span class="p">,</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5"></a><a href="#__codelineno-7-5"><span class="linenos" data-linenos="5 "></span></a>    <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;trajectory.svg&quot;</span><span class="p">,</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6"></a><a href="#__codelineno-7-6"><span class="linenos" data-linenos="6 "></span></a>    <span class="n">duration</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7"></a><a href="#__codelineno-7-7"><span class="linenos" data-linenos="7 "></span></a>    <span class="n">size</span><span class="o">=</span><span class="p">(</span><span class="mi">640</span><span class="p">,</span> <span class="mi">480</span><span class="p">),</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8"></a><a href="#__codelineno-7-8"><span class="linenos" data-linenos="8 "></span></a><span class="p">)</span>
+</span></code></pre></div>
+<p>指定振动模式时使用 <code>draw_vibration_animation(...)</code>；<code>draw_ts_vibration_animation(...)</code> 会自动选择唯一虚频。
+两者的默认 legend 都包含模式序号、频率和候选位置。传入 <code>legends=[...]</code> 可自行指定标签。</p>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><a href="#__codelineno-8-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">ts_frame</span><span class="o">.</span><span class="n">draw_vibration_animation</span><span class="p">(</span><span class="n">vibration_id</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span> <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;mode-0.gif&quot;</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2"></a><a href="#__codelineno-8-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">ts_frame</span><span class="o">.</span><span class="n">draw_ts_vibration_animation</span><span class="p">(</span><span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;ts-imaginary-mode.gif&quot;</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">9</span><span class="p">)</span>
+</span></code></pre></div>
+<h2 id="_5">推断前后体候选与键变化<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1"></a><a href="#__codelineno-9-1"><span class="linenos" data-linenos="1 "></span></a><span class="k">try</span><span class="p">:</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2"></a><a href="#__codelineno-9-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">reactant</span><span class="p">,</span> <span class="n">product</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">possible_pre_post_ts</span><span class="p">(</span><span class="n">show_3D</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3"></a><a href="#__codelineno-9-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="nb">print</span><span class="p">(</span><span class="n">reactant</span><span class="o">.</span><span class="n">GetNumAtoms</span><span class="p">(),</span> <span class="n">product</span><span class="o">.</span><span class="n">GetNumAtoms</span><span class="p">())</span>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4"></a><a href="#__codelineno-9-4"><span class="linenos" data-linenos="4 "></span></a><span class="k">except</span> <span class="ne">ValueError</span> <span class="k">as</span> <span class="n">exc</span><span class="p">:</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5"></a><a href="#__codelineno-9-5"><span class="linenos" data-linenos="5 "></span></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;前后体推断失败：&quot;</span><span class="p">,</span> <span class="n">exc</span><span class="p">)</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6"></a><a href="#__codelineno-9-6"><span class="linenos" data-linenos="6 "></span></a>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7"></a><a href="#__codelineno-9-7"><span class="linenos" data-linenos="7 "></span></a><span class="n">difference</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">to_diff_rdmol</span><span class="p">()</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8"></a><a href="#__codelineno-9-8"><span class="linenos" data-linenos="8 "></span></a><span class="k">if</span> <span class="n">difference</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9"></a><a href="#__codelineno-9-9"><span class="linenos" data-linenos="9 "></span></a>    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;差异图键数：&quot;</span><span class="p">,</span> <span class="n">difference</span><span class="o">.</span><span class="n">GetNumBonds</span><span class="p">())</span>
 </span></code></pre></div>
 <details class="example">
 <summary>前后体与虚键差异图（图像输出）</summary>
@@ -3248,7 +3288,30 @@
 <p><code>possible_pre_post_ts</code> 返回基于几何的前后体候选，不是优化后的真实反应物和产物。
 <code>to_diff_rdmol</code> 在无法推断出支持的断键差异时可能返回 <code>None</code>。自动反应流程使用这些结果前，
 仍需检查原子映射、连接关系和原始计算结果。</p>
-<h2 id="_5">相关操作<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<p>使用 <code>save_pre_post_ts(...)</code> 可直接将一对候选写成 XYZ（默认）或 SDF 文件；SDF 会保留重建的分子图和
+推断得到的三维构象：</p>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a><a href="#__codelineno-10-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">pre_path</span><span class="p">,</span> <span class="n">post_path</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;candidate&quot;</span><span class="p">)</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2"></a><a href="#__codelineno-10-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">sdf_pre_path</span><span class="p">,</span> <span class="n">sdf_post_path</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3"></a><a href="#__codelineno-10-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;candidate&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4"></a><a href="#__codelineno-10-4"><span class="linenos" data-linenos="4 "></span></a><span class="p">)</span>
+</span><span id="__span-10-5"><a id="__codelineno-10-5" name="__codelineno-10-5"></a><a href="#__codelineno-10-5"><span class="linenos" data-linenos="5 "></span></a><span class="nb">print</span><span class="p">(</span><span class="n">pre_path</span><span class="p">,</span> <span class="n">post_path</span><span class="p">)</span>
+</span></code></pre></div>
+<details class="example">
+<summary>端点文件路径</summary>
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1"></a><a href="#__codelineno-11-1"><span class="linenos" data-linenos="1 "></span></a>ts-endpoints/candidate_pre.xyz ts-endpoints/candidate_post.xyz
+</span></code></pre></div>
+</details>
+<p>文件保留推断出的三维候选几何，不是已经优化的真实反应物和产物。</p>
+<p>省略 <code>prefix</code> 时，带磁盘来源信息的 frame 会将源文件 stem 和 frame ID 加入生成的文件名；仅存在于内存中的
+frame 则回退为 <code>ts_frame_&lt;id&gt;</code>。</p>
+<p>在解析后的计算文件上调用同名方法，会导出其中全部 TS frame；在批处理对象上调用时，每个支持该操作的
+计算文件会写入以完整文件 stem 命名的独立目录，不支持 TS 前后体导出的文件会记录警告并跳过。若不同
+目录中的源文件具有相同 stem，MolOP 会追加稳定的源路径摘要，保证输出目录彼此独立：</p>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1"></a><a href="#__codelineno-12-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">file_endpoints</span> <span class="o">=</span> <span class="n">trajectory</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">)</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2"></a><a href="#__codelineno-12-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">batch_endpoints</span> <span class="o">=</span> <span class="n">ts_batch</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints-batch&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+</span></code></pre></div>
+<p>两种返回值均以原始 frame ID 为键；批处理返回值额外以源文件路径作为最外层键。</p>
+<h2 id="_6">相关操作<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
 <ul>
 <li>优化轨迹使用 <code>filter_state("opt")</code> 和 <code>parsed_file.closest_optimized_frame</code>。</li>
 <li>需要指定振动模式时使用 <code>frame.vibrate(...)</code>，不要固定使用第一模式。</li>

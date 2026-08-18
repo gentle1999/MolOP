@@ -109,8 +109,8 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.6.dev1+g1bacacff1.d20260813</code></span>
-        <span><code>main@1bacacff171f</code></span>
+        <span>源码 <code>0.2.5.post2.dev1+gd2c4cdd5b.d20260818</code></span>
+        <span><code>main@d2c4cdd5b88b</code></span>
         <span>最近发布 <code>0.2.5</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
@@ -2298,6 +2298,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#draw_animation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        draw_animation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#save_pre_post_ts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        save_pre_post_ts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#to_summary_df" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3156,6 +3178,28 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#draw_animation" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        draw_animation
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#save_pre_post_ts" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        save_pre_post_ts
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#to_summary_df" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3270,6 +3314,16 @@
 <td>格式转换</td>
 <td><a href="#format_transform"><code>format_transform(...)</code></a></td>
 <td>渲染文本或路径映射</td>
+</tr>
+<tr>
+<td>绘制轨迹</td>
+<td><a href="#draw_animation"><code>draw_animation(...)</code></a></td>
+<td>GIF 或动画 SVG</td>
+</tr>
+<tr>
+<td>导出 TS 前后体</td>
+<td><a href="#save_pre_post_ts"><code>save_pre_post_ts(...)</code></a></td>
+<td>前后体路径映射</td>
 </tr>
 <tr>
 <td>生成表格</td>
@@ -3413,19 +3467,38 @@ API 契约。</p>
 Batch 转换对单个文件失败时记录 warning，并为该文件返回空字符串或空列表；出现空值时应
 检查日志。</p>
 <p>writer domain、frame 组合和格式专用行为见<a href="../transform_behavior/">转换行为</a>。</p>
+<h2 id="draw_animation"><code>draw_animation</code><a class="headerlink" href="#draw_animation" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><a href="#__codelineno-4-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">animation</span> <span class="o">=</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">draw_animation</span><span class="p">(</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2"></a><a href="#__codelineno-4-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">image_format</span><span class="o">=</span><span class="s2">&quot;gif&quot;</span><span class="p">,</span>
+</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3"></a><a href="#__codelineno-4-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;trajectory.gif&quot;</span><span class="p">,</span>
+</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4"></a><a href="#__codelineno-4-4"><span class="linenos" data-linenos="4 "></span></a>    <span class="n">duration</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>
+</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5"></a><a href="#__codelineno-4-5"><span class="linenos" data-linenos="5 "></span></a><span class="p">)</span>
+</span></code></pre></div>
+<p><code>draw_animation</code> 会渲染所有能够得到 RDKit 分子图的 frame；无法绘制的 frame 会被跳过。默认
+legend 保留 frame ID，并在可用时加入 TS 标记和总能量。<code>image_format</code> 支持 <code>"gif"</code> 与
+<code>"svg"</code>；<code>duration</code> 可以是一个正整数，也可以按原始 frame 提供序列。发生跳帧时，
+<code>duration</code>、<code>legends</code> 和 highlight 列表等按 frame 对齐的序列会同步过滤。</p>
+<h2 id="save_pre_post_ts"><code>save_pre_post_ts</code><a class="headerlink" href="#save_pre_post_ts" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a><a href="#__codelineno-5-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">file_exports</span> <span class="o">=</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">)</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2"></a><a href="#__codelineno-5-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">batch_exports</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints-batch&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+</span></code></pre></div>
+<p>文件级返回 <code>{frame_id: (pre_path, post_path)}</code>；batch 级返回值再增加源文件路径这一层。混合
+batch 中不支持该操作的文件会记录 warning 并跳过。唯一 source stem 保持原名；重复 stem 会追加
+稳定的源路径摘要，避免覆盖其他文件的结果。导出的前后体是基于几何的候选，不是优化后的真实
+反应物或产物。</p>
 <h2 id="to_summary_df"><code>to_summary_df</code><a class="headerlink" href="#to_summary_df" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><a href="#__codelineno-4-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">summary</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">to_summary_df</span><span class="p">(</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2"></a><a href="#__codelineno-4-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;frame&quot;</span><span class="p">,</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3"></a><a href="#__codelineno-4-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="n">frame</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4"></a><a href="#__codelineno-4-4"><span class="linenos" data-linenos="4 "></span></a>    <span class="n">brief</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5"></a><a href="#__codelineno-4-5"><span class="linenos" data-linenos="5 "></span></a>    <span class="n">flatten_columns</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-4-6"><a id="__codelineno-4-6" name="__codelineno-4-6"></a><a href="#__codelineno-4-6"><span class="linenos" data-linenos="6 "></span></a>    <span class="n">on_missing_frame</span><span class="o">=</span><span class="s2">&quot;skip&quot;</span><span class="p">,</span>
-</span><span id="__span-4-7"><a id="__codelineno-4-7" name="__codelineno-4-7"></a><a href="#__codelineno-4-7"><span class="linenos" data-linenos="7 "></span></a><span class="p">)</span>
-</span><span id="__span-4-8"><a id="__codelineno-4-8" name="__codelineno-4-8"></a><a href="#__codelineno-4-8"><span class="linenos" data-linenos="8 "></span></a><span class="nb">print</span><span class="p">(</span><span class="n">summary</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><a href="#__codelineno-6-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">summary</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">to_summary_df</span><span class="p">(</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a><a href="#__codelineno-6-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;frame&quot;</span><span class="p">,</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3"></a><a href="#__codelineno-6-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="n">frame</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4"></a><a href="#__codelineno-6-4"><span class="linenos" data-linenos="4 "></span></a>    <span class="n">brief</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5"></a><a href="#__codelineno-6-5"><span class="linenos" data-linenos="5 "></span></a>    <span class="n">flatten_columns</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6"></a><a href="#__codelineno-6-6"><span class="linenos" data-linenos="6 "></span></a>    <span class="n">on_missing_frame</span><span class="o">=</span><span class="s2">&quot;skip&quot;</span><span class="p">,</span>
+</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7"></a><a href="#__codelineno-6-7"><span class="linenos" data-linenos="7 "></span></a><span class="p">)</span>
+</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8"></a><a href="#__codelineno-6-8"><span class="linenos" data-linenos="8 "></span></a><span class="nb">print</span><span class="p">(</span><span class="n">summary</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </span></code></pre></div>
 <details class="example">
 <summary>输出</summary>
-<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a><a href="#__codelineno-5-1"><span class="linenos" data-linenos="1 "></span></a>(1, 23)
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a><a href="#__codelineno-7-1"><span class="linenos" data-linenos="1 "></span></a>(1, 23)
 </span></code></pre></div>
 </details>
 <table>
@@ -3478,19 +3551,19 @@ Batch 转换对单个文件失败时记录 warning，并为该文件返回空字
 和<a href="../../examples/02-batch-summary-filter-select/">批量汇总 Notebook</a> 展示共享样例的
 完整表格及其全部生成列。</p>
 <h2 id="parallel_execute"><code>parallel_execute</code><a class="headerlink" href="#parallel_execute" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><a href="#__codelineno-6-1"><span class="linenos" data-linenos="1 "></span></a><span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span><span class="n">parsed_file</span><span class="p">):</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a><a href="#__codelineno-6-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="k">return</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">detected_format_id</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3"></a><a href="#__codelineno-6-3"><span class="linenos" data-linenos="3 "></span></a>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4"></a><a href="#__codelineno-6-4"><span class="linenos" data-linenos="4 "></span></a><span class="n">rows</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">parallel_execute</span><span class="p">(</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5"></a><a href="#__codelineno-6-5"><span class="linenos" data-linenos="5 "></span></a>    <span class="n">describe</span><span class="p">,</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6"></a><a href="#__codelineno-6-6"><span class="linenos" data-linenos="6 "></span></a>    <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7"></a><a href="#__codelineno-6-7"><span class="linenos" data-linenos="7 "></span></a>    <span class="n">return_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8"></a><a href="#__codelineno-6-8"><span class="linenos" data-linenos="8 "></span></a><span class="p">)</span>
-</span><span id="__span-6-9"><a id="__codelineno-6-9" name="__codelineno-6-9"></a><a href="#__codelineno-6-9"><span class="linenos" data-linenos="9 "></span></a><span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">rows</span><span class="p">))</span>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><a href="#__codelineno-8-1"><span class="linenos" data-linenos="1 "></span></a><span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span><span class="n">parsed_file</span><span class="p">):</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2"></a><a href="#__codelineno-8-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="k">return</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">detected_format_id</span>
+</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3"></a><a href="#__codelineno-8-3"><span class="linenos" data-linenos="3 "></span></a>
+</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4"></a><a href="#__codelineno-8-4"><span class="linenos" data-linenos="4 "></span></a><span class="n">rows</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">parallel_execute</span><span class="p">(</span>
+</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5"></a><a href="#__codelineno-8-5"><span class="linenos" data-linenos="5 "></span></a>    <span class="n">describe</span><span class="p">,</span>
+</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6"></a><a href="#__codelineno-8-6"><span class="linenos" data-linenos="6 "></span></a>    <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7"></a><a href="#__codelineno-8-7"><span class="linenos" data-linenos="7 "></span></a>    <span class="n">return_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8"></a><a href="#__codelineno-8-8"><span class="linenos" data-linenos="8 "></span></a><span class="p">)</span>
+</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9"></a><a href="#__codelineno-8-9"><span class="linenos" data-linenos="9 "></span></a><span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">rows</span><span class="p">))</span>
 </span></code></pre></div>
 <details class="example">
 <summary>输出形状</summary>
-<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a><a href="#__codelineno-7-1"><span class="linenos" data-linenos="1 "></span></a>[(&#39;water_mp2.out&#39;, &#39;orcaout&#39;)]
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1"></a><a href="#__codelineno-9-1"><span class="linenos" data-linenos="1 "></span></a>[(&#39;water_mp2.out&#39;, &#39;orcaout&#39;)]
 </span></code></pre></div>
 </details>
 <p>MolOP 对 batch 中每个文件调用一次 <code>func(diskfile, *args, **kwargs)</code>。<code>n_jobs</code> 控制执行并行
