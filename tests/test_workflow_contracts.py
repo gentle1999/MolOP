@@ -71,4 +71,6 @@ def test_github_actions_use_version_tags() -> None:
             continue
         for line in workflow.read_text(encoding="utf-8").splitlines():
             if " uses: " in line:
-                assert uses_pattern.match(line), f"Action must use a version tag in {workflow}: {line}"
+                assert uses_pattern.match(line), (
+                    f"Action must use a version tag in {workflow}: {line}"
+                )
