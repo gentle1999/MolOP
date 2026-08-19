@@ -7,6 +7,7 @@ from typing import Any, Protocol, cast
 from molop.io import codec_registry
 from molop.io.codec_types import GraphPolicy
 from molop.io.frame_selection import FrameSelector, normalize_frame_selector
+from molop.utils.progressbar import is_loky_worker
 
 
 class _HasFrames(Protocol):
@@ -107,6 +108,14 @@ class FormatTransformMixin:
         )
 
         graph_policy = kwargs.pop("graph_policy", None)
+        needs_graph = codec_registry.writer_requires_graph(
+            format,
+            graph_policy=graph_policy,
+        ) or (format.strip().lower() == "gjf" and kwargs.get("add_gjf_connectivity", False))
+        if needs_graph and not is_loky_worker():
+            prewarm_topologies = getattr(self, "_prewarm_topologies", None)
+            if callable(prewarm_topologies):
+                prewarm_topologies(frame=frame)
         write_kwargs = dict(kwargs)
         writer_file_path = (
             _resolve_format_output_path(self, format, file_path) if write_to_disk else None

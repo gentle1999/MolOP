@@ -24,6 +24,10 @@ from molop.io.logic.gaussian.input.GaussianRoute import GaussianRouteSemantic
 from molop.structure.FormatConverter import rdmol_to_gjf_connectivity
 from molop.structure.GeometryTransformation import merge_mols_directly
 from molop.unit import atom_ureg
+from molop.utils.progressbar import (
+    NativeReconstructionConcurrencyError,
+    native_reconstruction_guard,
+)
 from molop.utils.types import PintArrayNx3
 
 
@@ -400,13 +404,20 @@ class GJFMoleculeSpecificationsFragment(BaseDataClassWithUnit):
 
     def fragment_molecule(self) -> Chem.rdchem.Mol | None:
         try:
-            return xyz_to_rdmol(
-                self.to_XYZ_block(),
-                total_charge=self.total_charge,
-                spin_multiplicity=self.spin_multiplicity,
-                backend=molopconfig.graph_reconstruction_backend,
-                make_dative_bonds=molopconfig.make_dative_bonds,
-            )
+            with native_reconstruction_guard():
+                return xyz_to_rdmol(
+                    self.to_XYZ_block(),
+                    total_charge=self.total_charge,
+                    spin_multiplicity=self.spin_multiplicity,
+                    backend=molopconfig.graph_reconstruction_backend,
+                    make_dative_bonds=molopconfig.make_dative_bonds,
+                    make_stereochemistry=molopconfig.make_stereochemistry,
+                )
+        except NativeReconstructionConcurrencyError:
+            # A concurrency boundary violation must reach the caller.  Turning
+            # it into an empty fragment would silently produce an incomplete
+            # Gaussian graph and hide an unsafe scheduling decision.
+            raise
         except Exception as e:
             moloplogger.error(f"{e}")
             return None
@@ -467,13 +478,22 @@ class GJFMoleculeSpecifications(BaseDataClassWithUnit):
 
         return parse_gjf_molecule_specifications(data)
 
-    def _render(self, **kwargs) -> str:
-        add_gjf_connectivity = kwargs.get("add_gjf_connectivity", False)
+    def _render(
+        self,
+        add_gjf_connectivity: bool = False,
+        connectivity_text: str | None = None,
+        **kwargs: Any,
+    ) -> str:
+        fragment_kwargs = dict(kwargs)
 
         if len(self.molecule_fragments) == 1:
             spin_multiplicity = f"{self.total_charge} {self.spin_multiplicity}\n"
-            molecule_fragment_part = self.molecule_fragments[0]._render(**kwargs) + "\n"
-            connectivity_part = f"{self.connectivity()}\n\n" if add_gjf_connectivity else ""
+            molecule_fragment_part = self.molecule_fragments[0]._render(**fragment_kwargs) + "\n"
+            connectivity_part = (
+                f"{connectivity_text if connectivity_text is not None else self.connectivity()}\n\n"
+                if add_gjf_connectivity
+                else ""
+            )
             return f"{spin_multiplicity}{molecule_fragment_part}{connectivity_part}"
         if len(self.molecule_fragments) > 1:
             spin_multiplicity = (
@@ -485,9 +505,14 @@ class GJFMoleculeSpecifications(BaseDataClassWithUnit):
                 + "\n"
             )
             molecule_fragment_part = (
-                "".join([frag._render(**kwargs) for frag in self.molecule_fragments]) + "\n"
+                "".join([frag._render(**fragment_kwargs) for frag in self.molecule_fragments])
+                + "\n"
             )
-            connectivity_part = f"{self.connectivity()}\n\n" if add_gjf_connectivity else ""
+            connectivity_part = (
+                f"{connectivity_text if connectivity_text is not None else self.connectivity()}\n\n"
+                if add_gjf_connectivity
+                else ""
+            )
             return f"{spin_multiplicity}{molecule_fragment_part}{connectivity_part}"
         return ""
 

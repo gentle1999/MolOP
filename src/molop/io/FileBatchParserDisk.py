@@ -21,7 +21,11 @@ from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.codec_types import ParseOptions, ParseResult
 from molop.io.FileBatchModelDisk import FileBatchModelDisk, FileDiskObj, _looks_like_disk_file
 from molop.io.parse_outcomes import BatchParseResult, FileParseOutcome, ParseFailure
-from molop.utils.progressbar import AdaptiveProgress
+from molop.utils.progressbar import (
+    DEFAULT_JOBLIB_BACKEND,
+    AdaptiveProgress,
+    loky_parallel_guard,
+)
 
 from . import codec_registry
 
@@ -507,6 +511,17 @@ class FileBatchParserDisk:
             effective_jobs,
         )
         use_parallel = _should_use_parallel(path_count, effective_jobs)
+        if use_parallel and parse_options.capture_source_evidence:
+            # Calculation parsers assess topology presence while attaching
+            # source evidence.  Those frames do not exist until parsing has
+            # started, so they cannot be parent-prewarmed before loky.  Keep
+            # this evidence path in one process rather than allowing a worker
+            # to invoke MolGR lazily.
+            moloplogger.info(
+                "Source-evidence capture uses one process to keep topology reconstruction "
+                "outside loky."
+            )
+            use_parallel = False
         desc = (
             f"MolOP parsing with {effective_jobs} processes"
             if use_parallel
@@ -561,23 +576,32 @@ class FileBatchParserDisk:
             )
 
         try:
-            if use_parallel:
-                results = Parallel(
-                    n_jobs=effective_jobs,
-                    maxtasks_per_child=50,
-                    return_as="generator_unordered",
-                    max_nbytes=molopconfig.parallel_max_size,
-                )(delayed(_run_single_file_task)(**task) for task in iter_tasks())
-            else:
-                results = (_run_single_file_task(**task) for task in iter_tasks())
-
             parsed_diskfiles: list[FileDiskObj] = []
             parse_outcomes = preflight_outcomes
-            for outcome in cast(Iterable[FileParseOutcome[FileDiskObj]], results):
-                parse_outcomes.append(outcome)
-                if outcome.succeeded and outcome.value is not None:
-                    parsed_diskfiles.append(outcome.value)
-                mark_input_path_done()
+
+            if use_parallel:
+                with loky_parallel_guard():
+                    results = Parallel(
+                        n_jobs=effective_jobs,
+                        backend=DEFAULT_JOBLIB_BACKEND,
+                        maxtasks_per_child=50,
+                        return_as="generator_unordered",
+                        max_nbytes=molopconfig.parallel_max_size,
+                    )(delayed(_run_single_file_task)(**task) for task in iter_tasks())
+                    for outcome in cast(Iterable[FileParseOutcome[FileDiskObj]], results):
+                        parse_outcomes.append(outcome)
+                        if outcome.succeeded and outcome.value is not None:
+                            parsed_diskfiles.append(outcome.value)
+                        mark_input_path_done()
+            else:
+                for outcome in cast(
+                    Iterable[FileParseOutcome[FileDiskObj]],
+                    (_run_single_file_task(**task) for task in iter_tasks()),
+                ):
+                    parse_outcomes.append(outcome)
+                    if outcome.succeeded and outcome.value is not None:
+                        parsed_diskfiles.append(outcome.value)
+                    mark_input_path_done()
 
             close_progress()
             parsed_diskfiles.sort(key=lambda diskfile: diskfile.file_path)

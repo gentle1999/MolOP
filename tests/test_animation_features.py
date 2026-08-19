@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 import numpy as np
 import pytest
@@ -255,6 +255,76 @@ def test_file_and_batch_endpoint_export(
             for path in paths:
                 assert path.parent == source_directory
                 _assert_sdf_endpoint(path, ts_file[0].rdmol.GetNumAtoms())  # type: ignore[union-attr]
+
+
+def test_batch_endpoint_export_reconstructs_dynamic_candidates_in_task(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import importlib
+
+    first_copy = tmp_path / "first" / "source.ts.log"
+    second_copy = tmp_path / "second" / "source.ts.log"
+    first_copy.parent.mkdir()
+    second_copy.parent.mkdir()
+    first_copy.write_bytes(TS_LOG.read_bytes())
+    second_copy.write_bytes(TS_LOG.read_bytes())
+    batch = AutoParser([first_copy, second_copy], n_jobs=1)
+
+    molecule_module = importlib.import_module("molop.io.base_models.Molecule")
+    original_iterator = molecule_module.iter_xyz_to_rdmol_batch
+    calls: list[int] = []
+
+    def counting_iterator(requests: Any, **kwargs: Any) -> Any:
+        request_list = list(requests)
+        calls.append(len(request_list))
+        return original_iterator(request_list, **kwargs)
+
+    monkeypatch.setattr(molecule_module, "iter_xyz_to_rdmol_batch", counting_iterator)
+
+    exports = batch.save_pre_post_ts(tmp_path / "batch", format="sdf", n_jobs=1)
+
+    assert set(exports) == {str(first_copy), str(second_copy)}
+    # TS endpoint candidates are generated inside each file task.  They are
+    # intentionally not collected and sent through the native batch helper.
+    assert calls == []
+
+
+def test_batch_summary_reconstructs_dynamic_ts_candidates_in_workers(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import importlib
+
+    first_copy = tmp_path / "first" / "source.ts.log"
+    second_copy = tmp_path / "second" / "source.ts.log"
+    first_copy.parent.mkdir()
+    second_copy.parent.mkdir()
+    first_copy.write_bytes(TS_LOG.read_bytes())
+    second_copy.write_bytes(TS_LOG.read_bytes())
+    batch = AutoParser([first_copy, second_copy], n_jobs=1)
+
+    molecule_module = importlib.import_module("molop.io.base_models.Molecule")
+    original_iterator = molecule_module.iter_xyz_to_rdmol_batch
+    calls: list[int] = []
+
+    def counting_iterator(requests: Any, **kwargs: Any) -> Any:
+        request_list = list(requests)
+        calls.append(len(request_list))
+        return original_iterator(request_list, **kwargs)
+
+    monkeypatch.setattr(molecule_module, "iter_xyz_to_rdmol_batch", counting_iterator)
+
+    summary = batch.to_summary_df(frame="all", n_jobs=2)
+
+    assert len(summary) > 0
+    # The parent only batches the selected source frames.  Temporary TS
+    # candidates are generated and reconstructed in the fresh loky workers.
+    assert calls == [68]
+    ts_rows = summary[summary[("Status", "IsTS", "")].eq(True)]
+    assert len(ts_rows) == 2
+    assert ts_rows[("General", "PreCanonicalSMILES", "")].notna().all()
+    assert ts_rows[("General", "PostCanonicalSMILES", "")].notna().all()
 
 
 def test_batch_endpoint_export_skips_unsupported_files(tmp_path: Path) -> None:

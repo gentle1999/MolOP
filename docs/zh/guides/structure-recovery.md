@@ -62,10 +62,71 @@ from molop import molopconfig
 
 molopconfig.graph_reconstruction_backend = "python"  # 默认值为 "cpp"
 molopconfig.make_dative_bonds = False  # 默认值为 True
+molopconfig.make_stereochemistry = False  # 默认值为 True
 ```
 
 在第一次访问某个 frame 的 `rdmol` 之前设置配置。惰性恢复会读取当前全局值，并把实际使用的
 设置记录在 frame 上。不同工作流需要不同策略时，应恢复默认值或使用独立进程。
+
+## 自动原生并行批量重建
+
+用户不需要收集 frame，也不需要调用单独的重建管理 API。当某个操作需要分子图时，MolOP 会在
+当前进程收集可重建的仅坐标 frame，并提交给 MolGR 0.1.6 的有界原生 worker pool。已有分子图
+或已经尝试过惰性重建的 frame 会跳过；backend、配位键或立体化学策略不同的 frame 会拆成配置一致的原生
+批次，保证 provenance 正确。
+
+以下操作会自动触发批量预热：
+
+- 批量 `format_transform()` 使用图级 writer（`sdf`、`smi`、`cml`）；
+- `format_transform("gjf", add_gjf_connectivity=True)`；
+- 文件或批量的 frame 级 `to_summary_df()`；
+- 轨迹、振动和 TS 振动动画；
+- TS 前后体候选推断及其摘要/导出路径。这些端点是在任务运行中动态生成的，因此 fresh loky
+  worker 可以沿用正常惰性路径重建临时候选，不再向 worker 传递主进程生成的候选映射。
+- `filter_custom()` 和 `groupby()` 任意回调。由于回调内容不可静态判断，MolOP 会在向 loky
+  分发前预热当前输入快照中的全部可重建 frame，即使某个回调实际上只读取元数据。
+- 文件批量解析开启 `capture_source_evidence=True` 时会刻意保持单进程。该模式在附加源文件
+  span 的过程中创建并检查 frame，无法在分发前完整预热这些分子图。
+
+存在可枚举源 frame 集合的任务仍会先在主进程使用 MolGR 原生 batch 预热，再启动外层
+joblib/loky 进程。TS endpoint 这类运行中动态生成候选的任务保持普通公开调用路径，允许 fresh
+loky worker 内进行单分子惰性重建。worker 必须由 spawn/loky 创建；fork 子进程会在进入原生代码前
+被 MolGR 的 PID 门禁拒绝。
+
+该边界也适用于显式选择的 `threading` 后端和嵌套并行调用：如果回调在 MolOP 并行任务运行期间
+尝试触发未预热的重建，MolOP 会立即抛出并发错误，而不是等待可能自锁的线程池。此类调度错误
+不会把分子标记为失败，之后仍可重新预热。
+
+原生门禁同时覆盖 loky 和 joblib 的 multiprocessing 子进程。如果无关的外部 loky executor
+仍有未完成任务，门禁会拒绝启动预热；应先耗尽或关闭该结果。只有空闲的可复用进程池会在
+MolGR 启动前被回收。
+
+门禁也会拒绝未由 MolOP 管理、但仍存活的 Python 子进程，包括外部的
+`multiprocessing`/`loky.ProcessPoolExecutor`。必须先等待或关闭这些进程；否则无法证明
+MolGR 原生线程池不会与它们重叠。
+
+不要在 MolGR 原生预热后调用 `os.fork()`，也不要为依赖分子图的任务切换到 fork 型
+`multiprocessing` 后端。此类 fork 会复制原生运行时状态，无法由 Python 门禁完整兜底。
+MolOP 管理的进程并行入口会显式选择 joblib 的 `loky` 后端；loky 使用独立解释器的 spawn-like
+启动边界，不会通过 POSIX `fork` 继承主进程中的 MolGR 原生运行时状态。这里刻意不修改 Python
+全局 `multiprocessing` start method，也不把 joblib 的 legacy `multiprocessing` 后端包装为标准
+`spawn`，以免破坏 notebook、交互式入口和调用方自己的进程配置。MolOP 入口只会把外层的
+joblib legacy `multiprocessing` 配置归一到 loky；外层 threading 和第三方 backend 不会被覆盖，
+调用方直接传给 MolOP 并行 API 的显式 backend 也仍作为兼容覆盖保留。依赖图的任务应保留
+loky；源 frame 使用已预热缓存，动态候选则允许在 worker 内单独惰性重建。原生 batch 适配器
+仍只在主进程运行，worker 内调用会被拒绝，避免嵌套 MolGR 原生线程池。
+
+原生批量适配器会校验请求身份和完成情况。重复或未知结果会作为批量错误处理；如果迭代器
+提前结束，所有未返回的 frame 都会标记为 `failed`，不会再允许 worker 重新触发原生重建。外层
+joblib 迭代器耗尽或关闭后会释放进程池门禁。MolGR 当前没有 Python 层 timeout 或强制中断接口，
+因此 native 调用卡死时只能以进程级隔离作为故障边界，MolOP 无法在同一进程内强行中断它。
+
+`suspicious_fallback` 只保留原生私有分子图作为原始证据，不会从空的普通拓扑字段猜造断开的
+分子图。如果该私有缓存在用户自定义序列化过程中丢失，worker 会返回空图并保持失败关闭，
+而不是继续生成错误拓扑。
+
+可枚举批量摘要和格式转换沿用操作本身的 `n_jobs` 作为原生预热上限。纯坐标的 `xyz`、ORCA
+input 和 Gaussian 坐标输出仍保持惰性，不会仅因为格式转换而强制重建。
 
 ## 状态含义
 
@@ -76,6 +137,10 @@ molopconfig.make_dative_bonds = False  # 默认值为 True
 | `suspicious_fallback` | 得到可用候选，但属于需要复核的 fallback |
 | `failed` | 未能得到 RDKit 分子，`rdmol` 为 `None` |
 | `None` | 尚未触发结构访问，或当前对象没有状态 |
+
+MolGR 返回非致命单项失败或可疑 fallback 时，`frame.topology_reconstruction_diagnostics`
+会保留稳定的 `code`、`stage`、`backend`、`counts`、`details` 和 cause 字段。该字段是普通字典，
+预热后的 frame 序列化到 loky worker 时不会丢失。
 
 ## 为什么结果需要复核
 

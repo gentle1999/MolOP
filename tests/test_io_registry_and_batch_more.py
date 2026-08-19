@@ -19,7 +19,9 @@ from molop.unit import atom_ureg
 
 
 io_module = importlib.import_module("molop.io")
+codec_registry_module = importlib.import_module("molop.io.codec_registry")
 filebatchparserdisk_module = importlib.import_module("molop.io.FileBatchParserDisk")
+progressbar_module = importlib.import_module("molop.utils.progressbar")
 
 
 @dataclass
@@ -216,6 +218,24 @@ def test_registry_write_raises_when_empty_and_autoload_disabled() -> None:
 
     with pytest.raises(UnsupportedFormatError, match="No writer codecs registered"):
         reg.write("xyz", value={})
+
+
+def test_coordinate_graph_upgrade_can_call_molgr_in_fresh_worker(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    native_calls = 0
+
+    def fail_if_called(*_args: Any, **_kwargs: Any) -> None:
+        nonlocal native_calls
+        native_calls += 1
+
+    monkeypatch.setattr(progressbar_module, "is_loky_worker", lambda: True)
+    monkeypatch.setattr(codec_registry_module, "xyz_to_rdmol", fail_if_called)
+
+    with pytest.raises(ConversionError, match="Graph reconstruction failed"):
+        codec_registry_module.upgrade_coords_to_graph("1\nhydrogen\nH 0.0 0.0 0.0\n")
+
+    assert native_calls == 1
 
 
 def test_registry_normalizes_format_id_and_extensions_via_public_api() -> None:
@@ -626,6 +646,42 @@ def test_filter_custom_reuses_existing_snapshot(monkeypatch: pytest.MonkeyPatch)
 
     assert snapshot_calls == 1
     assert filtered.file_paths == ["/tmp/a.xyz", "/tmp/c.xyz"]
+
+
+def test_graph_dependent_callbacks_are_prewarmed_before_parallel_execution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    batch = cast(
+        Any,
+        FileBatchModelDisk(
+            cast(
+                Any,
+                [
+                    FakeDiskFile("/tmp/a.xyz", "xyz", "xyz"),
+                    FakeDiskFile("/tmp/b.xyz", "xyz", "xyz"),
+                ],
+            )
+        ),
+    )
+    prewarm_calls: list[dict[str, Any]] = []
+
+    def record_prewarm(**kwargs: Any) -> list[Any]:
+        prewarm_calls.append(kwargs)
+        return []
+
+    monkeypatch.setattr(batch, "_prewarm_topologies", record_prewarm)
+    monkeypatch.setattr(
+        batch,
+        "parallel_execute",
+        lambda _func, _desc="", _n_jobs=1, **_kwargs: [True, True],
+    )
+
+    batch.filter_custom(lambda diskfile: bool(diskfile.file_path), n_jobs=2)
+    batch.groupby(lambda diskfile: diskfile.file_format, n_jobs=2)
+
+    assert len(prewarm_calls) == 2
+    assert all(call["max_workers"] == 2 for call in prewarm_calls)
+    assert all(len(call["_diskfiles_snapshot"]) == 2 for call in prewarm_calls)
 
 
 def test_to_summary_df_frame_all_returns_every_frame() -> None:
@@ -1226,6 +1282,7 @@ def test_filebatchparser_tunes_parallel_jobs_when_task_count_matches_requested_j
     batch = parser.parse(file_paths)
 
     assert captured["n_jobs"] == 2
+    assert captured["backend"] == "loky"
     assert batch.file_paths == ["/tmp/a.xyz", "/tmp/b.xyz", "/tmp/c.xyz"]
 
 

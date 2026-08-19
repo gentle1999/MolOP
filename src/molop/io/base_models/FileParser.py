@@ -114,6 +114,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
                 "force_unit_transform": options.force_unit_transform,
                 "graph_reconstruction_backend": options.graph_reconstruction_backend,
                 "make_dative_bonds": options.make_dative_bonds,
+                "make_stereochemistry": options.make_stereochemistry,
             },
             "molgr": asdict(MOLGR_CONFIG),
         }
@@ -654,6 +655,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
                 self.parse_options.graph_reconstruction_backend
             )
             metadata["topology_make_dative_bonds"] = self.parse_options.make_dative_bonds
+            metadata["topology_make_stereochemistry"] = self.parse_options.make_stereochemistry
         return metadata
 
     @classmethod

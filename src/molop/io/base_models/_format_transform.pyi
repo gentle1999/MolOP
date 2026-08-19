@@ -320,7 +320,7 @@ class FrameFormatTransformMixin:
 
         Source
         ------
-        src/molop/io/logic/gaussian/input/frame_models/GJFFileFrame.py:102
+        src/molop/io/logic/gaussian/input/frame_models/GJFFileFrame.py:104
         """
         ...
     @overload
@@ -641,7 +641,7 @@ class FrameFormatTransformMixin:
         Source
         ------
         cml : src/molop/io/codecs/cml_codec.py:74
-        gjf : src/molop/io/logic/gaussian/input/frame_models/GJFFileFrame.py:102
+        gjf : src/molop/io/logic/gaussian/input/frame_models/GJFFileFrame.py:104
         orcainp : src/molop/io/logic/orca/input/frame_models/ORCAInpFileFrame.py:59
         sdf : src/molop/io/logic/coords/frame_models/SDFFileFrame.py:17
         smi : src/molop/io/logic/coords/frame_models/SMIFileFrame.py:17
@@ -1008,7 +1008,7 @@ class FormatTransformMixin:
 
         Source
         ------
-        src/molop/io/logic/gaussian/input/frame_models/GJFFileFrame.py:102
+        src/molop/io/logic/gaussian/input/frame_models/GJFFileFrame.py:104
         """
         ...
     @overload
@@ -1364,7 +1364,7 @@ class FormatTransformMixin:
         ------
         cml : src/molop/io/codecs/cml_codec.py:43
         fakeg : src/molop/io/logic/gaussian/log/frame_models/G16LogFileFrame.py
-        gjf : src/molop/io/logic/gaussian/input/frame_models/GJFFileFrame.py:102
+        gjf : src/molop/io/logic/gaussian/input/frame_models/GJFFileFrame.py:104
         orcainp : src/molop/io/logic/orca/input/frame_models/ORCAInpFileFrame.py:59
         sdf : src/molop/io/logic/coords/frame_models/SDFFileFrame.py:17
         smi : src/molop/io/logic/coords/frame_models/SMIFileFrame.py:17

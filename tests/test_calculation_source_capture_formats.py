@@ -35,6 +35,8 @@ _FRAME_EVIDENCE_FIELDS = {
     "source_to_topology_atom_permutation",
     "topology_reconstruction_backend",
     "topology_make_dative_bonds",
+    "topology_make_stereochemistry",
+    "topology_reconstruction_diagnostics",
     "topology_reconstruction_config_sha256",
     "topology_reconstruction_status",
 }

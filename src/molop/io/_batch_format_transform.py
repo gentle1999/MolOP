@@ -11,9 +11,10 @@ from __future__ import annotations
 import os
 from typing import Any, Protocol, cast
 
-from molop.config import moloplogger
+from molop.config import molopconfig, moloplogger
 from molop.io import codec_registry
 from molop.io.frame_selection import FrameSelector
+from molop.utils.progressbar import NativeReconstructionConcurrencyError
 
 
 class _HasParallelExecute(Protocol):
@@ -43,9 +44,22 @@ class BatchFormatTransformMixin:
 
         typed_self = cast(_HasParallelExecute, self)
         output_extension = codec_registry.get_writer_output_extension(format)
+        graph_policy = kwargs.get("graph_policy")
+        needs_graph = codec_registry.writer_requires_graph(
+            format,
+            graph_policy=graph_policy,
+        ) or (format.strip().lower() == "gjf" and kwargs.get("add_gjf_connectivity", False))
+        if needs_graph:
+            prewarm_topologies = getattr(typed_self, "_prewarm_topologies", None)
+            if callable(prewarm_topologies):
+                prewarm_topologies(
+                    frame=frame,
+                    max_workers=molopconfig.set_n_jobs(n_jobs),
+                )
 
         def transform_func(diskfile: Any) -> tuple[str, str | list[str]]:
             try:
+                transform_kwargs = dict(kwargs)
                 res = diskfile.format_transform(
                     format,
                     frame=frame,
@@ -57,9 +71,13 @@ class BatchFormatTransformMixin:
                     )
                     if write_to_disk and output_dir
                     else None,
-                    **kwargs,
+                    **transform_kwargs,
                 )
                 return diskfile.file_path, res
+            except NativeReconstructionConcurrencyError:
+                # A missed parent prewarm is a scheduling violation, not a
+                # per-file rendering failure. Do not turn it into empty output.
+                raise
             except Exception as e:
                 moloplogger.warning(
                     f"Format transform failed for {diskfile.filename}: {type(e).__name__}: {e}"

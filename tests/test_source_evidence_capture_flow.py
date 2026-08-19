@@ -308,6 +308,43 @@ def test_batch_parser_includes_capture_flag_in_each_task(
     assert captured["parse_options"] == ParseOptions(capture_source_evidence=True).resolved()
 
 
+def test_batch_parser_keeps_multi_file_source_capture_in_parent_process(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    paths = [tmp_path / "first.xyz", tmp_path / "second.xyz"]
+    for path in paths:
+        path.write_text(_XYZ_TEXT, encoding="utf-8")
+    captured_paths: list[str] = []
+
+    class Reader:
+        format_id = "xyz"
+
+    def fake_single_file_parser(**task: Any) -> _FakeDiskFile:
+        captured_paths.append(task["file_path"])
+        assert task["capture_source_evidence"] is True
+        return _FakeDiskFile(task["file_path"])
+
+    def fail_parallel(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("source-evidence parsing must not start a worker pool")
+
+    monkeypatch.setattr(
+        file_batch_parser_module.codec_registry,
+        "select_reader",
+        lambda _path, hint_format=None: (Reader(),),
+    )
+    monkeypatch.setattr(file_batch_parser_module, "single_file_parser", fake_single_file_parser)
+    monkeypatch.setattr(file_batch_parser_module, "Parallel", fail_parallel)
+
+    batch = FileBatchParserDisk(n_jobs=2).parse(
+        paths,
+        capture_source_evidence=True,
+    )
+
+    assert captured_paths == [str(path.resolve()) for path in paths]
+    assert batch.file_paths == captured_paths
+
+
 def test_parser_disk_reader_configures_parser_capture_flag() -> None:
     captured: dict[str, Any] = {}
 

@@ -22,6 +22,7 @@ from typing import (
 )
 
 import pandas as pd
+from molgr import ReconstructionBatchResult
 
 from molop.config import molopconfig, moloplogger
 from molop.io._batch_format_transform import BatchFormatTransformMixin
@@ -176,6 +177,57 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             return_results=return_results,
             maxtasks_per_child=50,
             max_nbytes=molopconfig.parallel_max_size,
+        )
+
+    def _prewarm_topologies(
+        self,
+        *,
+        frame: FrameSelector = "all",
+        _diskfiles_snapshot: Sequence[TFileDisk] | None = None,
+        backend: Literal["cpp", "python"] | None = None,
+        make_dative_bonds: bool | None = None,
+        make_stereochemistry: bool | None = None,
+        max_workers: int | None = None,
+        queue_size: int = 16,
+        ordered: bool = False,
+        raise_on_error: bool = False,
+    ) -> list[ReconstructionBatchResult]:
+        """Prewarm coordinate-only frames with MolGR's native batch API.
+
+        Frames are gathered in this process and submitted as one or more
+        configuration-homogeneous batches.  This keeps MolGR's bounded native
+        worker pool at the outermost reconstruction boundary instead of
+        nesting it inside :meth:`parallel_execute` workers.
+        """
+
+        from molop.io.base_models.Molecule import reconstruct_topologies_batch
+
+        diskfiles = (
+            _diskfiles_snapshot if _diskfiles_snapshot is not None else self._snapshot_diskfiles()
+        )
+
+        def iter_frames() -> Iterable[Any]:
+            for diskfile in diskfiles:
+                file_frames = getattr(diskfile, "frames", None)
+                if file_frames is None:
+                    file_frames = diskfile
+                frame_ids = normalize_frame_selector(
+                    frame,
+                    len(file_frames),
+                    parameter_name="frame",
+                )
+                yield from (file_frames[frame_id] for frame_id in frame_ids)
+
+        return reconstruct_topologies_batch(
+            iter_frames(),
+            backend=backend,
+            make_dative_bonds=make_dative_bonds,
+            make_stereochemistry=make_stereochemistry,
+            max_workers=max_workers,
+            queue_size=queue_size,
+            ordered=ordered,
+            raise_on_error=raise_on_error,
+            retain_results=False,
         )
 
     def _snapshot_diskfiles(self) -> list[TFileDisk]:
@@ -549,6 +601,13 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         """
         desc = f"Filtering with custom function with {molopconfig.set_n_jobs(n_jobs)} jobs"
         diskfiles = self._snapshot_diskfiles()
+        # A user callback may inspect any frame-level graph (``rdmol``,
+        # canonical SMILES, descriptors, ...).  Materialize those graphs in
+        # the parent process before the callback can run in a loky worker.
+        self._prewarm_topologies(
+            _diskfiles_snapshot=diskfiles,
+            max_workers=molopconfig.set_n_jobs(n_jobs),
+        )
         return self._filter_diskfiles(
             diskfiles,
             self.parallel_execute(
@@ -576,6 +635,13 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         """
         desc = f"Grouping files with {molopconfig.set_n_jobs(n_jobs)} jobs"
         diskfiles = self._snapshot_diskfiles()
+        # ``key_func`` is intentionally arbitrary, so treat it as graph
+        # dependent even when the current callback only uses metadata.  This
+        # keeps future callbacks from accidentally entering MolGR in workers.
+        self._prewarm_topologies(
+            _diskfiles_snapshot=diskfiles,
+            max_workers=molopconfig.set_n_jobs(n_jobs),
+        )
         keys = self.parallel_execute(
             key_func,
             desc,
@@ -697,19 +763,49 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
                 return [fid for fid in frame_ids if 0 <= fid < len(diskfile)]
             return frame_ids
 
-        def process_file_summary(diskfile: FileDiskObj) -> list[pd.Series]:
+        diskfiles = self._snapshot_diskfiles()
+        summary_tasks: list[tuple[FileDiskObj, Sequence[int]]] = []
+        if mode == "file":
+            summary_tasks = [(diskfile, ()) for diskfile in diskfiles]
+        else:
+            from molop.io.base_models.Molecule import reconstruct_topologies_batch
+
+            selected_frames: list[Any] = []
+            for diskfile in diskfiles:
+                frame_ids = list(selected_frame_ids(diskfile))
+                selected_frames.extend(diskfile[fid] for fid in frame_ids)
+                summary_tasks.append((diskfile, frame_ids))
+            # The selected source frames have a stable, enumerable input set,
+            # so their ordinary graph cache is warmed in one parent-process
+            # native batch before process workers start. TS endpoint candidates
+            # are generated dynamically and reconstructed lazily in the fresh
+            # worker that consumes the summary.
+            reconstruct_topologies_batch(
+                selected_frames,
+                max_workers=molopconfig.set_n_jobs(n_jobs),
+                retain_results=False,
+            )
+
+        def process_file_summary(task: tuple[FileDiskObj, Sequence[int]]) -> list[pd.Series]:
+            diskfile, frame_ids = task
             if mode == "file":
                 return [diskfile.to_summary_series(brief=brief, **kwargs)]
-            elif mode == "frame":
-                return [
-                    diskfile[fid].to_summary_series(brief=brief, **kwargs)
-                    for fid in selected_frame_ids(diskfile)
-                ]
-            return []
+            summaries: list[pd.Series] = []
+            for fid in frame_ids:
+                summaries.append(diskfile[fid].to_summary_series(brief=brief, **kwargs))
+            return summaries
 
         desc = f"MolOP processing {mode} summary with {molopconfig.set_n_jobs(n_jobs)} jobs"
-        nested_results = self.parallel_execute(
-            process_file_summary, desc, n_jobs, return_results=True
+        nested_results = parallel_map(
+            process_file_summary,
+            summary_tasks,
+            n_jobs=molopconfig.set_n_jobs(n_jobs),
+            desc=desc,
+            total=len(summary_tasks),
+            disable=not molopconfig.show_progress_bar,
+            return_results=True,
+            maxtasks_per_child=50,
+            max_nbytes=molopconfig.parallel_max_size,
         )
         return build_summary_df(
             (series for sublist in nested_results for series in sublist),
@@ -759,14 +855,22 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             cast(Sequence[DiskFileLike], exportable_diskfiles), destination
         )
 
-        def export_file(diskfile: TFileDisk) -> tuple[str, dict[int, tuple[Path, Path]]]:
+        endpoint_tasks: list[tuple[TFileDisk, Path]] = [
+            (diskfile, output_directories[str(diskfile.file_path)])
+            for diskfile in exportable_diskfiles
+        ]
+
+        def export_file(
+            task: tuple[TFileDisk, Path],
+        ) -> tuple[str, dict[int, tuple[Path, Path]]]:
+            diskfile, output_directory = task
             save_endpoints = getattr(diskfile, "save_pre_post_ts", None)
             assert callable(save_endpoints)
             source_path = str(diskfile.file_path)
             exports = cast(
                 dict[int, tuple[Path, Path]],
                 save_endpoints(
-                    output_directories[source_path],
+                    output_directory,
                     format=format,
                     ratio=ratio,
                     steps=steps,
@@ -776,12 +880,16 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
             return source_path, exports
 
         desc = f"Exporting TS endpoint candidates with {molopconfig.set_n_jobs(n_jobs)} jobs"
-        results = self.parallel_execute(
+        results = parallel_map(
             export_file,
-            desc,
-            n_jobs,
-            _diskfiles_snapshot=exportable_diskfiles,
+            endpoint_tasks,
+            n_jobs=molopconfig.set_n_jobs(n_jobs),
+            desc=desc,
+            total=len(endpoint_tasks),
+            disable=not molopconfig.show_progress_bar,
             return_results=True,
+            maxtasks_per_child=50,
+            max_nbytes=molopconfig.parallel_max_size,
         )
         return dict(results)
 

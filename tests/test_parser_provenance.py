@@ -68,6 +68,7 @@ def test_parser_provenance_captures_complete_effective_config() -> None:
         "force_unit_transform": molopconfig.force_unit_transform,
         "graph_reconstruction_backend": molopconfig.graph_reconstruction_backend,
         "make_dative_bonds": molopconfig.make_dative_bonds,
+        "make_stereochemistry": molopconfig.make_stereochemistry,
     }
     assert provenance.effective_config["molgr"] == asdict(MOLGR_CONFIG)
 

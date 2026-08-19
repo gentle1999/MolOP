@@ -68,6 +68,9 @@ class MolOPConfig(BaseModel):
         default="cpp", description="Backend for graph reconstruction"
     )
     make_dative_bonds: bool = Field(default=True, description="Whether to make dative bonds")
+    make_stereochemistry: bool = Field(
+        default=True, description="Whether to assign stereochemistry during graph reconstruction"
+    )
     force_unit_transform: bool = Field(
         default=False, description="Whether to force unit conversion"
     )

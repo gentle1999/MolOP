@@ -53,6 +53,7 @@ from molop.io.logic.orca.input.frame_models.ORCAInpFileFrame import ORCAInpFileF
 from molop.io.logic.orca.log.frame_models.ORCALogFileFrame import ORCALogFileFrameMemory
 from molop.io.logic.orca.log.models.ORCALogFile import ORCALogFileMemory
 from molop.unit import atom_ureg
+from molop.utils.progressbar import loky_parallel_guard
 
 
 def test_molecule_total_electrons_accounts_for_charge() -> None:
@@ -892,6 +893,14 @@ def test_gaussian_route_projection_ignores_stale_legacy_functional() -> None:
     assert frame.functional == "B3LYP-GD3BJ"
     assert frame.basis_set == "def2svp"
     assert frame.method == "DFT"
+
+
+def test_gaussian_fragment_reconstruction_propagates_concurrency_boundary() -> None:
+    specifications = GJFMoleculeSpecifications.from_str("0 1\nH 0.0 0.0 0.0")
+    fragment = specifications.molecule_fragments[0]
+
+    with loky_parallel_guard(), pytest.raises(RuntimeError, match="MolOP-managed"):
+        fragment.fragment_molecule()
 
 
 def test_gaussian_hf_projection_rejects_stale_legacy_functional() -> None:

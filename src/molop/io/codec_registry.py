@@ -33,6 +33,7 @@ from molop.io.codec_types import (
     WriterCodec,
     WriterDomain,
 )
+from molop.utils.progressbar import native_reconstruction_guard
 
 
 ReaderFactory = Callable[[], ReaderCodec]
@@ -290,6 +291,30 @@ class Registry:
 
         return sorted(result.values(), key=lambda item: item.option)
 
+    def writer_requires_graph(
+        self,
+        format_id: str,
+        *,
+        graph_policy: GraphPolicy | None = None,
+        domain: WriterDomain = "file",
+    ) -> bool:
+        """Return whether the selected writer path may require a molecular graph."""
+
+        if self._autoload_defaults:
+            self.ensure_default_codecs_registered()
+        normalized_format_id = _normalize_format_id(format_id)
+        specs = [
+            spec
+            for spec in self._writers_by_format.get(normalized_format_id, [])
+            if spec.domain == domain
+        ]
+        if not specs:
+            raise UnsupportedFormatError(f"No {domain} writer codecs registered for {format_id}.")
+        resolved_policy = _resolve_graph_policy(specs, graph_policy)
+        return resolved_policy != "coords" and any(
+            spec.required_level == StructureLevel.GRAPH for spec in specs
+        )
+
     def select_reader(
         self, path: str | Path, hint_format: str | None = None
     ) -> tuple[ReaderCodec, ...]:
@@ -493,6 +518,19 @@ def get_writer_option_specs(format_id: str) -> list[WriterOptionSpec]:
     return default_registry.get_writer_option_specs(format_id)
 
 
+def writer_requires_graph(
+    format_id: str,
+    *,
+    graph_policy: GraphPolicy | None = None,
+    domain: WriterDomain = "file",
+) -> bool:
+    return default_registry.writer_requires_graph(
+        format_id,
+        graph_policy=graph_policy,
+        domain=domain,
+    )
+
+
 def select_reader(path: str | Path, hint_format: str | None = None) -> tuple[ReaderCodec, ...]:
     return default_registry.select_reader(path, hint_format=hint_format)
 
@@ -550,13 +588,15 @@ def upgrade_coords_to_graph(
         total_radical_electrons=total_radical_electrons,
     )
 
-    graph_value = xyz_to_rdmol(
-        xyz_block,
-        total_charge=charge,
-        spin_multiplicity=radical_electrons + 1,
-        backend=molopconfig.graph_reconstruction_backend,
-        make_dative_bonds=molopconfig.make_dative_bonds,
-    )
+    with native_reconstruction_guard():
+        graph_value = xyz_to_rdmol(
+            xyz_block,
+            total_charge=charge,
+            spin_multiplicity=radical_electrons + 1,
+            backend=molopconfig.graph_reconstruction_backend,
+            make_dative_bonds=molopconfig.make_dative_bonds,
+            make_stereochemistry=molopconfig.make_stereochemistry,
+        )
     if graph_value is None:
         raise ConversionError("Graph reconstruction failed from coordinates.")
     return graph_value
@@ -889,6 +929,7 @@ __all__ = [
     "get_supported_writer_formats",
     "get_writer_output_extension",
     "get_writer_option_specs",
+    "writer_requires_graph",
     "reader_factory",
     "register_openbabel_fallback",
     "register_reader",

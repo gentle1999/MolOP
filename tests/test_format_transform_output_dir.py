@@ -1,3 +1,4 @@
+import importlib
 from pathlib import Path
 
 import pytest
@@ -13,6 +14,26 @@ def test_format_transform_unsupported_format_raises_error(tmp_path):
 
     with pytest.raises(UnsupportedFormatError):
         file_model.format_transform("nonexistent_format")
+
+
+def test_batch_graph_transform_prewarms_once_before_file_workers(monkeypatch):
+    molecule_module = importlib.import_module("molop.io.base_models.Molecule")
+    fixture_path = Path(__file__).resolve().parent / "test_files" / "xyz" / "dsgdb9nsd_004015-7.xyz"
+    batch = AutoParser(str(fixture_path))
+    original_iterator = molecule_module.iter_xyz_to_rdmol_batch
+    calls = 0
+
+    def counting_iterator(requests, **kwargs):
+        nonlocal calls
+        calls += 1
+        yield from original_iterator(requests, **kwargs)
+
+    monkeypatch.setattr(molecule_module, "iter_xyz_to_rdmol_batch", counting_iterator)
+
+    rendered = batch.format_transform("smi", n_jobs=1)
+
+    assert calls == 1
+    assert isinstance(rendered[str(fixture_path)], str)
 
 
 def test_format_transform_file_path_writes_under_requested_dir(tmp_path, monkeypatch):
@@ -248,6 +269,40 @@ def test_batch_format_transform_write_to_disk_defaults_to_source_directory(tmp_p
     expected = tmp_path / "batch_source.gjf"
     assert expected.exists()
     assert result[str(fixture_path)] == expected.read_text(encoding="utf-8")
+
+
+def test_batch_gjf_connectivity_uses_parent_prewarmed_topology(tmp_path):
+    fixture_path = tmp_path / "batch_connectivity.xyz"
+    fixture_path.write_text(
+        "2\ncomment\nH 0.0 0.0 0.0\nH 0.0 0.0 0.7\n",
+        encoding="utf-8",
+    )
+    batch = AutoParser(str(fixture_path))
+
+    result = batch.format_transform(
+        "gjf",
+        add_gjf_connectivity=True,
+        n_jobs=2,
+    )
+
+    assert "1 2 1.0" in result[str(fixture_path)]
+
+
+@pytest.mark.parametrize("format_id", ["smi", "sdf", "cml"])
+def test_batch_graph_transform_handles_disconnected_single_atom_in_workers(
+    tmp_path,
+    format_id,
+):
+    fixture_path = tmp_path / "single_atom.xyz"
+    fixture_path.write_text(
+        "1\ncomment\nHe 0.0 0.0 0.0\n",
+        encoding="utf-8",
+    )
+    batch = AutoParser(str(fixture_path))
+
+    result = batch.format_transform(format_id, n_jobs=2)
+
+    assert result[str(fixture_path)]
 
 
 def test_batch_format_transform_output_dir_is_ignored_when_not_writing(tmp_path):

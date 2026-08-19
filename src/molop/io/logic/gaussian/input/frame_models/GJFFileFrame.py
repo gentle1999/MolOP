@@ -66,6 +66,8 @@ from molop.io.logic.gaussian.input.GaussianInput import (
 from molop.io.logic.gaussian.input.GaussianRoute import (
     populate_gaussian_legacy_qm_fields_from_semantic,
 )
+from molop.structure.FormatConverter import rdmol_to_gjf_connectivity
+from molop.utils.progressbar import NativeReconstructionConcurrencyError
 
 
 class GJFFileFrameMixin:
@@ -343,12 +345,31 @@ class GJFFileFrameMixin:
                 "oldchk",
                 old_chk if isinstance(old_chk, str) else f"{chk_basename}.chk",
             )
+        render_kwargs = dict(kwargs)
+        connectivity_text: str | None = None
+        if add_gjf_connectivity:
+            typed_self = cast(BaseQMInputFrame, self)
+            topology_status = getattr(self, "topology_reconstruction_status", None)
+            if topology_status not in {"failed", "suspicious_fallback"}:
+                try:
+                    rdmol = typed_self.rdmol
+                    if rdmol is not None:
+                        connectivity_text = rdmol_to_gjf_connectivity(rdmol)
+                except NativeReconstructionConcurrencyError:
+                    raise
+                except Exception:
+                    pass
+            if connectivity_text is None:
+                connectivity_text = ""
         return (
-            link0_commands_to_use._render(**kwargs)
-            + route_section_to_use._render(**kwargs)
-            + title_card_to_use._render(**kwargs)
+            link0_commands_to_use._render(**render_kwargs)
+            + route_section_to_use._render(**render_kwargs)
+            + title_card_to_use._render(**render_kwargs)
             + molecule_specifications_to_use._render(
-                coords_type=coords_type, add_gjf_connectivity=add_gjf_connectivity, **kwargs
+                coords_type=coords_type,
+                add_gjf_connectivity=add_gjf_connectivity,
+                connectivity_text=connectivity_text,
+                **render_kwargs,
             )
             + additional_sections_to_use
             + "\n\n"

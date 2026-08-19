@@ -15,6 +15,7 @@ from sys import getsizeof
 from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, cast, overload
 
 import pandas as pd
+from molgr import ReconstructionBatchResult
 from pint._typing import UnitLike
 from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr
@@ -42,6 +43,7 @@ from molop.io.base_models.DataClasses import (
     QMTaskRequest,
     Status,
 )
+from molop.io.base_models.Molecule import reconstruct_topologies_batch
 from molop.io.base_models.source import (
     ParseCompleteness,
     ParseDiagnostic,
@@ -51,6 +53,7 @@ from molop.io.base_models.source import (
 from molop.io.base_models.summary import SummaryDict, build_summary_df, summary_column, summary_item
 from molop.io.frame_selection import FrameSelector, normalize_frame_selector
 from molop.unit import atom_ureg
+from molop.utils.progressbar import is_loky_worker
 from molop.visualization.animation import AnimationFormat, render_molecule_animation
 
 
@@ -225,6 +228,33 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
         """
         return self._frames_
 
+    def _prewarm_topologies(
+        self,
+        *,
+        frame: FrameSelector = "all",
+        backend: Literal["cpp", "python"] | None = None,
+        make_dative_bonds: bool | None = None,
+        make_stereochemistry: bool | None = None,
+        max_workers: int | None = None,
+        queue_size: int = 16,
+        ordered: bool = False,
+        raise_on_error: bool = False,
+    ) -> list[ReconstructionBatchResult]:
+        """Prewarm eligible frames with MolGR's native batch scheduler."""
+
+        frame_ids = normalize_frame_selector(frame, len(self), parameter_name="frame")
+        return reconstruct_topologies_batch(
+            (self.frames[frame_id] for frame_id in frame_ids),
+            backend=backend,
+            make_dative_bonds=make_dative_bonds,
+            make_stereochemistry=make_stereochemistry,
+            max_workers=max_workers,
+            queue_size=queue_size,
+            ordered=ordered,
+            raise_on_error=raise_on_error,
+            retain_results=False,
+        )
+
     def to_summary_dict(self, **kwargs) -> SummaryDict:
         return {
             summary_column("General", "NumberOfFrames"): len(self),
@@ -248,6 +278,7 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
         omitted; rendering raises only when no retained frame is drawable.
         """
 
+        self._prewarm_topologies()
         frame_legends = legends
         if frame_legends is None:
             frame_legends = [self._animation_frame_legend(frame) for frame in self.frames]
@@ -297,6 +328,8 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
             ) from exc
         if on_missing_frame == "skip":
             frame_ids = [fid for fid in frame_ids if 0 <= fid < len(self)]
+        if not is_loky_worker():
+            self._prewarm_topologies(frame=frame_ids)
         return build_summary_df(
             (self._frames_[fid].to_summary_series(brief=brief, **kwargs) for fid in frame_ids),
             flatten_columns=flatten_columns,

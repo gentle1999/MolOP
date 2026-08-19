@@ -41,6 +41,7 @@ class ParseOptions:
     force_unit_transform: bool | None = None
     graph_reconstruction_backend: Literal["cpp", "python"] | None = None
     make_dative_bonds: bool | None = None
+    make_stereochemistry: bool | None = None
 
     def resolved(self) -> ParseOptions:
         """Snapshot process-global defaults that affect parse-time model behavior."""
@@ -63,6 +64,11 @@ class ParseOptions:
                 molopconfig.make_dative_bonds
                 if self.make_dative_bonds is None
                 else self.make_dative_bonds
+            ),
+            make_stereochemistry=(
+                molopconfig.make_stereochemistry
+                if self.make_stereochemistry is None
+                else self.make_stereochemistry
             ),
         )
 

@@ -30,6 +30,7 @@ def execute_parse_chain(
     force_unit_transform: bool | None = None,
     graph_reconstruction_backend: Literal["cpp", "python"] | None = None,
     make_dative_bonds: bool | None = None,
+    make_stereochemistry: bool | None = None,
     report: bool = False,
 ) -> None: ...
 def filter_state(

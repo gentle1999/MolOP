@@ -47,7 +47,7 @@ from molop.io.base_models.DataClasses import (
     Vibration,
     Vibrations,
 )
-from molop.io.base_models.Molecule import Molecule
+from molop.io.base_models.Molecule import Molecule, reconstruct_topologies_batch
 from molop.io.base_models.source import (
     ParseCompleteness,
     ParseDiagnostic,
@@ -57,6 +57,7 @@ from molop.io.base_models.source import (
 from molop.io.base_models.summary import SummaryDict, summary_column, summary_item
 from molop.structure.StructureTransformation import check_crowding
 from molop.unit import atom_ureg
+from molop.utils.progressbar import NativeReconstructionConcurrencyError
 from molop.utils.types import OMol, PintArrayN, PintArrayNx3, PintSquareMatrix, RdMol
 from molop.visualization.animation import AnimationFormat, render_molecule_animation
 
@@ -867,6 +868,9 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             ratio=ratio,
             steps=steps,
         )
+        # Displaced vibration geometries are coordinate-only molecules.  Warm
+        # their graphs in one native batch before the renderer accesses them.
+        reconstruct_topologies_batch(candidates, retain_results=False)
         candidate_legends = legends
         if candidate_legends is None:
             candidate_legends = self._vibration_animation_legends(
@@ -1231,6 +1235,8 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 pre, post = self.possible_pre_post_ts(ratio_attempts=[0.75, 1.0, 1.25, 1.5])
                 pre_smiles = _canonical_smiles_from_rdmol(pre)
                 post_smiles = _canonical_smiles_from_rdmol(post)
+            except NativeReconstructionConcurrencyError:
+                raise
             except Exception as e:
                 moloplogger.error(f"Error in possible_pre_post_ts: {e}")
                 pre_smiles, post_smiles = "", ""

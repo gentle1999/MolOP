@@ -526,6 +526,11 @@ def completion_install(shell: Literal["auto", "bash", "zsh", "fish"] = "auto") -
     help="Override the configured dative-bond reconstruction policy.",
 )
 @click.option(
+    "--make-stereochemistry/--no-make-stereochemistry",
+    default=None,
+    help="Override the configured stereochemistry reconstruction policy.",
+)
+@click.option(
     "--report",
     is_flag=True,
     help="Print one structured parse outcome per input; cannot be chained with operations.",
@@ -546,6 +551,7 @@ def _parse_callback(
     force_unit_transform: bool | None = None,
     graph_reconstruction_backend: Literal["cpp", "python"] | None = None,
     make_dative_bonds: bool | None = None,
+    make_stereochemistry: bool | None = None,
     report: bool = False,
 ) -> None:
     """Parse files into a FileBatchModelDisk state, then run operation commands."""
@@ -572,6 +578,7 @@ def execute_parse_chain(
     force_unit_transform: bool | None = None,
     graph_reconstruction_backend: Literal["cpp", "python"] | None = None,
     make_dative_bonds: bool | None = None,
+    make_stereochemistry: bool | None = None,
     report: bool = False,
 ) -> None:
     try:
@@ -592,6 +599,7 @@ def execute_parse_chain(
                 force_unit_transform=force_unit_transform,
                 graph_reconstruction_backend=graph_reconstruction_backend,
                 make_dative_bonds=make_dative_bonds,
+                make_stereochemistry=make_stereochemistry,
                 report=report,
             ),
             operations,
