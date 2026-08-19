@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.5.post2.dev2+g414e3fca1.d20260818</code></span>
-        <span><code>main@414e3fca1c37</code></span>
-        <span>最近发布 <code>0.2.5</code></span>
+        <span>源码 <code>0.2.7.dev1+g2093b6450.d20260819</code></span>
+        <span><code>main@2093b6450fbd</code></span>
+        <span>最近发布 <code>0.2.6</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../../versioning/">版本说明</a>
@@ -1042,7 +1042,7 @@
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
-        状态含义
+        自动原生并行批量重建
       
     </span>
   </a>
@@ -1053,7 +1053,7 @@
   <a href="#_5" class="md-nav__link">
     <span class="md-ellipsis">
       
-        为什么结果需要复核
+        状态含义
       
     </span>
   </a>
@@ -1064,7 +1064,7 @@
   <a href="#_6" class="md-nav__link">
     <span class="md-ellipsis">
       
-        指定电荷和多重度
+        为什么结果需要复核
       
     </span>
   </a>
@@ -1075,7 +1075,7 @@
   <a href="#_7" class="md-nav__link">
     <span class="md-ellipsis">
       
-        导出前检查
+        指定电荷和多重度
       
     </span>
   </a>
@@ -1084,6 +1084,17 @@
       
         <li class="md-nav__item">
   <a href="#_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        导出前检查
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
     <span class="md-ellipsis">
       
         下一步
@@ -3115,7 +3126,7 @@
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
-        状态含义
+        自动原生并行批量重建
       
     </span>
   </a>
@@ -3126,7 +3137,7 @@
   <a href="#_5" class="md-nav__link">
     <span class="md-ellipsis">
       
-        为什么结果需要复核
+        状态含义
       
     </span>
   </a>
@@ -3137,7 +3148,7 @@
   <a href="#_6" class="md-nav__link">
     <span class="md-ellipsis">
       
-        指定电荷和多重度
+        为什么结果需要复核
       
     </span>
   </a>
@@ -3148,7 +3159,7 @@
   <a href="#_7" class="md-nav__link">
     <span class="md-ellipsis">
       
-        导出前检查
+        指定电荷和多重度
       
     </span>
   </a>
@@ -3157,6 +3168,17 @@
       
         <li class="md-nav__item">
   <a href="#_8" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        导出前检查
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_9" class="md-nav__link">
     <span class="md-ellipsis">
       
         下一步
@@ -3279,10 +3301,61 @@
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2"></a><a href="#__codelineno-2-2"><span class="linenos" data-linenos="2 "></span></a>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3"></a><a href="#__codelineno-2-3"><span class="linenos" data-linenos="3 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">graph_reconstruction_backend</span> <span class="o">=</span> <span class="s2">&quot;python&quot;</span>  <span class="c1"># 默认值为 &quot;cpp&quot;</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4"></a><a href="#__codelineno-2-4"><span class="linenos" data-linenos="4 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">make_dative_bonds</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># 默认值为 True</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5"></a><a href="#__codelineno-2-5"><span class="linenos" data-linenos="5 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">make_stereochemistry</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># 默认值为 True</span>
 </span></code></pre></div>
 <p>在第一次访问某个 frame 的 <code>rdmol</code> 之前设置配置。惰性恢复会读取当前全局值，并把实际使用的
 设置记录在 frame 上。不同工作流需要不同策略时，应恢复默认值或使用独立进程。</p>
-<h2 id="_4">状态含义<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
+<h2 id="_4">自动原生并行批量重建<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
+<p>用户不需要收集 frame，也不需要调用单独的重建管理 API。当某个操作需要分子图时，MolOP 会在
+当前进程收集可重建的仅坐标 frame，并提交给 MolGR 0.1.6 的有界原生 worker pool。已有分子图
+或已经尝试过惰性重建的 frame 会跳过；backend、配位键或立体化学策略不同的 frame 会拆成配置一致的原生
+批次，保证 provenance 正确。</p>
+<p>以下操作会自动触发批量预热：</p>
+<ul>
+<li>批量 <code>format_transform()</code> 使用图级 writer（<code>sdf</code>、<code>smi</code>、<code>cml</code>）；</li>
+<li><code>format_transform("gjf", add_gjf_connectivity=True)</code>；</li>
+<li>文件或批量的 frame 级 <code>to_summary_df()</code>；</li>
+<li>轨迹、振动和 TS 振动动画；</li>
+<li>TS 前后体候选推断及其摘要/导出路径。这些端点是在任务运行中动态生成的，因此 fresh loky
+  worker 可以沿用正常惰性路径重建临时候选，不再向 worker 传递主进程生成的候选映射。</li>
+<li><code>filter_custom()</code> 和 <code>groupby()</code> 任意回调。由于回调内容不可静态判断，MolOP 会在向 loky
+  分发前预热当前输入快照中的全部可重建 frame，即使某个回调实际上只读取元数据。</li>
+<li>文件批量解析开启 <code>capture_source_evidence=True</code> 时会刻意保持单进程。该模式在附加源文件
+  span 的过程中创建并检查 frame，无法在分发前完整预热这些分子图。</li>
+</ul>
+<p>存在可枚举源 frame 集合的任务仍会先在主进程使用 MolGR 原生 batch 预热，再启动外层
+joblib/loky 进程。TS endpoint 这类运行中动态生成候选的任务保持普通公开调用路径，允许 fresh
+loky worker 内进行单分子惰性重建。worker 必须由 spawn/loky 创建；fork 子进程会在进入原生代码前
+被 MolGR 的 PID 门禁拒绝。</p>
+<p>该边界也适用于显式选择的 <code>threading</code> 后端和嵌套并行调用：如果回调在 MolOP 并行任务运行期间
+尝试触发未预热的重建，MolOP 会立即抛出并发错误，而不是等待可能自锁的线程池。此类调度错误
+不会把分子标记为失败，之后仍可重新预热。</p>
+<p>原生门禁同时覆盖 loky 和 joblib 的 multiprocessing 子进程。如果无关的外部 loky executor
+仍有未完成任务，门禁会拒绝启动预热；应先耗尽或关闭该结果。只有空闲的可复用进程池会在
+MolGR 启动前被回收。</p>
+<p>门禁也会拒绝未由 MolOP 管理、但仍存活的 Python 子进程，包括外部的
+<code>multiprocessing</code>/<code>loky.ProcessPoolExecutor</code>。必须先等待或关闭这些进程；否则无法证明
+MolGR 原生线程池不会与它们重叠。</p>
+<p>不要在 MolGR 原生预热后调用 <code>os.fork()</code>，也不要为依赖分子图的任务切换到 fork 型
+<code>multiprocessing</code> 后端。此类 fork 会复制原生运行时状态，无法由 Python 门禁完整兜底。
+MolOP 管理的进程并行入口会显式选择 joblib 的 <code>loky</code> 后端；loky 使用独立解释器的 spawn-like
+启动边界，不会通过 POSIX <code>fork</code> 继承主进程中的 MolGR 原生运行时状态。这里刻意不修改 Python
+全局 <code>multiprocessing</code> start method，也不把 joblib 的 legacy <code>multiprocessing</code> 后端包装为标准
+<code>spawn</code>，以免破坏 notebook、交互式入口和调用方自己的进程配置。MolOP 入口只会把外层的
+joblib legacy <code>multiprocessing</code> 配置归一到 loky；外层 threading 和第三方 backend 不会被覆盖，
+调用方直接传给 MolOP 并行 API 的显式 backend 也仍作为兼容覆盖保留。依赖图的任务应保留
+loky；源 frame 使用已预热缓存，动态候选则允许在 worker 内单独惰性重建。原生 batch 适配器
+仍只在主进程运行，worker 内调用会被拒绝，避免嵌套 MolGR 原生线程池。</p>
+<p>原生批量适配器会校验请求身份和完成情况。重复或未知结果会作为批量错误处理；如果迭代器
+提前结束，所有未返回的 frame 都会标记为 <code>failed</code>，不会再允许 worker 重新触发原生重建。外层
+joblib 迭代器耗尽或关闭后会释放进程池门禁。MolGR 当前没有 Python 层 timeout 或强制中断接口，
+因此 native 调用卡死时只能以进程级隔离作为故障边界，MolOP 无法在同一进程内强行中断它。</p>
+<p><code>suspicious_fallback</code> 只保留原生私有分子图作为原始证据，不会从空的普通拓扑字段猜造断开的
+分子图。如果该私有缓存在用户自定义序列化过程中丢失，worker 会返回空图并保持失败关闭，
+而不是继续生成错误拓扑。</p>
+<p>可枚举批量摘要和格式转换沿用操作本身的 <code>n_jobs</code> 作为原生预热上限。纯坐标的 <code>xyz</code>、ORCA
+input 和 Gaussian 坐标输出仍保持惰性，不会仅因为格式转换而强制重建。</p>
+<h2 id="_5">状态含义<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
 <tr>
@@ -3313,10 +3386,13 @@
 </tr>
 </tbody>
 </table>
-<h2 id="_5">为什么结果需要复核<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<p>MolGR 返回非致命单项失败或可疑 fallback 时，<code>frame.topology_reconstruction_diagnostics</code>
+会保留稳定的 <code>code</code>、<code>stage</code>、<code>backend</code>、<code>counts</code>、<code>details</code> 和 cause 字段。该字段是普通字典，
+预热后的 frame 序列化到 loky worker 时不会丢失。</p>
+<h2 id="_6">为什么结果需要复核<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
 <p>仅从几何恢复拓扑不是唯一问题。近距离接触、离子对、自由基、金属配合物和异常几何可能有
 多个合理成键方案。<code>suspicious_fallback</code> 不等于无法使用，但不应无检查地进入高可信数据库。</p>
-<h2 id="_6">指定电荷和多重度<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
+<h2 id="_7">指定电荷和多重度<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h2>
 <p>源文件缺少可靠电荷信息时可在解析入口覆盖：</p>
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a><a href="#__codelineno-3-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">batch</span> <span class="o">=</span> <span class="n">AutoParser</span><span class="p">(</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2"></a><a href="#__codelineno-3-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="s2">&quot;radical.xyz&quot;</span><span class="p">,</span>
@@ -3326,7 +3402,7 @@
 </span><span id="__span-3-6"><a id="__codelineno-3-6" name="__codelineno-3-6"></a><a href="#__codelineno-3-6"><span class="linenos" data-linenos="6 "></span></a><span class="n">mol</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">rdmol</span>
 </span></code></pre></div>
 <p>覆盖值会影响结构恢复，不应只为“让算法成功”而猜测。</p>
-<h2 id="_7">导出前检查<a class="headerlink" href="#_7" title="Permanent link">&para;</a></h2>
+<h2 id="_8">导出前检查<a class="headerlink" href="#_8" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><a href="#__codelineno-4-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">frame</span> <span class="o">=</span> <span class="n">batch</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2"></a><a href="#__codelineno-4-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">mol</span> <span class="o">=</span> <span class="n">frame</span><span class="o">.</span><span class="n">rdmol</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3"></a><a href="#__codelineno-4-3"><span class="linenos" data-linenos="3 "></span></a>
@@ -3340,7 +3416,7 @@
 </details>
 <p>SDF、SMILES 和 CML 等图级 writer 依赖可用分子图；XYZ 和坐标模式的 Gaussian/ORCA input
 可在不保留完整拓扑语义时仍导出坐标。</p>
-<h2 id="_8">下一步<a class="headerlink" href="#_8" title="Permanent link">&para;</a></h2>
+<h2 id="_9">下一步<a class="headerlink" href="#_9" title="Permanent link">&para;</a></h2>
 <ul>
 <li><a href="../conversion/">格式转换与导出</a></li>
 <li><a href="../../reference/formats/sdf/">SDF/MOL 格式</a></li>
