@@ -66,29 +66,31 @@ from molop import molopconfig
 molopconfig.graph_reconstruction_backend = "python"  # default: "cpp"
 molopconfig.make_dative_bonds = False  # default: True
 molopconfig.make_stereochemistry = False  # default: True
+molopconfig.prewarm_topologies = True  # default: False
 ```
 
 Set these values before the first access to `rdmol` for a frame. Lazy reconstruction reads the
 current global values and records the effective settings on the frame. Restore the defaults or use a
 separate process when different workflows require different policies.
 
-## Automatic native parallel reconstruction
+## Optional native parallel prewarming
 
-Users do not need to collect frames or call a reconstruction management API. When an operation needs
-a molecular graph, MolOP gathers the eligible coordinate-only frames in the current process and
-submits them to MolGR 0.1.6's bounded native worker pool. Existing graphs and already-attempted frames
-are skipped, and frames with different backend, dative-bond, or stereochemistry settings are submitted as separate
+Graph-dependent operations use lazy reconstruction by default. MolOP's process-parallel entry points
+use spawn-like `loky` workers, so the worker that consumes a graph can build it without a separate
+parent-process warmup step. Set `molopconfig.prewarm_topologies = True` when a workflow benefits from
+an eagerly populated parent-side cache. Existing graphs and already-attempted frames are skipped, and
+frames with different backend, dative-bond, or stereochemistry settings are submitted as separate
 homogeneous batches so provenance remains correct.
 
-The automatic triggers are:
+When enabled, prewarming is used by:
 
 - batch `format_transform()` for graph writers (`sdf`, `smi`, `cml`);
 - Gaussian `format_transform("gjf", add_gjf_connectivity=True)`;
 - frame-level `to_summary_df()` for a file or a batch;
 - trajectory, vibration, and TS-vibration animation;
-- TS pre/post candidate inference and its summary/export paths. These endpoints are generated
-  dynamically from each TS frame, so a fresh loky worker may reconstruct its temporary candidates
-  lazily instead of receiving a parent-built candidate map.
+- TS pre/post candidate inference and its summary/export paths remain lazy: these endpoints are
+  generated dynamically from each TS frame, so a fresh loky worker may reconstruct temporary
+  candidates instead of receiving a parent-built candidate map.
 - `filter_custom()` and `groupby()` callbacks. Because these callbacks are arbitrary, MolOP warms
   every eligible frame in the input snapshot before dispatching them to loky, even when a particular
   callback happens to inspect metadata only.
@@ -96,11 +98,11 @@ The automatic triggers are:
   parsers create and inspect frames while source spans are being attached, so their graphs cannot be
   completely prewarmed before dispatch.
 
-Operations with an enumerable source-frame set still prewarm those frames with MolGR's native batch
-API in the parent before outer joblib/loky processes start. Operations that generate temporary graph
-candidates while running, such as TS endpoints, keep the normal public call path and may perform
-single-molecule lazy reconstruction inside a fresh loky worker. The worker process must be created by
-spawn/loky; a fork child is rejected by MolGR's PID guard before native code runs.
+Operations with an enumerable source-frame set prewarm those frames with MolGR's native batch API in
+the parent before outer joblib/loky processes start only when the option is enabled. Operations that
+generate temporary graph candidates while running, such as TS endpoints, keep the normal public call
+path and may perform single-molecule lazy reconstruction inside a fresh loky worker. The worker process
+must be created by spawn/loky; a fork child is rejected by MolGR's PID guard before native code runs.
 
 This boundary also applies to explicit `threading` backends and nested parallel calls: if a callback
 tries to trigger an unprewarmed reconstruction while MolOP parallel work is active, MolOP fails fast
@@ -140,9 +142,9 @@ in the same process.
 disconnected graph from empty ordinary topology fields. If a user-defined serializer drops that
 private cache, a worker fails closed with an empty graph instead of fabricating an incorrect topology.
 
-The operation's existing `n_jobs` value controls the native prewarm limit for enumerable batch
-summaries and format conversion. Coordinate-only `xyz`, ORCA input, and Gaussian coordinate renders
-keep lazy graph behavior and do not force reconstruction merely because they are converted.
+When enabled, the operation's existing `n_jobs` value controls the native prewarm limit for enumerable
+batch summaries and format conversion. Coordinate-only `xyz`, ORCA input, and Gaussian coordinate
+renders keep lazy graph behavior and do not force reconstruction merely because they are converted.
 
 ## Status values
 

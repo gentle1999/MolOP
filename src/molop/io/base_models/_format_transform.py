@@ -4,6 +4,7 @@ import os
 from collections.abc import Sequence
 from typing import Any, Protocol, cast
 
+from molop.config import molopconfig
 from molop.io import codec_registry
 from molop.io.codec_types import GraphPolicy
 from molop.io.frame_selection import FrameSelector, normalize_frame_selector
@@ -112,7 +113,7 @@ class FormatTransformMixin:
             format,
             graph_policy=graph_policy,
         ) or (format.strip().lower() == "gjf" and kwargs.get("add_gjf_connectivity", False))
-        if needs_graph and not is_loky_worker():
+        if needs_graph and molopconfig.prewarm_topologies and not is_loky_worker():
             prewarm_topologies = getattr(self, "_prewarm_topologies", None)
             if callable(prewarm_topologies):
                 prewarm_topologies(frame=frame)

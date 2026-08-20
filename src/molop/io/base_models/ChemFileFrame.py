@@ -23,7 +23,7 @@ from rdkit import Chem
 from scipy.sparse import coo_matrix
 from typing_extensions import Self
 
-from molop.config import moloplogger
+from molop.config import molopconfig, moloplogger
 from molop.io.base_models.DataClasses import (
     NMR,
     BondOrders,
@@ -868,9 +868,11 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             ratio=ratio,
             steps=steps,
         )
-        # Displaced vibration geometries are coordinate-only molecules.  Warm
-        # their graphs in one native batch before the renderer accesses them.
-        reconstruct_topologies_batch(candidates, retain_results=False)
+        # Displaced vibration geometries are coordinate-only molecules.  An
+        # optional native batch avoids repeated lazy reconstruction when the
+        # caller has enabled parent-process topology prewarming.
+        if molopconfig.prewarm_topologies:
+            reconstruct_topologies_batch(candidates, retain_results=False)
         candidate_legends = legends
         if candidate_legends is None:
             candidate_legends = self._vibration_animation_legends(

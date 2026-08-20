@@ -49,7 +49,7 @@ class BatchFormatTransformMixin:
             format,
             graph_policy=graph_policy,
         ) or (format.strip().lower() == "gjf" and kwargs.get("add_gjf_connectivity", False))
-        if needs_graph:
+        if needs_graph and molopconfig.prewarm_topologies:
             prewarm_topologies = getattr(typed_self, "_prewarm_topologies", None)
             if callable(prewarm_topologies):
                 prewarm_topologies(

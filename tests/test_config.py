@@ -11,6 +11,7 @@ def test_config_defaults(monkeypatch):
     assert config.show_progress_bar is True
     assert config.max_jobs is None
     assert config.effective_max_jobs >= 1
+    assert config.prewarm_topologies is False
     assert config.log_to_file is False
 
 

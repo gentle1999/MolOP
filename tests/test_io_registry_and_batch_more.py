@@ -8,6 +8,7 @@ from typing import Any, cast
 import pandas as pd
 import pytest
 
+from molop.config import molopconfig
 from molop.io.base_models._format_transform import FrameFormatTransformMixin
 from molop.io.codec_exceptions import ConversionError, FormatMismatchError, UnsupportedFormatError
 from molop.io.codec_registry import Registry
@@ -651,6 +652,7 @@ def test_filter_custom_reuses_existing_snapshot(monkeypatch: pytest.MonkeyPatch)
 def test_graph_dependent_callbacks_are_prewarmed_before_parallel_execution(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(molopconfig, "prewarm_topologies", True)
     batch = cast(
         Any,
         FileBatchModelDisk(

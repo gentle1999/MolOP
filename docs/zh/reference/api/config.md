@@ -5,6 +5,16 @@
 模块暴露进程级 `molopconfig` 对象，用于控制进度显示、并行任务上限、日志和结构恢复选项。
 单次调用的行为优先使用显式函数参数；只有需要影响后续调用的全局策略时才修改全局配置。
 
+主进程拓扑预热由 `prewarm_topologies` 控制，默认值为 `False`。默认情况下，依赖分子图的操作会在
+使用结果的 spawn-like `loky` worker 中按需惰性重建，避免单独的主进程预热步骤。需要确定性主进程
+缓存的工作流可以显式开启：
+
+```python
+from molop import molopconfig
+
+molopconfig.prewarm_topologies = True
+```
+
 ## 并行默认值
 
 `max_jobs` 默认是 `None`，表示自动检测当前进程可用的 CPU。MolOP 会在 joblib/loky 可检测的

@@ -10,6 +10,7 @@ from PIL import Image
 from rdkit import Chem
 
 from molop import AutoParser
+from molop.config import molopconfig
 from molop.io.base_models.ChemFile import BaseCalcFile, BaseCoordsFile
 from molop.io.base_models.ChemFileFrame import BaseCalcFrame, BaseCoordsFrame
 from molop.io.base_models.DataClasses import Energies, Status, Vibrations
@@ -294,6 +295,7 @@ def test_batch_summary_reconstructs_dynamic_ts_candidates_in_workers(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(molopconfig, "prewarm_topologies", True)
     import importlib
 
     first_copy = tmp_path / "first" / "source.ts.log"

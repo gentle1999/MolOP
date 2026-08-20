@@ -63,35 +63,36 @@ from molop import molopconfig
 molopconfig.graph_reconstruction_backend = "python"  # 默认值为 "cpp"
 molopconfig.make_dative_bonds = False  # 默认值为 True
 molopconfig.make_stereochemistry = False  # 默认值为 True
+molopconfig.prewarm_topologies = True  # 默认值为 False
 ```
 
 在第一次访问某个 frame 的 `rdmol` 之前设置配置。惰性恢复会读取当前全局值，并把实际使用的
 设置记录在 frame 上。不同工作流需要不同策略时，应恢复默认值或使用独立进程。
 
-## 自动原生并行批量重建
+## 可选的原生并行预热
 
-用户不需要收集 frame，也不需要调用单独的重建管理 API。当某个操作需要分子图时，MolOP 会在
-当前进程收集可重建的仅坐标 frame，并提交给 MolGR 0.1.6 的有界原生 worker pool。已有分子图
-或已经尝试过惰性重建的 frame 会跳过；backend、配位键或立体化学策略不同的 frame 会拆成配置一致的原生
-批次，保证 provenance 正确。
+依赖分子图的操作默认采用惰性重建。MolOP 的进程并行入口使用 spawn-like `loky` worker，因此
+使用分子图的 worker 可以直接生成它，不再需要单独的主进程预热步骤。需要预先填充主进程缓存的
+工作流可以设置 `molopconfig.prewarm_topologies = True`。已有分子图或已经尝试过惰性重建的 frame
+会跳过；backend、配位键或立体化学策略不同的 frame 会拆成配置一致的原生批次，保证 provenance 正确。
 
-以下操作会自动触发批量预热：
+开启后，以下操作会触发预热：
 
 - 批量 `format_transform()` 使用图级 writer（`sdf`、`smi`、`cml`）；
 - `format_transform("gjf", add_gjf_connectivity=True)`；
 - 文件或批量的 frame 级 `to_summary_df()`；
 - 轨迹、振动和 TS 振动动画；
-- TS 前后体候选推断及其摘要/导出路径。这些端点是在任务运行中动态生成的，因此 fresh loky
-  worker 可以沿用正常惰性路径重建临时候选，不再向 worker 传递主进程生成的候选映射。
+- TS 前后体候选推断及其摘要/导出路径保持惰性：这些端点是在任务运行中动态生成的，因此 fresh
+  loky worker 可以沿用正常路径重建临时候选，不再接收主进程生成的候选映射。
 - `filter_custom()` 和 `groupby()` 任意回调。由于回调内容不可静态判断，MolOP 会在向 loky
   分发前预热当前输入快照中的全部可重建 frame，即使某个回调实际上只读取元数据。
 - 文件批量解析开启 `capture_source_evidence=True` 时会刻意保持单进程。该模式在附加源文件
   span 的过程中创建并检查 frame，无法在分发前完整预热这些分子图。
 
-存在可枚举源 frame 集合的任务仍会先在主进程使用 MolGR 原生 batch 预热，再启动外层
-joblib/loky 进程。TS endpoint 这类运行中动态生成候选的任务保持普通公开调用路径，允许 fresh
-loky worker 内进行单分子惰性重建。worker 必须由 spawn/loky 创建；fork 子进程会在进入原生代码前
-被 MolGR 的 PID 门禁拒绝。
+存在可枚举源 frame 集合的任务仅在开启选项时才会先在主进程使用 MolGR 原生 batch 预热，再启动
+外层 joblib/loky 进程。TS endpoint 这类运行中动态生成候选的任务保持普通公开调用路径，允许
+fresh loky worker 内进行单分子惰性重建。worker 必须由 spawn/loky 创建；fork 子进程会在进入原生
+代码前被 MolGR 的 PID 门禁拒绝。
 
 该边界也适用于显式选择的 `threading` 后端和嵌套并行调用：如果回调在 MolOP 并行任务运行期间
 尝试触发未预热的重建，MolOP 会立即抛出并发错误，而不是等待可能自锁的线程池。此类调度错误
@@ -125,8 +126,8 @@ joblib 迭代器耗尽或关闭后会释放进程池门禁。MolGR 当前没有 
 分子图。如果该私有缓存在用户自定义序列化过程中丢失，worker 会返回空图并保持失败关闭，
 而不是继续生成错误拓扑。
 
-可枚举批量摘要和格式转换沿用操作本身的 `n_jobs` 作为原生预热上限。纯坐标的 `xyz`、ORCA
-input 和 Gaussian 坐标输出仍保持惰性，不会仅因为格式转换而强制重建。
+开启选项时，可枚举批量摘要和格式转换沿用操作本身的 `n_jobs` 作为原生预热上限。纯坐标的
+`xyz`、ORCA input 和 Gaussian 坐标输出仍保持惰性，不会仅因为格式转换而强制重建。
 
 ## 状态含义
 

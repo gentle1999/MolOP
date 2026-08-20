@@ -604,10 +604,11 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         # A user callback may inspect any frame-level graph (``rdmol``,
         # canonical SMILES, descriptors, ...).  Materialize those graphs in
         # the parent process before the callback can run in a loky worker.
-        self._prewarm_topologies(
-            _diskfiles_snapshot=diskfiles,
-            max_workers=molopconfig.set_n_jobs(n_jobs),
-        )
+        if molopconfig.prewarm_topologies:
+            self._prewarm_topologies(
+                _diskfiles_snapshot=diskfiles,
+                max_workers=molopconfig.set_n_jobs(n_jobs),
+            )
         return self._filter_diskfiles(
             diskfiles,
             self.parallel_execute(
@@ -638,10 +639,11 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         # ``key_func`` is intentionally arbitrary, so treat it as graph
         # dependent even when the current callback only uses metadata.  This
         # keeps future callbacks from accidentally entering MolGR in workers.
-        self._prewarm_topologies(
-            _diskfiles_snapshot=diskfiles,
-            max_workers=molopconfig.set_n_jobs(n_jobs),
-        )
+        if molopconfig.prewarm_topologies:
+            self._prewarm_topologies(
+                _diskfiles_snapshot=diskfiles,
+                max_workers=molopconfig.set_n_jobs(n_jobs),
+            )
         keys = self.parallel_execute(
             key_func,
             desc,
@@ -768,23 +770,22 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         if mode == "file":
             summary_tasks = [(diskfile, ()) for diskfile in diskfiles]
         else:
-            from molop.io.base_models.Molecule import reconstruct_topologies_batch
-
             selected_frames: list[Any] = []
             for diskfile in diskfiles:
                 frame_ids = list(selected_frame_ids(diskfile))
                 selected_frames.extend(diskfile[fid] for fid in frame_ids)
                 summary_tasks.append((diskfile, frame_ids))
-            # The selected source frames have a stable, enumerable input set,
-            # so their ordinary graph cache is warmed in one parent-process
-            # native batch before process workers start. TS endpoint candidates
-            # are generated dynamically and reconstructed lazily in the fresh
-            # worker that consumes the summary.
-            reconstruct_topologies_batch(
-                selected_frames,
-                max_workers=molopconfig.set_n_jobs(n_jobs),
-                retain_results=False,
-            )
+            if molopconfig.prewarm_topologies:
+                from molop.io.base_models.Molecule import reconstruct_topologies_batch
+
+                # The selected source frames have a stable, enumerable input
+                # set, so optionally warm their ordinary graph cache in one
+                # parent-process native batch before process workers start.
+                reconstruct_topologies_batch(
+                    selected_frames,
+                    max_workers=molopconfig.set_n_jobs(n_jobs),
+                    retain_results=False,
+                )
 
         def process_file_summary(task: tuple[FileDiskObj, Sequence[int]]) -> list[pd.Series]:
             diskfile, frame_ids = task

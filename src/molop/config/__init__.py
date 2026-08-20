@@ -67,6 +67,13 @@ class MolOPConfig(BaseModel):
     graph_reconstruction_backend: Literal["cpp", "python"] = Field(
         default="cpp", description="Backend for graph reconstruction"
     )
+    prewarm_topologies: bool = Field(
+        default=False,
+        description=(
+            "Whether graph-dependent operations prewarm coordinate-only topologies "
+            "in the parent process"
+        ),
+    )
     make_dative_bonds: bool = Field(default=True, description="Whether to make dative bonds")
     make_stereochemistry: bool = Field(
         default=True, description="Whether to assign stereochemistry during graph reconstruction"

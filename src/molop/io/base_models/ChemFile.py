@@ -20,7 +20,7 @@ from pint._typing import UnitLike
 from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr
 
-from molop.config import moloplogger
+from molop.config import molopconfig, moloplogger
 from molop.io.base_models._format_transform import FormatTransformMixin
 from molop.io.base_models.Bases import BaseDataClassWithUnit
 from molop.io.base_models.ChemFileFrame import (
@@ -278,7 +278,8 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
         omitted; rendering raises only when no retained frame is drawable.
         """
 
-        self._prewarm_topologies()
+        if molopconfig.prewarm_topologies:
+            self._prewarm_topologies()
         frame_legends = legends
         if frame_legends is None:
             frame_legends = [self._animation_frame_legend(frame) for frame in self.frames]
@@ -328,7 +329,7 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
             ) from exc
         if on_missing_frame == "skip":
             frame_ids = [fid for fid in frame_ids if 0 <= fid < len(self)]
-        if not is_loky_worker():
+        if molopconfig.prewarm_topologies and not is_loky_worker():
             self._prewarm_topologies(frame=frame_ids)
         return build_summary_df(
             (self._frames_[fid].to_summary_series(brief=brief, **kwargs) for fid in frame_ids),

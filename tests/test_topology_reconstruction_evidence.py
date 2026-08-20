@@ -633,6 +633,7 @@ def test_lazy_topology_reader_records_failure_after_base_exception(
 def test_chem_file_summary_implicitly_uses_native_batch_reconstruction(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr(molopconfig, "prewarm_topologies", True)
     molecule_module = importlib.import_module("molop.io.base_models.Molecule")
     parsed = XYZFileParserMemory().parse(
         "3\nwater\nO 0.0 0.0 0.0\nH 0.9572 0.0 0.0\nH -0.2399872 0.927297 0.0\n"

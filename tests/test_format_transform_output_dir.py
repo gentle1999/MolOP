@@ -3,6 +3,7 @@ from pathlib import Path
 
 import pytest
 
+from molop.config import molopconfig
 from molop.io import AutoParser
 from molop.io.codec_exceptions import UnsupportedFormatError
 
@@ -17,6 +18,7 @@ def test_format_transform_unsupported_format_raises_error(tmp_path):
 
 
 def test_batch_graph_transform_prewarms_once_before_file_workers(monkeypatch):
+    monkeypatch.setattr(molopconfig, "prewarm_topologies", True)
     molecule_module = importlib.import_module("molop.io.base_models.Molecule")
     fixture_path = Path(__file__).resolve().parent / "test_files" / "xyz" / "dsgdb9nsd_004015-7.xyz"
     batch = AutoParser(str(fixture_path))
@@ -34,6 +36,20 @@ def test_batch_graph_transform_prewarms_once_before_file_workers(monkeypatch):
 
     assert calls == 1
     assert isinstance(rendered[str(fixture_path)], str)
+
+
+def test_batch_graph_transform_does_not_prewarm_by_default(monkeypatch):
+    monkeypatch.setattr(molopconfig, "prewarm_topologies", False)
+    fixture_path = Path(__file__).resolve().parent / "test_files" / "xyz" / "dsgdb9nsd_004015-7.xyz"
+    batch = AutoParser(str(fixture_path))
+
+    def fail_if_prewarmed(**_kwargs):
+        raise AssertionError("topology prewarming should be opt-in")
+
+    monkeypatch.setattr(batch, "_prewarm_topologies", fail_if_prewarmed)
+    rendered = batch.format_transform("smi", n_jobs=1)
+
+    assert rendered[str(fixture_path)]
 
 
 def test_format_transform_file_path_writes_under_requested_dir(tmp_path, monkeypatch):

@@ -7,6 +7,17 @@ display, the maximum parallel-job limit, logging, and structure-recovery
 options. Prefer explicit function arguments for per-call behavior; change the
 global configuration only when the policy should apply to subsequent calls.
 
+Parent-process topology prewarming is controlled by `prewarm_topologies` and defaults to `False`.
+With the default, graph-dependent operations reconstruct lazily in the spawn-like `loky` worker that
+uses the result, avoiding a separate parent-process warmup step. Set it to `True` when a workflow needs
+the deterministic parent-side cache:
+
+```python
+from molop import molopconfig
+
+molopconfig.prewarm_topologies = True
+```
+
 ## Parallelism defaults
 
 `max_jobs` defaults to `None`, which means automatic process-aware detection. MolOP takes the most
