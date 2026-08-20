@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.7.dev1+g2093b6450.d20260819</code></span>
-        <span><code>main@2093b6450fbd</code></span>
-        <span>最近发布 <code>0.2.6</code></span>
+        <span>源码 <code>0.2.8.dev1+g9a66e5c81.d20260820</code></span>
+        <span><code>main@9a66e5c81a9b</code></span>
+        <span>最近发布 <code>0.2.7</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../../versioning/">版本说明</a>
@@ -1042,7 +1042,7 @@
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
-        自动原生并行批量重建
+        可选的原生并行预热
       
     </span>
   </a>
@@ -3126,7 +3126,7 @@
   <a href="#_4" class="md-nav__link">
     <span class="md-ellipsis">
       
-        自动原生并行批量重建
+        可选的原生并行预热
       
     </span>
   </a>
@@ -3302,31 +3302,32 @@
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3"></a><a href="#__codelineno-2-3"><span class="linenos" data-linenos="3 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">graph_reconstruction_backend</span> <span class="o">=</span> <span class="s2">&quot;python&quot;</span>  <span class="c1"># 默认值为 &quot;cpp&quot;</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4"></a><a href="#__codelineno-2-4"><span class="linenos" data-linenos="4 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">make_dative_bonds</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># 默认值为 True</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5"></a><a href="#__codelineno-2-5"><span class="linenos" data-linenos="5 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">make_stereochemistry</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># 默认值为 True</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6"></a><a href="#__codelineno-2-6"><span class="linenos" data-linenos="6 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">prewarm_topologies</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># 默认值为 False</span>
 </span></code></pre></div>
 <p>在第一次访问某个 frame 的 <code>rdmol</code> 之前设置配置。惰性恢复会读取当前全局值，并把实际使用的
 设置记录在 frame 上。不同工作流需要不同策略时，应恢复默认值或使用独立进程。</p>
-<h2 id="_4">自动原生并行批量重建<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
-<p>用户不需要收集 frame，也不需要调用单独的重建管理 API。当某个操作需要分子图时，MolOP 会在
-当前进程收集可重建的仅坐标 frame，并提交给 MolGR 0.1.6 的有界原生 worker pool。已有分子图
-或已经尝试过惰性重建的 frame 会跳过；backend、配位键或立体化学策略不同的 frame 会拆成配置一致的原生
-批次，保证 provenance 正确。</p>
-<p>以下操作会自动触发批量预热：</p>
+<h2 id="_4">可选的原生并行预热<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
+<p>依赖分子图的操作默认采用惰性重建。MolOP 的进程并行入口使用 spawn-like <code>loky</code> worker，因此
+使用分子图的 worker 可以直接生成它，不再需要单独的主进程预热步骤。需要预先填充主进程缓存的
+工作流可以设置 <code>molopconfig.prewarm_topologies = True</code>。已有分子图或已经尝试过惰性重建的 frame
+会跳过；backend、配位键或立体化学策略不同的 frame 会拆成配置一致的原生批次，保证 provenance 正确。</p>
+<p>开启后，以下操作会触发预热：</p>
 <ul>
 <li>批量 <code>format_transform()</code> 使用图级 writer（<code>sdf</code>、<code>smi</code>、<code>cml</code>）；</li>
 <li><code>format_transform("gjf", add_gjf_connectivity=True)</code>；</li>
 <li>文件或批量的 frame 级 <code>to_summary_df()</code>；</li>
 <li>轨迹、振动和 TS 振动动画；</li>
-<li>TS 前后体候选推断及其摘要/导出路径。这些端点是在任务运行中动态生成的，因此 fresh loky
-  worker 可以沿用正常惰性路径重建临时候选，不再向 worker 传递主进程生成的候选映射。</li>
+<li>TS 前后体候选推断及其摘要/导出路径保持惰性：这些端点是在任务运行中动态生成的，因此 fresh
+  loky worker 可以沿用正常路径重建临时候选，不再接收主进程生成的候选映射。</li>
 <li><code>filter_custom()</code> 和 <code>groupby()</code> 任意回调。由于回调内容不可静态判断，MolOP 会在向 loky
   分发前预热当前输入快照中的全部可重建 frame，即使某个回调实际上只读取元数据。</li>
 <li>文件批量解析开启 <code>capture_source_evidence=True</code> 时会刻意保持单进程。该模式在附加源文件
   span 的过程中创建并检查 frame，无法在分发前完整预热这些分子图。</li>
 </ul>
-<p>存在可枚举源 frame 集合的任务仍会先在主进程使用 MolGR 原生 batch 预热，再启动外层
-joblib/loky 进程。TS endpoint 这类运行中动态生成候选的任务保持普通公开调用路径，允许 fresh
-loky worker 内进行单分子惰性重建。worker 必须由 spawn/loky 创建；fork 子进程会在进入原生代码前
-被 MolGR 的 PID 门禁拒绝。</p>
+<p>存在可枚举源 frame 集合的任务仅在开启选项时才会先在主进程使用 MolGR 原生 batch 预热，再启动
+外层 joblib/loky 进程。TS endpoint 这类运行中动态生成候选的任务保持普通公开调用路径，允许
+fresh loky worker 内进行单分子惰性重建。worker 必须由 spawn/loky 创建；fork 子进程会在进入原生
+代码前被 MolGR 的 PID 门禁拒绝。</p>
 <p>该边界也适用于显式选择的 <code>threading</code> 后端和嵌套并行调用：如果回调在 MolOP 并行任务运行期间
 尝试触发未预热的重建，MolOP 会立即抛出并发错误，而不是等待可能自锁的线程池。此类调度错误
 不会把分子标记为失败，之后仍可重新预热。</p>
@@ -3353,8 +3354,8 @@ joblib 迭代器耗尽或关闭后会释放进程池门禁。MolGR 当前没有 
 <p><code>suspicious_fallback</code> 只保留原生私有分子图作为原始证据，不会从空的普通拓扑字段猜造断开的
 分子图。如果该私有缓存在用户自定义序列化过程中丢失，worker 会返回空图并保持失败关闭，
 而不是继续生成错误拓扑。</p>
-<p>可枚举批量摘要和格式转换沿用操作本身的 <code>n_jobs</code> 作为原生预热上限。纯坐标的 <code>xyz</code>、ORCA
-input 和 Gaussian 坐标输出仍保持惰性，不会仅因为格式转换而强制重建。</p>
+<p>开启选项时，可枚举批量摘要和格式转换沿用操作本身的 <code>n_jobs</code> 作为原生预热上限。纯坐标的
+<code>xyz</code>、ORCA input 和 Gaussian 坐标输出仍保持惰性，不会仅因为格式转换而强制重建。</p>
 <h2 id="_5">状态含义<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
 <table>
 <thead>

@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.7.dev1+g2093b6450.d20260819</code></span>
-        <span><code>main@2093b6450fbd</code></span>
-        <span>Latest release <code>0.2.6</code></span>
+        <span>Source <code>0.2.8.dev1+g9a66e5c81.d20260820</code></span>
+        <span><code>main@9a66e5c81a9b</code></span>
+        <span>Latest release <code>0.2.7</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -1041,10 +1041,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#automatic_native_parallel_reconstruction" class="md-nav__link">
+  <a href="#optional_native_parallel_prewarming" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Automatic native parallel reconstruction
+        Optional native parallel prewarming
       
     </span>
   </a>
@@ -3125,10 +3125,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#automatic_native_parallel_reconstruction" class="md-nav__link">
+  <a href="#optional_native_parallel_prewarming" class="md-nav__link">
     <span class="md-ellipsis">
       
-        Automatic native parallel reconstruction
+        Optional native parallel prewarming
       
     </span>
   </a>
@@ -3307,25 +3307,27 @@ all eight Mn-C bonds as coordination bonds while assigning ligand bond orders an
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3"></a><a href="#__codelineno-2-3"><span class="linenos" data-linenos="3 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">graph_reconstruction_backend</span> <span class="o">=</span> <span class="s2">&quot;python&quot;</span>  <span class="c1"># default: &quot;cpp&quot;</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4"></a><a href="#__codelineno-2-4"><span class="linenos" data-linenos="4 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">make_dative_bonds</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># default: True</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5"></a><a href="#__codelineno-2-5"><span class="linenos" data-linenos="5 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">make_stereochemistry</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># default: True</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6"></a><a href="#__codelineno-2-6"><span class="linenos" data-linenos="6 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">prewarm_topologies</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># default: False</span>
 </span></code></pre></div>
 <p>Set these values before the first access to <code>rdmol</code> for a frame. Lazy reconstruction reads the
 current global values and records the effective settings on the frame. Restore the defaults or use a
 separate process when different workflows require different policies.</p>
-<h2 id="automatic_native_parallel_reconstruction">Automatic native parallel reconstruction<a class="headerlink" href="#automatic_native_parallel_reconstruction" title="Permanent link">&para;</a></h2>
-<p>Users do not need to collect frames or call a reconstruction management API. When an operation needs
-a molecular graph, MolOP gathers the eligible coordinate-only frames in the current process and
-submits them to MolGR 0.1.6&rsquo;s bounded native worker pool. Existing graphs and already-attempted frames
-are skipped, and frames with different backend, dative-bond, or stereochemistry settings are submitted as separate
+<h2 id="optional_native_parallel_prewarming">Optional native parallel prewarming<a class="headerlink" href="#optional_native_parallel_prewarming" title="Permanent link">&para;</a></h2>
+<p>Graph-dependent operations use lazy reconstruction by default. MolOP&rsquo;s process-parallel entry points
+use spawn-like <code>loky</code> workers, so the worker that consumes a graph can build it without a separate
+parent-process warmup step. Set <code>molopconfig.prewarm_topologies = True</code> when a workflow benefits from
+an eagerly populated parent-side cache. Existing graphs and already-attempted frames are skipped, and
+frames with different backend, dative-bond, or stereochemistry settings are submitted as separate
 homogeneous batches so provenance remains correct.</p>
-<p>The automatic triggers are:</p>
+<p>When enabled, prewarming is used by:</p>
 <ul>
 <li>batch <code>format_transform()</code> for graph writers (<code>sdf</code>, <code>smi</code>, <code>cml</code>);</li>
 <li>Gaussian <code>format_transform("gjf", add_gjf_connectivity=True)</code>;</li>
 <li>frame-level <code>to_summary_df()</code> for a file or a batch;</li>
 <li>trajectory, vibration, and TS-vibration animation;</li>
-<li>TS pre/post candidate inference and its summary/export paths. These endpoints are generated
-  dynamically from each TS frame, so a fresh loky worker may reconstruct its temporary candidates
-  lazily instead of receiving a parent-built candidate map.</li>
+<li>TS pre/post candidate inference and its summary/export paths remain lazy: these endpoints are
+  generated dynamically from each TS frame, so a fresh loky worker may reconstruct temporary
+  candidates instead of receiving a parent-built candidate map.</li>
 <li><code>filter_custom()</code> and <code>groupby()</code> callbacks. Because these callbacks are arbitrary, MolOP warms
   every eligible frame in the input snapshot before dispatching them to loky, even when a particular
   callback happens to inspect metadata only.</li>
@@ -3333,11 +3335,11 @@ homogeneous batches so provenance remains correct.</p>
   parsers create and inspect frames while source spans are being attached, so their graphs cannot be
   completely prewarmed before dispatch.</li>
 </ul>
-<p>Operations with an enumerable source-frame set still prewarm those frames with MolGR&rsquo;s native batch
-API in the parent before outer joblib/loky processes start. Operations that generate temporary graph
-candidates while running, such as TS endpoints, keep the normal public call path and may perform
-single-molecule lazy reconstruction inside a fresh loky worker. The worker process must be created by
-spawn/loky; a fork child is rejected by MolGR&rsquo;s PID guard before native code runs.</p>
+<p>Operations with an enumerable source-frame set prewarm those frames with MolGR&rsquo;s native batch API in
+the parent before outer joblib/loky processes start only when the option is enabled. Operations that
+generate temporary graph candidates while running, such as TS endpoints, keep the normal public call
+path and may perform single-molecule lazy reconstruction inside a fresh loky worker. The worker process
+must be created by spawn/loky; a fork child is rejected by MolGR&rsquo;s PID guard before native code runs.</p>
 <p>This boundary also applies to explicit <code>threading</code> backends and nested parallel calls: if a callback
 tries to trigger an unprewarmed reconstruction while MolOP parallel work is active, MolOP fails fast
 with a concurrency error instead of waiting on a self-deadlocking pool. The molecule remains
@@ -3370,9 +3372,9 @@ in the same process.</p>
 <p><code>suspicious_fallback</code> keeps the private native molecule only as raw evidence and never invents a
 disconnected graph from empty ordinary topology fields. If a user-defined serializer drops that
 private cache, a worker fails closed with an empty graph instead of fabricating an incorrect topology.</p>
-<p>The operation&rsquo;s existing <code>n_jobs</code> value controls the native prewarm limit for enumerable batch
-summaries and format conversion. Coordinate-only <code>xyz</code>, ORCA input, and Gaussian coordinate renders
-keep lazy graph behavior and do not force reconstruction merely because they are converted.</p>
+<p>When enabled, the operation&rsquo;s existing <code>n_jobs</code> value controls the native prewarm limit for enumerable
+batch summaries and format conversion. Coordinate-only <code>xyz</code>, ORCA input, and Gaussian coordinate
+renders keep lazy graph behavior and do not force reconstruction merely because they are converted.</p>
 <h2 id="status_values">Status values<a class="headerlink" href="#status_values" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
