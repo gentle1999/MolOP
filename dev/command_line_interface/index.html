@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.8.dev1+g9a66e5c81.d20260820</code></span>
-        <span><code>main@9a66e5c81a9b</code></span>
-        <span>最近发布 <code>0.2.7</code></span>
+        <span>源码 <code>0.2.9.dev1+g3f7da40ce.d20260821</code></span>
+        <span><code>main@3f7da40cee1c</code></span>
+        <span>最近发布 <code>0.2.8</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../versioning/">版本说明</a>
@@ -3347,6 +3347,11 @@
 <td>本次解析使用 <code>cpp</code> 或 <code>python</code> 图重建后端</td>
 </tr>
 <tr>
+<td><code>--reconstruction-failure-policy</code></td>
+<td>配置值</td>
+<td>选择 <code>raise</code>，或用 <code>return_suspicious</code> 保留可疑回退分子图</td>
+</tr>
+<tr>
 <td><code>--make-dative-bonds / --no-make-dative-bonds</code></td>
 <td>配置值</td>
 <td>覆盖本次解析的配位键重建策略</td>
@@ -3362,6 +3367,8 @@
 <code>molopconfig.max_jobs</code> 上限；排查 parser 或原生库问题时传入 <code>--n-jobs 1</code>。parse 和每个操作
 命令都独立默认使用 <code>-1</code>。使用全局 <code>--max-jobs N</code> 限制整条命令；某个操作需要更低上限时，在
 该操作上显式传入正整数 <code>--n-jobs</code>。</p>
+<p>文件解析仍使用完整的进程级上限；可能进入 MolGR 的操作（包括用户自定义的分子图回调）会
+自动使用可用 CPU 三分之二的独立上限。</p>
 <p>电荷和多重度覆盖会作用于每个匹配输入；混合电荷或多重度的数据应拆成不同命令。
 <code>--only-extract-structure</code> 是快速路径，会按约定省略非结构科学结果。单位和拓扑参数只覆盖本次
 命令；未指定时继承 <code>molopconfig</code>，不会修改进程级全局配置。</p>

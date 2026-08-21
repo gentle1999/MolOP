@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.8.dev1+g9a66e5c81.d20260820</code></span>
-        <span><code>main@9a66e5c81a9b</code></span>
-        <span>最近发布 <code>0.2.7</code></span>
+        <span>源码 <code>0.2.9.dev1+g3f7da40ce.d20260821</code></span>
+        <span><code>main@3f7da40cee1c</code></span>
+        <span>最近发布 <code>0.2.8</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../../versioning/">版本说明</a>
@@ -3288,6 +3288,10 @@
 <p><code>possible_pre_post_ts</code> 返回基于几何的前后体候选，不是优化后的真实反应物和产物。
 <code>to_diff_rdmol</code> 在无法推断出支持的断键差异时可能返回 <code>None</code>。自动反应流程使用这些结果前，
 仍需检查原子映射、连接关系和原始计算结果。</p>
+<p>默认情况下，前后体推断会在虚频振动的正、负两侧分别采样 7 个振幅，振幅在
+<code>min_ratio=0.75</code> 到 <code>max_ratio=1.75</code> 之间等距分布。两侧各自按重建拓扑的出现频次投票，
+并为胜出的拓扑保留其最大采样振幅下的三维构象。随后，碎片数更多的候选被判为前体；
+碎片数相同时保持负空间、正空间的顺序。<code>steps</code> 用于设置每侧的振幅采样数量。</p>
 <p>使用 <code>save_pre_post_ts(...)</code> 可直接将一对候选写成 XYZ（默认）或 SDF 文件；SDF 会保留重建的分子图和
 推断得到的三维构象：</p>
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a><a href="#__codelineno-10-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">pre_path</span><span class="p">,</span> <span class="n">post_path</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;candidate&quot;</span><span class="p">)</span>

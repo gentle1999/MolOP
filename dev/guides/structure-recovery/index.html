@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.8.dev1+g9a66e5c81.d20260820</code></span>
-        <span><code>main@9a66e5c81a9b</code></span>
-        <span>最近发布 <code>0.2.7</code></span>
+        <span>源码 <code>0.2.9.dev1+g3f7da40ce.d20260821</code></span>
+        <span><code>main@3f7da40cee1c</code></span>
+        <span>最近发布 <code>0.2.8</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../../versioning/">版本说明</a>
@@ -3300,12 +3300,17 @@
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><a href="#__codelineno-2-1"><span class="linenos" data-linenos="1 "></span></a><span class="kn">from</span><span class="w"> </span><span class="nn">molop</span><span class="w"> </span><span class="kn">import</span> <span class="n">molopconfig</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2"></a><a href="#__codelineno-2-2"><span class="linenos" data-linenos="2 "></span></a>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3"></a><a href="#__codelineno-2-3"><span class="linenos" data-linenos="3 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">graph_reconstruction_backend</span> <span class="o">=</span> <span class="s2">&quot;python&quot;</span>  <span class="c1"># 默认值为 &quot;cpp&quot;</span>
-</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4"></a><a href="#__codelineno-2-4"><span class="linenos" data-linenos="4 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">make_dative_bonds</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># 默认值为 True</span>
-</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5"></a><a href="#__codelineno-2-5"><span class="linenos" data-linenos="5 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">make_stereochemistry</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># 默认值为 True</span>
-</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6"></a><a href="#__codelineno-2-6"><span class="linenos" data-linenos="6 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">prewarm_topologies</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># 默认值为 False</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4"></a><a href="#__codelineno-2-4"><span class="linenos" data-linenos="4 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">reconstruction_failure_policy</span> <span class="o">=</span> <span class="s2">&quot;return_suspicious&quot;</span>  <span class="c1"># 默认值为 &quot;raise&quot;</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5"></a><a href="#__codelineno-2-5"><span class="linenos" data-linenos="5 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">make_dative_bonds</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># 默认值为 True</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6"></a><a href="#__codelineno-2-6"><span class="linenos" data-linenos="6 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">make_stereochemistry</span> <span class="o">=</span> <span class="kc">False</span>  <span class="c1"># 默认值为 True</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7"></a><a href="#__codelineno-2-7"><span class="linenos" data-linenos="7 "></span></a><span class="n">molopconfig</span><span class="o">.</span><span class="n">prewarm_topologies</span> <span class="o">=</span> <span class="kc">True</span>  <span class="c1"># 默认值为 False</span>
 </span></code></pre></div>
 <p>在第一次访问某个 frame 的 <code>rdmol</code> 之前设置配置。惰性恢复会读取当前全局值，并把实际使用的
 设置记录在 frame 上。不同工作流需要不同策略时，应恢复默认值或使用独立进程。</p>
+<p>如果无效或无法正常重建的几何结构也必须保留，可将 <code>reconstruction_failure_policy</code> 设为
+<code>"return_suspicious"</code>。MolOP 会保留 MolGR 返回的未消毒 fallback RDKit 分子，将
+<code>topology_reconstruction_status</code> 记录为 <code>"suspicious_fallback"</code>，并保留失败诊断。默认的
+<code>"raise"</code> 策略会把同一情况记录为 <code>failed</code>，且不提供 RDKit 分子。</p>
 <h2 id="_4">可选的原生并行预热<a class="headerlink" href="#_4" title="Permanent link">&para;</a></h2>
 <p>依赖分子图的操作默认采用惰性重建。MolOP 的进程并行入口使用 spawn-like <code>loky</code> worker，因此
 使用分子图的 worker 可以直接生成它，不再需要单独的主进程预热步骤。需要预先填充主进程缓存的

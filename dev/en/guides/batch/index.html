@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.8.dev1+g9a66e5c81.d20260820</code></span>
-        <span><code>main@9a66e5c81a9b</code></span>
-        <span>Latest release <code>0.2.7</code></span>
+        <span>Source <code>0.2.9.dev1+g3f7da40ce.d20260821</code></span>
+        <span><code>main@3f7da40cee1c</code></span>
+        <span>Latest release <code>0.2.8</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -3358,11 +3358,14 @@ produces one row; inputs that do not parse produce no row.</p>
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10"></a><a href="#__codelineno-2-10"><span class="linenos" data-linenos="10 "></span></a><span class="p">)</span>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11"></a><a href="#__codelineno-2-11"><span class="linenos" data-linenos="11 "></span></a><span class="n">summary</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">&quot;normal.csv&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </span></code></pre></div>
-<p><code>n_jobs=-1</code> follows the process-aware CPU limit. With the default <code>max_jobs=None</code>, it respects
-observable scheduler/container quotas and CPU affinity where the platform exposes them; set
-<code>molopconfig.max_jobs</code> before creating the batch when a lower ceiling is required. Use <code>n_jobs=1</code>
-while diagnosing a parser or a native-library failure. CLI parse and operation commands have the same
-independent default.</p>
+<!-- notebook-output: summary dataframe written to normal.csv -->
+
+<p><code>n_jobs=-1</code> follows the process-aware CPU limit. Parsing and operations that do not enter MolGR use
+the full <code>effective_max_jobs</code> value. Graph-dependent operations, including <code>to_summary_df</code>, graph
+format transforms, TS endpoint export, grouping, and <code>filter_custom</code>, use the stricter
+<code>floor(2 * available_cpu_count / 3)</code> MolGR budget, also capped by <code>molopconfig.max_jobs</code>. Use
+<code>n_jobs=1</code> while diagnosing a parser or a native-library failure. CLI parse and operation commands
+have the same independent default.</p>
 <p>For a custom per-file operation, use <code>parallel_execute</code> and return explicit values:</p>
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a><a href="#__codelineno-3-1"><span class="linenos" data-linenos="1 "></span></a><span class="k">def</span><span class="w"> </span><span class="nf">file_format</span><span class="p">(</span><span class="n">parsed_file</span><span class="p">):</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2"></a><a href="#__codelineno-3-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="k">return</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">detected_format_id</span>

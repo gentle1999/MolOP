@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.8.dev1+g9a66e5c81.d20260820</code></span>
-        <span><code>main@9a66e5c81a9b</code></span>
-        <span>Latest release <code>0.2.7</code></span>
+        <span>Source <code>0.2.9.dev1+g3f7da40ce.d20260821</code></span>
+        <span><code>main@3f7da40cee1c</code></span>
+        <span>Latest release <code>0.2.8</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -3498,7 +3498,10 @@ filtered to the retained frames.</p>
 the source path as its outer key. Only calculation files with this operation are exported; other
 files in a mixed batch are skipped with a warning. Unique source stems are retained, while duplicate
 stems receive a stable source-path digest to prevent overwriting another file&rsquo;s results. The
-endpoints are geometry-based candidates, not optimized reactant or product structures.</p>
+endpoints are geometry-based candidates, not optimized reactant or product structures. Endpoint
+inference samples <code>steps=7</code> amplitudes per displacement side from <code>min_ratio=0.75</code> through
+<code>max_ratio=1.75</code>, selects each side&rsquo;s most frequent topology, and maps the candidate with more
+fragments to the precursor.</p>
 <h2 id="to_summary_df"><code>to_summary_df</code><a class="headerlink" href="#to_summary_df" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><a href="#__codelineno-6-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">summary</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">to_summary_df</span><span class="p">(</span>
 </span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a><a href="#__codelineno-6-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;frame&quot;</span><span class="p">,</span>

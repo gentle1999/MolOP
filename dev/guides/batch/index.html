@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.8.dev1+g9a66e5c81.d20260820</code></span>
-        <span><code>main@9a66e5c81a9b</code></span>
-        <span>最近发布 <code>0.2.7</code></span>
+        <span>源码 <code>0.2.9.dev1+g3f7da40ce.d20260821</code></span>
+        <span><code>main@3f7da40cee1c</code></span>
+        <span>最近发布 <code>0.2.8</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../../versioning/">版本说明</a>
@@ -3356,9 +3356,13 @@
 </span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10"></a><a href="#__codelineno-2-10"><span class="linenos" data-linenos="10 "></span></a><span class="p">)</span>
 </span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11"></a><a href="#__codelineno-2-11"><span class="linenos" data-linenos="11 "></span></a><span class="n">summary</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="s2">&quot;normal.csv&quot;</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 </span></code></pre></div>
-<p><code>n_jobs=-1</code> 会跟随当前进程可用 CPU。默认 <code>max_jobs=None</code> 时，会尊重系统能够暴露的调度器/
-容器配额和 CPU affinity；需要更低上限时，在创建 batch 前修改 <code>molopconfig.max_jobs</code>。排查
-parser 或原生库问题时使用 <code>n_jobs=1</code>。CLI 的 parse 和操作命令也独立默认使用 <code>-1</code>。</p>
+<!-- notebook-output: summary dataframe written to normal.csv -->
+
+<p><code>n_jobs=-1</code> 会跟随当前进程可用 CPU。文件解析和不进入 MolGR 的操作使用完整的
+<code>effective_max_jobs</code>；依赖分子图的操作（包括 <code>to_summary_df</code>、图格式转换、TS endpoint 导出、
+<code>groupby</code> 和 <code>filter_custom</code>）使用更严格的 <code>floor(2 * available_cpu_count / 3)</code> MolGR 上限，
+并继续受 <code>molopconfig.max_jobs</code> 限制。排查 parser 或原生库问题时使用 <code>n_jobs=1</code>。CLI 的
+parse 和操作命令也独立默认使用 <code>-1</code>。</p>
 <p>需要对每个文件执行自定义操作时，使用 <code>parallel_execute</code> 并显式返回结果：</p>
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a><a href="#__codelineno-3-1"><span class="linenos" data-linenos="1 "></span></a><span class="k">def</span><span class="w"> </span><span class="nf">file_format</span><span class="p">(</span><span class="n">parsed_file</span><span class="p">):</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2"></a><a href="#__codelineno-3-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="k">return</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">detected_format_id</span>

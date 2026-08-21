@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.8.dev1+g9a66e5c81.d20260820</code></span>
-        <span><code>main@9a66e5c81a9b</code></span>
-        <span>Latest release <code>0.2.7</code></span>
+        <span>Source <code>0.2.9.dev1+g3f7da40ce.d20260821</code></span>
+        <span><code>main@3f7da40cee1c</code></span>
+        <span>Latest release <code>0.2.8</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../versioning/">Version details</a>
@@ -3350,6 +3350,11 @@ needed.</p>
 <td>Use the <code>cpp</code> or <code>python</code> graph backend for this parse</td>
 </tr>
 <tr>
+<td><code>--reconstruction-failure-policy</code></td>
+<td>configured value</td>
+<td>Use <code>raise</code> or retain a <code>return_suspicious</code> fallback graph</td>
+</tr>
+<tr>
 <td><code>--make-dative-bonds / --no-make-dative-bonds</code></td>
 <td>configured value</td>
 <td>Override dative-bond reconstruction for this parse</td>
@@ -3365,6 +3370,8 @@ needed.</p>
 optional <code>molopconfig.max_jobs</code> ceiling; pass <code>--n-jobs 1</code> when diagnosing a parser or native-library
 issue. Every parse and operation command defaults independently to <code>-1</code>. Use global <code>--max-jobs N</code> to
 cap the entire command, or pass a positive <code>--n-jobs</code> on one operation when it needs a lower limit.</p>
+<p>Parsing keeps the full process-aware limit. Operations that may enter MolGR, including custom graph
+callbacks, automatically use the separate two-thirds CPU budget.</p>
 <p>The charge and multiplicity options apply to every matched input, so split heterogeneous inputs into
 separate commands. <code>--only-extract-structure</code> is a fast path and deliberately omits non-structural
 scientific results. The unit and topology options are immutable per-command overrides; when omitted,

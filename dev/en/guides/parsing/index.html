@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.8.dev1+g9a66e5c81.d20260820</code></span>
-        <span><code>main@9a66e5c81a9b</code></span>
-        <span>Latest release <code>0.2.7</code></span>
+        <span>Source <code>0.2.9.dev1+g3f7da40ce.d20260821</code></span>
+        <span><code>main@3f7da40cee1c</code></span>
+        <span>Latest release <code>0.2.8</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -3268,6 +3268,8 @@ the process-aware CPU limit and the global <code>molopconfig.max_jobs</code> cei
 platform exposes them. Set a positive <code>max_jobs</code> for a process-wide ceiling. Pass a positive <code>n_jobs</code>
 to request a specific worker count, or use <code>n_jobs=1</code> for a small batch or debugging. The CLI parse
 and operation commands follow the same independent <code>-1</code> default.</p>
+<p>Parsing itself does not use the MolGR safety budget: <code>AutoParser</code> keeps the full <code>effective_max_jobs</code>
+limit. The stricter two-thirds budget applies only after a graph-dependent operation enters MolGR.</p>
 <p><code>only_extract_structure=True</code> skips non-structural results and is unsuitable for extracting energy
 or thermochemistry.</p>
 <h2 id="find_failed_inputs">Find failed inputs<a class="headerlink" href="#find_failed_inputs" title="Permanent link">&para;</a></h2>

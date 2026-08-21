@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.8.dev1+g9a66e5c81.d20260820</code></span>
-        <span><code>main@9a66e5c81a9b</code></span>
-        <span>最近发布 <code>0.2.7</code></span>
+        <span>源码 <code>0.2.9.dev1+g3f7da40ce.d20260821</code></span>
+        <span><code>main@3f7da40cee1c</code></span>
+        <span>最近发布 <code>0.2.8</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../../versioning/">版本说明</a>
@@ -3264,6 +3264,8 @@
 调度器/容器配额和 CPU affinity；需要进程级上限时设置正整数。传入正整数 <code>n_jobs</code> 可指定
 worker 数量；小批量或排查问题时使用 <code>n_jobs=1</code>。CLI 的 parse 和操作命令也都独立默认使用
 <code>-1</code>。</p>
+<p>文件解析本身不使用 MolGR 安全上限：<code>AutoParser</code> 仍使用完整的 <code>effective_max_jobs</code>。只有进入
+MolGR 的分子图相关操作才使用更严格的可用 CPU 三分之二上限。</p>
 <p><code>only_extract_structure=True</code> 会跳过非结构结果，不适合提取能量或热化学。</p>
 <h2 id="_6">发现失败文件<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><a href="#__codelineno-8-1"><span class="linenos" data-linenos=" 1 "></span></a><span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
