@@ -599,7 +599,8 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         Returns:
             FileBatchModelDisk: A new batch containing only the files that satisfy the condition.
         """
-        desc = f"Filtering with custom function with {molopconfig.set_n_jobs(n_jobs)} jobs"
+        effective_jobs = molopconfig.set_molgr_n_jobs(n_jobs)
+        desc = f"Filtering with custom function with {effective_jobs} jobs"
         diskfiles = self._snapshot_diskfiles()
         # A user callback may inspect any frame-level graph (``rdmol``,
         # canonical SMILES, descriptors, ...).  Materialize those graphs in
@@ -607,14 +608,14 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         if molopconfig.prewarm_topologies:
             self._prewarm_topologies(
                 _diskfiles_snapshot=diskfiles,
-                max_workers=molopconfig.set_n_jobs(n_jobs),
+                max_workers=effective_jobs,
             )
         return self._filter_diskfiles(
             diskfiles,
             self.parallel_execute(
                 condition,
                 desc,
-                n_jobs,
+                effective_jobs,
                 return_as="generator",
                 _diskfiles_snapshot=diskfiles,
                 return_results=True,
@@ -634,7 +635,8 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         Returns:
             (dict[str, FileBatchModelDisk]): A dictionary where keys are group names and values are new batch objects.
         """
-        desc = f"Grouping files with {molopconfig.set_n_jobs(n_jobs)} jobs"
+        effective_jobs = molopconfig.set_molgr_n_jobs(n_jobs)
+        desc = f"Grouping files with {effective_jobs} jobs"
         diskfiles = self._snapshot_diskfiles()
         # ``key_func`` is intentionally arbitrary, so treat it as graph
         # dependent even when the current callback only uses metadata.  This
@@ -642,12 +644,12 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         if molopconfig.prewarm_topologies:
             self._prewarm_topologies(
                 _diskfiles_snapshot=diskfiles,
-                max_workers=molopconfig.set_n_jobs(n_jobs),
+                max_workers=effective_jobs,
             )
         keys = self.parallel_execute(
             key_func,
             desc,
-            n_jobs,
+            effective_jobs,
             return_as="generator",
             _diskfiles_snapshot=diskfiles,
             return_results=True,
@@ -783,7 +785,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
                 # parent-process native batch before process workers start.
                 reconstruct_topologies_batch(
                     selected_frames,
-                    max_workers=molopconfig.set_n_jobs(n_jobs),
+                    max_workers=molopconfig.set_molgr_n_jobs(n_jobs),
                     retain_results=False,
                 )
 
@@ -796,11 +798,16 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
                 summaries.append(diskfile[fid].to_summary_series(brief=brief, **kwargs))
             return summaries
 
-        desc = f"MolOP processing {mode} summary with {molopconfig.set_n_jobs(n_jobs)} jobs"
+        effective_jobs = (
+            molopconfig.set_molgr_n_jobs(n_jobs)
+            if mode == "frame"
+            else molopconfig.set_n_jobs(n_jobs)
+        )
+        desc = f"MolOP processing {mode} summary with {effective_jobs} jobs"
         nested_results = parallel_map(
             process_file_summary,
             summary_tasks,
-            n_jobs=molopconfig.set_n_jobs(n_jobs),
+            n_jobs=effective_jobs,
             desc=desc,
             total=len(summary_tasks),
             disable=not molopconfig.show_progress_bar,
@@ -825,9 +832,9 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         output_dir: os.PathLike[str] | str,
         *,
         format: Literal["xyz", "sdf"] = "xyz",
-        ratio: float = 1.75,
+        min_ratio: float = 0.75,
+        max_ratio: float = 1.75,
         steps: int = 7,
-        ratio_attempts: Sequence[float] | None = None,
         n_jobs: int = -1,
     ) -> dict[str, dict[int, tuple[Path, Path]]]:
         """Export endpoint candidates for every TS frame in every calculation file.
@@ -836,7 +843,8 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         stems are retained; duplicate stems gain a stable source-path digest to
         prevent overwrites. Files without endpoint-export support are skipped with
         a warning. The result maps supported source paths to the frame-ID-to-endpoint
-        mappings returned by each file.
+        mappings returned by each file. Endpoint inference samples ``steps`` amplitudes
+        on each side from ``min_ratio`` through ``max_ratio``.
         """
 
         destination = Path(output_dir)
@@ -873,18 +881,19 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
                 save_endpoints(
                     output_directory,
                     format=format,
-                    ratio=ratio,
+                    min_ratio=min_ratio,
+                    max_ratio=max_ratio,
                     steps=steps,
-                    ratio_attempts=ratio_attempts,
                 ),
             )
             return source_path, exports
 
-        desc = f"Exporting TS endpoint candidates with {molopconfig.set_n_jobs(n_jobs)} jobs"
+        effective_jobs = molopconfig.set_molgr_n_jobs(n_jobs)
+        desc = f"Exporting TS endpoint candidates with {effective_jobs} jobs"
         results = parallel_map(
             export_file,
             endpoint_tasks,
-            n_jobs=molopconfig.set_n_jobs(n_jobs),
+            n_jobs=effective_jobs,
             desc=desc,
             total=len(endpoint_tasks),
             disable=not molopconfig.show_progress_bar,

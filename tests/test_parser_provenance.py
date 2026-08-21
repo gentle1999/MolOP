@@ -67,6 +67,7 @@ def test_parser_provenance_captures_complete_effective_config() -> None:
     assert provenance.effective_config["molop"] == {
         "force_unit_transform": molopconfig.force_unit_transform,
         "graph_reconstruction_backend": molopconfig.graph_reconstruction_backend,
+        "reconstruction_failure_policy": molopconfig.reconstruction_failure_policy,
         "make_dative_bonds": molopconfig.make_dative_bonds,
         "make_stereochemistry": molopconfig.make_stereochemistry,
     }

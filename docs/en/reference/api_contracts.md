@@ -131,7 +131,10 @@ The file-level method returns `{frame_id: (pre_path, post_path)}` and the batch-
 the source path as its outer key. Only calculation files with this operation are exported; other
 files in a mixed batch are skipped with a warning. Unique source stems are retained, while duplicate
 stems receive a stable source-path digest to prevent overwriting another file's results. The
-endpoints are geometry-based candidates, not optimized reactant or product structures.
+endpoints are geometry-based candidates, not optimized reactant or product structures. Endpoint
+inference samples `steps=7` amplitudes per displacement side from `min_ratio=0.75` through
+`max_ratio=1.75`, selects each side's most frequent topology, and maps the candidate with more
+fragments to the precursor.
 
 ## `to_summary_df`
 

@@ -18,6 +18,16 @@ from molop import molopconfig
 molopconfig.prewarm_topologies = True
 ```
 
+MolGR reconstruction failures are strict by default. Enable raw fallback retention when the
+workflow must preserve invalid structures for review:
+
+```python
+molopconfig.reconstruction_failure_policy = "return_suspicious"
+```
+
+Retained graphs are marked with `topology_reconstruction_status == "suspicious_fallback"`; they
+must not be treated as trusted chemistry.
+
 ## Parallelism defaults
 
 `max_jobs` defaults to `None`, which means automatic process-aware detection. MolOP takes the most
@@ -45,5 +55,11 @@ For deployments that construct the default configuration from the environment, s
 environment variable is present. Positive `n_jobs` values still request a per-call limit, capped by
 `effective_max_jobs`; `n_jobs=1` remains the serial debugging mode. CLI users can set the same
 process-wide ceiling for one invocation with `molop --max-jobs 32 parse ...`.
+
+Tasks that may enter MolGR use the separate `effective_molgr_max_jobs` budget. Automatic and explicit
+values are capped at `floor(2 * available_cpu_count / 3)` (with a minimum of one serial worker), then
+by `max_jobs`. This covers topology reconstruction, graph-dependent summaries, exports, transforms,
+and user callbacks such as `filter_custom`. File parsing and other operations that do not invoke
+MolGR keep the full `effective_max_jobs` limit.
 
 ::: molop.config

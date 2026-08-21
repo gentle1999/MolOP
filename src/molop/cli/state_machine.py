@@ -59,6 +59,7 @@ class BatchInputConfig(CliModel):
     release_file_content: bool = True
     force_unit_transform: bool | None = None
     graph_reconstruction_backend: Literal["cpp", "python"] | None = None
+    reconstruction_failure_policy: Literal["raise", "return_suspicious"] | None = None
     make_dative_bonds: bool | None = None
     make_stereochemistry: bool | None = None
     report: bool = False
@@ -74,6 +75,7 @@ class BatchInputConfig(CliModel):
             release_file_content=self.release_file_content,
             force_unit_transform=self.force_unit_transform,
             graph_reconstruction_backend=self.graph_reconstruction_backend,
+            reconstruction_failure_policy=self.reconstruction_failure_policy,
             make_dative_bonds=self.make_dative_bonds,
             make_stereochemistry=self.make_stereochemistry,
         )

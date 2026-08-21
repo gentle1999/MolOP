@@ -12,6 +12,7 @@ import sys
 from typing import Any, Literal
 
 from joblib import cpu_count as joblib_cpu_count
+from molgr.config import CONFIG as MOLGR_CONFIG
 
 # RDKit must initialize before Open Babel; loading Open Babel first causes an
 # ELF symbol collision between the bundled native libraries.
@@ -66,6 +67,13 @@ class MolOPConfig(BaseModel):
     # --- Advanced Settings ---
     graph_reconstruction_backend: Literal["cpp", "python"] = Field(
         default="cpp", description="Backend for graph reconstruction"
+    )
+    reconstruction_failure_policy: Literal["raise", "return_suspicious"] = Field(
+        default="raise",
+        description=(
+            "Whether MolGR reconstruction failures raise or retain an untrusted "
+            "suspicious fallback molecule"
+        ),
     )
     prewarm_topologies: bool = Field(
         default=False,
@@ -183,10 +191,44 @@ class MolOPConfig(BaseModel):
         available_jobs = available_cpu_count()
         return available_jobs if self.max_jobs is None else min(available_jobs, self.max_jobs)
 
+    @property
+    def effective_molgr_max_jobs(self) -> int:
+        """Worker limit for tasks that may enter MolGR's native runtime.
+
+        MolGR work intentionally leaves one third of the process-visible CPU
+        budget available for the parent process, native helper threads, and
+        the operating system.  The existing ``max_jobs`` setting remains an
+        additional upper bound.
+        """
+
+        available_jobs = available_cpu_count()
+        molgr_jobs = max(1, (available_jobs * 2) // 3)
+        return min(self.effective_max_jobs, molgr_jobs)
+
     def set_n_jobs(self, n_jobs: int) -> int:
         """Resolve automatic or explicit parallelism within the effective worker limit."""
 
         return self.effective_max_jobs if n_jobs <= 0 else min(n_jobs, self.effective_max_jobs)
+
+    def set_molgr_n_jobs(self, n_jobs: int) -> int:
+        """Resolve parallelism for work that may invoke MolGR.
+
+        Both automatic (non-positive) and explicit values are capped so a
+        caller cannot accidentally bypass the native-runtime safety budget.
+        """
+
+        limit = self.effective_molgr_max_jobs
+        return limit if n_jobs <= 0 else min(n_jobs, limit)
+
+    def apply_molgr_reconstruction_policy(
+        self,
+        policy: Literal["raise", "return_suspicious"] | None = None,
+    ) -> Literal["raise", "return_suspicious"]:
+        """Apply MolOP's reconstruction policy to the shared MolGR config."""
+
+        resolved_policy = self.reconstruction_failure_policy if policy is None else policy
+        MOLGR_CONFIG.interface.reconstruction_failure_policy = resolved_policy
+        return resolved_policy
 
     def set_dof_effect_drawer(self, enable: bool):
         """

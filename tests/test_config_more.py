@@ -92,6 +92,59 @@ def test_auto_max_jobs_uses_process_available_cpu_count(monkeypatch):
     assert config.set_n_jobs(100) == 24
 
 
+def test_reconstruction_failure_policy_is_exposed_and_applied(monkeypatch):
+    monkeypatch.setattr(
+        type(config_module.dofconfig),
+        "enable_ipython_integration",
+        lambda _self, _enable: None,
+    )
+    monkeypatch.setattr(
+        config_module.MOLGR_CONFIG.interface,
+        "reconstruction_failure_policy",
+        "raise",
+    )
+    config = config_module.MolOPConfig(reconstruction_failure_policy="return_suspicious")
+
+    assert config.reconstruction_failure_policy == "return_suspicious"
+    assert config.apply_molgr_reconstruction_policy() == "return_suspicious"
+    assert config_module.MOLGR_CONFIG.interface.reconstruction_failure_policy == (
+        "return_suspicious"
+    )
+
+
+@pytest.mark.parametrize(
+    ("available", "expected"),
+    [(1, 1), (2, 1), (3, 2), (4, 2), (8, 5), (24, 16)],
+)
+def test_molgr_parallelism_uses_two_thirds_of_available_cpu(monkeypatch, available, expected):
+    monkeypatch.setattr(config_module, "available_cpu_count", lambda: available)
+    monkeypatch.setattr(
+        type(config_module.dofconfig),
+        "enable_ipython_integration",
+        lambda _self, _enable: None,
+    )
+
+    config = config_module.MolOPConfig(max_jobs=None)
+
+    assert config.effective_molgr_max_jobs == expected
+    assert config.set_molgr_n_jobs(-1) == expected
+    assert config.set_molgr_n_jobs(99) == expected
+
+
+def test_molgr_parallelism_also_respects_max_jobs(monkeypatch):
+    monkeypatch.setattr(config_module, "available_cpu_count", lambda: 12)
+    monkeypatch.setattr(
+        type(config_module.dofconfig),
+        "enable_ipython_integration",
+        lambda _self, _enable: None,
+    )
+
+    config = config_module.MolOPConfig(max_jobs=4)
+
+    assert config.effective_molgr_max_jobs == 4
+    assert config.set_molgr_n_jobs(99) == 4
+
+
 def test_available_cpu_count_uses_joblib_process_limit(monkeypatch):
     monkeypatch.setattr(config_module, "joblib_cpu_count", lambda: 8)
 

@@ -8,6 +8,7 @@ from typing import Any, cast
 import pandas as pd
 import pytest
 
+import molop.config as config_module
 from molop.config import molopconfig
 from molop.io.base_models._format_transform import FrameFormatTransformMixin
 from molop.io.codec_exceptions import ConversionError, FormatMismatchError, UnsupportedFormatError
@@ -23,6 +24,16 @@ io_module = importlib.import_module("molop.io")
 codec_registry_module = importlib.import_module("molop.io.codec_registry")
 filebatchparserdisk_module = importlib.import_module("molop.io.FileBatchParserDisk")
 progressbar_module = importlib.import_module("molop.utils.progressbar")
+
+
+def test_file_parser_keeps_full_cpu_limit_for_non_molgr_work(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config_module, "available_cpu_count", lambda: 12)
+    parser = FileBatchParserDisk(n_jobs=-1)
+
+    assert parser.n_jobs == 12
+    assert molopconfig.set_molgr_n_jobs(-1) == 8
 
 
 @dataclass
@@ -684,6 +695,28 @@ def test_graph_dependent_callbacks_are_prewarmed_before_parallel_execution(
     assert len(prewarm_calls) == 2
     assert all(call["max_workers"] == 2 for call in prewarm_calls)
     assert all(len(call["_diskfiles_snapshot"]) == 2 for call in prewarm_calls)
+
+
+def test_filter_custom_caps_user_callback_parallelism_for_molgr(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(config_module, "available_cpu_count", lambda: 12)
+    batch = cast(
+        Any,
+        FileBatchModelDisk(cast(Any, [FakeDiskFile("/tmp/a.xyz", "xyz", "xyz")])),
+    )
+    captured: dict[str, Any] = {}
+
+    def fake_parallel_execute(_func: Any, _desc: str, n_jobs: int, **_kwargs: Any) -> list[bool]:
+        captured["n_jobs"] = n_jobs
+        return [True]
+
+    monkeypatch.setattr(batch, "parallel_execute", fake_parallel_execute)
+
+    filtered = batch.filter_custom(lambda diskfile: bool(diskfile.file_path), n_jobs=-1)
+
+    assert filtered.file_paths == ["/tmp/a.xyz"]
+    assert captured["n_jobs"] == 8
 
 
 def test_to_summary_df_frame_all_returns_every_frame() -> None:

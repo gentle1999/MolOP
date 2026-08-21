@@ -40,6 +40,7 @@ molop [全局选项] parse PATTERN [解析选项] 操作 [操作参数] ...
 | `--release-file-content / --keep-file-content` | 释放 | 解析后释放或保留原文文本 |
 | `--force-unit-transform / --no-force-unit-transform` | 配置值 | 覆盖本次解析的单位转换策略 |
 | `--graph-reconstruction-backend` | 配置值 | 本次解析使用 `cpp` 或 `python` 图重建后端 |
+| `--reconstruction-failure-policy` | 配置值 | 选择 `raise`，或用 `return_suspicious` 保留可疑回退分子图 |
 | `--make-dative-bonds / --no-make-dative-bonds` | 配置值 | 覆盖本次解析的配位键重建策略 |
 | `--report` | 关闭 | 不返回 batch，改为保留每个输入的解析结果 |
 
@@ -47,6 +48,9 @@ molop [全局选项] parse PATTERN [解析选项] 操作 [操作参数] ...
 `molopconfig.max_jobs` 上限；排查 parser 或原生库问题时传入 `--n-jobs 1`。parse 和每个操作
 命令都独立默认使用 `-1`。使用全局 `--max-jobs N` 限制整条命令；某个操作需要更低上限时，在
 该操作上显式传入正整数 `--n-jobs`。
+
+文件解析仍使用完整的进程级上限；可能进入 MolGR 的操作（包括用户自定义的分子图回调）会
+自动使用可用 CPU 三分之二的独立上限。
 
 电荷和多重度覆盖会作用于每个匹配输入；混合电荷或多重度的数据应拆成不同命令。
 `--only-extract-structure` 是快速路径，会按约定省略非结构科学结果。单位和拓扑参数只覆盖本次

@@ -15,6 +15,15 @@ from molop import molopconfig
 molopconfig.prewarm_topologies = True
 ```
 
+MolGR 重建失败默认采用严格模式。需要保留错误结构以便复核时，可以开启原始 fallback 保留：
+
+```python
+molopconfig.reconstruction_failure_policy = "return_suspicious"
+```
+
+保留的分子图会标记为 `topology_reconstruction_status == "suspicious_fallback"`，不能作为可信
+化学结构直接使用。
+
 ## 并行默认值
 
 `max_jobs` 默认是 `None`，表示自动检测当前进程可用的 CPU。MolOP 会在 joblib/loky 可检测的
@@ -39,5 +48,10 @@ molopconfig.max_jobs = 32
 `MolOPConfig(max_jobs=None)` 仍会保持自动检测。正数 `n_jobs` 仍表示单次调用上限，并受
 `effective_max_jobs` 限制；`n_jobs=1` 继续表示串行排查模式。CLI 可通过
 `molop --max-jobs 32 parse ...` 为单次命令设置相同的进程级上限。
+
+可能进入 MolGR 的任务使用独立的 `effective_molgr_max_jobs` 上限。自动值和显式值都会先受
+`floor(2 * available_cpu_count / 3)` 限制（最少保留 1 个串行 worker），再受 `max_jobs` 限制。
+该策略覆盖拓扑重建、依赖分子图的摘要、导出、格式转换以及 `filter_custom` 等用户回调；
+文件解析以及不调用 MolGR 的其他操作仍使用完整的 `effective_max_jobs` 上限。
 
 ::: molop.config

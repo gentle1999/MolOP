@@ -64,6 +64,7 @@ Recovery settings belong to the process-wide `molopconfig`, not to an individual
 from molop import molopconfig
 
 molopconfig.graph_reconstruction_backend = "python"  # default: "cpp"
+molopconfig.reconstruction_failure_policy = "return_suspicious"  # default: "raise"
 molopconfig.make_dative_bonds = False  # default: True
 molopconfig.make_stereochemistry = False  # default: True
 molopconfig.prewarm_topologies = True  # default: False
@@ -72,6 +73,12 @@ molopconfig.prewarm_topologies = True  # default: False
 Set these values before the first access to `rdmol` for a frame. Lazy reconstruction reads the
 current global values and records the effective settings on the frame. Restore the defaults or use a
 separate process when different workflows require different policies.
+
+Set `reconstruction_failure_policy` to `"return_suspicious"` when an invalid or otherwise
+unreconstructable geometry must still be retained. MolOP keeps MolGR's unsanitized fallback RDKit
+molecule, records `topology_reconstruction_status == "suspicious_fallback"`, and preserves the
+failure diagnostics. The default `"raise"` policy records the same case as `failed` and exposes no
+RDKit molecule.
 
 ## Optional native parallel prewarming
 

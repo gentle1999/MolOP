@@ -29,6 +29,7 @@ def execute_parse_chain(
     release_file_content: bool = True,
     force_unit_transform: bool | None = None,
     graph_reconstruction_backend: Literal["cpp", "python"] | None = None,
+    reconstruction_failure_policy: Literal["raise", "return_suspicious"] | None = None,
     make_dative_bonds: bool | None = None,
     make_stereochemistry: bool | None = None,
     report: bool = False,

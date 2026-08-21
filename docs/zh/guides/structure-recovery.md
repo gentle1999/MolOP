@@ -61,6 +61,7 @@ print(frame.topology_reconstruction_backend, frame.topology_reconstruction_statu
 from molop import molopconfig
 
 molopconfig.graph_reconstruction_backend = "python"  # 默认值为 "cpp"
+molopconfig.reconstruction_failure_policy = "return_suspicious"  # 默认值为 "raise"
 molopconfig.make_dative_bonds = False  # 默认值为 True
 molopconfig.make_stereochemistry = False  # 默认值为 True
 molopconfig.prewarm_topologies = True  # 默认值为 False
@@ -68,6 +69,11 @@ molopconfig.prewarm_topologies = True  # 默认值为 False
 
 在第一次访问某个 frame 的 `rdmol` 之前设置配置。惰性恢复会读取当前全局值，并把实际使用的
 设置记录在 frame 上。不同工作流需要不同策略时，应恢复默认值或使用独立进程。
+
+如果无效或无法正常重建的几何结构也必须保留，可将 `reconstruction_failure_policy` 设为
+`"return_suspicious"`。MolOP 会保留 MolGR 返回的未消毒 fallback RDKit 分子，将
+`topology_reconstruction_status` 记录为 `"suspicious_fallback"`，并保留失败诊断。默认的
+`"raise"` 策略会把同一情况记录为 `failed`，且不提供 RDKit 分子。
 
 ## 可选的原生并行预热
 

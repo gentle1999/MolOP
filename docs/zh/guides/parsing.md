@@ -91,6 +91,9 @@ structures = AutoParser(
 worker 数量；小批量或排查问题时使用 `n_jobs=1`。CLI 的 parse 和操作命令也都独立默认使用
 `-1`。
 
+文件解析本身不使用 MolGR 安全上限：`AutoParser` 仍使用完整的 `effective_max_jobs`。只有进入
+MolGR 的分子图相关操作才使用更严格的可用 CPU 三分之二上限。
+
 `only_extract_structure=True` 会跳过非结构结果，不适合提取能量或热化学。
 
 ## 发现失败文件

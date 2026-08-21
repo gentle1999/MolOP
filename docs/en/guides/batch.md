@@ -44,11 +44,14 @@ summary = normal.to_summary_df(
 summary.to_csv("normal.csv", index=False)
 ```
 
-`n_jobs=-1` follows the process-aware CPU limit. With the default `max_jobs=None`, it respects
-observable scheduler/container quotas and CPU affinity where the platform exposes them; set
-`molopconfig.max_jobs` before creating the batch when a lower ceiling is required. Use `n_jobs=1`
-while diagnosing a parser or a native-library failure. CLI parse and operation commands have the same
-independent default.
+<!-- notebook-output: summary dataframe written to normal.csv -->
+
+`n_jobs=-1` follows the process-aware CPU limit. Parsing and operations that do not enter MolGR use
+the full `effective_max_jobs` value. Graph-dependent operations, including `to_summary_df`, graph
+format transforms, TS endpoint export, grouping, and `filter_custom`, use the stricter
+`floor(2 * available_cpu_count / 3)` MolGR budget, also capped by `molopconfig.max_jobs`. Use
+`n_jobs=1` while diagnosing a parser or a native-library failure. CLI parse and operation commands
+have the same independent default.
 
 For a custom per-file operation, use `parallel_execute` and return explicit values:
 

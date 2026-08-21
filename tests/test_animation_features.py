@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
 
 import numpy as np
@@ -173,6 +174,100 @@ def test_ts_vibration_uses_the_unique_imaginary_mode(
     assert frame.is_TS is True
     assert frame.ts_vibration() == []
     assert captured["vibration_id"] == 1
+
+
+def _marked_topology(smiles: str, marker: float) -> Chem.Mol:
+    molecule = Chem.MolFromSmiles(smiles)
+    assert molecule is not None
+    conformer = Chem.Conformer(molecule.GetNumAtoms())
+    for atom_index in range(molecule.GetNumAtoms()):
+        conformer.SetAtomPosition(atom_index, (marker, float(atom_index), 0.0))
+    molecule.AddConformer(conformer)
+    return molecule
+
+
+def test_possible_pre_post_ts_votes_on_each_displacement_side(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = BaseCalcFrame()
+    topology_by_ratio = {
+        -0.75: "CC",
+        -1.0: "CC",
+        -1.25: "C=C",
+        -1.5: "CC",
+        -1.75: "C=C",
+        0.75: "C.C",
+        1.0: "CC",
+        1.25: "C.C",
+        1.5: "CC",
+        1.75: "C.C",
+    }
+    sampled_ratios: list[float] = []
+
+    def fake_ts_vibration(
+        self: BaseCalcFrame, ratio: float = 1.75, steps: int = 7
+    ) -> list[SimpleNamespace]:
+        assert self is frame
+        assert steps == 1
+        sampled_ratios.append(ratio)
+        return [SimpleNamespace(rdmol=_marked_topology(topology_by_ratio[ratio], ratio))]
+
+    monkeypatch.setattr(BaseCalcFrame, "ts_vibration", fake_ts_vibration)
+
+    pre, post = frame.possible_pre_post_ts(show_3D=True, min_ratio=0.75, max_ratio=1.75, steps=5)
+
+    assert sampled_ratios == [
+        -0.75,
+        -1.0,
+        -1.25,
+        -1.5,
+        -1.75,
+        0.75,
+        1.0,
+        1.25,
+        1.5,
+        1.75,
+    ]
+    assert Chem.MolToSmiles(pre) == "C.C"
+    assert Chem.MolToSmiles(post) == "CC"
+    assert pre.GetConformer().GetAtomPosition(0).x == pytest.approx(1.75)
+    assert post.GetConformer().GetAtomPosition(0).x == pytest.approx(-1.5)
+
+
+def test_possible_pre_post_ts_removes_conformers_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = BaseCalcFrame()
+
+    def fake_ts_vibration(
+        _self: BaseCalcFrame, ratio: float = 1.75, steps: int = 7
+    ) -> list[SimpleNamespace]:
+        assert steps == 1
+        return [SimpleNamespace(rdmol=_marked_topology("CC", ratio))]
+
+    monkeypatch.setattr(BaseCalcFrame, "ts_vibration", fake_ts_vibration)
+
+    pre, post = frame.possible_pre_post_ts(steps=1)
+
+    assert pre.GetNumConformers() == 0
+    assert post.GetNumConformers() == 0
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "message"),
+    [
+        ({"min_ratio": 0.0}, "min_ratio"),
+        ({"min_ratio": float("nan")}, "min_ratio"),
+        ({"max_ratio": 0.5}, "max_ratio"),
+        ({"max_ratio": float("inf")}, "max_ratio"),
+        ({"steps": 0}, "steps"),
+    ],
+)
+def test_possible_pre_post_ts_rejects_invalid_sampling_ranges(
+    kwargs: dict[str, float | int], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        BaseCalcFrame().possible_pre_post_ts(**kwargs)  # type: ignore[arg-type]
 
 
 def _assert_sdf_endpoint(path: Path, atom_count: int) -> None:

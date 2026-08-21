@@ -315,6 +315,7 @@ def test_parse_options_are_forwarded_as_one_immutable_snapshot(
         release_file_content=False,
         force_unit_transform=True,
         graph_reconstruction_backend="python",
+        reconstruction_failure_policy="return_suspicious",
         make_dative_bonds=False,
     )
 
@@ -334,6 +335,7 @@ def test_parse_options_are_forwarded_as_one_immutable_snapshot(
     assert options.release_file_content is False
     assert options.force_unit_transform is True
     assert options.graph_reconstruction_backend == "python"
+    assert options.reconstruction_failure_policy == "return_suspicious"
     assert options.make_dative_bonds is False
 
 

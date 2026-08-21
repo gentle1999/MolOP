@@ -93,6 +93,9 @@ platform exposes them. Set a positive `max_jobs` for a process-wide ceiling. Pas
 to request a specific worker count, or use `n_jobs=1` for a small batch or debugging. The CLI parse
 and operation commands follow the same independent `-1` default.
 
+Parsing itself does not use the MolGR safety budget: `AutoParser` keeps the full `effective_max_jobs`
+limit. The stricter two-thirds budget applies only after a graph-dependent operation enters MolGR.
+
 `only_extract_structure=True` skips non-structural results and is unsuitable for extracting energy
 or thermochemistry.
 

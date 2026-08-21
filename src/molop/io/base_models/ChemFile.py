@@ -483,23 +483,24 @@ class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):
         output_dir: os.PathLike[str] | str,
         *,
         format: Literal["xyz", "sdf"] = "xyz",
-        ratio: float = 1.75,
+        min_ratio: float = 0.75,
+        max_ratio: float = 1.75,
         steps: int = 7,
-        ratio_attempts: Sequence[float] | None = None,
     ) -> dict[int, tuple[Path, Path]]:
         """Export endpoint candidates for every transition-state frame in this file.
 
         Each result is keyed by its original frame ID. Files without transition-state
-        frames return an empty mapping.
+        frames return an empty mapping. Endpoint inference samples ``steps`` amplitudes
+        on each side from ``min_ratio`` through ``max_ratio``.
         """
 
         return {
             frame.frame_id: frame.save_pre_post_ts(
                 output_dir,
                 format=format,
-                ratio=ratio,
+                min_ratio=min_ratio,
+                max_ratio=max_ratio,
                 steps=steps,
-                ratio_attempts=ratio_attempts,
             )
             for frame in self.frames
             if frame.is_TS

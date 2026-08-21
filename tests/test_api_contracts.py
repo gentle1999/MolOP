@@ -22,7 +22,8 @@ from molop.io.base_models._format_transform import (
     FormatTransformMixin,
     FrameFormatTransformMixin,
 )
-from molop.io.base_models.ChemFile import BaseChemFile
+from molop.io.base_models.ChemFile import BaseCalcFile, BaseChemFile
+from molop.io.base_models.ChemFileFrame import BaseCalcFrame
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
 from molop.io.FileBatchParserDisk import FileBatchParserDisk
 from molop.io.frame_selection import normalize_frame_selector
@@ -94,6 +95,24 @@ def test_to_summary_df_public_signature_contract() -> None:
     assert sig.parameters["flatten_columns"].default is False
     assert sig.parameters["on_missing_frame"].kind is Parameter.KEYWORD_ONLY
     assert sig.parameters["on_missing_frame"].default == "skip"
+
+
+def test_ts_endpoint_sampling_signature_contract() -> None:
+    callables = (
+        BaseCalcFrame.possible_pre_post_ts,
+        BaseCalcFrame.save_pre_post_ts,
+        BaseCalcFrame.to_diff_rdmol,
+        BaseCalcFile.save_pre_post_ts,
+        FileBatchModelDisk.save_pre_post_ts,
+    )
+
+    for callable_obj in callables:
+        parameters = signature(callable_obj).parameters
+        assert parameters["min_ratio"].default == 0.75
+        assert parameters["max_ratio"].default == 1.75
+        assert parameters["steps"].default == 7
+        assert "ratio" not in parameters
+        assert "ratio_attempts" not in parameters
 
 
 def test_parallel_execute_public_signature_contract() -> None:

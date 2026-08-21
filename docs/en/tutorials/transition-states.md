@@ -147,6 +147,13 @@ structures. `to_diff_rdmol` can return `None` when no supported bond-breaking di
 Review atom mapping, connectivity, and the original calculation before using either result in an
 automated reaction workflow.
 
+By default, endpoint inference samples seven amplitudes on each side of the imaginary mode, evenly
+spaced from `min_ratio=0.75` to `max_ratio=1.75`. It votes for the most frequent reconstructed
+topology separately in the negative and positive displacement spaces, retaining the
+largest-amplitude conformer for the winning topology. The candidate with more disconnected
+fragments is returned as the precursor; equal fragment counts preserve negative-side then
+positive-side order. Use `steps` to change the number of amplitudes sampled on each side.
+
 Write the pair as XYZ (the default) or SDF files with `save_pre_post_ts(...)`. SDF retains the
 reconstructed graph and the inferred three-dimensional conformer:
 

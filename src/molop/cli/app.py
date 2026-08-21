@@ -53,6 +53,7 @@ PARSE_VALUE_OPTIONS = {
     "--total-multiplicity",
     "--source-encoding",
     "--graph-reconstruction-backend",
+    "--reconstruction-failure-policy",
 }
 PARSE_FLAG_OPTIONS = {
     "--help",
@@ -521,6 +522,12 @@ def completion_install(shell: Literal["auto", "bash", "zsh", "fish"] = "auto") -
     help="Override the configured molecular graph reconstruction backend.",
 )
 @click.option(
+    "--reconstruction-failure-policy",
+    type=click.Choice(["raise", "return_suspicious"]),
+    default=None,
+    help="Override whether reconstruction failures raise or retain suspicious fallback graphs.",
+)
+@click.option(
     "--make-dative-bonds/--no-make-dative-bonds",
     default=None,
     help="Override the configured dative-bond reconstruction policy.",
@@ -550,6 +557,7 @@ def _parse_callback(
     release_file_content: bool = True,
     force_unit_transform: bool | None = None,
     graph_reconstruction_backend: Literal["cpp", "python"] | None = None,
+    reconstruction_failure_policy: Literal["raise", "return_suspicious"] | None = None,
     make_dative_bonds: bool | None = None,
     make_stereochemistry: bool | None = None,
     report: bool = False,
@@ -577,6 +585,7 @@ def execute_parse_chain(
     release_file_content: bool = True,
     force_unit_transform: bool | None = None,
     graph_reconstruction_backend: Literal["cpp", "python"] | None = None,
+    reconstruction_failure_policy: Literal["raise", "return_suspicious"] | None = None,
     make_dative_bonds: bool | None = None,
     make_stereochemistry: bool | None = None,
     report: bool = False,
@@ -598,6 +607,7 @@ def execute_parse_chain(
                 release_file_content=release_file_content,
                 force_unit_transform=force_unit_transform,
                 graph_reconstruction_backend=graph_reconstruction_backend,
+                reconstruction_failure_policy=reconstruction_failure_policy,
                 make_dative_bonds=make_dative_bonds,
                 make_stereochemistry=make_stereochemistry,
                 report=report,

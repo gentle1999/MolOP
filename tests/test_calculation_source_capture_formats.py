@@ -34,6 +34,7 @@ _FRAME_EVIDENCE_FIELDS = {
     "force_transformation",
     "source_to_topology_atom_permutation",
     "topology_reconstruction_backend",
+    "topology_reconstruction_failure_policy",
     "topology_make_dative_bonds",
     "topology_make_stereochemistry",
     "topology_reconstruction_diagnostics",

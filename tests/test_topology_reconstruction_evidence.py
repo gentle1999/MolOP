@@ -80,6 +80,7 @@ def test_real_calc_frames_capture_trusted_topology_evidence(
     assert frame.topology_reconstruction_config_sha256 == canonical_json_sha256(
         {
             "backend": frame.topology_reconstruction_backend,
+            "reconstruction_failure_policy": frame.topology_reconstruction_failure_policy,
             "make_dative_bonds": frame.topology_make_dative_bonds,
             "make_stereochemistry": frame.topology_make_stereochemistry,
             "molgr": provenance.effective_config["molgr"],
@@ -93,6 +94,9 @@ def test_real_calc_frames_capture_trusted_topology_evidence(
     payload = frame.to_unitless_dump_with_unit_keys(exclude_none=True)
     assert payload["source_to_topology_atom_permutation"] == list(range(len(frame.atoms)))
     assert payload["topology_reconstruction_backend"] == frame.topology_reconstruction_backend
+    assert payload["topology_reconstruction_failure_policy"] == (
+        frame.topology_reconstruction_failure_policy
+    )
     assert payload["topology_make_dative_bonds"] == frame.topology_make_dative_bonds
     assert payload["topology_make_stereochemistry"] == frame.topology_make_stereochemistry
     assert payload["topology_reconstruction_config_sha256"] == (
@@ -118,6 +122,35 @@ def test_molgr_backends_preserve_source_atom_order(
     assert molecule.source_to_topology_atom_permutation == [0, 1, 2]
     assert molecule.topology_reconstruction_backend == backend
     assert molecule.topology_reconstruction_status == "succeeded"
+
+
+@pytest.mark.parametrize(
+    ("policy", "expected_status", "expected_rdmol"),
+    [
+        ("raise", "failed", False),
+        ("return_suspicious", "suspicious_fallback", True),
+    ],
+)
+def test_molop_reconstruction_failure_policy_controls_fallback_retention(
+    monkeypatch: pytest.MonkeyPatch,
+    policy: str,
+    expected_status: str,
+    expected_rdmol: bool,
+) -> None:
+    monkeypatch.setattr(molopconfig, "graph_reconstruction_backend", "python")
+    monkeypatch.setattr(molopconfig, "reconstruction_failure_policy", policy)
+    monkeypatch.setattr(MOLGR_CONFIG.interface, "reconstruction_failure_policy", "raise")
+    monkeypatch.setattr("molgr.interface.xyz2omol", lambda *args, **kwargs: None)
+
+    molecule = Molecule.from_coords(WATER_ATOMS, WATER_COORDS)
+    rdmol = molecule.rdmol
+
+    assert (rdmol is not None) is expected_rdmol
+    assert molecule.topology_reconstruction_status == expected_status
+    if rdmol is not None:
+        assert rdmol.HasProp("_MolGRReconstructionStatus")
+        assert rdmol.GetProp("_MolGRReconstructionStatus") == "suspicious_fallback"
+        assert molecule.topology_reconstruction_failure_policy == policy
 
 
 def test_molecule_reads_global_topology_config_at_reconstruction_time(
@@ -198,12 +231,14 @@ def test_parser_options_freeze_lazy_topology_settings(
     parsed = XYZFileParserMemory(
         parse_options=ParseOptions(
             graph_reconstruction_backend="python",
+            reconstruction_failure_policy="return_suspicious",
             make_dative_bonds=False,
             make_stereochemistry=False,
         )
     ).parse("3\nwater\nO 0.0 0.0 0.0\nH 0.9572 0.0 0.0\nH -0.2399872 0.927297 0.0\n")
     frame = parsed[0]
     monkeypatch.setattr(molopconfig, "graph_reconstruction_backend", "cpp")
+    monkeypatch.setattr(molopconfig, "reconstruction_failure_policy", "raise")
     monkeypatch.setattr(molopconfig, "make_dative_bonds", True)
     monkeypatch.setattr(molecule_module, "xyz_to_rdmol", capture_config)
 
@@ -214,6 +249,7 @@ def test_parser_options_freeze_lazy_topology_settings(
         "make_stereochemistry": False,
         "config": MOLGR_CONFIG,
     }
+    assert frame.topology_reconstruction_failure_policy == "return_suspicious"
 
 
 def test_batch_reconstruction_uses_native_iterator_and_restores_input_order(
@@ -573,6 +609,29 @@ def test_batch_worker_limit_respects_windows_single_thread_default(
     reconstruct_topologies_batch([molecule], max_workers=8, retain_results=False)
 
     assert calls[0]["max_workers"] == 1
+
+
+def test_batch_worker_limit_uses_molgr_cpu_budget_for_automatic_workers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    molecule_module = importlib.import_module("molop.io.base_models.Molecule")
+    molecule = Molecule.from_coords(WATER_ATOMS, WATER_COORDS)
+    calls: list[dict[str, Any]] = []
+
+    def fake_batch_iterator(requests: Any, **kwargs: Any) -> Any:
+        calls.append(kwargs)
+        request = next(iter(requests))
+        rdmol = Chem.MolFromXYZBlock(request.xyz_block)
+        assert rdmol is not None
+        yield ReconstructionBatchResult(request, rdmol)
+
+    monkeypatch.setattr(molecule_module, "iter_xyz_to_rdmol_batch", fake_batch_iterator)
+    monkeypatch.setattr("molop.config.available_cpu_count", lambda: 12)
+    monkeypatch.setattr(MOLGR_CONFIG.cpp_backend, "max_threads", None)
+
+    reconstruct_topologies_batch([molecule], max_workers=None, retain_results=False)
+
+    assert calls[0]["max_workers"] == 8
 
 
 def test_lazy_topology_reader_waits_for_concurrent_reconstruction(

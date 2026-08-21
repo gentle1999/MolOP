@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Any, ClassVar, Literal, cast
 
 import numpy as np
+from molgr.config import CONFIG as MOLGR_CONFIG
 from molgr.interface import xyz_to_rdmol
 from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity
@@ -405,6 +406,7 @@ class GJFMoleculeSpecificationsFragment(BaseDataClassWithUnit):
     def fragment_molecule(self) -> Chem.rdchem.Mol | None:
         try:
             with native_reconstruction_guard():
+                molopconfig.apply_molgr_reconstruction_policy()
                 return xyz_to_rdmol(
                     self.to_XYZ_block(),
                     total_charge=self.total_charge,
@@ -412,6 +414,7 @@ class GJFMoleculeSpecificationsFragment(BaseDataClassWithUnit):
                     backend=molopconfig.graph_reconstruction_backend,
                     make_dative_bonds=molopconfig.make_dative_bonds,
                     make_stereochemistry=molopconfig.make_stereochemistry,
+                    config=MOLGR_CONFIG,
                 )
         except NativeReconstructionConcurrencyError:
             # A concurrency boundary violation must reach the caller.  Turning

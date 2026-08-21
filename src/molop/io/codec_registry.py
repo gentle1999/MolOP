@@ -17,6 +17,7 @@ from pathlib import Path
 from types import UnionType
 from typing import Any, Literal, Union, cast, get_args, get_origin, get_type_hints
 
+from molgr.config import CONFIG as MOLGR_CONFIG
 from molgr.interface import xyz_to_rdmol
 
 from molop.config import molopconfig
@@ -589,6 +590,7 @@ def upgrade_coords_to_graph(
     )
 
     with native_reconstruction_guard():
+        molopconfig.apply_molgr_reconstruction_policy()
         graph_value = xyz_to_rdmol(
             xyz_block,
             total_charge=charge,
@@ -596,6 +598,7 @@ def upgrade_coords_to_graph(
             backend=molopconfig.graph_reconstruction_backend,
             make_dative_bonds=molopconfig.make_dative_bonds,
             make_stereochemistry=molopconfig.make_stereochemistry,
+            config=MOLGR_CONFIG,
         )
     if graph_value is None:
         raise ConversionError("Graph reconstruction failed from coordinates.")

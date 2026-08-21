@@ -125,6 +125,16 @@ include = [
     "/pyproject.toml",
     "/src",
 ]
+exclude = [
+    "/tests",
+    "/docs",
+    "/dist",
+    "/scripts",
+    "/tutorial",
+    "/temp",
+    "/tmp",
+    "*.ipynb",
+]
 
 [tool.ruff]
 exclude = [".git", ".venv", "__pycache__", "build", "dist", "*.ipynb"]

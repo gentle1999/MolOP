@@ -49,12 +49,15 @@ class BatchFormatTransformMixin:
             format,
             graph_policy=graph_policy,
         ) or (format.strip().lower() == "gjf" and kwargs.get("add_gjf_connectivity", False))
+        effective_jobs = (
+            molopconfig.set_molgr_n_jobs(n_jobs) if needs_graph else molopconfig.set_n_jobs(n_jobs)
+        )
         if needs_graph and molopconfig.prewarm_topologies:
             prewarm_topologies = getattr(typed_self, "_prewarm_topologies", None)
             if callable(prewarm_topologies):
                 prewarm_topologies(
                     frame=frame,
-                    max_workers=molopconfig.set_n_jobs(n_jobs),
+                    max_workers=effective_jobs,
                 )
 
         def transform_func(diskfile: Any) -> tuple[str, str | list[str]]:
@@ -84,6 +87,11 @@ class BatchFormatTransformMixin:
                 )
                 return diskfile.file_path, ("" if embed_in_one_file else [])
 
-        desc = f"MolOP processing {format} format with {n_jobs} jobs"
-        results = typed_self.parallel_execute(transform_func, desc, n_jobs, return_results=True)
+        desc = f"MolOP processing {format} format with {effective_jobs} jobs"
+        results = typed_self.parallel_execute(
+            transform_func,
+            desc,
+            effective_jobs,
+            return_results=True,
+        )
         return dict(results)

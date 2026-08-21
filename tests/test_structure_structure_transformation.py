@@ -38,10 +38,6 @@ def _radical_mol(radicals: list[int]) -> Chem.Mol:
     return mol
 
 
-def _count_bonds_by_type(mol: Chem.Mol, bond_type: BondType) -> int:
-    return sum(1 for bond in mol.GetBonds() if bond.GetBondType() == bond_type)
-
-
 def test_formal_helpers_return_expected_values() -> None:
     mol = Chem.MolFromSmiles("[CH2][O-]")
     assert mol is not None
@@ -214,41 +210,3 @@ def test_attempt_replacement_happy_path_returns_sanitizable_molecule() -> None:
     assert replaced.GetNumAtoms() >= 3
     assert replaced.GetNumBonds() >= 2
     Chem.SanitizeMol(replaced)
-
-
-def test_make_dative_bonds_no_metal_returns_molecule_without_crash() -> None:
-    water = build_rdmol_with_conformer(
-        atom_symbols=["O", "H", "H"],
-        bonds=[(0, 1, 1), (0, 2, 1)],
-        coordinates=[
-            (0.0, 0.0, 0.0),
-            (0.96, 0.0, 0.0),
-            (-0.24, 0.93, 0.0),
-        ],
-    )
-
-    result = ST.make_dative_bonds(Chem.RWMol(water))
-
-    assert isinstance(result, Chem.RWMol)
-    assert result.GetNumAtoms() == water.GetNumAtoms()
-    Chem.SanitizeMol(result)
-
-
-def test_make_dative_bonds_adds_dative_for_minimal_metal_and_donor_case() -> None:
-    rw_mol = Chem.RWMol()
-    rw_mol.AddAtom(Chem.Atom("C"))
-    rw_mol.AddAtom(Chem.Atom("O"))
-    rw_mol.AddAtom(Chem.Atom("Fe"))
-    rw_mol.AddBond(0, 1, BondType.DOUBLE)
-
-    mol = rw_mol.GetMol()
-    conf = Chem.Conformer(3)
-    conf.SetAtomPosition(0, Point3D(0.0, 0.0, 0.0))
-    conf.SetAtomPosition(1, Point3D(1.20, 0.0, 0.0))
-    conf.SetAtomPosition(2, Point3D(2.80, 0.0, 0.0))
-    mol.AddConformer(conf, assignId=True)
-
-    datived = ST.make_dative_bonds(Chem.RWMol(mol))
-
-    assert datived.GetNumAtoms() == 3
-    assert _count_bonds_by_type(datived, BondType.DATIVE) >= 1

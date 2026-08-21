@@ -40,6 +40,7 @@ class ParseOptions:
     release_file_content: bool = True
     force_unit_transform: bool | None = None
     graph_reconstruction_backend: Literal["cpp", "python"] | None = None
+    reconstruction_failure_policy: Literal["raise", "return_suspicious"] | None = None
     make_dative_bonds: bool | None = None
     make_stereochemistry: bool | None = None
 
@@ -59,6 +60,11 @@ class ParseOptions:
                 molopconfig.graph_reconstruction_backend
                 if self.graph_reconstruction_backend is None
                 else self.graph_reconstruction_backend
+            ),
+            reconstruction_failure_policy=(
+                molopconfig.reconstruction_failure_policy
+                if self.reconstruction_failure_policy is None
+                else self.reconstruction_failure_policy
             ),
             make_dative_bonds=(
                 molopconfig.make_dative_bonds

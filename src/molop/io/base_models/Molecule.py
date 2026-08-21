@@ -58,7 +58,12 @@ from .source import canonical_json_sha256
 
 
 pt = Chem.GetPeriodicTable()
-_ReconstructionOptions = tuple[Literal["cpp", "python"], bool, bool]
+_ReconstructionOptions = tuple[
+    Literal["cpp", "python"],
+    Literal["raise", "return_suspicious"],
+    bool,
+    bool,
+]
 
 
 def _reconstruction_diagnostics_dict(status: object | None) -> dict[str, Any] | None:
@@ -177,6 +182,10 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         default=None,
         exclude_if=lambda value: value is None,
     )
+    topology_reconstruction_failure_policy: Literal["raise", "return_suspicious"] | None = Field(
+        default=None,
+        exclude_if=lambda value: value is None,
+    )
     topology_make_dative_bonds: bool | None = Field(
         default=None,
         exclude_if=lambda value: value is None,
@@ -267,6 +276,7 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         self,
         *,
         backend: Literal["cpp", "python"] | None = None,
+        reconstruction_failure_policy: Literal["raise", "return_suspicious"] | None = None,
         make_dative_bonds: bool | None = None,
         make_stereochemistry: bool | None = None,
     ) -> _ReconstructionOptions:
@@ -274,6 +284,11 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
             backend
             or self.topology_reconstruction_backend
             or molopconfig.graph_reconstruction_backend
+        )
+        resolved_failure_policy = (
+            reconstruction_failure_policy
+            or self.topology_reconstruction_failure_policy
+            or molopconfig.reconstruction_failure_policy
         )
         resolved_dative_bonds = (
             make_dative_bonds if make_dative_bonds is not None else self.topology_make_dative_bonds
@@ -287,22 +302,30 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         )
         if resolved_stereochemistry is None:
             resolved_stereochemistry = molopconfig.make_stereochemistry
-        return resolved_backend, resolved_dative_bonds, resolved_stereochemistry
+        return (
+            resolved_backend,
+            resolved_failure_policy,
+            resolved_dative_bonds,
+            resolved_stereochemistry,
+        )
 
     def _record_topology_reconstruction_provenance(
         self,
         options: _ReconstructionOptions | None = None,
     ) -> None:
-        backend, make_dative_bonds, make_stereochemistry = (
+        backend, failure_policy, make_dative_bonds, make_stereochemistry = (
             options if options is not None else self._resolve_reconstruction_options()
         )
+        molopconfig.apply_molgr_reconstruction_policy(failure_policy)
         config = {
             "backend": backend,
+            "reconstruction_failure_policy": failure_policy,
             "make_dative_bonds": make_dative_bonds,
             "make_stereochemistry": make_stereochemistry,
             "molgr": asdict(MOLGR_CONFIG),
         }
         self.topology_reconstruction_backend = backend
+        self.topology_reconstruction_failure_policy = failure_policy
         self.topology_make_dative_bonds = make_dative_bonds
         self.topology_make_stereochemistry = make_stereochemistry
         self.topology_reconstruction_config_sha256 = canonical_json_sha256(config)
@@ -473,8 +496,8 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
                     self.charge,
                     self.multiplicity,
                     backend=options[0],
-                    make_dative_bonds=options[1],
-                    make_stereochemistry=options[2],
+                    make_dative_bonds=options[2],
+                    make_stereochemistry=options[3],
                     config=MOLGR_CONFIG,
                 )
             if reconstructed is None:
@@ -898,7 +921,13 @@ def _resolve_batch_worker_count(
 ) -> int | None:
     if backend == "python":
         return 1
-    worker_count = None if max_workers is None else molopconfig.set_n_jobs(max_workers)
+    # MolGR owns the native pool, so its automatic worker count must use the
+    # stricter native-runtime budget rather than the general joblib limit.
+    worker_count = (
+        molopconfig.effective_molgr_max_jobs
+        if max_workers is None
+        else molopconfig.set_molgr_n_jobs(max_workers)
+    )
     configured_limit = MOLGR_CONFIG.cpp_backend.max_threads
     if configured_limit is not None:
         worker_count = (
@@ -915,6 +944,7 @@ def reconstruct_topologies_batch(
     molecules: Iterable[Molecule],
     *,
     backend: Literal["cpp", "python"] | None = None,
+    reconstruction_failure_policy: Literal["raise", "return_suspicious"] | None = None,
     make_dative_bonds: bool | None = None,
     make_stereochemistry: bool | None = None,
     max_workers: int | None = None,
@@ -956,7 +986,7 @@ def reconstruct_topologies_batch(
             for _, molecule in indexed_chunk
             if isinstance(molecule, Molecule)
         }
-        grouped: dict[tuple[Literal["cpp", "python"], bool, bool], list[tuple[int, Molecule]]] = {}
+        grouped: dict[_ReconstructionOptions, list[tuple[int, Molecule]]] = {}
 
         # Lock acquisition is deterministic across concurrent batch calls.
         # The locks remain held while native work applies its results, so a
@@ -978,6 +1008,7 @@ def reconstruct_topologies_batch(
 
                 options = molecule._resolve_reconstruction_options(
                     backend=backend,
+                    reconstruction_failure_policy=reconstruction_failure_policy,
                     make_dative_bonds=make_dative_bonds,
                     make_stereochemistry=make_stereochemistry,
                 )
@@ -990,6 +1021,7 @@ def reconstruct_topologies_batch(
                 continue
             for (
                 group_backend,
+                group_failure_policy,
                 group_dative_bonds,
                 group_stereochemistry,
             ), entries in grouped.items():
@@ -1006,7 +1038,12 @@ def reconstruct_topologies_batch(
                         attempt_started = True
                         for _, molecule in entries:
                             molecule._record_topology_reconstruction_provenance(
-                                (group_backend, group_dative_bonds, group_stereochemistry)
+                                (
+                                    group_backend,
+                                    group_failure_policy,
+                                    group_dative_bonds,
+                                    group_stereochemistry,
+                                )
                             )
                         requests = [
                             ReconstructionBatchRequest(

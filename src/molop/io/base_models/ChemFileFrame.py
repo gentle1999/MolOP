@@ -124,6 +124,38 @@ def _canonical_smiles_from_rdmol(rdmol: RdMol | None) -> str:
         return smiles
 
 
+def _topology_frequency_key(rdmol: RdMol) -> str | bytes:
+    """Return a conformer-independent key for TS endpoint voting."""
+
+    try:
+        smiles = Chem.MolToSmiles(rdmol, canonical=True, isomericSmiles=False)
+        if smiles:
+            return smiles
+    except Exception:
+        pass
+    topology = Chem.Mol(rdmol)
+    topology.RemoveAllConformers()
+    return topology.ToBinary()
+
+
+def _most_frequent_topology(candidates: Sequence[RdMol], *, side: str) -> RdMol:
+    """Select a side's topology mode and retain its largest-amplitude conformer."""
+
+    if not candidates:
+        raise ValueError(f"Failed to reconstruct any {side}-space TS endpoint candidates")
+
+    # Candidates arrive in ascending amplitude order. Updating the representative
+    # on every hit preserves the largest-amplitude conformer for the winning graph.
+    grouped: dict[str | bytes, tuple[int, int, RdMol]] = {}
+    for index, rdmol in enumerate(candidates):
+        key = _topology_frequency_key(rdmol)
+        count = grouped[key][0] + 1 if key in grouped else 1
+        grouped[key] = (count, index, Chem.Mol(rdmol))
+
+    _, _, representative = max(grouped.values(), key=lambda item: (item[0], item[1]))
+    return representative
+
+
 def _method_family_allows_functional(method_family: str | None) -> bool:
     if method_family is None:
         return False
@@ -981,49 +1013,52 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         self,
         show_3D: bool = False,
         *,
-        ratio: float = 1.75,
+        min_ratio: float = 0.75,
+        max_ratio: float = 1.75,
         steps: int = 7,
-        ratio_attempts: Sequence[float] | None = None,
     ) -> tuple[Chem.rdchem.Mol, Chem.rdchem.Mol]:
-        """
-        This method returns the possible pre- and post-transition state molecules.
+        """Infer possible pre- and post-TS molecules from stable side topologies.
 
         Parameters:
             show_3D (bool):
                 Whether to show 3D coordinates. Defaults to False.
-            ratio (float):
-                The ratio to force the geometry to vibrate. Defaults to 1.75.
+            min_ratio (float):
+                The smallest displacement amplitude to sample. Defaults to 0.75.
+            max_ratio (float):
+                The largest displacement amplitude to sample. Defaults to 1.75.
             steps (int):
-                The number of steps to generate. Defaults to 7.
+                The number of amplitudes sampled on each side. Defaults to 7.
 
         Returns:
             Tuple[Chem.rdchem.Mol, Chem.rdchem.Mol]: A tuple containing the possible pre- and post-transition state molecules.
         """
-        if ratio_attempts is None:
-            ratio_attempts = [ratio]
-        for r in ratio_attempts:
-            temp_moleculues = self.ts_vibration(ratio=r, steps=steps)
-            mols: list[Chem.rdchem.Mol] = []
-            for mol in temp_moleculues:
-                rdmol = mol.rdmol
-                if rdmol is not None:
-                    mols.append(rdmol)
-                    break
-            for mol in temp_moleculues[::-1]:
-                rdmol = mol.rdmol
-                if rdmol is not None:
-                    mols.append(rdmol)
-                    break
-            if len(mols) > 1:
-                mols = sorted(mols, key=lambda x: len(Chem.GetMolFrags(x)), reverse=True)
-                break
-        else:
-            raise ValueError("Failed to generate TS vibrations")
+        if not np.isfinite(min_ratio) or min_ratio <= 0:
+            raise ValueError("min_ratio must be a finite value greater than 0")
+        if not np.isfinite(max_ratio) or max_ratio < min_ratio:
+            raise ValueError("max_ratio must be finite and greater than or equal to min_ratio")
+        if steps < 1:
+            raise ValueError("steps must be >= 1")
 
-        reactant_rdmol, product_rdmol = mols[0], mols[-1]
+        amplitudes = np.linspace(min_ratio, max_ratio, num=steps, endpoint=True)
+        selected_sides: list[RdMol] = []
+        for side_name, direction in (("negative", -1.0), ("positive", 1.0)):
+            side_candidates: list[RdMol] = []
+            for amplitude in amplitudes:
+                # With one vibration step, ``ratio`` selects the signed extreme.
+                displaced = self.ts_vibration(ratio=direction * float(amplitude), steps=1)
+                for molecule in displaced:
+                    if (rdmol := molecule.rdmol) is not None:
+                        side_candidates.append(rdmol)
+                        break
+            selected_sides.append(_most_frequent_topology(side_candidates, side=side_name))
+
+        # The side with more disconnected fragments is treated as the precursor.
+        # Equal fragment counts retain the deterministic negative/positive ordering.
+        selected_sides.sort(key=lambda mol: len(Chem.GetMolFrags(mol)), reverse=True)
+        reactant_rdmol, product_rdmol = selected_sides
         if not show_3D:
-            reactant_rdmol.RemoveAllConformers() if reactant_rdmol is not None else None
-            product_rdmol.RemoveAllConformers() if product_rdmol is not None else None
+            reactant_rdmol.RemoveAllConformers()
+            product_rdmol.RemoveAllConformers()
         return reactant_rdmol, product_rdmol
 
     def save_pre_post_ts(
@@ -1032,9 +1067,9 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         *,
         prefix: str | None = None,
         format: Literal["xyz", "sdf"] = "xyz",
-        ratio: float = 1.75,
+        min_ratio: float = 0.75,
+        max_ratio: float = 1.75,
         steps: int = 7,
-        ratio_attempts: Sequence[float] | None = None,
     ) -> tuple[Path, Path]:
         """Save inferred pre- and post-TS endpoint candidates.
 
@@ -1047,6 +1082,9 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 frame ID when the frame has file metadata, otherwise the frame ID.
             format: Endpoint format, either ``"xyz"`` or ``"sdf"``. SDF
                 preserves the reconstructed molecular graph and 3D conformer.
+            min_ratio: Smallest displacement amplitude to sample.
+            max_ratio: Largest displacement amplitude to sample.
+            steps: Number of amplitudes sampled on each side.
         """
 
         normalized_format = format.lower()
@@ -1055,9 +1093,9 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
 
         pre_rdmol, post_rdmol = self.possible_pre_post_ts(
             show_3D=True,
-            ratio=ratio,
+            min_ratio=min_ratio,
+            max_ratio=max_ratio,
             steps=steps,
-            ratio_attempts=ratio_attempts,
         )
         source_prefix = getattr(self, "pure_filename", None)
         if not source_prefix:
@@ -1095,15 +1133,23 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                     writer.close()
         return pre_path, post_path
 
-    def to_diff_rdmol(self, *, ratio: float = 1.75, steps: int = 7) -> RdMol | None:
+    def to_diff_rdmol(
+        self,
+        *,
+        min_ratio: float = 0.75,
+        max_ratio: float = 1.75,
+        steps: int = 7,
+    ) -> RdMol | None:
         """
         Generate a rdkit molecule object for the transition state with bond-breaking.
 
         Parameters:
-            ratio (float):
-                The ratio to force the geometry to vibrate. Defaults to 1.75.
+            min_ratio (float):
+                The smallest displacement amplitude to sample. Defaults to 0.75.
+            max_ratio (float):
+                The largest displacement amplitude to sample. Defaults to 1.75.
             steps (int):
-                The number of steps to generate. Defaults to 7.
+                The number of amplitudes sampled on each side. Defaults to 7.
 
         Returns:
             Optional[RdMol]: The rdkit molecule object for the transition state with bond-breaking.
@@ -1112,7 +1158,10 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             assert self.is_TS, "Must be a TS frame"
 
             reactant_rdmol, product_rdmol = self.possible_pre_post_ts(
-                show_3D=True, ratio=ratio, steps=steps
+                show_3D=True,
+                min_ratio=min_ratio,
+                max_ratio=max_ratio,
+                steps=steps,
             )
             assert not (
                 reactant_rdmol.HasSubstructMatch(product_rdmol)
@@ -1234,7 +1283,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         }
         if self.is_TS:
             try:
-                pre, post = self.possible_pre_post_ts(ratio_attempts=[0.75, 1.0, 1.25, 1.5])
+                pre, post = self.possible_pre_post_ts()
                 pre_smiles = _canonical_smiles_from_rdmol(pre)
                 post_smiles = _canonical_smiles_from_rdmol(post)
             except NativeReconstructionConcurrencyError:

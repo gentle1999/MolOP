@@ -41,6 +41,7 @@ needed.
 | `--release-file-content / --keep-file-content` | release | Release or retain raw source text after parsing |
 | `--force-unit-transform / --no-force-unit-transform` | configured value | Override unit conversion for this parse |
 | `--graph-reconstruction-backend` | configured value | Use the `cpp` or `python` graph backend for this parse |
+| `--reconstruction-failure-policy` | configured value | Use `raise` or retain a `return_suspicious` fallback graph |
 | `--make-dative-bonds / --no-make-dative-bonds` | configured value | Override dative-bond reconstruction for this parse |
 | `--report` | off | Return one parse outcome per supplied input instead of a batch |
 
@@ -48,6 +49,9 @@ needed.
 optional `molopconfig.max_jobs` ceiling; pass `--n-jobs 1` when diagnosing a parser or native-library
 issue. Every parse and operation command defaults independently to `-1`. Use global `--max-jobs N` to
 cap the entire command, or pass a positive `--n-jobs` on one operation when it needs a lower limit.
+
+Parsing keeps the full process-aware limit. Operations that may enter MolGR, including custom graph
+callbacks, automatically use the separate two-thirds CPU budget.
 
 The charge and multiplicity options apply to every matched input, so split heterogeneous inputs into
 separate commands. `--only-extract-structure` is a fast path and deliberately omits non-structural

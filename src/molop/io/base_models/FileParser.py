@@ -100,6 +100,10 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         """Capture versions and all parser-relevant global configuration by value."""
 
         options = (parse_options or ParseOptions()).resolved()
+        molgr_config = asdict(MOLGR_CONFIG)
+        molgr_config["interface"]["reconstruction_failure_policy"] = (
+            options.reconstruction_failure_policy
+        )
 
         effective_config: dict[str, Any] = {
             "parser": {
@@ -113,10 +117,11 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
             "molop": {
                 "force_unit_transform": options.force_unit_transform,
                 "graph_reconstruction_backend": options.graph_reconstruction_backend,
+                "reconstruction_failure_policy": options.reconstruction_failure_policy,
                 "make_dative_bonds": options.make_dative_bonds,
                 "make_stereochemistry": options.make_stereochemistry,
             },
-            "molgr": asdict(MOLGR_CONFIG),
+            "molgr": molgr_config,
         }
         molop_version = self._distribution_version("molop")
         parser_class = type(self)
@@ -653,6 +658,9 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         if self.parse_options is not None:
             metadata["topology_reconstruction_backend"] = (
                 self.parse_options.graph_reconstruction_backend
+            )
+            metadata["topology_reconstruction_failure_policy"] = (
+                self.parse_options.reconstruction_failure_policy
             )
             metadata["topology_make_dative_bonds"] = self.parse_options.make_dative_bonds
             metadata["topology_make_stereochemistry"] = self.parse_options.make_stereochemistry
