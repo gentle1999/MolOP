@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.9.dev1+g3f7da40ce.d20260821</code></span>
-        <span><code>main@3f7da40cee1c</code></span>
-        <span>Latest release <code>0.2.8</code></span>
+        <span>Source <code>0.2.10.dev1+g9202804ce.d20260822</code></span>
+        <span><code>main@9202804ce449</code></span>
+        <span>Latest release <code>0.2.9</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -2267,6 +2267,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#autofileparser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AutoFileParser
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#autoparser" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3094,6 +3105,34 @@
 
               
             
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api/progressbar/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    molop.utils.progressbar
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
           </ul>
         </nav>
       
@@ -3140,6 +3179,17 @@
     <span class="md-ellipsis">
       
         At a glance
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#autofileparser" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        AutoFileParser
       
     </span>
   </a>
@@ -3304,6 +3354,11 @@ the <a href="../../developer/parser-contract/">parser contract</a>.</p>
 </thead>
 <tbody>
 <tr>
+<td>Parse one file</td>
+<td><a href="#autofileparser"><code>AutoFileParser(...)</code></a></td>
+<td>File-level model</td>
+</tr>
+<tr>
 <td>Parse files and globs</td>
 <td><a href="#autoparser"><code>AutoParser(...)</code></a></td>
 <td><code>FileBatchModelDisk</code></td>
@@ -3345,10 +3400,21 @@ the <a href="../../developer/parser-contract/">parser contract</a>.</p>
 </tr>
 </tbody>
 </table>
-<h2 id="autoparser"><code>AutoParser</code><a class="headerlink" href="#autoparser" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><a href="#__codelineno-0-1"><span class="linenos" data-linenos="1 "></span></a><span class="kn">from</span><span class="w"> </span><span class="nn">molop</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoParser</span>
+<h2 id="autofileparser"><code>AutoFileParser</code><a class="headerlink" href="#autofileparser" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1"></a><a href="#__codelineno-0-1"><span class="linenos" data-linenos="1 "></span></a><span class="kn">from</span><span class="w"> </span><span class="nn">molop</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoFileParser</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2"></a><a href="#__codelineno-0-2"><span class="linenos" data-linenos="2 "></span></a>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><a href="#__codelineno-0-3"><span class="linenos" data-linenos="3 "></span></a><span class="n">batch</span> <span class="o">=</span> <span class="n">AutoParser</span><span class="p">(</span><span class="s2">&quot;water_mp2.out&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3"></a><a href="#__codelineno-0-3"><span class="linenos" data-linenos="3 "></span></a><span class="n">parsed_file</span> <span class="o">=</span> <span class="n">AutoFileParser</span><span class="p">(</span><span class="s2">&quot;water_mp2.out&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<p><code>AutoFileParser</code> accepts one existing file path, probes reader candidates, and
+returns the file-level model directly. It does not expand globs, construct a
+batch parser, or schedule worker processes. This makes it suitable for callers
+that own the surrounding process or task model. <code>parser_detection="auto"</code> is
+the default; explicit format IDs are also accepted. Missing files, unsupported
+formats, format mismatches, and parse failures raise exceptions.</p>
+<h2 id="autoparser"><code>AutoParser</code><a class="headerlink" href="#autoparser" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a><a href="#__codelineno-1-1"><span class="linenos" data-linenos="1 "></span></a><span class="kn">from</span><span class="w"> </span><span class="nn">molop</span><span class="w"> </span><span class="kn">import</span> <span class="n">AutoParser</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2"></a><a href="#__codelineno-1-2"><span class="linenos" data-linenos="2 "></span></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3"></a><a href="#__codelineno-1-3"><span class="linenos" data-linenos="3 "></span></a><span class="n">batch</span> <span class="o">=</span> <span class="n">AutoParser</span><span class="p">(</span><span class="s2">&quot;water_mp2.out&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
 </span></code></pre></div>
 <p>The input is one path, <code>os.PathLike</code>, or a one-dimensional iterable of paths and
 glob patterns. MolOP expands globs, converts matches to absolute paths,
@@ -3392,26 +3458,26 @@ this API contract.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="1:2"><input checked="checked" id="__tabbed_1_1" name="__tabbed_1" type="radio" /><input id="__tabbed_1_2" name="__tabbed_1" type="radio" /><div class="tabbed-labels"><label for="__tabbed_1_1">Python</label><label for="__tabbed_1_2">CLI</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1"></a><a href="#__codelineno-1-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">rendered</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">format_transform</span><span class="p">(</span>
-</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2"></a><a href="#__codelineno-1-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="s2">&quot;xyz&quot;</span><span class="p">,</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3"></a><a href="#__codelineno-1-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="n">frame</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
-</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4"></a><a href="#__codelineno-1-4"><span class="linenos" data-linenos="4 "></span></a>    <span class="n">embed_in_one_file</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5"></a><a href="#__codelineno-1-5"><span class="linenos" data-linenos="5 "></span></a>    <span class="n">write_to_disk</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6"></a><a href="#__codelineno-1-6"><span class="linenos" data-linenos="6 "></span></a>    <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7"></a><a href="#__codelineno-1-7"><span class="linenos" data-linenos="7 "></span></a><span class="p">)</span>
-</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8"></a><a href="#__codelineno-1-8"><span class="linenos" data-linenos="8 "></span></a><span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">rendered</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">rendered</span><span class="p">))</span>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><a href="#__codelineno-2-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">rendered</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">format_transform</span><span class="p">(</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2"></a><a href="#__codelineno-2-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="s2">&quot;xyz&quot;</span><span class="p">,</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3"></a><a href="#__codelineno-2-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="n">frame</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4"></a><a href="#__codelineno-2-4"><span class="linenos" data-linenos="4 "></span></a>    <span class="n">embed_in_one_file</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5"></a><a href="#__codelineno-2-5"><span class="linenos" data-linenos="5 "></span></a>    <span class="n">write_to_disk</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6"></a><a href="#__codelineno-2-6"><span class="linenos" data-linenos="6 "></span></a>    <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7"></a><a href="#__codelineno-2-7"><span class="linenos" data-linenos="7 "></span></a><span class="p">)</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8"></a><a href="#__codelineno-2-8"><span class="linenos" data-linenos="8 "></span></a><span class="nb">print</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">rendered</span><span class="p">)</span><span class="o">.</span><span class="vm">__name__</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">rendered</span><span class="p">))</span>
 </span></code></pre></div>
 </div>
 <div class="tabbed-block">
-<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1"></a><a href="#__codelineno-2-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>-q<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;water_mp2.out&quot;</span><span class="w"> </span><span class="se">\</span>
-</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2"></a><a href="#__codelineno-2-2"><span class="linenos" data-linenos="2 "></span></a><span class="w">  </span>format-transform<span class="w"> </span>--format<span class="w"> </span>xyz<span class="w"> </span>--frame<span class="w"> </span>-1<span class="w"> </span>--no-write
+<div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a><a href="#__codelineno-3-1"><span class="linenos" data-linenos="1 "></span></a>molop<span class="w"> </span>-q<span class="w"> </span>parse<span class="w"> </span><span class="s2">&quot;water_mp2.out&quot;</span><span class="w"> </span><span class="se">\</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2"></a><a href="#__codelineno-3-2"><span class="linenos" data-linenos="2 "></span></a><span class="w">  </span>format-transform<span class="w"> </span>--format<span class="w"> </span>xyz<span class="w"> </span>--frame<span class="w"> </span>-1<span class="w"> </span>--no-write
 </span></code></pre></div>
 </div>
 </div>
 </div>
 <details class="example">
 <summary>Return shape</summary>
-<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1"></a><a href="#__codelineno-3-1"><span class="linenos" data-linenos="1 "></span></a>dict 1
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><a href="#__codelineno-4-1"><span class="linenos" data-linenos="1 "></span></a>dict 1
 </span></code></pre></div>
 <p>For one input file, the Python call returns a <code>dict</code> containing the source path and rendered
 text; the CLI prints the rendered text without creating an <code>.xyz</code> file. Replace the sample path
@@ -3479,11 +3545,11 @@ inspect the log when a mapping contains an empty string or list.</p>
 <p>See <a href="../transform_behavior/">transform behavior</a> for writer domains, frame
 composition, and format-specific details.</p>
 <h2 id="draw_animation"><code>draw_animation</code><a class="headerlink" href="#draw_animation" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><a href="#__codelineno-4-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">animation</span> <span class="o">=</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">draw_animation</span><span class="p">(</span>
-</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2"></a><a href="#__codelineno-4-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">image_format</span><span class="o">=</span><span class="s2">&quot;gif&quot;</span><span class="p">,</span>
-</span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3"></a><a href="#__codelineno-4-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;trajectory.gif&quot;</span><span class="p">,</span>
-</span><span id="__span-4-4"><a id="__codelineno-4-4" name="__codelineno-4-4"></a><a href="#__codelineno-4-4"><span class="linenos" data-linenos="4 "></span></a>    <span class="n">duration</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>
-</span><span id="__span-4-5"><a id="__codelineno-4-5" name="__codelineno-4-5"></a><a href="#__codelineno-4-5"><span class="linenos" data-linenos="5 "></span></a><span class="p">)</span>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a><a href="#__codelineno-5-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">animation</span> <span class="o">=</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">draw_animation</span><span class="p">(</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2"></a><a href="#__codelineno-5-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">image_format</span><span class="o">=</span><span class="s2">&quot;gif&quot;</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3"></a><a href="#__codelineno-5-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="n">file_path</span><span class="o">=</span><span class="s2">&quot;trajectory.gif&quot;</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4"></a><a href="#__codelineno-5-4"><span class="linenos" data-linenos="4 "></span></a>    <span class="n">duration</span><span class="o">=</span><span class="mi">120</span><span class="p">,</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5"></a><a href="#__codelineno-5-5"><span class="linenos" data-linenos="5 "></span></a><span class="p">)</span>
 </span></code></pre></div>
 <p><code>draw_animation</code> renders every frame with a usable RDKit graph. Invalid frames are skipped, and
 default legends retain frame IDs, TS status, and total energy when available. <code>image_format</code> accepts
@@ -3491,8 +3557,8 @@ default legends retain frame IDs, TS status, and total energy when available. <c
 frames are skipped, frame-aligned sequences such as <code>duration</code>, <code>legends</code>, and highlight lists are
 filtered to the retained frames.</p>
 <h2 id="save_pre_post_ts"><code>save_pre_post_ts</code><a class="headerlink" href="#save_pre_post_ts" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1"></a><a href="#__codelineno-5-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">file_exports</span> <span class="o">=</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">)</span>
-</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2"></a><a href="#__codelineno-5-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">batch_exports</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints-batch&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><a href="#__codelineno-6-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">file_exports</span> <span class="o">=</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">)</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a><a href="#__codelineno-6-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">batch_exports</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints-batch&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
 </span></code></pre></div>
 <p>The file-level method returns <code>{frame_id: (pre_path, post_path)}</code> and the batch-level method adds
 the source path as its outer key. Only calculation files with this operation are exported; other
@@ -3503,18 +3569,18 @@ inference samples <code>steps=7</code> amplitudes per displacement side from <co
 <code>max_ratio=1.75</code>, selects each side&rsquo;s most frequent topology, and maps the candidate with more
 fragments to the precursor.</p>
 <h2 id="to_summary_df"><code>to_summary_df</code><a class="headerlink" href="#to_summary_df" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1"></a><a href="#__codelineno-6-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">summary</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">to_summary_df</span><span class="p">(</span>
-</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2"></a><a href="#__codelineno-6-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;frame&quot;</span><span class="p">,</span>
-</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3"></a><a href="#__codelineno-6-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="n">frame</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
-</span><span id="__span-6-4"><a id="__codelineno-6-4" name="__codelineno-6-4"></a><a href="#__codelineno-6-4"><span class="linenos" data-linenos="4 "></span></a>    <span class="n">brief</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-</span><span id="__span-6-5"><a id="__codelineno-6-5" name="__codelineno-6-5"></a><a href="#__codelineno-6-5"><span class="linenos" data-linenos="5 "></span></a>    <span class="n">flatten_columns</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-6-6"><a id="__codelineno-6-6" name="__codelineno-6-6"></a><a href="#__codelineno-6-6"><span class="linenos" data-linenos="6 "></span></a>    <span class="n">on_missing_frame</span><span class="o">=</span><span class="s2">&quot;skip&quot;</span><span class="p">,</span>
-</span><span id="__span-6-7"><a id="__codelineno-6-7" name="__codelineno-6-7"></a><a href="#__codelineno-6-7"><span class="linenos" data-linenos="7 "></span></a><span class="p">)</span>
-</span><span id="__span-6-8"><a id="__codelineno-6-8" name="__codelineno-6-8"></a><a href="#__codelineno-6-8"><span class="linenos" data-linenos="8 "></span></a><span class="nb">print</span><span class="p">(</span><span class="n">summary</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a><a href="#__codelineno-7-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">summary</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">to_summary_df</span><span class="p">(</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2"></a><a href="#__codelineno-7-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;frame&quot;</span><span class="p">,</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3"></a><a href="#__codelineno-7-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="n">frame</span><span class="o">=-</span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4"></a><a href="#__codelineno-7-4"><span class="linenos" data-linenos="4 "></span></a>    <span class="n">brief</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+</span><span id="__span-7-5"><a id="__codelineno-7-5" name="__codelineno-7-5"></a><a href="#__codelineno-7-5"><span class="linenos" data-linenos="5 "></span></a>    <span class="n">flatten_columns</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-7-6"><a id="__codelineno-7-6" name="__codelineno-7-6"></a><a href="#__codelineno-7-6"><span class="linenos" data-linenos="6 "></span></a>    <span class="n">on_missing_frame</span><span class="o">=</span><span class="s2">&quot;skip&quot;</span><span class="p">,</span>
+</span><span id="__span-7-7"><a id="__codelineno-7-7" name="__codelineno-7-7"></a><a href="#__codelineno-7-7"><span class="linenos" data-linenos="7 "></span></a><span class="p">)</span>
+</span><span id="__span-7-8"><a id="__codelineno-7-8" name="__codelineno-7-8"></a><a href="#__codelineno-7-8"><span class="linenos" data-linenos="8 "></span></a><span class="nb">print</span><span class="p">(</span><span class="n">summary</span><span class="o">.</span><span class="n">shape</span><span class="p">)</span>
 </span></code></pre></div>
 <details class="example">
 <summary>Output</summary>
-<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1"></a><a href="#__codelineno-7-1"><span class="linenos" data-linenos="1 "></span></a>(1, 23)
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><a href="#__codelineno-8-1"><span class="linenos" data-linenos="1 "></span></a>(1, 23)
 </span></code></pre></div>
 </details>
 <table>
@@ -3568,19 +3634,19 @@ DataFrame. The <a href="../../guides/batch/">batch guide</a> and <a href="../../
 Notebook</a> show the complete
 table, including all columns generated by the shared example.</p>
 <h2 id="parallel_execute"><code>parallel_execute</code><a class="headerlink" href="#parallel_execute" title="Permanent link">&para;</a></h2>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><a href="#__codelineno-8-1"><span class="linenos" data-linenos="1 "></span></a><span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span><span class="n">parsed_file</span><span class="p">):</span>
-</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2"></a><a href="#__codelineno-8-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="k">return</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">detected_format_id</span>
-</span><span id="__span-8-3"><a id="__codelineno-8-3" name="__codelineno-8-3"></a><a href="#__codelineno-8-3"><span class="linenos" data-linenos="3 "></span></a>
-</span><span id="__span-8-4"><a id="__codelineno-8-4" name="__codelineno-8-4"></a><a href="#__codelineno-8-4"><span class="linenos" data-linenos="4 "></span></a><span class="n">rows</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">parallel_execute</span><span class="p">(</span>
-</span><span id="__span-8-5"><a id="__codelineno-8-5" name="__codelineno-8-5"></a><a href="#__codelineno-8-5"><span class="linenos" data-linenos="5 "></span></a>    <span class="n">describe</span><span class="p">,</span>
-</span><span id="__span-8-6"><a id="__codelineno-8-6" name="__codelineno-8-6"></a><a href="#__codelineno-8-6"><span class="linenos" data-linenos="6 "></span></a>    <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
-</span><span id="__span-8-7"><a id="__codelineno-8-7" name="__codelineno-8-7"></a><a href="#__codelineno-8-7"><span class="linenos" data-linenos="7 "></span></a>    <span class="n">return_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-</span><span id="__span-8-8"><a id="__codelineno-8-8" name="__codelineno-8-8"></a><a href="#__codelineno-8-8"><span class="linenos" data-linenos="8 "></span></a><span class="p">)</span>
-</span><span id="__span-8-9"><a id="__codelineno-8-9" name="__codelineno-8-9"></a><a href="#__codelineno-8-9"><span class="linenos" data-linenos="9 "></span></a><span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">rows</span><span class="p">))</span>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1"></a><a href="#__codelineno-9-1"><span class="linenos" data-linenos="1 "></span></a><span class="k">def</span><span class="w"> </span><span class="nf">describe</span><span class="p">(</span><span class="n">parsed_file</span><span class="p">):</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2"></a><a href="#__codelineno-9-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="k">return</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">filename</span><span class="p">,</span> <span class="n">parsed_file</span><span class="o">.</span><span class="n">detected_format_id</span>
+</span><span id="__span-9-3"><a id="__codelineno-9-3" name="__codelineno-9-3"></a><a href="#__codelineno-9-3"><span class="linenos" data-linenos="3 "></span></a>
+</span><span id="__span-9-4"><a id="__codelineno-9-4" name="__codelineno-9-4"></a><a href="#__codelineno-9-4"><span class="linenos" data-linenos="4 "></span></a><span class="n">rows</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">parallel_execute</span><span class="p">(</span>
+</span><span id="__span-9-5"><a id="__codelineno-9-5" name="__codelineno-9-5"></a><a href="#__codelineno-9-5"><span class="linenos" data-linenos="5 "></span></a>    <span class="n">describe</span><span class="p">,</span>
+</span><span id="__span-9-6"><a id="__codelineno-9-6" name="__codelineno-9-6"></a><a href="#__codelineno-9-6"><span class="linenos" data-linenos="6 "></span></a>    <span class="n">n_jobs</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+</span><span id="__span-9-7"><a id="__codelineno-9-7" name="__codelineno-9-7"></a><a href="#__codelineno-9-7"><span class="linenos" data-linenos="7 "></span></a>    <span class="n">return_results</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-9-8"><a id="__codelineno-9-8" name="__codelineno-9-8"></a><a href="#__codelineno-9-8"><span class="linenos" data-linenos="8 "></span></a><span class="p">)</span>
+</span><span id="__span-9-9"><a id="__codelineno-9-9" name="__codelineno-9-9"></a><a href="#__codelineno-9-9"><span class="linenos" data-linenos="9 "></span></a><span class="nb">print</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">rows</span><span class="p">))</span>
 </span></code></pre></div>
 <details class="example">
 <summary>Output shape</summary>
-<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1"></a><a href="#__codelineno-9-1"><span class="linenos" data-linenos="1 "></span></a>[(&#39;water_mp2.out&#39;, &#39;orcaout&#39;)]
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a><a href="#__codelineno-10-1"><span class="linenos" data-linenos="1 "></span></a>[(&#39;water_mp2.out&#39;, &#39;orcaout&#39;)]
 </span></code></pre></div>
 </details>
 <p>MolOP invokes <code>func(diskfile, *args, **kwargs)</code> once for each file in the batch.
