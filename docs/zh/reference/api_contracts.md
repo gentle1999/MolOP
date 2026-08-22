@@ -7,6 +7,7 @@
 
 | 需求 | API | 结果 |
 | --- | --- | --- |
+| 解析单个文件 | [`AutoFileParser(...)`](#autofileparser) | file 级对象 |
 | 解析文件和 glob | [`AutoParser(...)`](#autoparser) | `FileBatchModelDisk` |
 | 选择 frame | [Frame 选择](#frame-selector) | 规范化后的 frame 索引 |
 | 格式转换 | [`format_transform(...)`](#format_transform) | 渲染文本或路径映射 |
@@ -15,6 +16,19 @@
 | 生成表格 | [`to_summary_df(...)`](#to_summary_df) | `pandas.DataFrame` |
 | 对每个文件运行函数 | [`parallel_execute(...)`](#parallel_execute) | 结果或 `None` |
 | 使用命令行 | [CLI 命令参考](../command_line_interface.md) | 末端操作结果 |
+
+## `AutoFileParser`
+
+```python
+from molop import AutoFileParser
+
+parsed_file = AutoFileParser("water_mp2.out")
+```
+
+`AutoFileParser` 只接受一个已存在的文件路径，会探测 reader 候选并直接返回 file 级对象。
+它不会展开 glob、构造 batch parser 或调度 worker 进程，适合由调用方自行控制进程或任务模型。
+默认 `parser_detection="auto"`，也可以显式传入格式 ID。文件不存在、不支持的格式、格式不匹配
+和解析失败都会抛出异常。
 
 ## `AutoParser`
 

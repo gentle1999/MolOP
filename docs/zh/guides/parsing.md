@@ -2,6 +2,17 @@
 
 用 `AutoParser` 读取单个文件、glob 或混合路径列表。
 
+如果只处理单个文件，不需要 batch 准备或 worker 调度，可使用 `AutoFileParser`：
+
+```python
+from molop import AutoFileParser
+
+parsed_file = AutoFileParser("water_mp2.out")
+print(parsed_file.filename, len(parsed_file), parsed_file.detected_format_id)
+```
+
+该接口会根据扩展名和源内容自动检测格式，返回值本身就是 file 级对象。
+
 ## 最短示例
 
 ```python

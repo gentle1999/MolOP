@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-01-15 23:01:22
 LastEditors: TMJ
-LastEditTime: 2026-04-01 14:02:46
+LastEditTime: 2026-08-22 14:06:41
 Description: 请填写简介
 """
 
@@ -10,11 +10,20 @@ import glob
 import os
 from collections.abc import Iterable
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, TypeAlias, overload
+from typing import TYPE_CHECKING, Literal, TypeAlias, cast, overload
 
+from molop.io import codec_registry
+from molop.io.codec_exceptions import FormatMismatchError, ParseError, UnsupportedFormatError
 from molop.io.codec_types import ParseOptions
 from molop.io.FileBatchModelDisk import FileBatchModelDisk
-from molop.io.FileBatchParserDisk import FileBatchParserDisk
+from molop.io.FileBatchParserDisk import (
+    FileBatchParserDisk,
+    _FileReaderCodec,
+    _filter_readers_by_probe,
+)
+from molop.io.FileBatchParserDisk import (
+    single_file_parser as _single_file_parser,
+)
 from molop.io.parse_outcomes import BatchParseResult
 
 
@@ -24,6 +33,82 @@ if TYPE_CHECKING:
 
 PathSpec: TypeAlias = str | os.PathLike[str]
 PathInput: TypeAlias = PathSpec | Iterable[PathSpec]
+
+
+def AutoFileParser(
+    file_path: PathSpec,
+    *,
+    total_charge: int | None = None,
+    total_multiplicity: int | None = None,
+    only_extract_structure: bool = False,
+    only_last_frame: bool = False,
+    capture_source_evidence: bool = False,
+    source_encoding: str = "utf-8",
+    release_file_content: bool = True,
+    parser_detection: str = "auto",
+    parse_options: ParseOptions | None = None,
+) -> "FileDiskObj":
+    """Parse one file with automatic format detection.
+
+    Unlike :func:`AutoParser`, this entrypoint accepts exactly one file path and
+    returns the parsed file model directly. It performs no glob expansion,
+    batch preparation, or process scheduling, so callers can place the parse
+    inside their own worker or process model.
+
+    ``parser_detection="auto"`` first uses the path extension and reader
+    probes to narrow the candidates, then lets the parser's format checks
+    validate the complete source. Pass a format id to select a reader
+    explicitly while retaining the same file-level return type.
+
+    Raises:
+        TypeError: If ``file_path`` is not a text path-like object.
+        ValueError: If ``file_path`` is not an existing regular file.
+        UnsupportedFormatError: If no reader is registered for the input.
+        FormatMismatchError: If all candidate readers reject the input format.
+        ParseError: If a selected reader fails during parsing.
+    """
+    try:
+        path_value = os.fspath(file_path)
+    except TypeError as exc:
+        raise TypeError("file_path must be a path-like object") from exc
+    if not isinstance(path_value, str):
+        raise TypeError("file_path must resolve to a text path, not bytes")
+
+    path = Path(os.path.abspath(path_value))
+    if not path.is_file():
+        raise ValueError(f"File {path} does not exist or is not a regular file.")
+
+    hint_format = None if parser_detection == "auto" else parser_detection
+    possible_readers = cast(
+        tuple[_FileReaderCodec, ...],
+        codec_registry.select_reader(path, hint_format=hint_format),
+    )
+    if parser_detection == "auto":
+        possible_readers = _filter_readers_by_probe(str(path), possible_readers)
+
+    outcome = _single_file_parser(
+        file_path=str(path),
+        possible_readers=possible_readers,
+        total_charge=total_charge,
+        total_multiplicity=total_multiplicity,
+        only_extract_structure=only_extract_structure,
+        only_last_frame=only_last_frame,
+        capture_source_evidence=capture_source_evidence,
+        source_encoding=source_encoding,
+        release_file_content=release_file_content,
+        parse_options=parse_options,
+        return_outcome=True,
+    )
+    if outcome.succeeded and outcome.value is not None:
+        return outcome.value
+
+    failure = outcome.failure
+    message = failure.message if failure is not None else f"Failed to parse file {path}."
+    if outcome.status == "unsupported":
+        raise UnsupportedFormatError(message)
+    if outcome.status == "mismatch":
+        raise FormatMismatchError(message)
+    raise ParseError(message)
 
 
 def split_path_pattern(path_str: str) -> tuple[Path, str]:

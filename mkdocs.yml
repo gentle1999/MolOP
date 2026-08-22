@@ -129,6 +129,7 @@ plugins:
             molop.structure: molop.structure
             molop.unit: molop.unit
             molop.utils: molop.utils
+            molop.utils.progressbar: molop.utils.progressbar
             格式概览: Overview
             Gaussian 输入: Gaussian Input
             Gaussian 输出: Gaussian Output
@@ -230,6 +231,7 @@ nav:
       - molop.structure: reference/api/structure.md
       - molop.unit: reference/api/unit.md
       - molop.utils: reference/api/utils.md
+      - molop.utils.progressbar: reference/api/progressbar.md
 
 
 extra_javascript:

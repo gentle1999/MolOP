@@ -2,6 +2,18 @@
 
 Use `AutoParser` with one file, a glob pattern, or a mixed list of paths.
 
+For a single file without batch setup or worker scheduling, use `AutoFileParser`:
+
+```python
+from molop import AutoFileParser
+
+parsed_file = AutoFileParser("water_mp2.out")
+print(parsed_file.filename, len(parsed_file), parsed_file.detected_format_id)
+```
+
+The format is detected from the extension and source content, and the return
+value is the file-level model itself.
+
 ## Shortest example
 
 ```python

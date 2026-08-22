@@ -8,6 +8,7 @@ the [parser contract](../developer/parser-contract.md).
 
 | Need | API | Result |
 | --- | --- | --- |
+| Parse one file | [`AutoFileParser(...)`](#autofileparser) | File-level model |
 | Parse files and globs | [`AutoParser(...)`](#autoparser) | `FileBatchModelDisk` |
 | Select frames | [Frame selector](#frame-selector) | Normalized frame indices |
 | Convert formats | [`format_transform(...)`](#format_transform) | Rendered text or path mapping |
@@ -16,6 +17,21 @@ the [parser contract](../developer/parser-contract.md).
 | Build a table | [`to_summary_df(...)`](#to_summary_df) | `pandas.DataFrame` |
 | Run one function per file | [`parallel_execute(...)`](#parallel_execute) | Results or `None` |
 | Compose from the shell | [CLI command reference](../command_line_interface.md) | A terminal operation result |
+
+## `AutoFileParser`
+
+```python
+from molop import AutoFileParser
+
+parsed_file = AutoFileParser("water_mp2.out")
+```
+
+`AutoFileParser` accepts one existing file path, probes reader candidates, and
+returns the file-level model directly. It does not expand globs, construct a
+batch parser, or schedule worker processes. This makes it suitable for callers
+that own the surrounding process or task model. `parser_detection="auto"` is
+the default; explicit format IDs are also accepted. Missing files, unsupported
+formats, format mismatches, and parse failures raise exceptions.
 
 ## `AutoParser`
 
