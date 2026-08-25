@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.10.dev1+g9202804ce.d20260822</code></span>
-        <span><code>main@9202804ce449</code></span>
-        <span>Latest release <code>0.2.9</code></span>
+        <span>Source <code>0.2.11.dev1+g168cfa5e3.d20260825</code></span>
+        <span><code>main@168cfa5e3f2b</code></span>
+        <span>Latest release <code>0.2.10</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -3229,6 +3229,8 @@ pass <code>array_mode="ndarray"</code> when a database stores numeric sidecars.<
 <li><code>frame_id</code> belongs to the retained frame collection; it can change after selection or reordering and
   is not a global identity.</li>
 <li><code>capture_source_evidence=True</code> requests additional source locators and parser provenance.</li>
+<li>Source-evidence capture does not read <code>frame.rdmol</code> or reconstruct a molecular graph; topology
+  remains lazy until a graph-dependent operation requests it.</li>
 <li>MolOP supplies parsed facts; the receiving system owns database identity, payload validation, array
   encoding, artifact verification, and admission/QC policy.</li>
 </ul>

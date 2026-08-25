@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.10.dev1+g9202804ce.d20260822</code></span>
-        <span><code>main@9202804ce449</code></span>
-        <span>最近发布 <code>0.2.9</code></span>
+        <span>源码 <code>0.2.11.dev1+g168cfa5e3.d20260825</code></span>
+        <span><code>main@168cfa5e3f2b</code></span>
+        <span>最近发布 <code>0.2.10</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../../versioning/">版本说明</a>
@@ -3225,6 +3225,8 @@ sidecar 时传入 <code>array_mode="ndarray"</code>。</p>
 <li>用 <code>file_frame_index</code> 表示源文件中的稳定 frame 顺序。</li>
 <li><code>frame_id</code> 属于当前保留的 frame 集合；筛选或重排后不应作为全局 identity。</li>
 <li><code>capture_source_evidence=True</code> 才会请求额外的 source locator 和 parser provenance。</li>
+<li>捕获 source evidence 不会读取 <code>frame.rdmol</code>，也不会重建分子图；拓扑保持惰性，直到分子图相关操作
+  显式请求时才会重建。</li>
 <li>MolOP 提供解析事实，不负责数据库 identity、payload 校验、数组编码、artifact 校验或 admission/QC。</li>
 </ul>
 <p>详细的 source span 和 parser lifecycle 规则见<a href="../../developer/parser-contract/">完整 Parser 契约</a>。</p>

@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.10.dev1+g9202804ce.d20260822</code></span>
-        <span><code>main@9202804ce449</code></span>
-        <span>Latest release <code>0.2.9</code></span>
+        <span>Source <code>0.2.11.dev1+g168cfa5e3.d20260825</code></span>
+        <span><code>main@168cfa5e3f2b</code></span>
+        <span>Latest release <code>0.2.10</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -3365,10 +3365,10 @@ homogeneous batches so provenance remains correct.</p>
 <li><code>filter_custom()</code> and <code>groupby()</code> callbacks. Because these callbacks are arbitrary, MolOP warms
   every eligible frame in the input snapshot before dispatching them to loky, even when a particular
   callback happens to inspect metadata only.</li>
-<li>file-batch parsing with <code>capture_source_evidence=True</code> deliberately stays in one process. Those
-  parsers create and inspect frames while source spans are being attached, so their graphs cannot be
-  completely prewarmed before dispatch.</li>
 </ul>
+<p>Source-evidence capture is deliberately graph-free: attaching source spans, hashes, parser
+provenance, and parse diagnostics never reads <code>frame.rdmol</code> and never invokes MolGR. Topology remains
+lazy and is reconstructed only when a later graph-dependent operation explicitly requests it.</p>
 <p>Operations with an enumerable source-frame set prewarm those frames with MolGR&rsquo;s native batch API in
 the parent before outer joblib/loky processes start only when the option is enabled. Operations that
 generate temporary graph candidates while running, such as TS endpoints, keep the normal public call
