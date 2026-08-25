@@ -511,17 +511,6 @@ class FileBatchParserDisk:
             effective_jobs,
         )
         use_parallel = _should_use_parallel(path_count, effective_jobs)
-        if use_parallel and parse_options.capture_source_evidence:
-            # Calculation parsers assess topology presence while attaching
-            # source evidence.  Those frames do not exist until parsing has
-            # started, so they cannot be parent-prewarmed before loky.  Keep
-            # this evidence path in one process rather than allowing a worker
-            # to invoke MolGR lazily.
-            moloplogger.info(
-                "Source-evidence capture uses one process to keep topology reconstruction "
-                "outside loky."
-            )
-            use_parallel = False
         desc = (
             f"MolOP parsing with {effective_jobs} processes"
             if use_parallel

@@ -297,7 +297,15 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         segment_frame_index: int,
         segment_frame_count: int,
     ) -> Mapping[str, Any]:
-        """Return optional model fields derived from a located frame's source context."""
+        """Return optional model fields derived from a located frame's source context.
+
+        This is part of the source-evidence lifecycle, so it must remain a
+        source-only operation.  In particular, do not read ``frame.rdmol``
+        here: coordinate-only calculation frames expose that property lazily,
+        and reading it would reconstruct a molecular graph while evidence is
+        being attached.  Topology is intentionally left unassessed until a
+        graph-dependent operation explicitly requests it.
+        """
 
         role = self._source_frame_role(
             frame,
@@ -310,44 +318,6 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
 
         presence = dict(getattr(frame, "parse_presence", {}))
         diagnostics = list(getattr(frame, "parse_diagnostics", []))
-        topology = getattr(frame, "rdmol", None)
-        topology_status = getattr(frame, "topology_reconstruction_status", None)
-        topology_permutation = getattr(
-            frame,
-            "source_to_topology_atom_permutation",
-            None,
-        )
-        if topology is None or topology_status in {"failed", "suspicious_fallback"}:
-            presence["topology"] = ParsePresence.PARSE_FAILED
-            diagnostics.append(
-                ParseDiagnostic(
-                    code="MOL.PARSE.TOPOLOGY_RECONSTRUCTION_FAILED",
-                    severity="error",
-                    scope="frame",
-                    message="Topology reconstruction did not produce a trusted RDKit molecule.",
-                    segment_index=segment_index,
-                    segment_frame_index=segment_frame_index,
-                    field="topology",
-                )
-            )
-        elif topology_permutation is None:
-            presence["topology"] = ParsePresence.PARSE_FAILED
-            diagnostics.append(
-                ParseDiagnostic(
-                    code="MOL.PARSE.TOPOLOGY_ATOM_ORDER_MISMATCH",
-                    severity="error",
-                    scope="frame",
-                    message=(
-                        "The reconstructed topology atom order does not match the source "
-                        "geometry, and no unambiguous permutation is available."
-                    ),
-                    segment_index=segment_index,
-                    segment_frame_index=segment_frame_index,
-                    field="topology",
-                )
-            )
-        else:
-            presence["topology"] = ParsePresence.PARSED
 
         if self.only_extract_structure:
             fields["parse_presence"] = presence

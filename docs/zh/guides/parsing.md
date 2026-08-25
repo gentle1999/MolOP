@@ -32,6 +32,18 @@ for parsed_file in batch:
     water_mp2.out 1 orcaout
     ```
 
+如果调用方已经持有源内容，可以直接使用内存入口，不需要创建临时文件：
+
+```python
+from molop import AutoBytesParser, AutoTextParser
+
+parsed_text = AutoTextParser("1\nwater\nH 0.0 0.0 0.0\n", parser_detection="xyz")
+parsed_bytes = AutoBytesParser(raw_bytes, parser_detection="xyz")
+```
+
+`AutoMemoryParser` 同时接受文本和 bytes。传入其中的字符串始终按文本处理，不会当作路径；路径请使用
+`AutoFileParser`。
+
 ## 输入方式
 
 ```python

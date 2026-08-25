@@ -51,6 +51,8 @@ sidecar 时传入 `array_mode="ndarray"`。
 - 用 `file_frame_index` 表示源文件中的稳定 frame 顺序。
 - `frame_id` 属于当前保留的 frame 集合；筛选或重排后不应作为全局 identity。
 - `capture_source_evidence=True` 才会请求额外的 source locator 和 parser provenance。
+- 捕获 source evidence 不会读取 `frame.rdmol`，也不会重建分子图；拓扑保持惰性，直到分子图相关操作
+  显式请求时才会重建。
 - MolOP 提供解析事实，不负责数据库 identity、payload 校验、数组编码、artifact 校验或 admission/QC。
 
 详细的 source span 和 parser lifecycle 规则见[完整 Parser 契约](../developer/parser-contract.md)。

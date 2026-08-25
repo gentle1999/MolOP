@@ -249,5 +249,6 @@ def register(registry: Registry) -> None:
                 level=StructureLevel.COORDS,
                 parser_cls=ORCALogFileParserDisk,
                 priority=priority,
+                memory_parser_cls=ORCALogFileParserMemory,
             ),
         )

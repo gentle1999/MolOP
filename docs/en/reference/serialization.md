@@ -53,6 +53,8 @@ pass `array_mode="ndarray"` when a database stores numeric sidecars.
 - `frame_id` belongs to the retained frame collection; it can change after selection or reordering and
   is not a global identity.
 - `capture_source_evidence=True` requests additional source locators and parser provenance.
+- Source-evidence capture does not read `frame.rdmol` or reconstruct a molecular graph; topology
+  remains lazy until a graph-dependent operation requests it.
 - MolOP supplies parsed facts; the receiving system owns database identity, payload validation, array
   encoding, artifact verification, and admission/QC policy.
 

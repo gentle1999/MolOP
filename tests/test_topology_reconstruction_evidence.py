@@ -52,7 +52,7 @@ def _fresh_worker_rdmol(_value: int) -> bool:
 
 
 @pytest.mark.parametrize(("parser_cls", "fixture"), CALCULATION_CASES)
-def test_real_calc_frames_capture_trusted_topology_evidence(
+def test_source_capture_leaves_calc_topology_lazy(
     parser_cls: type[Any],
     fixture: Path,
 ) -> None:
@@ -61,6 +61,13 @@ def test_real_calc_frames_capture_trusted_topology_evidence(
         only_last_frame=True,
     ).parse(fixture.read_text(encoding="utf-8"))
     frame = parsed[-1]
+
+    assert frame.topology_reconstruction_status is None
+    assert frame.source_to_topology_atom_permutation is None
+    assert "topology" not in frame.parse_presence
+
+    # A graph-dependent operation is still allowed to request reconstruction
+    # after source evidence has been attached.
     provenance = parsed.parser_provenance
     rdmol = frame.rdmol
 
@@ -86,7 +93,7 @@ def test_real_calc_frames_capture_trusted_topology_evidence(
             "molgr": provenance.effective_config["molgr"],
         }
     )
-    assert frame.parse_presence["topology"] == "parsed"
+    assert "topology" not in frame.parse_presence
     assert not any(
         diagnostic.code.startswith("MOL.PARSE.TOPOLOGY_") for diagnostic in frame.parse_diagnostics
     )
@@ -104,6 +111,24 @@ def test_real_calc_frames_capture_trusted_topology_evidence(
     )
     assert payload["topology_v3000_molblock"] == frame.topology_v3000_molblock
     assert "V3000" in payload["topology_v3000_molblock"]
+
+
+def test_source_capture_never_enters_lazy_topology_reconstruction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_reconstruction(*_args: Any, **_kwargs: Any) -> Any:
+        raise AssertionError("source-evidence capture must not reconstruct topology")
+
+    monkeypatch.setattr(Molecule, "_reconstruct_single_topology", fail_reconstruction)
+    fixture = FIXTURE_ROOT / "g16log" / "H2O.log"
+
+    parsed = G16LogFileParserMemory(capture_source_evidence=True).parse(
+        fixture.read_text(encoding="utf-8")
+    )
+
+    assert parsed.frames
+    assert all(frame.topology_reconstruction_status is None for frame in parsed.frames)
+    assert all("topology" not in frame.parse_presence for frame in parsed.frames)
 
 
 @pytest.mark.parametrize("backend", ["cpp", "python"])
@@ -763,6 +788,9 @@ def test_calc_frame_topology_reconstruction_failure_is_structured(
     ).parse(fixture.read_text(encoding="utf-8"))
     frame = parsed[-1]
 
+    assert frame.topology_reconstruction_status is None
+    assert "topology" not in frame.parse_presence
+
     assert frame.rdmol is None
     assert frame.to_canonical_SMILES() == ""
     assert frame.topology_v3000_molblock is None
@@ -770,12 +798,9 @@ def test_calc_frame_topology_reconstruction_failure_is_structured(
     assert frame.topology_reconstruction_backend is not None
     assert frame.topology_reconstruction_config_sha256 is not None
     assert frame.source_to_topology_atom_permutation is None
-    assert frame.parse_presence["topology"] == "parse_failed"
-    assert frame.parse_completeness == "partial"
-    assert parsed.parse_completeness == "partial"
-    assert any(
-        diagnostic.code == "MOL.PARSE.TOPOLOGY_RECONSTRUCTION_FAILED"
-        for diagnostic in frame.parse_diagnostics
+    assert "topology" not in frame.parse_presence
+    assert not any(
+        diagnostic.code.startswith("MOL.PARSE.TOPOLOGY_") for diagnostic in frame.parse_diagnostics
     )
 
 
@@ -804,12 +829,9 @@ def test_ambiguous_same_element_reordering_does_not_guess_permutation(
     assert frame.bonds == []
     assert frame.formal_charges == []
     assert frame.formal_num_radicals == []
-    assert frame.parse_presence["topology"] == "parse_failed"
-    assert frame.parse_completeness == "partial"
-    assert parsed.parse_completeness == "partial"
-    assert any(
-        diagnostic.code == "MOL.PARSE.TOPOLOGY_ATOM_ORDER_MISMATCH"
-        for diagnostic in frame.parse_diagnostics
+    assert "topology" not in frame.parse_presence
+    assert not any(
+        diagnostic.code.startswith("MOL.PARSE.TOPOLOGY_") for diagnostic in frame.parse_diagnostics
     )
     assert not any(
         diagnostic.code == "MOL.PARSE.TOPOLOGY_RECONSTRUCTION_FAILED"

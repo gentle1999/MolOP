@@ -166,6 +166,7 @@ def register(registry: Registry) -> None:
                 level=StructureLevel.COORDS,
                 parser_cls=XTBOutputFileParserDisk,
                 priority=priority,
+                memory_parser_cls=XTBOutputFileParserMemory,
             ),
         )
 

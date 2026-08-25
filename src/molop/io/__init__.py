@@ -24,6 +24,12 @@ from molop.io.FileBatchParserDisk import (
 from molop.io.FileBatchParserDisk import (
     single_file_parser as _single_file_parser,
 )
+from molop.io.memory_parser import (
+    AutoBytesParser,
+    AutoMemoryParser,
+    AutoParserMemory,
+    AutoTextParser,
+)
 from molop.io.parse_outcomes import BatchParseResult
 
 
@@ -292,3 +298,16 @@ def AutoParser(
         parser_detection=parser_detection,
         parse_options=parse_options,
     )
+
+
+__all__ = [
+    "AutoBytesParser",
+    "AutoFileParser",
+    "AutoMemoryParser",
+    "AutoParser",
+    "AutoParserMemory",
+    "AutoTextParser",
+    "FileBatchModelDisk",
+    "FileBatchParserDisk",
+    "split_path_pattern",
+]

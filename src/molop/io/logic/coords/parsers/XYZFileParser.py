@@ -92,5 +92,6 @@ def register(registry: Registry) -> None:
                 level=StructureLevel.COORDS,
                 parser_cls=XYZFileParserDisk,
                 priority=priority,
+                memory_parser_cls=XYZFileParserMemory,
             ),
         )

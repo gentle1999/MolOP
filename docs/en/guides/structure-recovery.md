@@ -101,9 +101,10 @@ When enabled, prewarming is used by:
 - `filter_custom()` and `groupby()` callbacks. Because these callbacks are arbitrary, MolOP warms
   every eligible frame in the input snapshot before dispatching them to loky, even when a particular
   callback happens to inspect metadata only.
-- file-batch parsing with `capture_source_evidence=True` deliberately stays in one process. Those
-  parsers create and inspect frames while source spans are being attached, so their graphs cannot be
-  completely prewarmed before dispatch.
+
+Source-evidence capture is deliberately graph-free: attaching source spans, hashes, parser
+provenance, and parse diagnostics never reads `frame.rdmol` and never invokes MolGR. Topology remains
+lazy and is reconstructed only when a later graph-dependent operation explicitly requests it.
 
 Operations with an enumerable source-frame set prewarm those frames with MolGR's native batch API in
 the parent before outer joblib/loky processes start only when the option is enabled. Operations that

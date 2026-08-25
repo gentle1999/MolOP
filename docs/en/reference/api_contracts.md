@@ -9,6 +9,7 @@ the [parser contract](../developer/parser-contract.md).
 | Need | API | Result |
 | --- | --- | --- |
 | Parse one file | [`AutoFileParser(...)`](#autofileparser) | File-level model |
+| Parse loaded text or bytes | [`AutoMemoryParser(...)`](#automemoryparser) | Memory file-level model |
 | Parse files and globs | [`AutoParser(...)`](#autoparser) | `FileBatchModelDisk` |
 | Select frames | [Frame selector](#frame-selector) | Normalized frame indices |
 | Convert formats | [`format_transform(...)`](#format_transform) | Rendered text or path mapping |
@@ -32,6 +33,22 @@ batch parser, or schedule worker processes. This makes it suitable for callers
 that own the surrounding process or task model. `parser_detection="auto"` is
 the default; explicit format IDs are also accepted. Missing files, unsupported
 formats, format mismatches, and parse failures raise exceptions.
+
+## `AutoMemoryParser`
+
+```python
+from molop import AutoBytesParser, AutoTextParser
+
+parsed_text = AutoTextParser("1\nwater\nH 0.0 0.0 0.0\n", parser_detection="xyz")
+parsed_bytes = AutoBytesParser(raw_bytes, parser_detection="xyz")
+```
+
+`AutoMemoryParser` accepts already-loaded text, bytes-like data, or a text/binary
+stream and returns a memory-backed file model. `AutoTextParser` and
+`AutoBytesParser` make the input type explicit. Use `parser_detection` when the
+source has no filename extension; `"auto"` tries the registered in-memory
+readers and their content probes. Binary parsing decodes with `source_encoding`
+and preserves exact source bytes when `capture_source_evidence=True`.
 
 ## `AutoParser`
 

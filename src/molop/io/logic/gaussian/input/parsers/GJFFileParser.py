@@ -103,5 +103,6 @@ def register(registry: Registry) -> None:
                 level=StructureLevel.COORDS,
                 parser_cls=GJFFileParserDisk,
                 priority=priority,
+                memory_parser_cls=GJFFileParserMemory,
             ),
         )

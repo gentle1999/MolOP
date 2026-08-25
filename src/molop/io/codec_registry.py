@@ -28,6 +28,7 @@ from molop.io.codec_exceptions import (
 )
 from molop.io.codec_types import (
     GraphPolicy,
+    MemoryReaderCodec,
     ParseResult,
     ReaderCodec,
     StructureLevel,
@@ -108,6 +109,37 @@ class _LazyReaderCodec:
 
     def read(self, path: str | Path, **kwargs: Any) -> ParseResult[object]:
         return self._factory().read(path, **kwargs)
+
+    def probe_text(self, text: str) -> bool:
+        reader = self._factory()
+        probe = getattr(reader, "probe_text", None)
+        if callable(probe):
+            return bool(probe(text))
+        return True
+
+    def read_text(self, text: str, **kwargs: Any) -> ParseResult[object]:
+        reader = self._factory()
+        read_text = cast(
+            Callable[..., ParseResult[object]] | None,
+            getattr(reader, "read_text", None),
+        )
+        if not callable(read_text):
+            raise UnsupportedFormatError(
+                f"Reader {self.format_id!r} does not support in-memory text parsing."
+            )
+        return read_text(text, **kwargs)
+
+    def read_bytes(self, raw_bytes: bytes, **kwargs: Any) -> ParseResult[object]:
+        reader = self._factory()
+        read_bytes = cast(
+            Callable[..., ParseResult[object]] | None,
+            getattr(reader, "read_bytes", None),
+        )
+        if not callable(read_bytes):
+            raise UnsupportedFormatError(
+                f"Reader {self.format_id!r} does not support in-memory byte parsing."
+            )
+        return read_bytes(raw_bytes, **kwargs)
 
 
 class Registry:
@@ -361,6 +393,50 @@ class Registry:
             raise UnsupportedFormatError(f"No reader codecs registered for {path}.")
         return tuple(lazy_codecs)
 
+    def select_memory_reader(self, hint_format: str | None = None) -> tuple[MemoryReaderCodec, ...]:
+        """Return reader codecs that can be tried against loaded source data."""
+
+        if self._autoload_defaults:
+            self.ensure_default_codecs_registered()
+        candidates: list[_ReaderSpec] = []
+        seen: set[int] = set()
+
+        if hint_format:
+            normalized_hint = _normalize_format_id(hint_format)
+            _extend_unique(candidates, self._readers_by_format.get(normalized_hint, ()), seen)
+        else:
+            for specs in self._readers_by_format.values():
+                _extend_unique(candidates, specs, seen)
+            candidates.sort(key=_reader_sort_key)
+
+        if self._fallback_readers:
+            _extend_unique(candidates, self._fallback_readers[:MAX_FALLBACK_READERS], seen)
+
+        memory_readers: list[MemoryReaderCodec] = [
+            _LazyReaderCodec(
+                format_id=spec.format_id,
+                extensions=frozenset(spec.extensions),
+                priority=spec.priority,
+                _factory=spec.factory,
+            )
+            for spec in candidates
+        ]
+
+        if not memory_readers and self._openbabel_fallback_factory is not None:
+            memory_readers.append(
+                _LazyReaderCodec(
+                    format_id=_OPENBABEL_FALLBACK_FORMAT_ID,
+                    extensions=frozenset(),
+                    priority=-10_000,
+                    _factory=self._openbabel_fallback_factory,
+                )
+            )
+
+        if not memory_readers:
+            target = hint_format or "loaded source"
+            raise UnsupportedFormatError(f"No reader codecs registered for {target}.")
+        return tuple(memory_readers)
+
     def write(
         self,
         format_id: str,
@@ -534,6 +610,10 @@ def writer_requires_graph(
 
 def select_reader(path: str | Path, hint_format: str | None = None) -> tuple[ReaderCodec, ...]:
     return default_registry.select_reader(path, hint_format=hint_format)
+
+
+def select_memory_reader(hint_format: str | None = None) -> tuple[MemoryReaderCodec, ...]:
+    return default_registry.select_memory_reader(hint_format=hint_format)
 
 
 def write(
@@ -940,6 +1020,7 @@ __all__ = [
     "register_writer",
     "register_writer_factory",
     "select_reader",
+    "select_memory_reader",
     "upgrade_coords_to_graph",
     "write",
     "write_frame",

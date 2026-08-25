@@ -8,6 +8,7 @@
 | 需求 | API | 结果 |
 | --- | --- | --- |
 | 解析单个文件 | [`AutoFileParser(...)`](#autofileparser) | file 级对象 |
+| 解析已加载的文本或 bytes | [`AutoMemoryParser(...)`](#automemoryparser) | 内存 file 级对象 |
 | 解析文件和 glob | [`AutoParser(...)`](#autoparser) | `FileBatchModelDisk` |
 | 选择 frame | [Frame 选择](#frame-selector) | 规范化后的 frame 索引 |
 | 格式转换 | [`format_transform(...)`](#format_transform) | 渲染文本或路径映射 |
@@ -29,6 +30,20 @@ parsed_file = AutoFileParser("water_mp2.out")
 它不会展开 glob、构造 batch parser 或调度 worker 进程，适合由调用方自行控制进程或任务模型。
 默认 `parser_detection="auto"`，也可以显式传入格式 ID。文件不存在、不支持的格式、格式不匹配
 和解析失败都会抛出异常。
+
+## `AutoMemoryParser`
+
+```python
+from molop import AutoBytesParser, AutoTextParser
+
+parsed_text = AutoTextParser("1\nwater\nH 0.0 0.0 0.0\n", parser_detection="xyz")
+parsed_bytes = AutoBytesParser(raw_bytes, parser_detection="xyz")
+```
+
+`AutoMemoryParser` 接受调用方已经持有的文本、bytes-like 数据或文本/二进制流，返回内存中的
+file 级对象。`AutoTextParser` 和 `AutoBytesParser` 用于显式区分输入类型。源数据没有文件扩展名
+时应使用 `parser_detection`；默认的 `"auto"` 会尝试已注册的内存 reader 及其内容探测。二进制
+解析使用 `source_encoding` 解码；设置 `capture_source_evidence=True` 时仍保留精确源字节信息。
 
 ## `AutoParser`
 

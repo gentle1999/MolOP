@@ -92,8 +92,9 @@ molopconfig.prewarm_topologies = True  # 默认值为 False
   loky worker 可以沿用正常路径重建临时候选，不再接收主进程生成的候选映射。
 - `filter_custom()` 和 `groupby()` 任意回调。由于回调内容不可静态判断，MolOP 会在向 loky
   分发前预热当前输入快照中的全部可重建 frame，即使某个回调实际上只读取元数据。
-- 文件批量解析开启 `capture_source_evidence=True` 时会刻意保持单进程。该模式在附加源文件
-  span 的过程中创建并检查 frame，无法在分发前完整预热这些分子图。
+
+源证据捕获明确不触碰分子图：附加 source span、hash、parser provenance 和解析诊断时不会读取
+`frame.rdmol`，也不会调用 MolGR。拓扑保持惰性，只有后续的分子图相关操作显式请求时才会重建。
 
 存在可枚举源 frame 集合的任务仅在开启选项时才会先在主进程使用 MolGR 原生 batch 预热，再启动
 外层 joblib/loky 进程。TS endpoint 这类运行中动态生成候选的任务保持普通公开调用路径，允许

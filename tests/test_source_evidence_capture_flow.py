@@ -308,7 +308,7 @@ def test_batch_parser_includes_capture_flag_in_each_task(
     assert captured["parse_options"] == ParseOptions(capture_source_evidence=True).resolved()
 
 
-def test_batch_parser_keeps_multi_file_source_capture_in_parent_process(
+def test_batch_parser_can_parallelize_multi_file_source_capture(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -325,16 +325,35 @@ def test_batch_parser_keeps_multi_file_source_capture_in_parent_process(
         assert task["capture_source_evidence"] is True
         return _FakeDiskFile(task["file_path"])
 
-    def fail_parallel(*_args: Any, **_kwargs: Any) -> Any:
-        raise AssertionError("source-evidence parsing must not start a worker pool")
+    parallel_kwargs: dict[str, Any] = {}
+
+    def fake_parallel(*_args: Any, **kwargs: Any) -> Any:
+        parallel_kwargs.update(kwargs)
+
+        def run(tasks: Any) -> list[Any]:
+            outcomes = []
+            for task in tasks:
+                if isinstance(task, tuple):
+                    function, args, task_kwargs = task
+                    outcomes.append(function(*args, **task_kwargs))
+                else:
+                    outcomes.append(task())
+            return outcomes
+
+        return run
 
     monkeypatch.setattr(
         file_batch_parser_module.codec_registry,
         "select_reader",
         lambda _path, hint_format=None: (Reader(),),
     )
+    monkeypatch.setattr(
+        file_batch_parser_module,
+        "_tune_effective_jobs_for_known_paths",
+        lambda _file_paths, _path_count, effective_jobs: effective_jobs,
+    )
     monkeypatch.setattr(file_batch_parser_module, "single_file_parser", fake_single_file_parser)
-    monkeypatch.setattr(file_batch_parser_module, "Parallel", fail_parallel)
+    monkeypatch.setattr(file_batch_parser_module, "Parallel", fake_parallel)
 
     batch = FileBatchParserDisk(n_jobs=2).parse(
         paths,
@@ -343,6 +362,7 @@ def test_batch_parser_keeps_multi_file_source_capture_in_parent_process(
 
     assert captured_paths == [str(path.resolve()) for path in paths]
     assert batch.file_paths == captured_paths
+    assert parallel_kwargs["n_jobs"] == 2
 
 
 def test_parser_disk_reader_configures_parser_capture_flag() -> None:

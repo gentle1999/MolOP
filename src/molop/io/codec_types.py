@@ -103,6 +103,19 @@ class ReaderCodec(Protocol):
     def read(self, path: str | Path, **kwargs) -> ParseResult[object]: ...
 
 
+class MemoryReaderCodec(Protocol):
+    """Reader surface for already-loaded text and byte sources."""
+
+    format_id: str
+    priority: int
+
+    def probe_text(self, text: str) -> bool: ...
+
+    def read_text(self, text: str, **kwargs) -> ParseResult[object]: ...
+
+    def read_bytes(self, raw_bytes: bytes, **kwargs) -> ParseResult[object]: ...
+
+
 class WriterCodec(Protocol):
     format_id: str
     priority: int

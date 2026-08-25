@@ -34,6 +34,19 @@ For the shared example, output is:
     water_mp2.out 1 orcaout
     ```
 
+When the caller already has source content, use the memory entry points instead
+of creating a temporary file:
+
+```python
+from molop import AutoBytesParser, AutoTextParser
+
+parsed_text = AutoTextParser("1\nwater\nH 0.0 0.0 0.0\n", parser_detection="xyz")
+parsed_bytes = AutoBytesParser(raw_bytes, parser_detection="xyz")
+```
+
+`AutoMemoryParser` accepts either kind of source. A string is treated as text,
+not as a path; use `AutoFileParser` for paths.
+
 ## Input forms
 
 ```python

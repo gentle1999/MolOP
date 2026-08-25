@@ -138,6 +138,7 @@ def register(registry: Registry) -> None:
                 level=StructureLevel.COORDS,
                 parser_cls=G16FchkFileParserDisk,
                 priority=priority,
+                memory_parser_cls=G16FchkFileParserMemory,
             ),
         )
 
