@@ -21,8 +21,12 @@ TS_LOG = (
     / "g16log"
     / ("000000000000_000016928457_00_conf_01_ts.107c60f3cfcb.log")
 )
-ADDITIONAL_SAMPLING_TS_LOG = ROOT / "tests" / "test_files" / "g16log" / (
-    "R6-BOX_2-COO_Me_w-Cl_C_new_type-a_conf-1_TS_Opt.log"
+ADDITIONAL_SAMPLING_TS_LOG = (
+    ROOT
+    / "tests"
+    / "test_files"
+    / "g16log"
+    / ("R6-BOX_2-COO_Me_w-Cl_C_new_type-a_conf-1_TS_Opt.log")
 )
 
 
@@ -165,10 +169,9 @@ def generate_transition_state_additional_sampling_image() -> None:
 
     standard_pre, standard_post = frame.possible_pre_post_ts(show_3D=True)
     additional_pre, additional_post = frame.additional_pre_post_ts(standard_pre, standard_post)
-    if (
-        Chem.MolToSmiles(standard_pre) == Chem.MolToSmiles(additional_pre)
-        and Chem.MolToSmiles(standard_post) == Chem.MolToSmiles(additional_post)
-    ):
+    if Chem.MolToSmiles(standard_pre) == Chem.MolToSmiles(additional_pre) and Chem.MolToSmiles(
+        standard_post
+    ) == Chem.MolToSmiles(additional_post):
         raise RuntimeError("The additional-sampling TS fixture did not produce a distinct topology")
 
     endpoints = [standard_pre, standard_post, additional_pre, additional_post]

@@ -185,9 +185,7 @@ def _bond_change_atom_indices(first: RdMol, second: RdMol) -> set[int]:
     """Return atoms incident to bonds that differ between two endpoint graphs."""
 
     return {
-        atom_index
-        for atom_pair in _bond_change_pairs(first, second)
-        for atom_index in atom_pair
+        atom_index for atom_pair in _bond_change_pairs(first, second) for atom_index in atom_pair
     }
 
 
@@ -1186,9 +1184,8 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             raise ValueError("max_ratio must be finite and greater than or equal to min_ratio")
         if steps < 1:
             raise ValueError("steps must be >= 1")
-        if (
-            pre_rdmol.GetNumAtoms() != post_rdmol.GetNumAtoms()
-            or pre_rdmol.GetNumAtoms() != len(self.atoms)
+        if pre_rdmol.GetNumAtoms() != post_rdmol.GetNumAtoms() or pre_rdmol.GetNumAtoms() != len(
+            self.atoms
         ):
             raise ValueError("TS endpoints must contain the same atoms as the source frame")
 
