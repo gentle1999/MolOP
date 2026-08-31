@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.11.dev1+g168cfa5e3.d20260825</code></span>
-        <span><code>main@168cfa5e3f2b</code></span>
-        <span>最近发布 <code>0.2.10</code></span>
+        <span>源码 <code>0.2.12.dev1+g60000ac3e.d20260831</code></span>
+        <span><code>main@60000ac3eec6</code></span>
+        <span>最近发布 <code>0.2.11</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../../../versioning/">版本说明</a>
@@ -1385,6 +1385,34 @@
     
   
     03 - 转换与导出
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../../examples/04-transition-state-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    04 - 过渡态前后体表示
   
 
     
@@ -4349,9 +4377,9 @@ frame 选择、格式转换和图像预览操作。</p>
 </span><span id="__span-0-832"><a id="__codelineno-0-832" name="__codelineno-0-832"></a><a href="#__codelineno-0-832"><span class="linenos" data-linenos=" 832 "></span></a>        <span class="n">output_dir</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
 </span><span id="__span-0-833"><a id="__codelineno-0-833" name="__codelineno-0-833"></a><a href="#__codelineno-0-833"><span class="linenos" data-linenos=" 833 "></span></a>        <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-834"><a id="__codelineno-0-834" name="__codelineno-0-834"></a><a href="#__codelineno-0-834"><span class="linenos" data-linenos=" 834 "></span></a>        <span class="nb">format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;xyz&quot;</span><span class="p">,</span> <span class="s2">&quot;sdf&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;xyz&quot;</span><span class="p">,</span>
-</span><span id="__span-0-835"><a id="__codelineno-0-835" name="__codelineno-0-835"></a><a href="#__codelineno-0-835"><span class="linenos" data-linenos=" 835 "></span></a>        <span class="n">min_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.75</span><span class="p">,</span>
-</span><span id="__span-0-836"><a id="__codelineno-0-836" name="__codelineno-0-836"></a><a href="#__codelineno-0-836"><span class="linenos" data-linenos=" 836 "></span></a>        <span class="n">max_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.75</span><span class="p">,</span>
-</span><span id="__span-0-837"><a id="__codelineno-0-837" name="__codelineno-0-837"></a><a href="#__codelineno-0-837"><span class="linenos" data-linenos=" 837 "></span></a>        <span class="n">steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">7</span><span class="p">,</span>
+</span><span id="__span-0-835"><a id="__codelineno-0-835" name="__codelineno-0-835"></a><a href="#__codelineno-0-835"><span class="linenos" data-linenos=" 835 "></span></a>        <span class="n">min_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+</span><span id="__span-0-836"><a id="__codelineno-0-836" name="__codelineno-0-836"></a><a href="#__codelineno-0-836"><span class="linenos" data-linenos=" 836 "></span></a>        <span class="n">max_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.8</span><span class="p">,</span>
+</span><span id="__span-0-837"><a id="__codelineno-0-837" name="__codelineno-0-837"></a><a href="#__codelineno-0-837"><span class="linenos" data-linenos=" 837 "></span></a>        <span class="n">steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">,</span>
 </span><span id="__span-0-838"><a id="__codelineno-0-838" name="__codelineno-0-838"></a><a href="#__codelineno-0-838"><span class="linenos" data-linenos=" 838 "></span></a>        <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
 </span><span id="__span-0-839"><a id="__codelineno-0-839" name="__codelineno-0-839"></a><a href="#__codelineno-0-839"><span class="linenos" data-linenos=" 839 "></span></a>    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]]:</span>
 </span><span id="__span-0-840"><a id="__codelineno-0-840" name="__codelineno-0-840"></a><a href="#__codelineno-0-840"><span class="linenos" data-linenos=" 840 "></span></a><span class="w">        </span><span class="sd">&quot;&quot;&quot;Export endpoint candidates for every TS frame in every calculation file.</span>
@@ -6452,7 +6480,7 @@ allowing callers to opt into format-specific APIs.</p>
 
 
 <h3 id="molop.io.FileBatchModelDisk.FileBatchModelDisk.save_pre_post_ts" class="doc doc-heading">
-            <code class="highlight language-python"><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;xyz&#39;</span><span class="p">,</span> <span class="n">min_ratio</span><span class="o">=</span><span class="mf">0.75</span><span class="p">,</span> <span class="n">max_ratio</span><span class="o">=</span><span class="mf">1.75</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">7</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></code>
+            <code class="highlight language-python"><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="o">*</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;xyz&#39;</span><span class="p">,</span> <span class="n">min_ratio</span><span class="o">=</span><span class="mf">0.2</span><span class="p">,</span> <span class="n">max_ratio</span><span class="o">=</span><span class="mf">1.8</span><span class="p">,</span> <span class="n">steps</span><span class="o">=</span><span class="mi">9</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=-</span><span class="mi">1</span><span class="p">)</span></code>
 
 <a href="#molop.io.FileBatchModelDisk.FileBatchModelDisk.save_pre_post_ts" class="headerlink" title="Permanent link">&para;</a></h3>
 
@@ -6475,9 +6503,9 @@ on each side from <code>min_ratio</code> through <code>max_ratio</code>.</p>
 </span><span id="__span-0-832"><a id="__codelineno-0-832" name="__codelineno-0-832"></a><a href="#__codelineno-0-832"><span class="linenos" data-linenos="832 "></span></a>    <span class="n">output_dir</span><span class="p">:</span> <span class="n">os</span><span class="o">.</span><span class="n">PathLike</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">|</span> <span class="nb">str</span><span class="p">,</span>
 </span><span id="__span-0-833"><a id="__codelineno-0-833" name="__codelineno-0-833"></a><a href="#__codelineno-0-833"><span class="linenos" data-linenos="833 "></span></a>    <span class="o">*</span><span class="p">,</span>
 </span><span id="__span-0-834"><a id="__codelineno-0-834" name="__codelineno-0-834"></a><a href="#__codelineno-0-834"><span class="linenos" data-linenos="834 "></span></a>    <span class="nb">format</span><span class="p">:</span> <span class="n">Literal</span><span class="p">[</span><span class="s2">&quot;xyz&quot;</span><span class="p">,</span> <span class="s2">&quot;sdf&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="s2">&quot;xyz&quot;</span><span class="p">,</span>
-</span><span id="__span-0-835"><a id="__codelineno-0-835" name="__codelineno-0-835"></a><a href="#__codelineno-0-835"><span class="linenos" data-linenos="835 "></span></a>    <span class="n">min_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.75</span><span class="p">,</span>
-</span><span id="__span-0-836"><a id="__codelineno-0-836" name="__codelineno-0-836"></a><a href="#__codelineno-0-836"><span class="linenos" data-linenos="836 "></span></a>    <span class="n">max_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.75</span><span class="p">,</span>
-</span><span id="__span-0-837"><a id="__codelineno-0-837" name="__codelineno-0-837"></a><a href="#__codelineno-0-837"><span class="linenos" data-linenos="837 "></span></a>    <span class="n">steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">7</span><span class="p">,</span>
+</span><span id="__span-0-835"><a id="__codelineno-0-835" name="__codelineno-0-835"></a><a href="#__codelineno-0-835"><span class="linenos" data-linenos="835 "></span></a>    <span class="n">min_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.2</span><span class="p">,</span>
+</span><span id="__span-0-836"><a id="__codelineno-0-836" name="__codelineno-0-836"></a><a href="#__codelineno-0-836"><span class="linenos" data-linenos="836 "></span></a>    <span class="n">max_ratio</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.8</span><span class="p">,</span>
+</span><span id="__span-0-837"><a id="__codelineno-0-837" name="__codelineno-0-837"></a><a href="#__codelineno-0-837"><span class="linenos" data-linenos="837 "></span></a>    <span class="n">steps</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">9</span><span class="p">,</span>
 </span><span id="__span-0-838"><a id="__codelineno-0-838" name="__codelineno-0-838"></a><a href="#__codelineno-0-838"><span class="linenos" data-linenos="838 "></span></a>    <span class="n">n_jobs</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span><span class="p">,</span>
 </span><span id="__span-0-839"><a id="__codelineno-0-839" name="__codelineno-0-839"></a><a href="#__codelineno-0-839"><span class="linenos" data-linenos="839 "></span></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">Path</span><span class="p">,</span> <span class="n">Path</span><span class="p">]]]:</span>
 </span><span id="__span-0-840"><a id="__codelineno-0-840" name="__codelineno-0-840"></a><a href="#__codelineno-0-840"><span class="linenos" data-linenos="840 "></span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;Export endpoint candidates for every TS frame in every calculation file.</span>

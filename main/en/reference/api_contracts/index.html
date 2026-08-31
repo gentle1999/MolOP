@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.11.dev1+g168cfa5e3.d20260825</code></span>
-        <span><code>main@168cfa5e3f2b</code></span>
-        <span>Latest release <code>0.2.10</code></span>
+        <span>Source <code>0.2.12.dev1+g60000ac3e.d20260831</code></span>
+        <span><code>main@60000ac3eec6</code></span>
+        <span>Latest release <code>0.2.11</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -1387,6 +1387,34 @@
     
   
     03 - Transform and export
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/04-transition-state-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    04 - Transition-state endpoint representations
   
 
     
@@ -3604,9 +3632,14 @@ the source path as its outer key. Only calculation files with this operation are
 files in a mixed batch are skipped with a warning. Unique source stems are retained, while duplicate
 stems receive a stable source-path digest to prevent overwriting another file&rsquo;s results. The
 endpoints are geometry-based candidates, not optimized reactant or product structures. Endpoint
-inference samples <code>steps=7</code> amplitudes per displacement side from <code>min_ratio=0.75</code> through
-<code>max_ratio=1.75</code>, selects each side&rsquo;s most frequent topology, and maps the candidate with more
+inference samples <code>steps=9</code> amplitudes per displacement side from <code>min_ratio=0.2</code> through
+<code>max_ratio=1.8</code>, selects each side&rsquo;s most frequent topology, and maps the candidate with more
 fragments to the precursor.</p>
+<p>The standard endpoint pair is unchanged by the optional additional sampling. To generate an
+additional-sampling pair, keep the standard endpoints&rsquo; conformers and call
+<code>additional_pre_post_ts(pre, post)</code>;
+atoms incident to changed bonds remain at their endpoint coordinates while the other atoms are
+resampled along the imaginary mode. If no bond changes are present, the input pair is returned.</p>
 <h2 id="to_summary_df"><code>to_summary_df</code><a class="headerlink" href="#to_summary_df" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><a href="#__codelineno-8-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">summary</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">to_summary_df</span><span class="p">(</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2"></a><a href="#__codelineno-8-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;frame&quot;</span><span class="p">,</span>

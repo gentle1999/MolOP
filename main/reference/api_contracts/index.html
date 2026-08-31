@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.11.dev1+g168cfa5e3.d20260825</code></span>
-        <span><code>main@168cfa5e3f2b</code></span>
-        <span>最近发布 <code>0.2.10</code></span>
+        <span>源码 <code>0.2.12.dev1+g60000ac3e.d20260831</code></span>
+        <span><code>main@60000ac3eec6</code></span>
+        <span>最近发布 <code>0.2.11</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../../versioning/">版本说明</a>
@@ -1385,6 +1385,34 @@
     
   
     03 - 转换与导出
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../examples/04-transition-state-endpoints/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    04 - 过渡态前后体表示
   
 
     
@@ -3586,9 +3614,12 @@ legend 保留 frame ID，并在可用时加入 TS 标记和总能量。<code>ima
 <p>文件级返回 <code>{frame_id: (pre_path, post_path)}</code>；batch 级返回值再增加源文件路径这一层。混合
 batch 中不支持该操作的文件会记录 warning 并跳过。唯一 source stem 保持原名；重复 stem 会追加
 稳定的源路径摘要，避免覆盖其他文件的结果。导出的前后体是基于几何的候选，不是优化后的真实
-反应物或产物。前后体推断默认在每个振动方向上采样 <code>steps=7</code> 个振幅，范围为
-<code>min_ratio=0.75</code> 至 <code>max_ratio=1.75</code>；每侧选择出现频次最高的拓扑，再将碎片数更多的候选
+反应物或产物。前后体推断默认在每个振动方向上采样 <code>steps=9</code> 个振幅，范围为
+<code>min_ratio=0.2</code> 至 <code>max_ratio=1.8</code>；每侧选择出现频次最高的拓扑，再将碎片数更多的候选
 判为前体。</p>
+<p>标准前后体结果不会被额外采样替代。保留标准前后体的三维构象后，可调用
+<code>additional_pre_post_ts(pre, post)</code> 生成额外采样的一对表示；成键或断键相关原子固定在原前后体坐标，
+其余原子沿虚频振动模式重新扫描。如果不存在键变化，则直接返回传入的前后体。</p>
 <h2 id="to_summary_df"><code>to_summary_df</code><a class="headerlink" href="#to_summary_df" title="Permanent link">&para;</a></h2>
 <div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1"></a><a href="#__codelineno-8-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">summary</span> <span class="o">=</span> <span class="n">batch</span><span class="o">.</span><span class="n">to_summary_df</span><span class="p">(</span>
 </span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2"></a><a href="#__codelineno-8-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">mode</span><span class="o">=</span><span class="s2">&quot;frame&quot;</span><span class="p">,</span>
