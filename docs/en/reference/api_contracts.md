@@ -165,9 +165,15 @@ the source path as its outer key. Only calculation files with this operation are
 files in a mixed batch are skipped with a warning. Unique source stems are retained, while duplicate
 stems receive a stable source-path digest to prevent overwriting another file's results. The
 endpoints are geometry-based candidates, not optimized reactant or product structures. Endpoint
-inference samples `steps=7` amplitudes per displacement side from `min_ratio=0.75` through
-`max_ratio=1.75`, selects each side's most frequent topology, and maps the candidate with more
+inference samples `steps=9` amplitudes per displacement side from `min_ratio=0.2` through
+`max_ratio=1.8`, selects each side's most frequent topology, and maps the candidate with more
 fragments to the precursor.
+
+The standard endpoint pair is unchanged by the optional additional sampling. To generate an
+additional-sampling pair, keep the standard endpoints' conformers and call
+`additional_pre_post_ts(pre, post)`;
+atoms incident to changed bonds remain at their endpoint coordinates while the other atoms are
+resampled along the imaginary mode. If no bond changes are present, the input pair is returned.
 
 ## `to_summary_df`
 

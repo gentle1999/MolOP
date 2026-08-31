@@ -46,5 +46,6 @@
     - [Gaussian 解析与检查](../examples/01-gaussian-parse-and-inspect.ipynb)
     - [批量汇总、过滤与选择](../examples/02-batch-summary-filter-select.ipynb)
     - [转换与导出](../examples/03-transform-and-export.ipynb)
+    - [过渡态前后体表示](../examples/04-transition-state-endpoints.ipynb)
 
 新增 reader/writer 属于开发者任务，见[插件开发](../developer/plugins.md)。

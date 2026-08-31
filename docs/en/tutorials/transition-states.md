@@ -147,12 +147,35 @@ structures. `to_diff_rdmol` can return `None` when no supported bond-breaking di
 Review atom mapping, connectivity, and the original calculation before using either result in an
 automated reaction workflow.
 
-By default, endpoint inference samples seven amplitudes on each side of the imaginary mode, evenly
-spaced from `min_ratio=0.75` to `max_ratio=1.75`. It votes for the most frequent reconstructed
+By default, endpoint inference samples nine amplitudes on each side of the imaginary mode, evenly
+spaced from `min_ratio=0.2` to `max_ratio=1.8`. It votes for the most frequent reconstructed
 topology separately in the negative and positive displacement spaces, retaining the
 largest-amplitude conformer for the winning topology. The candidate with more disconnected
 fragments is returned as the precursor; equal fragment counts preserve negative-side then
 positive-side order. Use `steps` to change the number of amplitudes sampled on each side.
+
+The standard endpoint pair remains the primary result. For an additional representation, retain
+the endpoint conformers and resample the atoms not incident to changed bonds while fixing the
+changed atoms at their endpoint coordinates:
+
+```python
+standard_pre, standard_post = ts_frame.possible_pre_post_ts(show_3D=True)
+additional_pre, additional_post = ts_frame.additional_pre_post_ts(standard_pre, standard_post)
+```
+
+When no bonds change between the standard endpoints, the additional sampling returns that same pair.
+
+The following Notebook image compares the standard and additional-sampling results on a real TS frame.
+Because the additional sampling fixes only atoms incident to changed bonds, rescanning the remaining atoms can recover
+a different fragment topology in some cases:
+
+??? example "Standard and additional-sampling endpoint representations (Notebook image output)"
+
+    ![Comparison of standard and additional-sampling endpoint representations](../../assets/examples/ts_endpoints_additional_sampling.svg)
+
+    The top row contains the standard precursor and product; the bottom row contains the additional-sampling
+    precursor and product. Each legend reports the fragment count. This pair is an additional representation
+    and does not replace the standard endpoints.
 
 Write the pair as XYZ (the default) or SDF files with `save_pre_post_ts(...)`. SDF retains the
 reconstructed graph and the inferred three-dimensional conformer:

@@ -113,6 +113,7 @@ plugins:
             01-Gaussian 解析与检查: 01-Gaussian Parse and Inspect
             02-批量汇总、过滤与选择: 02-Batch Summary, Filter and Select
             03-转换与导出: 03-Transform and Export
+            04-过渡态前后体表示: 04-Transition-state Endpoint Representations
             格式与数据参考: Formats and Data Reference
             格式支持概览: Format Overview
             格式: Formats
@@ -185,6 +186,7 @@ nav:
       - 01-Gaussian 解析与检查: examples/01-gaussian-parse-and-inspect.ipynb
       - 02-批量汇总、过滤与选择: examples/02-batch-summary-filter-select.ipynb
       - 03-转换与导出: examples/03-transform-and-export.ipynb
+      - 04-过渡态前后体表示: examples/04-transition-state-endpoints.ipynb
   - 格式与数据参考:
     - 格式支持概览: reference/format_support.md
     - 格式:

@@ -2,7 +2,7 @@
 Author: TMJ
 Date: 2025-07-28 18:43:45
 LastEditors: TMJ
-LastEditTime: 2026-05-05 19:27:03
+LastEditTime: 2026-08-30 23:26:00
 Description: 请填写简介
 """
 
@@ -156,6 +156,41 @@ def _most_frequent_topology(candidates: Sequence[RdMol], *, side: str) -> RdMol:
     return representative
 
 
+def _bond_change_pairs(first: RdMol, second: RdMol) -> set[tuple[int, int]]:
+    """Return atom pairs whose bond presence or type differs between two graphs."""
+
+    if first.GetNumAtoms() != second.GetNumAtoms():
+        return set()
+
+    def bond_types(molecule: RdMol) -> dict[tuple[int, int], Chem.BondType]:
+        result: dict[tuple[int, int], Chem.BondType] = {}
+        for bond in molecule.GetBonds():
+            start_atom_idx = bond.GetBeginAtomIdx()
+            end_atom_idx = bond.GetEndAtomIdx()
+            if start_atom_idx > end_atom_idx:
+                start_atom_idx, end_atom_idx = end_atom_idx, start_atom_idx
+            result[(start_atom_idx, end_atom_idx)] = bond.GetBondType()
+        return result
+
+    first_bonds = bond_types(first)
+    second_bonds = bond_types(second)
+    return {
+        atom_pair
+        for atom_pair in first_bonds.keys() | second_bonds.keys()
+        if first_bonds.get(atom_pair) != second_bonds.get(atom_pair)
+    }
+
+
+def _bond_change_atom_indices(first: RdMol, second: RdMol) -> set[int]:
+    """Return atoms incident to bonds that differ between two endpoint graphs."""
+
+    return {
+        atom_index
+        for atom_pair in _bond_change_pairs(first, second)
+        for atom_index in atom_pair
+    }
+
+
 def _method_family_allows_functional(method_family: str | None) -> bool:
     if method_family is None:
         return False
@@ -245,7 +280,6 @@ def _process_bond_helper(
     start_atom_idx: int,
     end_atom_idx: int,
     other_rdmol: RdMol,
-    bond_type: Chem.BondType,
 ) -> None:
     """
     Helper function to process bonds and set bond types to zero if necessary.
@@ -259,15 +293,13 @@ def _process_bond_helper(
             The index of the end atom in the bond.
         other_rdmol (RdMol):
             The other RDKit molecule to compare against.
-        bond_type (Chem.BondType):
-            The type of the bond in the reactant or product molecule.
     """
     bond_1 = rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx)
     bond_2 = other_rdmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx)
     if bond_1 is None:
         rwmol.AddBond(start_atom_idx, end_atom_idx, Chem.BondType.ZERO)
-    elif bond_2 is None or bond_type != bond_2.GetBondType():
-        rwmol.GetBondBetweenAtoms(start_atom_idx, end_atom_idx).SetBondType(Chem.BondType.ZERO)
+    elif bond_2 is None or bond_1.GetBondType() != bond_2.GetBondType():
+        bond_1.SetBondType(Chem.BondType.ZERO)
 
 
 ChemFileFrame = TypeVar("ChemFileFrame", bound="BaseChemFileFrame")
@@ -1013,9 +1045,9 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         self,
         show_3D: bool = False,
         *,
-        min_ratio: float = 0.75,
-        max_ratio: float = 1.75,
-        steps: int = 7,
+        min_ratio: float = 0.2,
+        max_ratio: float = 1.8,
+        steps: int = 9,
     ) -> tuple[Chem.rdchem.Mol, Chem.rdchem.Mol]:
         """Infer possible pre- and post-TS molecules from stable side topologies.
 
@@ -1023,11 +1055,11 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             show_3D (bool):
                 Whether to show 3D coordinates. Defaults to False.
             min_ratio (float):
-                The smallest displacement amplitude to sample. Defaults to 0.75.
+                The smallest displacement amplitude to sample. Defaults to 0.2.
             max_ratio (float):
-                The largest displacement amplitude to sample. Defaults to 1.75.
+                The largest displacement amplitude to sample. Defaults to 1.8.
             steps (int):
-                The number of amplitudes sampled on each side. Defaults to 7.
+                The number of amplitudes sampled on each side. Defaults to 9.
 
         Returns:
             Tuple[Chem.rdchem.Mol, Chem.rdchem.Mol]: A tuple containing the possible pre- and post-transition state molecules.
@@ -1061,15 +1093,165 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             product_rdmol.RemoveAllConformers()
         return reactant_rdmol, product_rdmol
 
+    def _additional_pre_post_ts_side(
+        self,
+        *,
+        side: str,
+        direction: float,
+        endpoint: RdMol,
+        fixed_atom_indices: set[int],
+        amplitudes: npt.NDArray[np.floating[Any]],
+    ) -> RdMol | None:
+        """Resample one mode direction while holding reaction-center atoms fixed."""
+
+        if endpoint.GetNumConformers() == 0:
+            raise ValueError(
+                "Additional TS endpoint sampling requires endpoint conformers; "
+                "call possible_pre_post_ts(show_3D=True) first."
+            )
+
+        endpoint_coords = np.asarray(endpoint.GetConformer().GetPositions(), dtype=float)
+        ts_coords = np.asarray(self.coords.m, dtype=float)
+        vibrations = self.vibrations
+        if vibrations is None:
+            raise ValueError("Additional TS endpoint sampling requires vibration data")
+        vibration = vibrations[self._ts_vibration_id()]
+        mode_coords = np.asarray(vibration.vibration_mode.m, dtype=float)
+        if endpoint_coords.shape != ts_coords.shape or mode_coords.shape != ts_coords.shape:
+            raise ValueError("TS endpoint and vibration coordinates must have matching shapes")
+
+        fixed_indices = sorted(fixed_atom_indices)
+        side_candidates: list[RdMol] = []
+        for amplitude in amplitudes:
+            displaced_coords = np.array(
+                ts_coords + direction * mode_coords * float(amplitude),
+                dtype=float,
+                copy=True,
+            )
+            displaced_coords[fixed_indices, :] = endpoint_coords[fixed_indices, :]
+            coordinate_rdmol = Chem.MolFromXYZBlock(
+                f"{len(self.atoms)}\n"
+                + f"charge {self.charge} multiplicity {self.multiplicity}\n"
+                + "\n".join(
+                    [
+                        f"{Chem.Atom(atom).GetSymbol():10s}{x:10.5f}{y:10.5f}{z:10.5f}"
+                        for atom, (x, y, z) in zip(
+                            self.atoms,
+                            displaced_coords,
+                            strict=True,
+                        )
+                    ]
+                )
+            )
+            if coordinate_rdmol is None or not check_crowding(coordinate_rdmol):
+                continue
+
+            molecule = Molecule.from_coords(
+                atom_symbols=self.atom_symbols,
+                coords=displaced_coords,
+                charge=self.charge,
+                multiplicity=self.multiplicity,
+            )
+            if (rdmol := molecule.rdmol) is not None:
+                side_candidates.append(rdmol)
+
+        if not side_candidates:
+            return None
+        return _most_frequent_topology(side_candidates, side=f"{side}-additional")
+
+    def additional_pre_post_ts(
+        self,
+        pre_rdmol: RdMol,
+        post_rdmol: RdMol,
+        *,
+        min_ratio: float = 0.2,
+        max_ratio: float = 1.8,
+        steps: int = 9,
+    ) -> tuple[RdMol, RdMol]:
+        """Generate an additional-sampling TS endpoint representation.
+
+        Atoms incident to bonds that differ between ``pre_rdmol`` and ``post_rdmol``
+        retain their endpoint coordinates. The remaining atoms are resampled along
+        the imaginary mode, and the resulting side-wise topology modes are returned.
+        The standard :meth:`possible_pre_post_ts` result is never replaced or mutated.
+        If no bond-change atoms are present, the input endpoints are returned directly.
+
+        The input endpoints must retain 3D conformers, for example by calling
+        ``possible_pre_post_ts(show_3D=True)``.
+        """
+
+        if not np.isfinite(min_ratio) or min_ratio <= 0:
+            raise ValueError("min_ratio must be a finite value greater than 0")
+        if not np.isfinite(max_ratio) or max_ratio < min_ratio:
+            raise ValueError("max_ratio must be finite and greater than or equal to min_ratio")
+        if steps < 1:
+            raise ValueError("steps must be >= 1")
+        if (
+            pre_rdmol.GetNumAtoms() != post_rdmol.GetNumAtoms()
+            or pre_rdmol.GetNumAtoms() != len(self.atoms)
+        ):
+            raise ValueError("TS endpoints must contain the same atoms as the source frame")
+
+        changed_atom_indices = _bond_change_atom_indices(pre_rdmol, post_rdmol)
+        if not changed_atom_indices:
+            return pre_rdmol, post_rdmol
+
+        ts_coords = np.asarray(self.coords.m, dtype=float)
+        vibrations = self.vibrations
+        if vibrations is None:
+            raise ValueError("Additional TS endpoint sampling requires vibration data")
+        vibration = vibrations[self._ts_vibration_id()]
+        mode_coords = np.asarray(vibration.vibration_mode.m, dtype=float)
+        if mode_coords.shape != ts_coords.shape:
+            raise ValueError("TS vibration mode and source coordinates must have matching shapes")
+
+        endpoint_directions: list[float] = []
+        for endpoint in (pre_rdmol, post_rdmol):
+            if endpoint.GetNumConformers() == 0:
+                raise ValueError(
+                    "Additional TS endpoint sampling requires endpoint conformers; "
+                    "call possible_pre_post_ts(show_3D=True) first."
+                )
+            endpoint_coords = np.asarray(endpoint.GetConformer().GetPositions(), dtype=float)
+            if endpoint_coords.shape != ts_coords.shape:
+                raise ValueError("TS endpoint and source coordinates must have matching shapes")
+            projection = float(np.sum((endpoint_coords - ts_coords) * mode_coords))
+            if np.isclose(projection, 0.0):
+                raise ValueError("Could not determine the vibration direction of a TS endpoint")
+            endpoint_directions.append(1.0 if projection > 0.0 else -1.0)
+
+        amplitudes = np.linspace(min_ratio, max_ratio, num=steps, endpoint=True)
+        additional_endpoints: list[RdMol] = []
+        for side, direction, endpoint in zip(
+            ("pre", "post"),
+            endpoint_directions,
+            (pre_rdmol, post_rdmol),
+            strict=True,
+        ):
+            additional = self._additional_pre_post_ts_side(
+                side=side,
+                direction=direction,
+                endpoint=endpoint,
+                fixed_atom_indices=changed_atom_indices,
+                amplitudes=amplitudes,
+            )
+            additional_endpoints.append(additional if additional is not None else endpoint)
+
+        additional_endpoints.sort(
+            key=lambda molecule: len(Chem.GetMolFrags(molecule)),
+            reverse=True,
+        )
+        return additional_endpoints[0], additional_endpoints[1]
+
     def save_pre_post_ts(
         self,
         output_dir: os.PathLike[str] | str,
         *,
         prefix: str | None = None,
         format: Literal["xyz", "sdf"] = "xyz",
-        min_ratio: float = 0.75,
-        max_ratio: float = 1.75,
-        steps: int = 7,
+        min_ratio: float = 0.2,
+        max_ratio: float = 1.8,
+        steps: int = 9,
     ) -> tuple[Path, Path]:
         """Save inferred pre- and post-TS endpoint candidates.
 
@@ -1136,20 +1318,20 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
     def to_diff_rdmol(
         self,
         *,
-        min_ratio: float = 0.75,
-        max_ratio: float = 1.75,
-        steps: int = 7,
+        min_ratio: float = 0.2,
+        max_ratio: float = 1.8,
+        steps: int = 9,
     ) -> RdMol | None:
         """
         Generate a rdkit molecule object for the transition state with bond-breaking.
 
         Parameters:
             min_ratio (float):
-                The smallest displacement amplitude to sample. Defaults to 0.75.
+                The smallest displacement amplitude to sample. Defaults to 0.2.
             max_ratio (float):
-                The largest displacement amplitude to sample. Defaults to 1.75.
+                The largest displacement amplitude to sample. Defaults to 1.8.
             steps (int):
-                The number of amplitudes sampled on each side. Defaults to 7.
+                The number of amplitudes sampled on each side. Defaults to 9.
 
         Returns:
             Optional[RdMol]: The rdkit molecule object for the transition state with bond-breaking.
@@ -1171,33 +1353,14 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             )
 
             rwmol = Chem.RWMol(reactant_rdmol)
-
-            for bond_idx in range(reactant_rdmol.GetNumBonds()):
-                bond = reactant_rdmol.GetBondWithIdx(bond_idx)
-                start_atom_idx, end_atom_idx = (
-                    bond.GetBeginAtomIdx(),
-                    bond.GetEndAtomIdx(),
-                )
+            for start_atom_idx, end_atom_idx in sorted(
+                _bond_change_pairs(reactant_rdmol, product_rdmol)
+            ):
                 _process_bond_helper(
                     rwmol,
                     start_atom_idx,
                     end_atom_idx,
                     product_rdmol,
-                    bond.GetBondType(),
-                )
-
-            for bond_idx in range(product_rdmol.GetNumBonds()):
-                bond = product_rdmol.GetBondWithIdx(bond_idx)
-                start_atom_idx, end_atom_idx = (
-                    bond.GetBeginAtomIdx(),
-                    bond.GetEndAtomIdx(),
-                )
-                _process_bond_helper(
-                    rwmol,
-                    start_atom_idx,
-                    end_atom_idx,
-                    reactant_rdmol,
-                    bond.GetBondType(),
                 )
             for atom_idx in range(rwmol.GetNumAtoms()):
                 atom = rwmol.GetAtomWithIdx(atom_idx)

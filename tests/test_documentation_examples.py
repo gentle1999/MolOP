@@ -59,11 +59,13 @@ NOTEBOOK_NAMES = (
     "01-gaussian-parse-and-inspect.ipynb",
     "02-batch-summary-filter-select.ipynb",
     "03-transform-and-export.ipynb",
+    "04-transition-state-endpoints.ipynb",
 )
 GENERATED_VISUALIZATION_ASSETS = (
     "mn_complex_graph_reconstruction.svg",
     "ts_imaginary_mode.svg",
     "ts_endpoints_difference.svg",
+    "ts_endpoints_additional_sampling.svg",
 )
 
 OUTPUT_SECTION_RE = re.compile(

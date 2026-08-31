@@ -483,9 +483,9 @@ class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):
         output_dir: os.PathLike[str] | str,
         *,
         format: Literal["xyz", "sdf"] = "xyz",
-        min_ratio: float = 0.75,
-        max_ratio: float = 1.75,
-        steps: int = 7,
+        min_ratio: float = 0.2,
+        max_ratio: float = 1.8,
+        steps: int = 9,
     ) -> dict[int, tuple[Path, Path]]:
         """Export endpoint candidates for every transition-state frame in this file.
 

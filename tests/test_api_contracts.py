@@ -108,11 +108,21 @@ def test_ts_endpoint_sampling_signature_contract() -> None:
 
     for callable_obj in callables:
         parameters = signature(callable_obj).parameters
-        assert parameters["min_ratio"].default == 0.75
-        assert parameters["max_ratio"].default == 1.75
-        assert parameters["steps"].default == 7
+        assert parameters["min_ratio"].default == 0.2
+        assert parameters["max_ratio"].default == 1.8
+        assert parameters["steps"].default == 9
         assert "ratio" not in parameters
         assert "ratio_attempts" not in parameters
+
+
+def test_ts_endpoint_additional_sampling_signature_contract() -> None:
+    parameters = signature(BaseCalcFrame.additional_pre_post_ts).parameters
+
+    assert parameters["pre_rdmol"].kind is Parameter.POSITIONAL_OR_KEYWORD
+    assert parameters["post_rdmol"].kind is Parameter.POSITIONAL_OR_KEYWORD
+    assert parameters["min_ratio"].default == 0.2
+    assert parameters["max_ratio"].default == 1.8
+    assert parameters["steps"].default == 9
 
 
 def test_parallel_execute_public_signature_contract() -> None:

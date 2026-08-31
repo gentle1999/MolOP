@@ -21,6 +21,9 @@ TS_LOG = (
     / "g16log"
     / ("000000000000_000016928457_00_conf_01_ts.107c60f3cfcb.log")
 )
+ADDITIONAL_SAMPLING_TS_LOG = ROOT / "tests" / "test_files" / "g16log" / (
+    "R6-BOX_2-COO_Me_w-Cl_C_new_type-a_conf-1_TS_Opt.log"
+)
 
 
 def write_grid(
@@ -154,10 +157,41 @@ def generate_transition_state_images() -> None:
     )
 
 
+def generate_transition_state_additional_sampling_image() -> None:
+    parsed = AutoParser(ADDITIONAL_SAMPLING_TS_LOG, n_jobs=1)
+    frame = next((candidate for candidate in parsed[0] if candidate.is_TS), None)
+    if frame is None:
+        raise RuntimeError("The additional-sampling TS fixture has no TS frame")
+
+    standard_pre, standard_post = frame.possible_pre_post_ts(show_3D=True)
+    additional_pre, additional_post = frame.additional_pre_post_ts(standard_pre, standard_post)
+    if (
+        Chem.MolToSmiles(standard_pre) == Chem.MolToSmiles(additional_pre)
+        and Chem.MolToSmiles(standard_post) == Chem.MolToSmiles(additional_post)
+    ):
+        raise RuntimeError("The additional-sampling TS fixture did not produce a distinct topology")
+
+    endpoints = [standard_pre, standard_post, additional_pre, additional_post]
+    legends = [
+        f"standard pre | {len(Chem.GetMolFrags(standard_pre))} fragments",
+        f"standard post | {len(Chem.GetMolFrags(standard_post))} fragments",
+        f"additional-sampling pre | {len(Chem.GetMolFrags(additional_pre))} fragments",
+        f"additional-sampling post | {len(Chem.GetMolFrags(additional_post))} fragments",
+    ]
+    write_grid(
+        ASSETS / "ts_endpoints_additional_sampling.svg",
+        endpoints,
+        legends,
+        mols_per_row=2,
+        sub_image_size=(380, 320),
+    )
+
+
 def main() -> None:
     ASSETS.mkdir(parents=True, exist_ok=True)
     generate_reconstruction_image()
     generate_transition_state_images()
+    generate_transition_state_additional_sampling_image()
 
 
 if __name__ == "__main__":

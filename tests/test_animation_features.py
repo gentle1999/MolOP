@@ -234,6 +234,80 @@ def test_possible_pre_post_ts_votes_on_each_displacement_side(
     assert post.GetConformer().GetAtomPosition(0).x == pytest.approx(-1.5)
 
 
+def test_additional_pre_post_ts_returns_endpoints_without_bond_changes() -> None:
+    frame = BaseCalcFrame(
+        atoms=[6, 6],
+        coords=np.zeros((2, 3)) * atom_ureg.angstrom,
+    )
+    pre = Chem.MolFromSmiles("CC")
+    post = Chem.MolFromSmiles("CC")
+    assert pre is not None
+    assert post is not None
+
+    additional_pre, additional_post = frame.additional_pre_post_ts(pre, post)
+
+    assert additional_pre is pre
+    assert additional_post is post
+
+
+def test_additional_pre_post_ts_fixes_bond_change_atoms_during_resampling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import importlib
+
+    frame = BaseCalcFrame(
+        atoms=[6, 6, 6],
+        coords=np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [0.0, 3.0, 0.0],
+                [0.0, 6.0, 0.0],
+            ]
+        )
+        * atom_ureg.angstrom,
+        vibrations=Vibrations(
+            frequencies=np.array([-100.0, 100.0, 200.0]) * atom_ureg.cm**-1,
+            vibration_modes=[
+                np.array(
+                    [
+                        [1.0, 0.0, 0.0],
+                        [1.0, 0.0, 0.0],
+                        [1.0, 0.0, 0.0],
+                    ]
+                )
+                * atom_ureg.angstrom,
+                np.zeros((3, 3)) * atom_ureg.angstrom,
+                np.zeros((3, 3)) * atom_ureg.angstrom,
+            ],
+        ),
+    )
+    pre = _marked_topology("C.C.C", -1.8)
+    post = _marked_topology("CC.C", 1.8)
+    captured_coords: list[np.ndarray] = []
+    frame_module = importlib.import_module("molop.io.base_models.ChemFileFrame")
+
+    def fake_from_coords(*, coords: np.ndarray, **_kwargs: object) -> SimpleNamespace:
+        captured_coords.append(np.array(coords, copy=True))
+        return SimpleNamespace(rdmol=_marked_topology("C.C.C", float(coords[0, 0])))
+
+    monkeypatch.setattr(frame_module, "check_crowding", lambda _rdmol: True)
+    monkeypatch.setattr(frame_module.Molecule, "from_coords", staticmethod(fake_from_coords))
+    monkeypatch.setattr(BaseCalcFrame, "_ts_vibration_id", lambda _self: 0)
+
+    frame.additional_pre_post_ts(pre, post)
+
+    assert len(captured_coords) == 18
+    amplitudes = np.linspace(0.2, 1.8, num=9, endpoint=True)
+    for direction, endpoint, side_coords in (
+        (-1.0, pre, captured_coords[:9]),
+        (1.0, post, captured_coords[9:]),
+    ):
+        endpoint_coords = endpoint.GetConformer().GetPositions()
+        for coords, amplitude in zip(side_coords, amplitudes, strict=True):
+            np.testing.assert_allclose(coords[:2], endpoint_coords[:2])
+            np.testing.assert_allclose(coords[2], [direction * amplitude, 6.0, 0.0])
+
+
 def test_possible_pre_post_ts_removes_conformers_by_default(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -258,7 +332,7 @@ def test_possible_pre_post_ts_removes_conformers_by_default(
     [
         ({"min_ratio": 0.0}, "min_ratio"),
         ({"min_ratio": float("nan")}, "min_ratio"),
-        ({"max_ratio": 0.5}, "max_ratio"),
+        ({"max_ratio": 0.1}, "max_ratio"),
         ({"max_ratio": float("inf")}, "max_ratio"),
         ({"steps": 0}, "steps"),
     ],

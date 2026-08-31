@@ -140,10 +140,31 @@ if difference is not None:
 `to_diff_rdmol` 在无法推断出支持的断键差异时可能返回 `None`。自动反应流程使用这些结果前，
 仍需检查原子映射、连接关系和原始计算结果。
 
-默认情况下，前后体推断会在虚频振动的正、负两侧分别采样 7 个振幅，振幅在
-`min_ratio=0.75` 到 `max_ratio=1.75` 之间等距分布。两侧各自按重建拓扑的出现频次投票，
+默认情况下，前后体推断会在虚频振动的正、负两侧分别采样 9 个振幅，振幅在
+`min_ratio=0.2` 到 `max_ratio=1.8` 之间等距分布。两侧各自按重建拓扑的出现频次投票，
 并为胜出的拓扑保留其最大采样振幅下的三维构象。随后，碎片数更多的候选被判为前体；
 碎片数相同时保持负空间、正空间的顺序。`steps` 用于设置每侧的振幅采样数量。
+
+标准前后体仍然是主要结果，不会被额外采样表示替代。保留标准前后体的三维构象后，可以固定
+成键或断键相关原子的 endpoint 坐标，只对其余原子重新扫描虚频振动模式，从而得到额外的
+一对表示：
+
+```python
+standard_pre, standard_post = ts_frame.possible_pre_post_ts(show_3D=True)
+additional_pre, additional_post = ts_frame.additional_pre_post_ts(standard_pre, standard_post)
+```
+
+如果标准前后体之间不存在键变化，额外采样会直接返回这对前后体。
+
+下面的 Notebook 图像用真实 TS frame 并列展示标准结果与额外采样结果。额外采样只固定成键或断键相关原子，
+因此在某些案例中会让其余原子的重新扫描恢复出不同的碎片拓扑：
+
+??? example "标准与额外采样前后体表示（Notebook 图像输出）"
+
+    ![标准与额外采样前后体表示对比](../../assets/examples/ts_endpoints_additional_sampling.svg)
+
+    上排是标准前体和后体，下排是额外采样前体和后体。图中碎片数写在每个面板的 legend 中；额外采样结果
+    是附加表示，不会替换标准前后体。
 
 使用 `save_pre_post_ts(...)` 可直接将一对候选写成 XYZ（默认）或 SDF 文件；SDF 会保留重建的分子图和
 推断得到的三维构象：
