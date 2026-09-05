@@ -38,6 +38,18 @@ NO_MKDOCS_2_WARNING=1 uv run mkdocs build --strict
 Hooks and tests maintain format capability pages. Reader/writer changes require format coverage tests,
 not only a site build.
 
+## Release workflow
+
+Releases are created manually on GitHub. After the release changes are merged into `main`, open the
+[new release page](https://github.com/gentle1999/MolOP/releases/new), draft a release, create a `v*` tag
+such as `v0.2.13` from `main`, and publish it.
+
+The resulting `v*` tag event triggers `.github/workflows/ci.yaml` and
+`.github/workflows/docs-deploy.yml`. After all quality, build, documentation, and test gates pass, CI
+uploads the distributions to the existing GitHub Release and publishes them to PyPI through trusted
+publishing. The documentation workflow publishes the versioned documentation and updates the `latest`
+alias. Verify both workflow runs before announcing the version.
+
 ## Before committing
 
 ```bash

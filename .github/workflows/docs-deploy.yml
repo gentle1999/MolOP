@@ -39,7 +39,16 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-          ref: ${{ inputs.source_ref || github.ref }}
+          # A branch ref can move while a queued run is waiting.  For push
+          # events, build exactly the revision that triggered this run.
+          ref: ${{ inputs.source_ref || github.sha }}
+
+      - name: Record documentation source commit
+        id: docs-source
+        run: |
+          commit="$(git rev-parse HEAD)"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+          echo "MOLOP_DOCS_COMMIT=$commit" >> "$GITHUB_ENV"
 
       - name: Cache uv
         uses: actions/cache@v4
@@ -85,6 +94,7 @@ jobs:
           NO_MKDOCS_2_WARNING: "1"
           MOLOP_DOCS_SOURCE_VERSION: ${{ steps.docs-version.outputs.source_version }}
           MOLOP_DOCS_CHANNEL: ${{ steps.docs-version.outputs.channel }}
+          MOLOP_DOCS_COMMIT: ${{ steps.docs-source.outputs.commit }}
         run: uv run --frozen --group docs mkdocs build --strict -f mkdocs.yml
 
       - name: Configure documentation deployment identity
@@ -132,10 +142,12 @@ jobs:
 
       - name: Prepare versioned Pages artifact
         run: |
-          git fetch origin gh-pages
           git fetch origin main --depth=1
           mkdir pages-site
-          git archive origin/gh-pages | tar -x -C pages-site
+          # mike has just updated the local gh-pages ref.  Archiving the
+          # remote ref here can race with the preceding push and publish the
+          # previous deployment instead.
+          git archive gh-pages | tar -x -C pages-site
           git show origin/main:.github/pages-root-404.html > pages-site/404.html
 
       - name: Upload Pages artifact

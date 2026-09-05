@@ -74,3 +74,12 @@ def test_github_actions_use_version_tags() -> None:
                 assert uses_pattern.match(line), (
                     f"Action must use a version tag in {workflow}: {line}"
                 )
+
+
+def test_release_deployment_requires_a_manually_created_github_release() -> None:
+    workflow_text = (WORKFLOW_DIR / "ci.yaml").read_text(encoding="utf-8")
+
+    assert "gh release view" in workflow_text
+    assert "gh release upload" in workflow_text
+    assert "Create and publish it manually" in workflow_text
+    assert "gh release create" not in workflow_text

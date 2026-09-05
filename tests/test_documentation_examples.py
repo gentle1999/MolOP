@@ -732,7 +732,11 @@ def test_documentation_exposes_source_and_release_versions() -> None:
     assert "main dev" in deploy_workflow
     assert '"${DOCS_VERSION}" latest' in deploy_workflow
     assert "mike set-default --push latest" in deploy_workflow
-    assert "git archive origin/gh-pages" in deploy_workflow
+    assert "ref: ${{ inputs.source_ref || github.sha }}" in deploy_workflow
+    assert 'echo "MOLOP_DOCS_COMMIT=$commit" >> "$GITHUB_ENV"' in deploy_workflow
+    assert "MOLOP_DOCS_COMMIT: ${{ steps.docs-source.outputs.commit }}" in deploy_workflow
+    assert "git archive gh-pages" in deploy_workflow
+    assert "git archive origin/gh-pages" not in deploy_workflow
     assert "update_latest" in deploy_workflow
     assert "--with mike==2.2.0" in deploy_workflow
     assert "git show origin/main:.github/pages-root-404.html" in deploy_workflow

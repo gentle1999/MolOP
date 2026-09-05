@@ -1077,7 +1077,9 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 # With one vibration step, ``ratio`` selects the signed extreme.
                 displaced = self.ts_vibration(ratio=direction * float(amplitude), steps=1)
                 for molecule in displaced:
-                    if (rdmol := molecule.rdmol) is not None:
+                    if (rdmol := molecule.rdmol) is not None and getattr(
+                        molecule, "topology_reconstruction_status", None
+                    ) != "suspicious_fallback":
                         side_candidates.append(rdmol)
                         break
             selected_sides.append(_most_frequent_topology(side_candidates, side=side_name))
@@ -1150,7 +1152,9 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 charge=self.charge,
                 multiplicity=self.multiplicity,
             )
-            if (rdmol := molecule.rdmol) is not None:
+            if (rdmol := molecule.rdmol) is not None and getattr(
+                molecule, "topology_reconstruction_status", None
+            ) != "suspicious_fallback":
                 side_candidates.append(rdmol)
 
         if not side_candidates:

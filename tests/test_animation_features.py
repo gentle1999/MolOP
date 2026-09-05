@@ -234,6 +234,51 @@ def test_possible_pre_post_ts_votes_on_each_displacement_side(
     assert post.GetConformer().GetAtomPosition(0).x == pytest.approx(-1.5)
 
 
+def test_possible_pre_post_ts_ignores_suspicious_reconstructions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = BaseCalcFrame()
+    topology_by_ratio = {
+        -0.75: ("CC", "succeeded"),
+        -1.0: ("CC", "succeeded"),
+        -1.25: ("C.C", "suspicious_fallback"),
+        -1.5: ("C.C", "suspicious_fallback"),
+        -1.75: ("C.C", "suspicious_fallback"),
+        0.75: ("C=C", "succeeded"),
+        1.0: ("C=C", "succeeded"),
+        1.25: ("CC", "suspicious_fallback"),
+        1.5: ("CC", "suspicious_fallback"),
+        1.75: ("CC", "suspicious_fallback"),
+    }
+
+    def fake_ts_vibration(
+        self: BaseCalcFrame, ratio: float = 1.75, steps: int = 7
+    ) -> list[SimpleNamespace]:
+        assert self is frame
+        assert steps == 1
+        smiles, status = topology_by_ratio[ratio]
+        return [
+            SimpleNamespace(
+                rdmol=_marked_topology(smiles, ratio),
+                topology_reconstruction_status=status,
+            )
+        ]
+
+    monkeypatch.setattr(BaseCalcFrame, "ts_vibration", fake_ts_vibration)
+
+    pre, post = frame.possible_pre_post_ts(
+        show_3D=True,
+        min_ratio=0.75,
+        max_ratio=1.75,
+        steps=5,
+    )
+
+    assert Chem.MolToSmiles(pre) == "CC"
+    assert Chem.MolToSmiles(post) == "C=C"
+    assert pre.GetConformer().GetAtomPosition(0).x == pytest.approx(-1.0)
+    assert post.GetConformer().GetAtomPosition(0).x == pytest.approx(1.0)
+
+
 def test_additional_pre_post_ts_returns_endpoints_without_bond_changes() -> None:
     frame = BaseCalcFrame(
         atoms=[6, 6],
@@ -306,6 +351,66 @@ def test_additional_pre_post_ts_fixes_bond_change_atoms_during_resampling(
         for coords, amplitude in zip(side_coords, amplitudes, strict=True):
             np.testing.assert_allclose(coords[:2], endpoint_coords[:2])
             np.testing.assert_allclose(coords[2], [direction * amplitude, 6.0, 0.0])
+
+
+def test_additional_pre_post_ts_ignores_suspicious_reconstructions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import importlib
+
+    frame = BaseCalcFrame(
+        atoms=[6, 6, 6],
+        coords=np.array(
+            [
+                [0.0, 0.0, 0.0],
+                [0.0, 3.0, 0.0],
+                [0.0, 6.0, 0.0],
+            ]
+        )
+        * atom_ureg.angstrom,
+        vibrations=Vibrations(
+            frequencies=np.array([-100.0, 100.0, 200.0]) * atom_ureg.cm**-1,
+            vibration_modes=[
+                np.array(
+                    [
+                        [1.0, 0.0, 0.0],
+                        [1.0, 0.0, 0.0],
+                        [1.0, 0.0, 0.0],
+                    ]
+                )
+                * atom_ureg.angstrom,
+                np.zeros((3, 3)) * atom_ureg.angstrom,
+                np.zeros((3, 3)) * atom_ureg.angstrom,
+            ],
+        ),
+    )
+    pre = _marked_topology("C.C.C", -1.8)
+    post = _marked_topology("CC.C", 1.8)
+    frame_module = importlib.import_module("molop.io.base_models.ChemFileFrame")
+
+    def fake_from_coords(*, coords: np.ndarray, **_kwargs: object) -> SimpleNamespace:
+        amplitude = abs(float(coords[2, 0]))
+        if amplitude <= 0.41:
+            smiles = "CCC" if coords[2, 0] < 0 else "C=CC"
+            status = "succeeded"
+        else:
+            smiles = "C.C.C" if coords[2, 0] < 0 else "CC.C"
+            status = "suspicious_fallback"
+        return SimpleNamespace(
+            rdmol=_marked_topology(smiles, float(coords[2, 0])),
+            topology_reconstruction_status=status,
+        )
+
+    monkeypatch.setattr(frame_module, "check_crowding", lambda _rdmol: True)
+    monkeypatch.setattr(frame_module.Molecule, "from_coords", staticmethod(fake_from_coords))
+    monkeypatch.setattr(BaseCalcFrame, "_ts_vibration_id", lambda _self: 0)
+
+    additional_pre, additional_post = frame.additional_pre_post_ts(pre, post)
+
+    assert Chem.MolToSmiles(additional_pre) == "CCC"
+    assert Chem.MolToSmiles(additional_post) == "C=CC"
+    assert additional_pre.GetConformer().GetAtomPosition(0).x == pytest.approx(-0.4)
+    assert additional_post.GetConformer().GetAtomPosition(0).x == pytest.approx(0.4)
 
 
 def test_possible_pre_post_ts_removes_conformers_by_default(
