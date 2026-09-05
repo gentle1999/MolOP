@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.12.dev2+g3aa305143.d20260831</code></span>
-        <span><code>main@3aa3051433cc</code></span>
-        <span>最近发布 <code>0.2.11</code></span>
+        <span>源码 <code>0.2.13.dev1+gb11a603ec.d20260905</code></span>
+        <span><code>main@b11a603ec52d</code></span>
+        <span>最近发布 <code>0.2.12</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../../versioning/">版本说明</a>
@@ -2575,6 +2575,17 @@
   <a href="#_5" class="md-nav__link">
     <span class="md-ellipsis">
       
+        发布流程
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
         提交前
       
     </span>
@@ -3155,6 +3166,17 @@
   <a href="#_5" class="md-nav__link">
     <span class="md-ellipsis">
       
+        发布流程
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#_6" class="md-nav__link">
+    <span class="md-ellipsis">
+      
         提交前
       
     </span>
@@ -3219,7 +3241,13 @@
 </span><span id="__span-3-4"><a id="__codelineno-3-4" name="__codelineno-3-4"></a><a href="#__codelineno-3-4"><span class="linenos" data-linenos="4 "></span></a><span class="nv">NO_MKDOCS_2_WARNING</span><span class="o">=</span><span class="m">1</span><span class="w"> </span>uv<span class="w"> </span>run<span class="w"> </span>mkdocs<span class="w"> </span>build<span class="w"> </span>--strict
 </span></code></pre></div>
 <p>格式能力页面由 hooks/测试维护。修改 reader/writer 后需要运行格式覆盖测试，而不只是构建站点。</p>
-<h2 id="_5">提交前<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<h2 id="_5">发布流程<a class="headerlink" href="#_5" title="Permanent link">&para;</a></h2>
+<p>发布需要在 GitHub 上手动创建。将发布改动合并到 <code>main</code> 后，打开<a href="https://github.com/gentle1999/MolOP/releases/new">新建 release 页面</a>，
+创建一个从 <code>main</code> 指向的 <code>v*</code> tag（例如 <code>v0.2.13</code>），填写 release 内容并发布。</p>
+<p>生成的 <code>v*</code> tag 事件会触发 <code>.github/workflows/ci.yaml</code> 和 <code>.github/workflows/docs-deploy.yml</code>。质量、构建、文档和测试门禁全部通过后，
+CI 会把构建产物上传到已存在的 GitHub Release，并通过 Trusted Publishing 发布到 PyPI。文档 workflow 会发布版本化文档并更新 <code>latest</code> 别名。
+发布前确认两个 workflow 都已成功。</p>
+<h2 id="_6">提交前<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><a href="#__codelineno-4-1"><span class="linenos" data-linenos="1 "></span></a>git<span class="w"> </span>diff<span class="w"> </span>--check
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2"></a><a href="#__codelineno-4-2"><span class="linenos" data-linenos="2 "></span></a>git<span class="w"> </span>status<span class="w"> </span>--short
 </span></code></pre></div>

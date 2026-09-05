@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.12.dev2+g3aa305143.d20260831</code></span>
-        <span><code>main@3aa3051433cc</code></span>
-        <span>Latest release <code>0.2.11</code></span>
+        <span>Source <code>0.2.13.dev1+gb11a603ec.d20260905</code></span>
+        <span><code>main@b11a603ec52d</code></span>
+        <span>Latest release <code>0.2.12</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -2574,6 +2574,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#release_workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#before_committing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3154,6 +3165,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#release_workflow" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Release workflow
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#before_committing" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -3222,6 +3244,15 @@
 </span></code></pre></div>
 <p>Hooks and tests maintain format capability pages. Reader/writer changes require format coverage tests,
 not only a site build.</p>
+<h2 id="release_workflow">Release workflow<a class="headerlink" href="#release_workflow" title="Permanent link">&para;</a></h2>
+<p>Releases are created manually on GitHub. After the release changes are merged into <code>main</code>, open the
+<a href="https://github.com/gentle1999/MolOP/releases/new">new release page</a>, draft a release, create a <code>v*</code> tag
+such as <code>v0.2.13</code> from <code>main</code>, and publish it.</p>
+<p>The resulting <code>v*</code> tag event triggers <code>.github/workflows/ci.yaml</code> and
+<code>.github/workflows/docs-deploy.yml</code>. After all quality, build, documentation, and test gates pass, CI
+uploads the distributions to the existing GitHub Release and publishes them to PyPI through trusted
+publishing. The documentation workflow publishes the versioned documentation and updates the <code>latest</code>
+alias. Verify both workflow runs before announcing the version.</p>
 <h2 id="before_committing">Before committing<a class="headerlink" href="#before_committing" title="Permanent link">&para;</a></h2>
 <div class="language-bash highlight"><span class="filename">Bash</span><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1"></a><a href="#__codelineno-4-1"><span class="linenos" data-linenos="1 "></span></a>git<span class="w"> </span>diff<span class="w"> </span>--check
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2"></a><a href="#__codelineno-4-2"><span class="linenos" data-linenos="2 "></span></a>git<span class="w"> </span>status<span class="w"> </span>--short
