@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.13.dev1+gb11a603ec.d20260905</code></span>
-        <span><code>main@b11a603ec52d</code></span>
-        <span>Latest release <code>0.2.12</code></span>
+        <span>Source <code>0.2.14.dev1+gf0d876c86.d20260906</code></span>
+        <span><code>main@f0d876c864e1</code></span>
+        <span>Latest release <code>0.2.13</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -3354,17 +3354,31 @@ markers; the generator promotes them to visible lines only in the drawing copy.<
 structures. <code>to_diff_rdmol</code> can return <code>None</code> when no supported bond-breaking difference is inferred.
 Review atom mapping, connectivity, and the original calculation before using either result in an
 automated reaction workflow.</p>
-<p>By default, endpoint inference samples nine amplitudes on each side of the imaginary mode, evenly
-spaced from <code>min_ratio=0.2</code> to <code>max_ratio=1.8</code>. It votes for the most frequent reconstructed
+<p>By default, endpoint inference samples eight amplitudes on each side of the imaginary mode from
+<code>min_ratio=0.6</code> to <code>max_ratio=1.4</code>, evenly spaced in harmonic-oscillator potential energy. It votes for the most frequent reconstructed
 topology separately in the negative and positive displacement spaces, retaining the
 largest-amplitude conformer for the winning topology. The candidate with more disconnected
 fragments is returned as the precursor; equal fragment counts preserve negative-side then
 positive-side order. Use <code>steps</code> to change the number of amplitudes sampled on each side.</p>
+<p>The default <code>sampling_method</code> is <code>"harmonic_potential"</code>. To retain the original
+linear-amplitude sampling, set <code>sampling_method="amplitude"</code> explicitly:</p>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a><a href="#__codelineno-10-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">reactant</span><span class="p">,</span> <span class="n">product</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">possible_pre_post_ts</span><span class="p">(</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2"></a><a href="#__codelineno-10-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">show_3D</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3"></a><a href="#__codelineno-10-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="n">sampling_method</span><span class="o">=</span><span class="s2">&quot;amplitude&quot;</span><span class="p">,</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4"></a><a href="#__codelineno-10-4"><span class="linenos" data-linenos="4 "></span></a><span class="p">)</span>
+</span></code></pre></div>
+<p>The harmonic-potential method uses <code>a_i = sqrt(a_min**2 + i * (a_max**2 - a_min**2) / (steps - 1))</code>,
+which spaces <code>a**2</code> and therefore the harmonic potential evenly. For an imaginary mode,
+this corresponds to evenly spacing the magnitude of the potential-energy decrease away from
+the saddle. The <code>"amplitude"</code> method preserves the original linear-amplitude sampling.
+The default <code>"harmonic_potential"</code> method spaces potential energy evenly, while <code>"amplitude"</code>
+preserves the original linear-amplitude behavior. The same option is available on <code>additional_pre_post_ts</code>, <code>save_pre_post_ts</code>, and
+<code>to_diff_rdmol</code>.</p>
 <p>The standard endpoint pair remains the primary result. For an additional representation, retain
 the endpoint conformers and resample the atoms not incident to changed bonds while fixing the
 changed atoms at their endpoint coordinates:</p>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a><a href="#__codelineno-10-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">standard_pre</span><span class="p">,</span> <span class="n">standard_post</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">possible_pre_post_ts</span><span class="p">(</span><span class="n">show_3D</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2"></a><a href="#__codelineno-10-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">additional_pre</span><span class="p">,</span> <span class="n">additional_post</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">additional_pre_post_ts</span><span class="p">(</span><span class="n">standard_pre</span><span class="p">,</span> <span class="n">standard_post</span><span class="p">)</span>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1"></a><a href="#__codelineno-11-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">standard_pre</span><span class="p">,</span> <span class="n">standard_post</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">possible_pre_post_ts</span><span class="p">(</span><span class="n">show_3D</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2"></a><a href="#__codelineno-11-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">additional_pre</span><span class="p">,</span> <span class="n">additional_post</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">additional_pre_post_ts</span><span class="p">(</span><span class="n">standard_pre</span><span class="p">,</span> <span class="n">standard_post</span><span class="p">)</span>
 </span></code></pre></div>
 <p>When no bonds change between the standard endpoints, the additional sampling returns that same pair.</p>
 <p>The following Notebook image compares the standard and additional-sampling results on a real TS frame.
@@ -3379,15 +3393,15 @@ and does not replace the standard endpoints.</p>
 </details>
 <p>Write the pair as XYZ (the default) or SDF files with <code>save_pre_post_ts(...)</code>. SDF retains the
 reconstructed graph and the inferred three-dimensional conformer:</p>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1"></a><a href="#__codelineno-11-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">pre_path</span><span class="p">,</span> <span class="n">post_path</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;candidate&quot;</span><span class="p">)</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2"></a><a href="#__codelineno-11-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">sdf_pre_path</span><span class="p">,</span> <span class="n">sdf_post_path</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3"></a><a href="#__codelineno-11-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;candidate&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4"></a><a href="#__codelineno-11-4"><span class="linenos" data-linenos="4 "></span></a><span class="p">)</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5"></a><a href="#__codelineno-11-5"><span class="linenos" data-linenos="5 "></span></a><span class="nb">print</span><span class="p">(</span><span class="n">pre_path</span><span class="p">,</span> <span class="n">post_path</span><span class="p">)</span>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1"></a><a href="#__codelineno-12-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">pre_path</span><span class="p">,</span> <span class="n">post_path</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;candidate&quot;</span><span class="p">)</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2"></a><a href="#__codelineno-12-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">sdf_pre_path</span><span class="p">,</span> <span class="n">sdf_post_path</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3"></a><a href="#__codelineno-12-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;candidate&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4"></a><a href="#__codelineno-12-4"><span class="linenos" data-linenos="4 "></span></a><span class="p">)</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5"></a><a href="#__codelineno-12-5"><span class="linenos" data-linenos="5 "></span></a><span class="nb">print</span><span class="p">(</span><span class="n">pre_path</span><span class="p">,</span> <span class="n">post_path</span><span class="p">)</span>
 </span></code></pre></div>
 <details class="example">
 <summary>Endpoint file paths</summary>
-<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1"></a><a href="#__codelineno-12-1"><span class="linenos" data-linenos="1 "></span></a>ts-endpoints/candidate_pre.xyz ts-endpoints/candidate_post.xyz
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1"></a><a href="#__codelineno-13-1"><span class="linenos" data-linenos="1 "></span></a>ts-endpoints/candidate_pre.xyz ts-endpoints/candidate_post.xyz
 </span></code></pre></div>
 </details>
 <p>The files preserve the inferred three-dimensional candidate geometries. They are not optimized
@@ -3398,8 +3412,8 @@ generated names; memory-only frames fall back to <code>ts_frame_&lt;id&gt;</code
 calculation file receives a separate directory named with its complete filename stem. Files without
 TS endpoint-export support are skipped with a warning. If source files in different directories have
 the same stem, MolOP adds a stable source-path digest to keep their output directories distinct:</p>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1"></a><a href="#__codelineno-13-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">file_endpoints</span> <span class="o">=</span> <span class="n">trajectory</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">)</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2"></a><a href="#__codelineno-13-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">batch_endpoints</span> <span class="o">=</span> <span class="n">ts_batch</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints-batch&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1"></a><a href="#__codelineno-14-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">file_endpoints</span> <span class="o">=</span> <span class="n">trajectory</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">)</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2"></a><a href="#__codelineno-14-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">batch_endpoints</span> <span class="o">=</span> <span class="n">ts_batch</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints-batch&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 </span></code></pre></div>
 <p>Both mappings are keyed by original frame ID; the batch mapping adds the source path as its outer key.</p>
 <h2 id="related_operations">Related operations<a class="headerlink" href="#related_operations" title="Permanent link">&para;</a></h2>

@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.13.dev1+gb11a603ec.d20260905</code></span>
-        <span><code>main@b11a603ec52d</code></span>
-        <span>最近发布 <code>0.2.12</code></span>
+        <span>源码 <code>0.2.14.dev1+gf0d876c86.d20260906</code></span>
+        <span><code>main@f0d876c864e1</code></span>
+        <span>最近发布 <code>0.2.13</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../../versioning/">版本说明</a>
@@ -3344,15 +3344,27 @@
 <p><code>possible_pre_post_ts</code> 返回基于几何的前后体候选，不是优化后的真实反应物和产物。
 <code>to_diff_rdmol</code> 在无法推断出支持的断键差异时可能返回 <code>None</code>。自动反应流程使用这些结果前，
 仍需检查原子映射、连接关系和原始计算结果。</p>
-<p>默认情况下，前后体推断会在虚频振动的正、负两侧分别采样 9 个振幅，振幅在
-<code>min_ratio=0.2</code> 到 <code>max_ratio=1.8</code> 之间等距分布。两侧各自按重建拓扑的出现频次投票，
+<p>默认情况下，前后体推断会在虚频振动的正、负两侧分别采样 8 个振幅，范围为
+<code>min_ratio=0.6</code> 到 <code>max_ratio=1.4</code>，并按照简谐振子势能等距分布。两侧各自按重建拓扑的出现频次投票，
 并为胜出的拓扑保留其最大采样振幅下的三维构象。随后，碎片数更多的候选被判为前体；
 碎片数相同时保持负空间、正空间的顺序。<code>steps</code> 用于设置每侧的振幅采样数量。</p>
+<p>默认的 <code>sampling_method</code> 是 <code>"harmonic_potential"</code>。如果需要原有的按振幅等距采样，
+可显式将 <code>sampling_method</code> 设为 <code>"amplitude"</code>：</p>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a><a href="#__codelineno-10-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">reactant</span><span class="p">,</span> <span class="n">product</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">possible_pre_post_ts</span><span class="p">(</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2"></a><a href="#__codelineno-10-2"><span class="linenos" data-linenos="2 "></span></a>    <span class="n">show_3D</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-10-3"><a id="__codelineno-10-3" name="__codelineno-10-3"></a><a href="#__codelineno-10-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="n">sampling_method</span><span class="o">=</span><span class="s2">&quot;amplitude&quot;</span><span class="p">,</span>
+</span><span id="__span-10-4"><a id="__codelineno-10-4" name="__codelineno-10-4"></a><a href="#__codelineno-10-4"><span class="linenos" data-linenos="4 "></span></a><span class="p">)</span>
+</span></code></pre></div>
+<p>简谐势能等距采样使用
+<code>a_i = sqrt(a_min**2 + i * (a_max**2 - a_min**2) / (steps - 1))</code>，即对
+<code>a**2</code> 等距采样。对于虚频模式，这对应于沿反应坐标的势能降低量的绝对值等距采样；
+默认的 <code>"harmonic_potential"</code> 方式按势能等距；<code>"amplitude"</code> 方式保持原有的按振幅等距行为。该选项也可传给
+<code>additional_pre_post_ts</code>、<code>save_pre_post_ts</code> 和 <code>to_diff_rdmol</code>。</p>
 <p>标准前后体仍然是主要结果，不会被额外采样表示替代。保留标准前后体的三维构象后，可以固定
 成键或断键相关原子的 endpoint 坐标，只对其余原子重新扫描虚频振动模式，从而得到额外的
 一对表示：</p>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1"></a><a href="#__codelineno-10-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">standard_pre</span><span class="p">,</span> <span class="n">standard_post</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">possible_pre_post_ts</span><span class="p">(</span><span class="n">show_3D</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
-</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2"></a><a href="#__codelineno-10-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">additional_pre</span><span class="p">,</span> <span class="n">additional_post</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">additional_pre_post_ts</span><span class="p">(</span><span class="n">standard_pre</span><span class="p">,</span> <span class="n">standard_post</span><span class="p">)</span>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1"></a><a href="#__codelineno-11-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">standard_pre</span><span class="p">,</span> <span class="n">standard_post</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">possible_pre_post_ts</span><span class="p">(</span><span class="n">show_3D</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2"></a><a href="#__codelineno-11-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">additional_pre</span><span class="p">,</span> <span class="n">additional_post</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">additional_pre_post_ts</span><span class="p">(</span><span class="n">standard_pre</span><span class="p">,</span> <span class="n">standard_post</span><span class="p">)</span>
 </span></code></pre></div>
 <p>如果标准前后体之间不存在键变化，额外采样会直接返回这对前后体。</p>
 <p>下面的 Notebook 图像用真实 TS frame 并列展示标准结果与额外采样结果。额外采样只固定成键或断键相关原子，
@@ -3365,15 +3377,15 @@
 </details>
 <p>使用 <code>save_pre_post_ts(...)</code> 可直接将一对候选写成 XYZ（默认）或 SDF 文件；SDF 会保留重建的分子图和
 推断得到的三维构象：</p>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1"></a><a href="#__codelineno-11-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">pre_path</span><span class="p">,</span> <span class="n">post_path</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;candidate&quot;</span><span class="p">)</span>
-</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2"></a><a href="#__codelineno-11-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">sdf_pre_path</span><span class="p">,</span> <span class="n">sdf_post_path</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span>
-</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3"></a><a href="#__codelineno-11-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;candidate&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span>
-</span><span id="__span-11-4"><a id="__codelineno-11-4" name="__codelineno-11-4"></a><a href="#__codelineno-11-4"><span class="linenos" data-linenos="4 "></span></a><span class="p">)</span>
-</span><span id="__span-11-5"><a id="__codelineno-11-5" name="__codelineno-11-5"></a><a href="#__codelineno-11-5"><span class="linenos" data-linenos="5 "></span></a><span class="nb">print</span><span class="p">(</span><span class="n">pre_path</span><span class="p">,</span> <span class="n">post_path</span><span class="p">)</span>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1"></a><a href="#__codelineno-12-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">pre_path</span><span class="p">,</span> <span class="n">post_path</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;candidate&quot;</span><span class="p">)</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2"></a><a href="#__codelineno-12-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">sdf_pre_path</span><span class="p">,</span> <span class="n">sdf_post_path</span> <span class="o">=</span> <span class="n">ts_frame</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span>
+</span><span id="__span-12-3"><a id="__codelineno-12-3" name="__codelineno-12-3"></a><a href="#__codelineno-12-3"><span class="linenos" data-linenos="3 "></span></a>    <span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="n">prefix</span><span class="o">=</span><span class="s2">&quot;candidate&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span>
+</span><span id="__span-12-4"><a id="__codelineno-12-4" name="__codelineno-12-4"></a><a href="#__codelineno-12-4"><span class="linenos" data-linenos="4 "></span></a><span class="p">)</span>
+</span><span id="__span-12-5"><a id="__codelineno-12-5" name="__codelineno-12-5"></a><a href="#__codelineno-12-5"><span class="linenos" data-linenos="5 "></span></a><span class="nb">print</span><span class="p">(</span><span class="n">pre_path</span><span class="p">,</span> <span class="n">post_path</span><span class="p">)</span>
 </span></code></pre></div>
 <details class="example">
 <summary>端点文件路径</summary>
-<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1"></a><a href="#__codelineno-12-1"><span class="linenos" data-linenos="1 "></span></a>ts-endpoints/candidate_pre.xyz ts-endpoints/candidate_post.xyz
+<div class="language-text highlight"><span class="filename">Text Only</span><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1"></a><a href="#__codelineno-13-1"><span class="linenos" data-linenos="1 "></span></a>ts-endpoints/candidate_pre.xyz ts-endpoints/candidate_post.xyz
 </span></code></pre></div>
 </details>
 <p>文件保留推断出的三维候选几何，不是已经优化的真实反应物和产物。</p>
@@ -3382,8 +3394,8 @@ frame 则回退为 <code>ts_frame_&lt;id&gt;</code>。</p>
 <p>在解析后的计算文件上调用同名方法，会导出其中全部 TS frame；在批处理对象上调用时，每个支持该操作的
 计算文件会写入以完整文件 stem 命名的独立目录，不支持 TS 前后体导出的文件会记录警告并跳过。若不同
 目录中的源文件具有相同 stem，MolOP 会追加稳定的源路径摘要，保证输出目录彼此独立：</p>
-<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1"></a><a href="#__codelineno-13-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">file_endpoints</span> <span class="o">=</span> <span class="n">trajectory</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">)</span>
-</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2"></a><a href="#__codelineno-13-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">batch_endpoints</span> <span class="o">=</span> <span class="n">ts_batch</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints-batch&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
+<div class="language-python highlight"><span class="filename">Python</span><pre><span></span><code><span id="__span-14-1"><a id="__codelineno-14-1" name="__codelineno-14-1"></a><a href="#__codelineno-14-1"><span class="linenos" data-linenos="1 "></span></a><span class="n">file_endpoints</span> <span class="o">=</span> <span class="n">trajectory</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">)</span>
+</span><span id="__span-14-2"><a id="__codelineno-14-2" name="__codelineno-14-2"></a><a href="#__codelineno-14-2"><span class="linenos" data-linenos="2 "></span></a><span class="n">batch_endpoints</span> <span class="o">=</span> <span class="n">ts_batch</span><span class="o">.</span><span class="n">save_pre_post_ts</span><span class="p">(</span><span class="s2">&quot;ts-endpoints-batch&quot;</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s2">&quot;sdf&quot;</span><span class="p">,</span> <span class="n">n_jobs</span><span class="o">=</span><span class="mi">4</span><span class="p">)</span>
 </span></code></pre></div>
 <p>两种返回值均以原始 frame ID 为键；批处理返回值额外以源文件路径作为最外层键。</p>
 <h2 id="_6">相关操作<a class="headerlink" href="#_6" title="Permanent link">&para;</a></h2>
