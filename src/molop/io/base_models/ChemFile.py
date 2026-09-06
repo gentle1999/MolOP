@@ -28,6 +28,7 @@ from molop.io.base_models.ChemFileFrame import (
     BaseChemFileFrame,
     BaseCoordsFrame,
     BaseQMInputFrame,
+    VibrationSamplingMethod,
     _backfill_common_qm_containers_from_legacy,
     _project_common_qm_fields,
 )
@@ -483,15 +484,18 @@ class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):
         output_dir: os.PathLike[str] | str,
         *,
         format: Literal["xyz", "sdf"] = "xyz",
-        min_ratio: float = 0.2,
-        max_ratio: float = 1.8,
-        steps: int = 9,
+        min_ratio: float = 0.6,
+        max_ratio: float = 1.4,
+        steps: int = 8,
+        sampling_method: VibrationSamplingMethod = "harmonic_potential",
     ) -> dict[int, tuple[Path, Path]]:
         """Export endpoint candidates for every transition-state frame in this file.
 
         Each result is keyed by its original frame ID. Files without transition-state
         frames return an empty mapping. Endpoint inference samples ``steps`` amplitudes
-        on each side from ``min_ratio`` through ``max_ratio``.
+        on each side from ``min_ratio`` through ``max_ratio`` according to
+        ``sampling_method``. Defaults are ``min_ratio=0.6``, ``max_ratio=1.4``,
+        ``steps=8``, and ``sampling_method="harmonic_potential"``.
         """
 
         return {
@@ -501,6 +505,7 @@ class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):
                 min_ratio=min_ratio,
                 max_ratio=max_ratio,
                 steps=steps,
+                sampling_method=sampling_method,
             )
             for frame in self.frames
             if frame.is_TS

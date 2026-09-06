@@ -801,7 +801,7 @@ def build_replacement(
     return rr
 
 
-def check_crowding(mol: RdMol, threshold=0.6) -> bool:
+def check_crowding(mol: RdMol, threshold=0.5) -> bool:
     """
     Check if the molecule is crowded.
 
@@ -809,16 +809,33 @@ def check_crowding(mol: RdMol, threshold=0.6) -> bool:
         mol (RdMol):
             The input molecule.
         threshold (float):
-            The threshold of crowding. If too crowded
-            `d(a-b) < threshold * (R(a)+R(b))`, return False.
+            The threshold of crowding. If too crowded,
+            ``d(a-b) < threshold * estimated_length(a, b)`` returns False.
+            Existing single, double, triple, and supported dative bonds use
+            their bond type when estimating the reference length. Unbonded
+            pairs and unsupported bond types use the single-bond reference.
 
     Returns:
         bool: True if the molecule is not crowded, False otherwise.
     """
     distances = Chem.Get3DDistanceMatrix(mol)
     for start_atom, end_atom in itertools.combinations(mol.GetAtoms(), 2):
+        bond = mol.GetBondBetweenAtoms(start_atom.GetIdx(), end_atom.GetIdx())
+        bond_type = Chem.rdchem.BondType.SINGLE
+        if bond is not None and bond.GetBondType() in (
+            Chem.rdchem.BondType.SINGLE,
+            Chem.rdchem.BondType.DATIVE,
+            Chem.rdchem.BondType.DATIVEL,
+            Chem.rdchem.BondType.DATIVER,
+            Chem.rdchem.BondType.DATIVEONE,
+            Chem.rdchem.BondType.DOUBLE,
+            Chem.rdchem.BondType.TRIPLE,
+        ):
+            bond_type = bond.GetBondType()
         if distances[start_atom.GetIdx()][end_atom.GetIdx()] < threshold * estimate_bond_length(
-            start_atom.GetAtomicNum(), end_atom.GetAtomicNum()
+            start_atom.GetAtomicNum(),
+            end_atom.GetAtomicNum(),
+            bond_type,
         ):
             return False
     return True

@@ -61,6 +61,56 @@ def extract_g16_artifact_version(file_content: str) -> str | None:
     return None
 
 
+def extract_g16_atomic_masses(
+    content: str,
+    *,
+    expected_atom_count: int | None = None,
+) -> tuple[Any | None, str | None]:
+    """Extract Gaussian's per-atom masses in the source atom order.
+
+    ``AtmWgt`` is the primary record because it retains more precision.  The
+    atom lines in the thermochemistry section are a rounded fallback for
+    output frames where the isotope/nuclear-properties block is unavailable.
+    """
+
+    atmwgt_groups: dict[int, list[float]] = {}
+    for matched in g16_log_patterns.ATOMIC_WEIGHTS.find_matches(content):
+        isotope_block_start = content.rfind("Isotopes and Nuclear Properties:", 0, matched.start())
+        group_key = isotope_block_start if isotope_block_start >= 0 else -1
+        atmwgt_groups.setdefault(group_key, []).extend(
+            float(token.replace("D", "E").replace("d", "e"))
+            for token in matched.group("values").split()
+        )
+
+    def as_mass_quantity(values: list[float]) -> Any | None:
+        if not values:
+            return None
+        if expected_atom_count is not None and len(values) != expected_atom_count:
+            return None
+        return np.asarray(values, dtype=float) * atom_ureg.amu
+
+    for values in reversed(tuple(atmwgt_groups.values())):
+        if (masses := as_mass_quantity(values)) is not None:
+            return masses, "gaussian_atmwgt"
+
+    thermo_groups: dict[int, dict[int, float]] = {}
+    for matched in g16_log_patterns.THERMOCHEMISTRY_ATOMIC_MASS.find_matches(content):
+        thermochemistry_start = content.rfind("- Thermochemistry", 0, matched.start())
+        group_key = thermochemistry_start if thermochemistry_start >= 0 else -1
+        thermo_groups.setdefault(group_key, {})[int(matched.group("atom_index"))] = float(
+            matched.group("mass").replace("D", "E").replace("d", "e")
+        )
+    for thermo_values in reversed(tuple(thermo_groups.values())):
+        if thermo_values:
+            indices = list(range(1, len(thermo_values) + 1))
+            if sorted(thermo_values) != indices:
+                continue
+            ordered_values = [thermo_values[index] for index in indices]
+            if (masses := as_mass_quantity(ordered_values)) is not None:
+                return masses, "gaussian_thermochemistry"
+    return None, None
+
+
 def first_frame_value(frames: Sequence[Any], field: str) -> Any:
     for frame in frames:
         value = getattr(frame, field, None)

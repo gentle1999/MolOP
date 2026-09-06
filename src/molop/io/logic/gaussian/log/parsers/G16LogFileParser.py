@@ -40,6 +40,7 @@ from molop.io.logic.gaussian.log.models.G16LogFile import G16LogFileDisk, G16Log
 from molop.io.logic.gaussian.log.parsers._g16_log_file_extractors import (
     ensure_g16_output_content,
     extract_g16_artifact_version,
+    extract_g16_atomic_masses,
     extract_g16_charge_multiplicity,
     extract_g16_keywords,
     extract_g16_options,
@@ -182,6 +183,11 @@ class G16LogFileParserMixin:
         metadata: dict[str, Any] = {"qm_software": "Gaussian"}
         if version := extract_g16_artifact_version(file_content):
             metadata["qm_software_version"] = version
+        if cast(_HasFileParseMethod, self).only_last_frame:
+            atomic_masses, atomic_masses_source = extract_g16_atomic_masses(file_content)
+            if atomic_masses is not None:
+                metadata["atomic_masses"] = atomic_masses
+                metadata["atomic_masses_source"] = atomic_masses_source
         return metadata
 
     def _parse_segment_metadata(
@@ -204,6 +210,10 @@ class G16LogFileParserMixin:
                 legacy_functional=str(metadata.get("functional") or ""),
             )
             metadata["task_requests"] = build_gaussian_task_requests(semantic_route)
+        atomic_masses, atomic_masses_source = extract_g16_atomic_masses(segment_content)
+        if atomic_masses is not None:
+            metadata["atomic_masses"] = atomic_masses
+            metadata["atomic_masses_source"] = atomic_masses_source
         return {key: value for key, value in metadata.items() if value is not None}
 
     def _prepare_file_metadata(
@@ -214,6 +224,8 @@ class G16LogFileParserMixin:
         metadata = dict(artifact_metadata)
         if segment_metadata:
             metadata.update(segment_metadata[0])
+        metadata.pop("atomic_masses", None)
+        metadata.pop("atomic_masses_source", None)
         running_times = [
             running_time
             for segment in segment_metadata
@@ -290,6 +302,48 @@ class G16LogFileParserMixin:
             if value is not None:
                 metadata[field] = value
                 setattr(chem_file, field, value)
+
+        mass_source_priority = {
+            "gaussian_thermochemistry": 1,
+            "gaussian_atmwgt": 2,
+        }
+        mass_references: dict[tuple[int, ...], tuple[Any, str | None]] = {}
+        ambiguous_mass_keys: set[tuple[int, ...]] = set()
+        for frame in frames:
+            if frame.atomic_masses is None:
+                continue
+            atom_key = tuple(frame.atoms)
+            reference = mass_references.get(atom_key)
+            if reference is None:
+                mass_references[atom_key] = (
+                    frame.atomic_masses,
+                    frame.atomic_masses_source,
+                )
+                continue
+            reference_source = reference[1]
+            current_source = frame.atomic_masses_source
+            reference_priority = mass_source_priority.get(reference_source or "", 0)
+            current_priority = mass_source_priority.get(current_source or "", 0)
+            if current_priority > reference_priority:
+                mass_references[atom_key] = (
+                    frame.atomic_masses,
+                    current_source,
+                )
+                ambiguous_mass_keys.discard(atom_key)
+            elif current_priority == reference_priority and (
+                reference[0].m_as("amu").tolist() != frame.atomic_masses.m_as("amu").tolist()
+            ):
+                ambiguous_mass_keys.add(atom_key)
+
+        for frame in frames:
+            if frame.atomic_masses is not None:
+                continue
+            atom_key = tuple(frame.atoms)
+            if atom_key in ambiguous_mass_keys or atom_key not in mass_references:
+                continue
+            atomic_masses, atomic_masses_source = mass_references[atom_key]
+            frame.atomic_masses = atomic_masses
+            frame.atomic_masses_source = atomic_masses_source
 
 
 class G16LogFileParserMemory(

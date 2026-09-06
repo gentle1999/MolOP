@@ -8,6 +8,7 @@ import pytest
 
 from molop.io import AutoParser
 from molop.io.logic.orca.log.frame_parsers._orca_extractors import (
+    extract_orca_atomic_masses,
     extract_orca_energies,
     extract_orca_forces,
     extract_orca_vibrations,
@@ -18,6 +19,7 @@ from molop.io.logic.orca.log.frame_parsers.ORCALogFileFrameParser import (
 from molop.io.logic.orca.log.locators import locate_orca_job_frames, locate_orca_jobs
 from molop.io.logic.orca.log.parsers._orca_log_shared import extract_orca_status
 from molop.io.logic.orca.log.parsers.ORCALogFileParser import ORCALogFileParserMemory
+from molop.unit import atom_ureg
 
 
 ORCA_OUTPUT_FIXTURE_DIR = Path(__file__).resolve().parent / "test_files" / "orca" / "output_files"
@@ -181,6 +183,64 @@ def test_orca_output_metadata_result_is_model_ready() -> None:
     assert metadata["status"].normal_terminated is True
     assert metadata["status"].scf_converged is True
     assert metadata["running_time"].to("second").magnitude > 0
+
+
+def test_orca_parses_masses_from_cartesian_au_coordinates() -> None:
+    source = (ORCA_OUTPUT_FIXTURE_DIR / "local" / "h2o_orca_v5_charges.out").read_text()
+    frame = ORCALogFileParserMemory().parse(source)[-1]
+
+    assert frame.atomic_masses_source == "orca_cartesian_au_mass"
+    assert frame.atomic_masses is not None
+    np.testing.assert_allclose(frame.atomic_masses.m_as("amu"), [15.999, 1.008, 1.008])
+
+
+def test_orca_atomic_mass_extractor_uses_latest_table_and_supports_d_notation() -> None:
+    source = """
+----------------------------
+CARTESIAN COORDINATES (A.U.)
+----------------------------
+  NO LB      ZA    FRAG     MASS         X           Y           Z
+   0 H     1.0000    0     9.000    0.000000    0.000000    0.000000
+----------------------------
+CARTESIAN COORDINATES (A.U.)
+----------------------------
+  NO LB      ZA    FRAG     MASS         X           Y           Z
+   0 H     1.0000    0     1.007825D+00    0.000000    0.000000    0.000000
+   1 O     8.0000    0     15.994915    1.000000    0.000000    0.000000
+ next section
+ """
+
+    masses = extract_orca_atomic_masses(source, expected_atom_count=2)
+
+    assert masses is not None
+    assert masses.units == atom_ureg.amu
+    np.testing.assert_allclose(masses.magnitude, [1.007825, 15.994915])
+
+
+def test_orca_atomic_mass_extractor_rejects_missing_or_invalid_tables() -> None:
+    header = """
+----------------------------
+CARTESIAN COORDINATES (A.U.)
+----------------------------
+"""
+    non_contiguous = (
+        header
+        + """
+   0 H     1.0000    0     1.008    0.000000    0.000000    0.000000
+   2 H     1.0000    0     1.008    1.000000    0.000000    0.000000
+"""
+    )
+    one_row = (
+        header
+        + """
+   0 H     1.0000    0     1.008    0.000000    0.000000    0.000000
+"""
+    )
+
+    assert extract_orca_atomic_masses("no coordinate table") is None
+    assert extract_orca_atomic_masses(header) is None
+    assert extract_orca_atomic_masses(non_contiguous) is None
+    assert extract_orca_atomic_masses(one_row, expected_atom_count=2) is None
 
 
 def test_orca_log_state_machine_rejects_unexpected_phase(

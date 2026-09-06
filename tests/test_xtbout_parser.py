@@ -176,6 +176,14 @@ def test_xtbout_frequency_and_thermochemistry_are_structured() -> None:
     assert frame.thermal_informations.S.m_as("cal/mol/K") == pytest.approx(84.7170)
 
 
+def test_xtbout_does_not_infer_per_atom_masses_without_an_explicit_mass_table() -> None:
+    parsed = XTBOutputFileParserDisk().parse(str(FIXTURE_DIR / "6-6-1-hess.out"))
+    frame = parsed.frames[0]
+
+    assert frame.atomic_masses is None
+    assert frame.atomic_masses_source is None
+
+
 def test_xtbout_fukui_indices_are_structured() -> None:
     parsed = XTBOutputFileParserDisk().parse(str(FIXTURE_DIR / "dsgdb9nsd_130336-5_fukui.out"))
     properties = parsed.frames[0].single_point_properties

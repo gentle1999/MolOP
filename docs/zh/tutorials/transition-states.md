@@ -140,10 +140,26 @@ if difference is not None:
 `to_diff_rdmol` 在无法推断出支持的断键差异时可能返回 `None`。自动反应流程使用这些结果前，
 仍需检查原子映射、连接关系和原始计算结果。
 
-默认情况下，前后体推断会在虚频振动的正、负两侧分别采样 9 个振幅，振幅在
-`min_ratio=0.2` 到 `max_ratio=1.8` 之间等距分布。两侧各自按重建拓扑的出现频次投票，
+默认情况下，前后体推断会在虚频振动的正、负两侧分别采样 8 个振幅，范围为
+`min_ratio=0.6` 到 `max_ratio=1.4`，并按照简谐振子势能等距分布。两侧各自按重建拓扑的出现频次投票，
 并为胜出的拓扑保留其最大采样振幅下的三维构象。随后，碎片数更多的候选被判为前体；
 碎片数相同时保持负空间、正空间的顺序。`steps` 用于设置每侧的振幅采样数量。
+
+默认的 `sampling_method` 是 `"harmonic_potential"`。如果需要原有的按振幅等距采样，
+可显式将 `sampling_method` 设为 `"amplitude"`：
+
+```python
+reactant, product = ts_frame.possible_pre_post_ts(
+    show_3D=True,
+    sampling_method="amplitude",
+)
+```
+
+简谐势能等距采样使用
+`a_i = sqrt(a_min**2 + i * (a_max**2 - a_min**2) / (steps - 1))`，即对
+`a**2` 等距采样。对于虚频模式，这对应于沿反应坐标的势能降低量的绝对值等距采样；
+默认的 `"harmonic_potential"` 方式按势能等距；`"amplitude"` 方式保持原有的按振幅等距行为。该选项也可传给
+`additional_pre_post_ts`、`save_pre_post_ts` 和 `to_diff_rdmol`。
 
 标准前后体仍然是主要结果，不会被额外采样表示替代。保留标准前后体的三维构象后，可以固定
 成键或断键相关原子的 endpoint 坐标，只对其余原子重新扫描虚频振动模式，从而得到额外的

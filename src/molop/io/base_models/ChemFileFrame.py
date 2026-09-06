@@ -62,6 +62,9 @@ from molop.utils.types import OMol, PintArrayN, PintArrayNx3, PintSquareMatrix, 
 from molop.visualization.animation import AnimationFormat, render_molecule_animation
 
 
+VibrationSamplingMethod = Literal["amplitude", "harmonic_potential"]
+
+
 class _HasCoords(Protocol):
     frame_id: int
     atoms: list[int]
@@ -154,6 +157,36 @@ def _most_frequent_topology(candidates: Sequence[RdMol], *, side: str) -> RdMol:
 
     _, _, representative = max(grouped.values(), key=lambda item: (item[0], item[1]))
     return representative
+
+
+def _sample_vibration_amplitudes(
+    min_ratio: float,
+    max_ratio: float,
+    steps: int,
+    sampling_method: VibrationSamplingMethod,
+) -> npt.NDArray[np.float64]:
+    """Generate positive mode amplitudes for TS endpoint sampling.
+
+    For a harmonic mode, the potential-energy magnitude is proportional to the
+    square of the displacement amplitude, including for an imaginary TS mode
+    when the curvature's magnitude is used. Therefore equal-energy spacing is
+    obtained by spacing squared amplitudes linearly.
+    """
+
+    if sampling_method == "amplitude":
+        return np.linspace(
+            min_ratio,
+            max_ratio,
+            num=steps,
+            endpoint=True,
+            dtype=np.float64,
+        )
+    if sampling_method == "harmonic_potential":
+        return np.sqrt(np.linspace(min_ratio**2, max_ratio**2, num=steps, endpoint=True))
+    raise ValueError(
+        "Unsupported sampling_method: "
+        f"{sampling_method!r}. Use 'amplitude' or 'harmonic_potential'."
+    )
 
 
 def _bond_change_pairs(first: RdMol, second: RdMol) -> set[tuple[int, int]]:
@@ -502,6 +535,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         "running_time": atom_ureg.Unit("second"),
         "temperature": atom_ureg.Unit("K"),
         "electron_temperature": atom_ureg.Unit("K"),
+        "atomic_masses": atom_ureg.amu,
     }
     # Note: QM input metadata (keywords/method/basis_set/functional/resources_raw)
     # lives on BaseQMInputFrame.
@@ -518,6 +552,16 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
     pressure: PlainQuantity | None = Field(
         default=None,
         description="Pressure used in the QM calculation, unit is `atm`",
+    )
+    atomic_masses: PintArrayN | None = Field(
+        default=None,
+        description="Per-atom masses used by the calculation, unit is `amu`, in source atom order",
+        exclude_if=lambda value: value is None,
+    )
+    atomic_masses_source: str | None = Field(
+        default=None,
+        description="Source record used to obtain `atomic_masses`",
+        exclude_if=lambda value: value is None,
     )
     # QM properties
     forces: PintArrayNx3 | None = Field(
@@ -619,6 +663,12 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
     @model_validator(mode="after")
     def validate_cartesian_array_conventions(self) -> Self:
         atom_count = len(self.atoms)
+        if self.atomic_masses is not None:
+            if tuple(self.atomic_masses.shape) != (atom_count,):
+                raise ValueError("atomic_masses must have shape (N,) in source atom order")
+        elif self.atomic_masses_source is not None:
+            raise ValueError("atomic_masses_source requires atomic_masses")
+
         force_metadata = (
             self.forces_axis_order,
             self.forces_atom_order,
@@ -1043,9 +1093,10 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         self,
         show_3D: bool = False,
         *,
-        min_ratio: float = 0.2,
-        max_ratio: float = 1.8,
-        steps: int = 9,
+        min_ratio: float = 0.6,
+        max_ratio: float = 1.4,
+        steps: int = 8,
+        sampling_method: VibrationSamplingMethod = "harmonic_potential",
     ) -> tuple[Chem.rdchem.Mol, Chem.rdchem.Mol]:
         """Infer possible pre- and post-TS molecules from stable side topologies.
 
@@ -1053,11 +1104,16 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             show_3D (bool):
                 Whether to show 3D coordinates. Defaults to False.
             min_ratio (float):
-                The smallest displacement amplitude to sample. Defaults to 0.2.
+                The smallest displacement amplitude to sample. Defaults to 0.6.
             max_ratio (float):
-                The largest displacement amplitude to sample. Defaults to 1.8.
+                The largest displacement amplitude to sample. Defaults to 1.4.
             steps (int):
-                The number of amplitudes sampled on each side. Defaults to 9.
+                The number of amplitudes sampled on each side. Defaults to 8.
+            sampling_method (VibrationSamplingMethod):
+                Amplitude sampling strategy. ``"amplitude"`` spaces amplitudes
+                linearly; ``"harmonic_potential"`` spaces the harmonic
+                potential-energy magnitude linearly. Defaults to
+                ``"harmonic_potential"``.
 
         Returns:
             Tuple[Chem.rdchem.Mol, Chem.rdchem.Mol]: A tuple containing the possible pre- and post-transition state molecules.
@@ -1069,7 +1125,12 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         if steps < 1:
             raise ValueError("steps must be >= 1")
 
-        amplitudes = np.linspace(min_ratio, max_ratio, num=steps, endpoint=True)
+        amplitudes = _sample_vibration_amplitudes(
+            min_ratio,
+            max_ratio,
+            steps,
+            sampling_method,
+        )
         selected_sides: list[RdMol] = []
         for side_name, direction in (("negative", -1.0), ("positive", 1.0)):
             side_candidates: list[RdMol] = []
@@ -1166,9 +1227,10 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         pre_rdmol: RdMol,
         post_rdmol: RdMol,
         *,
-        min_ratio: float = 0.2,
-        max_ratio: float = 1.8,
-        steps: int = 9,
+        min_ratio: float = 0.6,
+        max_ratio: float = 1.4,
+        steps: int = 8,
+        sampling_method: VibrationSamplingMethod = "harmonic_potential",
     ) -> tuple[RdMol, RdMol]:
         """Generate an additional-sampling TS endpoint representation.
 
@@ -1192,6 +1254,13 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             self.atoms
         ):
             raise ValueError("TS endpoints must contain the same atoms as the source frame")
+
+        amplitudes = _sample_vibration_amplitudes(
+            min_ratio,
+            max_ratio,
+            steps,
+            sampling_method,
+        )
 
         changed_atom_indices = _bond_change_atom_indices(pre_rdmol, post_rdmol)
         if not changed_atom_indices:
@@ -1221,7 +1290,6 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 raise ValueError("Could not determine the vibration direction of a TS endpoint")
             endpoint_directions.append(1.0 if projection > 0.0 else -1.0)
 
-        amplitudes = np.linspace(min_ratio, max_ratio, num=steps, endpoint=True)
         additional_endpoints: list[RdMol] = []
         for side, direction, endpoint in zip(
             ("pre", "post"),
@@ -1250,9 +1318,10 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         *,
         prefix: str | None = None,
         format: Literal["xyz", "sdf"] = "xyz",
-        min_ratio: float = 0.2,
-        max_ratio: float = 1.8,
-        steps: int = 9,
+        min_ratio: float = 0.6,
+        max_ratio: float = 1.4,
+        steps: int = 8,
+        sampling_method: VibrationSamplingMethod = "harmonic_potential",
     ) -> tuple[Path, Path]:
         """Save inferred pre- and post-TS endpoint candidates.
 
@@ -1265,9 +1334,11 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 frame ID when the frame has file metadata, otherwise the frame ID.
             format: Endpoint format, either ``"xyz"`` or ``"sdf"``. SDF
                 preserves the reconstructed molecular graph and 3D conformer.
-            min_ratio: Smallest displacement amplitude to sample.
-            max_ratio: Largest displacement amplitude to sample.
-            steps: Number of amplitudes sampled on each side.
+            min_ratio: Smallest displacement amplitude to sample. Defaults to 0.6.
+            max_ratio: Largest displacement amplitude to sample. Defaults to 1.4.
+            steps: Number of amplitudes sampled on each side. Defaults to 8.
+            sampling_method: Amplitude sampling strategy. See
+                :meth:`possible_pre_post_ts`.
         """
 
         normalized_format = format.lower()
@@ -1279,6 +1350,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             min_ratio=min_ratio,
             max_ratio=max_ratio,
             steps=steps,
+            sampling_method=sampling_method,
         )
         source_prefix = getattr(self, "pure_filename", None)
         if not source_prefix:
@@ -1319,20 +1391,23 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
     def to_diff_rdmol(
         self,
         *,
-        min_ratio: float = 0.2,
-        max_ratio: float = 1.8,
-        steps: int = 9,
+        min_ratio: float = 0.6,
+        max_ratio: float = 1.4,
+        steps: int = 8,
+        sampling_method: VibrationSamplingMethod = "harmonic_potential",
     ) -> RdMol | None:
         """
         Generate a rdkit molecule object for the transition state with bond-breaking.
 
         Parameters:
             min_ratio (float):
-                The smallest displacement amplitude to sample. Defaults to 0.2.
+                The smallest displacement amplitude to sample. Defaults to 0.6.
             max_ratio (float):
-                The largest displacement amplitude to sample. Defaults to 1.8.
+                The largest displacement amplitude to sample. Defaults to 1.4.
             steps (int):
-                The number of amplitudes sampled on each side. Defaults to 9.
+                The number of amplitudes sampled on each side. Defaults to 8.
+            sampling_method (VibrationSamplingMethod):
+                Amplitude sampling strategy. See :meth:`possible_pre_post_ts`.
 
         Returns:
             Optional[RdMol]: The rdkit molecule object for the transition state with bond-breaking.
@@ -1345,6 +1420,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 min_ratio=min_ratio,
                 max_ratio=max_ratio,
                 steps=steps,
+                sampling_method=sampling_method,
             )
             assert not (
                 reactant_rdmol.HasSubstructMatch(product_rdmol)

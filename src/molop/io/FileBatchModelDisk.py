@@ -26,6 +26,7 @@ from molgr import ReconstructionBatchResult
 
 from molop.config import molopconfig, moloplogger
 from molop.io._batch_format_transform import BatchFormatTransformMixin
+from molop.io.base_models.ChemFileFrame import VibrationSamplingMethod
 from molop.io.base_models.summary import build_summary_df
 from molop.io.frame_selection import FrameSelector, normalize_frame_selector
 from molop.io.protocols import DiskFileLike
@@ -832,9 +833,10 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         output_dir: os.PathLike[str] | str,
         *,
         format: Literal["xyz", "sdf"] = "xyz",
-        min_ratio: float = 0.2,
-        max_ratio: float = 1.8,
-        steps: int = 9,
+        min_ratio: float = 0.6,
+        max_ratio: float = 1.4,
+        steps: int = 8,
+        sampling_method: VibrationSamplingMethod = "harmonic_potential",
         n_jobs: int = -1,
     ) -> dict[str, dict[int, tuple[Path, Path]]]:
         """Export endpoint candidates for every TS frame in every calculation file.
@@ -843,8 +845,11 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
         stems are retained; duplicate stems gain a stable source-path digest to
         prevent overwrites. Files without endpoint-export support are skipped with
         a warning. The result maps supported source paths to the frame-ID-to-endpoint
-        mappings returned by each file. Endpoint inference samples ``steps`` amplitudes
-        on each side from ``min_ratio`` through ``max_ratio``.
+        mappings returned by each file. Endpoint inference samples ``steps``
+        amplitudes on each side from ``min_ratio`` through ``max_ratio``
+        according to ``sampling_method``. Defaults are ``min_ratio=0.6``,
+        ``max_ratio=1.4``, ``steps=8``, and
+        ``sampling_method="harmonic_potential"``.
         """
 
         destination = Path(output_dir)
@@ -884,6 +889,7 @@ class FileBatchModelDisk(BatchFormatTransformMixin, MutableMapping, Generic[TFil
                     min_ratio=min_ratio,
                     max_ratio=max_ratio,
                     steps=steps,
+                    sampling_method=sampling_method,
                 ),
             )
             return source_path, exports

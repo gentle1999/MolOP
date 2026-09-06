@@ -50,6 +50,7 @@ FrameParserT = TypeVar("FrameParserT", bound=BaseFrameParser[Any])
 class _HasFileParseMethod(Protocol):
     _file_content: str
     only_extract_structure: bool
+    only_last_frame: bool
 
 
 class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]):

@@ -1,8 +1,10 @@
 from pathlib import Path
 
+import numpy as np
 import pytest
 
-from molop.io.base_models.DataClasses import EnergyObservation
+from molop.io.base_models.DataClasses import EnergyObservation, Vibrations
+from molop.io.logic.gaussian.log.frame_models.G16LogFileFrame import G16LogFileFrameMemory
 from molop.io.logic.gaussian.log.frame_parsers._g16_extractors import (
     merge_g16_energy_payloads,
 )
@@ -57,6 +59,64 @@ def test_gaussian_frame_source_metadata_is_opt_in() -> None:
     assert str(captured.geometry_optimization_status.max_displacement.units) == "bohr"
     assert captured.model_dump()["coordinate_source"] == "observed"
     assert captured.energies.model_dump()["observations"]
+
+
+def test_gaussian_vibration_orientation_transform_does_not_translate_modes() -> None:
+    coordinates = np.array(
+        [
+            [0.0, 0.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 2.0, 0.0],
+            [0.0, 0.0, 3.0],
+        ]
+    )
+    rotation = np.array(
+        [
+            [0.0, -1.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    translation = np.array([10.0, 20.0, 30.0])
+    standard_coordinates = (rotation @ coordinates.T).T + translation
+    standard_mode = np.array(
+        [
+            [1.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 0.0, 1.0],
+            [-1.0, -1.0, -1.0],
+        ]
+    )
+
+    frame = G16LogFileFrameMemory(
+        atoms=[1, 6, 8, 1],
+        coords=coordinates * atom_ureg.angstrom,
+        standard_coords=standard_coordinates * atom_ureg.angstrom,
+        vibrations=Vibrations(
+            frequencies=np.full(6, 100.0) * atom_ureg.cm_1,
+            vibration_modes=[standard_mode * atom_ureg.angstrom for _ in range(6)],
+        ),
+    )
+
+    assert frame.vibrations is not None
+    assert frame.standard_orientation_transformation_matrix is not None
+    np.testing.assert_allclose(
+        frame.standard_orientation_transformation_matrix[:3, :3],
+        rotation,
+        atol=1.0e-12,
+    )
+    np.testing.assert_allclose(
+        frame.standard_orientation_transformation_matrix[:3, 3],
+        translation,
+        atol=1.0e-12,
+    )
+    assert frame.standard_coords is not None
+    np.testing.assert_allclose(frame.standard_coords.magnitude, standard_coordinates, atol=1.0e-12)
+    np.testing.assert_allclose(
+        frame.vibrations.vibration_modes[0].magnitude,
+        standard_mode @ rotation,
+        atol=1.0e-12,
+    )
 
 
 def test_gaussian_archive_observations_reuse_parsed_energies() -> None:

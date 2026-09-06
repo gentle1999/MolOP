@@ -165,9 +165,13 @@ the source path as its outer key. Only calculation files with this operation are
 files in a mixed batch are skipped with a warning. Unique source stems are retained, while duplicate
 stems receive a stable source-path digest to prevent overwriting another file's results. The
 endpoints are geometry-based candidates, not optimized reactant or product structures. Endpoint
-inference samples `steps=9` amplitudes per displacement side from `min_ratio=0.2` through
-`max_ratio=1.8`, selects each side's most frequent topology, and maps the candidate with more
-fragments to the precursor.
+inference samples `steps=8` amplitudes per displacement side from `min_ratio=0.6` through
+`max_ratio=1.4`, selects each side's most frequent topology, and maps the candidate with more
+fragments to the precursor. `sampling_method` defaults to `"harmonic_potential"` to space
+squared amplitudes, and therefore the
+harmonic potential (or the magnitude of the potential-energy decrease for an imaginary mode),
+evenly. Set it to `"amplitude"` to use linear-amplitude spacing. The option is also available on `additional_pre_post_ts`, `to_diff_rdmol`, and
+`save_pre_post_ts`.
 
 The standard endpoint pair is unchanged by the optional additional sampling. To generate an
 additional-sampling pair, keep the standard endpoints' conformers and call

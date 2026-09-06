@@ -214,7 +214,13 @@ def test_possible_pre_post_ts_votes_on_each_displacement_side(
 
     monkeypatch.setattr(BaseCalcFrame, "ts_vibration", fake_ts_vibration)
 
-    pre, post = frame.possible_pre_post_ts(show_3D=True, min_ratio=0.75, max_ratio=1.75, steps=5)
+    pre, post = frame.possible_pre_post_ts(
+        show_3D=True,
+        min_ratio=0.75,
+        max_ratio=1.75,
+        steps=5,
+        sampling_method="amplitude",
+    )
 
     assert sampled_ratios == [
         -0.75,
@@ -232,6 +238,34 @@ def test_possible_pre_post_ts_votes_on_each_displacement_side(
     assert Chem.MolToSmiles(post) == "CC"
     assert pre.GetConformer().GetAtomPosition(0).x == pytest.approx(1.75)
     assert post.GetConformer().GetAtomPosition(0).x == pytest.approx(-1.5)
+
+
+def test_possible_pre_post_ts_can_sample_equal_harmonic_potential_intervals(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    frame = BaseCalcFrame()
+    sampled_ratios: list[float] = []
+
+    def fake_ts_vibration(
+        self: BaseCalcFrame, ratio: float = 1.75, steps: int = 7
+    ) -> list[SimpleNamespace]:
+        assert self is frame
+        assert steps == 1
+        sampled_ratios.append(ratio)
+        return [SimpleNamespace(rdmol=_marked_topology("CC", ratio))]
+
+    monkeypatch.setattr(BaseCalcFrame, "ts_vibration", fake_ts_vibration)
+
+    frame.possible_pre_post_ts(
+        show_3D=True,
+        min_ratio=0.2,
+        max_ratio=1.8,
+        steps=5,
+        sampling_method="harmonic_potential",
+    )
+
+    amplitudes = np.sqrt(np.linspace(0.2**2, 1.8**2, num=5, endpoint=True))
+    np.testing.assert_allclose(sampled_ratios, np.concatenate((-amplitudes, amplitudes)))
 
 
 def test_possible_pre_post_ts_ignores_suspicious_reconstructions(
@@ -271,6 +305,7 @@ def test_possible_pre_post_ts_ignores_suspicious_reconstructions(
         min_ratio=0.75,
         max_ratio=1.75,
         steps=5,
+        sampling_method="amplitude",
     )
 
     assert Chem.MolToSmiles(pre) == "CC"
@@ -289,14 +324,23 @@ def test_additional_pre_post_ts_returns_endpoints_without_bond_changes() -> None
     assert pre is not None
     assert post is not None
 
-    additional_pre, additional_post = frame.additional_pre_post_ts(pre, post)
+    additional_pre, additional_post = frame.additional_pre_post_ts(
+        pre,
+        post,
+        min_ratio=0.2,
+        max_ratio=1.8,
+        steps=9,
+        sampling_method="amplitude",
+    )
 
     assert additional_pre is pre
     assert additional_post is post
 
 
+@pytest.mark.parametrize("sampling_method", ["amplitude", "harmonic_potential"])
 def test_additional_pre_post_ts_fixes_bond_change_atoms_during_resampling(
     monkeypatch: pytest.MonkeyPatch,
+    sampling_method: str,
 ) -> None:
     import importlib
 
@@ -339,13 +383,15 @@ def test_additional_pre_post_ts_fixes_bond_change_atoms_during_resampling(
     monkeypatch.setattr(frame_module.Molecule, "from_coords", staticmethod(fake_from_coords))
     monkeypatch.setattr(BaseCalcFrame, "_ts_vibration_id", lambda _self: 0)
 
-    frame.additional_pre_post_ts(pre, post)
+    frame.additional_pre_post_ts(pre, post, sampling_method=sampling_method)  # type: ignore[arg-type]
 
-    assert len(captured_coords) == 18
-    amplitudes = np.linspace(0.2, 1.8, num=9, endpoint=True)
+    assert len(captured_coords) == 16
+    amplitudes = np.linspace(0.6, 1.4, num=8, endpoint=True)
+    if sampling_method == "harmonic_potential":
+        amplitudes = np.sqrt(np.linspace(0.6**2, 1.4**2, num=8, endpoint=True))
     for direction, endpoint, side_coords in (
-        (-1.0, pre, captured_coords[:9]),
-        (1.0, post, captured_coords[9:]),
+        (-1.0, pre, captured_coords[:8]),
+        (1.0, post, captured_coords[8:]),
     ):
         endpoint_coords = endpoint.GetConformer().GetPositions()
         for coords, amplitude in zip(side_coords, amplitudes, strict=True):
@@ -405,7 +451,14 @@ def test_additional_pre_post_ts_ignores_suspicious_reconstructions(
     monkeypatch.setattr(frame_module.Molecule, "from_coords", staticmethod(fake_from_coords))
     monkeypatch.setattr(BaseCalcFrame, "_ts_vibration_id", lambda _self: 0)
 
-    additional_pre, additional_post = frame.additional_pre_post_ts(pre, post)
+    additional_pre, additional_post = frame.additional_pre_post_ts(
+        pre,
+        post,
+        min_ratio=0.2,
+        max_ratio=1.8,
+        steps=9,
+        sampling_method="amplitude",
+    )
 
     assert Chem.MolToSmiles(additional_pre) == "CCC"
     assert Chem.MolToSmiles(additional_post) == "C=CC"
@@ -440,10 +493,11 @@ def test_possible_pre_post_ts_removes_conformers_by_default(
         ({"max_ratio": 0.1}, "max_ratio"),
         ({"max_ratio": float("inf")}, "max_ratio"),
         ({"steps": 0}, "steps"),
+        ({"sampling_method": "invalid"}, "sampling_method"),
     ],
 )
 def test_possible_pre_post_ts_rejects_invalid_sampling_ranges(
-    kwargs: dict[str, float | int], message: str
+    kwargs: dict[str, object], message: str
 ) -> None:
     with pytest.raises(ValueError, match=message):
         BaseCalcFrame().possible_pre_post_ts(**kwargs)  # type: ignore[arg-type]

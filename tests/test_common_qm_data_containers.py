@@ -101,6 +101,64 @@ def test_common_data_containers_enforce_declared_array_shapes() -> None:
         BondOrders(wiberg_bond_order=np.zeros((2, 3)))
 
 
+def test_base_calc_frame_exposes_per_atom_masses_in_source_order() -> None:
+    frame = BaseCalcFrame(
+        atoms=[6, 1],
+        coords=np.zeros((2, 3)) * atom_ureg.angstrom,
+        atomic_masses=np.array([12.0, 1.007825]) * atom_ureg.amu,
+        atomic_masses_source="test",
+    )
+
+    assert frame.atomic_masses is not None
+    assert frame.atomic_masses.units == atom_ureg.amu
+    np.testing.assert_allclose(frame.atomic_masses.magnitude, [12.0, 1.007825])
+    assert frame.atomic_masses_source == "test"
+
+    with pytest.raises(ValidationError, match="atomic_masses must have shape"):
+        BaseCalcFrame(
+            atoms=[6, 1],
+            coords=np.zeros((2, 3)) * atom_ureg.angstrom,
+            atomic_masses=np.array([12.0]) * atom_ureg.amu,
+        )
+
+    with pytest.raises(ValidationError, match="atomic_masses_source requires atomic_masses"):
+        BaseCalcFrame(
+            atoms=[6, 1],
+            coords=np.zeros((2, 3)) * atom_ureg.angstrom,
+            atomic_masses_source="test",
+        )
+
+
+def test_vibration_orientation_transforms_ignore_translation_for_single_and_collection() -> None:
+    rotation = np.array(
+        [
+            [0.0, -1.0, 0.0],
+            [1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0],
+        ]
+    )
+    transformation = np.eye(4)
+    transformation[:3, :3] = rotation
+    transformation[:3, 3] = [100.0, -200.0, 300.0]
+    original_mode = np.array([[1.0, 2.0, 3.0], [-2.0, 1.0, 0.5]])
+    expected_forward = original_mode @ rotation.T
+
+    vibration = Vibration(vibration_mode=original_mode * atom_ureg.angstrom)
+    vibration.transform_orientation(transformation)
+    np.testing.assert_allclose(vibration.vibration_mode.magnitude, expected_forward)
+    vibration.transform_orientation(transformation, inverse=True)
+    np.testing.assert_allclose(vibration.vibration_mode.magnitude, original_mode)
+
+    vibrations = Vibrations(
+        frequencies=np.array([100.0]) * atom_ureg.cm_1,
+        vibration_modes=[original_mode * atom_ureg.angstrom],
+    )
+    vibrations.transform_orientation(transformation)
+    np.testing.assert_allclose(vibrations.vibration_modes[0].magnitude, expected_forward)
+    vibrations.transform_orientation(transformation, inverse=True)
+    np.testing.assert_allclose(vibrations.vibration_modes[0].magnitude, original_mode)
+
+
 def test_polarizability_accepts_supported_packed_and_tensor_shapes() -> None:
     packed = Polarizability(
         polarizability_tensor=np.zeros(6) * atom_ureg.bohr**3,

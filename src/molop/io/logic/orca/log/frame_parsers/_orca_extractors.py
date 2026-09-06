@@ -168,6 +168,40 @@ def extract_orca_coords(
     return atoms, coords, coordinate_decimal_places
 
 
+def extract_orca_atomic_masses(
+    text: str,
+    *,
+    expected_atom_count: int | None = None,
+) -> Any | None:
+    """Extract masses from the latest ORCA ``CARTESIAN COORDINATES (A.U.)`` table."""
+
+    matches = orca_log_patterns.COORD_AU_HEADER.find_matches(text)
+    if not matches:
+        return None
+
+    rows: list[tuple[int, float]] = []
+    for line in text[matches[-1].end() :].splitlines():
+        matched = orca_log_patterns.COORD_AU_MASS_ROW.match(line)
+        if matched is None:
+            if rows:
+                break
+            continue
+        rows.append(
+            (
+                int(matched.group("index")),
+                _as_float(matched.group("mass")),
+            )
+        )
+    if not rows:
+        return None
+    indices = [index for index, _mass in rows]
+    if indices != list(range(indices[0], indices[0] + len(indices))):
+        return None
+    if expected_atom_count is not None and len(rows) != expected_atom_count:
+        return None
+    return np.asarray([mass for _index, mass in rows], dtype=float) * atom_ureg.amu
+
+
 def extract_orca_energies(
     text: str,
     *,

@@ -108,9 +108,10 @@ def test_ts_endpoint_sampling_signature_contract() -> None:
 
     for callable_obj in callables:
         parameters = signature(callable_obj).parameters
-        assert parameters["min_ratio"].default == 0.2
-        assert parameters["max_ratio"].default == 1.8
-        assert parameters["steps"].default == 9
+        assert parameters["min_ratio"].default == 0.6
+        assert parameters["max_ratio"].default == 1.4
+        assert parameters["steps"].default == 8
+        assert parameters["sampling_method"].default == "harmonic_potential"
         assert "ratio" not in parameters
         assert "ratio_attempts" not in parameters
 
@@ -120,9 +121,10 @@ def test_ts_endpoint_additional_sampling_signature_contract() -> None:
 
     assert parameters["pre_rdmol"].kind is Parameter.POSITIONAL_OR_KEYWORD
     assert parameters["post_rdmol"].kind is Parameter.POSITIONAL_OR_KEYWORD
-    assert parameters["min_ratio"].default == 0.2
-    assert parameters["max_ratio"].default == 1.8
-    assert parameters["steps"].default == 9
+    assert parameters["min_ratio"].default == 0.6
+    assert parameters["max_ratio"].default == 1.4
+    assert parameters["steps"].default == 8
+    assert parameters["sampling_method"].default == "harmonic_potential"
 
 
 def test_parallel_execute_public_signature_contract() -> None:

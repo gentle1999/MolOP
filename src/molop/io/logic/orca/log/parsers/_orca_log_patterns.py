@@ -30,11 +30,22 @@ class ORCALogPatterns:
         content_pattern=r"^-+\s*\nCARTESIAN COORDINATES \(ANGSTROEM\)\s*\n-+\s*$",
         content_repeat=0,
     )
+    COORD_AU_HEADER = MolOPPattern(
+        content_pattern=r"^[ \t]*-+[ \t]*\r?\nCARTESIAN COORDINATES \(A\.U\.\)[ \t]*\r?\n"
+        r"[ \t]*-+[ \t]*$",
+        content_repeat=0,
+    )
     COORD_ROW = MolOPPattern(
         content_pattern=rf"^\s*(?P<symbol>[A-Z][a-z]?)\s+"
         rf"(?P<x>{ORCA_FLOAT_PATTERN})\s+"
         rf"(?P<y>{ORCA_FLOAT_PATTERN})\s+"
         rf"(?P<z>{ORCA_FLOAT_PATTERN})\s*$",
+        content_repeat=0,
+    )
+    COORD_AU_MASS_ROW = MolOPPattern(
+        content_pattern=rf"^[ \t]*(?P<index>\d+)[ \t]+[A-Z][a-z]?[ \t]+"
+        rf"{ORCA_FLOAT_PATTERN}[ \t]+\d+[ \t]+(?P<mass>{ORCA_FLOAT_PATTERN})[ \t]+"
+        rf"{ORCA_FLOAT_PATTERN}[ \t]+{ORCA_FLOAT_PATTERN}[ \t]+{ORCA_FLOAT_PATTERN}[ \t]*$",
         content_repeat=0,
     )
     FINAL_ENERGY = MolOPPattern(

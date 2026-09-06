@@ -33,6 +33,7 @@ from molop.io.logic.gaussian.log.frame_parsers._g16_shared import (
     _temperature_and_pressure_from_block,
 )
 from molop.io.logic.gaussian.log.parsers._g16_log_file_extractors import (
+    extract_g16_atomic_masses,
     extract_g16_termination_status,
 )
 from molop.io.logic.gaussian.log.parsers._g16_log_patterns import g16_log_patterns
@@ -123,6 +124,16 @@ class G16LogFileFrameParserMixin:
         if atoms and standard_coords is not None:
             result.set("atoms", atoms)
             result.set("standard_coords", standard_coords)
+
+        parsed_atoms = result.fields.get("atoms")
+        if isinstance(parsed_atoms, list):
+            atomic_masses, atomic_masses_source = extract_g16_atomic_masses(
+                state.content,
+                expected_atom_count=len(parsed_atoms),
+            )
+            if atomic_masses is not None:
+                result.set("atomic_masses", atomic_masses)
+                result.set("atomic_masses_source", atomic_masses_source)
 
         return G16ParsePhase.STRUCTURE_ONLY_CHECK
 

@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+import numpy as np
 import pytest
 
 from molop.io.base_models.ParseContainers import ModelParseResult
@@ -16,8 +17,13 @@ from molop.io.logic.gaussian.log.locators import (
     locate_g16_section_frames,
     locate_g16_sections,
 )
+from molop.io.logic.gaussian.log.models.G16LogFile import G16LogFileMemory
+from molop.io.logic.gaussian.log.parsers._g16_log_file_extractors import (
+    extract_g16_atomic_masses,
+)
 from molop.io.logic.gaussian.log.parsers._g16_log_patterns import g16_log_patterns
 from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserMemory
+from molop.unit import atom_ureg
 
 
 FIXTURES = [
@@ -29,6 +35,9 @@ ARCHIVE_ONLY_FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log"
 CCSD_FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "CH3-ccsd-sp.log"
 OPEN_SHELL_NPA_FIXTURE = (
     Path(__file__).resolve().parent / "test_files" / "g16log" / "dsgdb9nsd_130472-1.log"
+)
+ATOMIC_MASS_FIXTURE = (
+    Path(__file__).resolve().parent / "test_files" / "g16log" / "dsgdb9nsd_000180-9-.log"
 )
 
 
@@ -110,6 +119,148 @@ def test_g16log_state_machine_frame_parser_matches_file_parser_frames():
         assert bool(direct_frame.geometry_optimization_status) == bool(
             file_frame.geometry_optimization_status
         )
+
+
+def test_g16log_parses_atmwgt_masses_for_every_geometry_frame() -> None:
+    parsed = G16LogFileParserMemory().parse(ATOMIC_MASS_FIXTURE.read_text())
+
+    assert len(parsed.frames) == 18
+    expected_masses = [
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        14.003074,
+        15.9949146,
+        *([1.007825] * 8),
+    ]
+    for frame in parsed.frames:
+        assert frame.atomic_masses_source == "gaussian_atmwgt"
+        assert frame.atomic_masses is not None
+        np.testing.assert_allclose(frame.atomic_masses.m_as("amu"), expected_masses)
+
+
+def test_g16log_only_last_frame_keeps_masses_on_frame_only() -> None:
+    parsed = G16LogFileParserMemory(only_last_frame=True).parse(ATOMIC_MASS_FIXTURE.read_text())
+
+    assert len(parsed.frames) == 1
+    frame = parsed.frames[0]
+    assert frame.atomic_masses_source == "gaussian_atmwgt"
+    assert frame.atomic_masses is not None
+    assert frame.atomic_masses.shape == (14,)
+    assert "atomic_masses" not in parsed.model_dump()
+
+
+def test_g16log_backfills_thermochemistry_masses_to_matching_frames() -> None:
+    parsed = G16LogFileParserMemory().parse(FIXTURES[0].read_text())
+
+    expected_masses = [
+        12.0,
+        12.0,
+        12.0,
+        12.0,
+        1.00783,
+        12.0,
+        1.00783,
+        12.0,
+        1.00783,
+        1.00783,
+        14.00307,
+        12.0,
+        1.00783,
+        1.00783,
+        1.00783,
+        12.0,
+        1.00783,
+        1.00783,
+        1.00783,
+    ]
+    assert parsed.frames
+    for frame in parsed.frames:
+        assert frame.atomic_masses_source == "gaussian_thermochemistry"
+        assert frame.atomic_masses is not None
+        np.testing.assert_allclose(frame.atomic_masses.m_as("amu"), expected_masses)
+    assert "atomic_masses" not in parsed.model_dump()
+    assert "atomic_masses_source" not in parsed.model_dump()
+
+
+def test_extract_g16_atomic_masses_uses_latest_atmwgt_group_and_supports_d_notation() -> None:
+    source = """
+ Isotopes and Nuclear Properties:
+ AtmWgt=  99.0000000
+ Isotopes and Nuclear Properties:
+ AtmWgt=  12.0000000  1.007825D+00
+ - Thermochemistry -
+ Atom     1 has atomic number  6 and mass  12.00000
+ Atom     2 has atomic number  1 and mass   1.00783
+ """
+
+    masses, source_name = extract_g16_atomic_masses(source, expected_atom_count=2)
+
+    assert source_name == "gaussian_atmwgt"
+    assert masses is not None
+    np.testing.assert_allclose(masses.m_as("amu"), [12.0, 1.007825])
+
+
+def test_extract_g16_atomic_masses_skips_invalid_thermochemistry_group() -> None:
+    source = """
+ - Thermochemistry -
+ Atom     1 has atomic number  6 and mass  12.00000
+ Atom     2 has atomic number  1 and mass   1.00783
+ - Thermochemistry -
+ Atom     1 has atomic number  6 and mass  13.00000
+ Atom     3 has atomic number  1 and mass   1.00783
+ """
+
+    masses, source_name = extract_g16_atomic_masses(source, expected_atom_count=2)
+
+    assert source_name == "gaussian_thermochemistry"
+    assert masses is not None
+    np.testing.assert_allclose(masses.m_as("amu"), [12.0, 1.00783])
+
+    assert extract_g16_atomic_masses("AtmWgt= 12.0000000", expected_atom_count=2) == (None, None)
+
+
+def _g16_mass_frame(
+    masses: list[float] | None,
+    source: str | None,
+) -> G16LogFileFrameMemory:
+    return G16LogFileFrameMemory(
+        atoms=[6, 1],
+        coords=np.zeros((2, 3)) * atom_ureg.angstrom,
+        atomic_masses=None if masses is None else np.asarray(masses) * atom_ureg.amu,
+        atomic_masses_source=source,
+    )
+
+
+def test_g16log_mass_backfill_prefers_atmwgt_over_thermochemistry() -> None:
+    chem_file = G16LogFileMemory()
+    thermochemistry_frame = _g16_mass_frame([12.0, 1.00783], "gaussian_thermochemistry")
+    missing_frame = _g16_mass_frame(None, None)
+    atmwgt_frame = _g16_mass_frame([12.0, 1.007825], "gaussian_atmwgt")
+    for frame in (thermochemistry_frame, missing_frame, atmwgt_frame):
+        chem_file.append(frame)
+
+    G16LogFileParserMemory()._update_file_metadata_from_frames(chem_file, {})
+
+    assert thermochemistry_frame.atomic_masses_source == "gaussian_thermochemistry"
+    assert missing_frame.atomic_masses_source == "gaussian_atmwgt"
+    assert missing_frame.atomic_masses is not None
+    np.testing.assert_allclose(missing_frame.atomic_masses.m_as("amu"), [12.0, 1.007825])
+
+
+def test_g16log_mass_backfill_does_not_resolve_conflicting_equal_priority_masses() -> None:
+    chem_file = G16LogFileMemory()
+    first_frame = _g16_mass_frame([12.0, 1.007825], "gaussian_atmwgt")
+    second_frame = _g16_mass_frame([13.0, 1.007825], "gaussian_atmwgt")
+    missing_frame = _g16_mass_frame(None, None)
+    for frame in (first_frame, second_frame, missing_frame):
+        chem_file.append(frame)
+
+    G16LogFileParserMemory()._update_file_metadata_from_frames(chem_file, {})
+
+    assert missing_frame.atomic_masses is None
+    assert missing_frame.atomic_masses_source is None
 
 
 def test_g16log_open_shell_mulliken_and_npa_populations_are_both_retained() -> None:

@@ -147,12 +147,30 @@ structures. `to_diff_rdmol` can return `None` when no supported bond-breaking di
 Review atom mapping, connectivity, and the original calculation before using either result in an
 automated reaction workflow.
 
-By default, endpoint inference samples nine amplitudes on each side of the imaginary mode, evenly
-spaced from `min_ratio=0.2` to `max_ratio=1.8`. It votes for the most frequent reconstructed
+By default, endpoint inference samples eight amplitudes on each side of the imaginary mode from
+`min_ratio=0.6` to `max_ratio=1.4`, evenly spaced in harmonic-oscillator potential energy. It votes for the most frequent reconstructed
 topology separately in the negative and positive displacement spaces, retaining the
 largest-amplitude conformer for the winning topology. The candidate with more disconnected
 fragments is returned as the precursor; equal fragment counts preserve negative-side then
 positive-side order. Use `steps` to change the number of amplitudes sampled on each side.
+
+The default `sampling_method` is `"harmonic_potential"`. To retain the original
+linear-amplitude sampling, set `sampling_method="amplitude"` explicitly:
+
+```python
+reactant, product = ts_frame.possible_pre_post_ts(
+    show_3D=True,
+    sampling_method="amplitude",
+)
+```
+
+The harmonic-potential method uses `a_i = sqrt(a_min**2 + i * (a_max**2 - a_min**2) / (steps - 1))`,
+which spaces `a**2` and therefore the harmonic potential evenly. For an imaginary mode,
+this corresponds to evenly spacing the magnitude of the potential-energy decrease away from
+the saddle. The `"amplitude"` method preserves the original linear-amplitude sampling.
+The default `"harmonic_potential"` method spaces potential energy evenly, while `"amplitude"`
+preserves the original linear-amplitude behavior. The same option is available on `additional_pre_post_ts`, `save_pre_post_ts`, and
+`to_diff_rdmol`.
 
 The standard endpoint pair remains the primary result. For an additional representation, retain
 the endpoint conformers and resample the atoms not incident to changed bonds while fixing the

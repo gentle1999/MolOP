@@ -1,6 +1,8 @@
 import pytest
 from rdkit import Chem
+from rdkit.Geometry import Point3D
 
+from molop.structure import StructureTransformation as structure_transformation
 from molop.structure import utils as structure_utils
 from molop.structure.utils import canonical_smiles, estimate_bond_length
 
@@ -52,3 +54,39 @@ def test_estimate_bond_length_orders_common_cc_bonds() -> None:
 def test_estimate_bond_length_raises_for_unsupported_bond_type() -> None:
     with pytest.raises(ValueError, match="Unsupported bond type"):
         estimate_bond_length(6, 6, Chem.rdchem.BondType.AROMATIC)
+
+
+def _two_carbon_molecule(smiles: str, distance: float) -> Chem.Mol:
+    molecule = Chem.MolFromSmiles(smiles)
+    assert molecule is not None
+    conformer = Chem.Conformer(molecule.GetNumAtoms())
+    conformer.SetAtomPosition(0, Point3D(0.0, 0.0, 0.0))
+    conformer.SetAtomPosition(1, Point3D(distance, 0.0, 0.0))
+    molecule.AddConformer(conformer)
+    return molecule
+
+
+@pytest.mark.parametrize(
+    ("smiles", "bond_type"),
+    [
+        ("C=C", Chem.rdchem.BondType.DOUBLE),
+        ("C#C", Chem.rdchem.BondType.TRIPLE),
+    ],
+)
+def test_check_crowding_uses_multiple_bond_length_correction(
+    smiles: str, bond_type: Chem.rdchem.BondType
+) -> None:
+    single_length = estimate_bond_length(6, 6, Chem.rdchem.BondType.SINGLE)
+    multiple_length = estimate_bond_length(6, 6, bond_type)
+    distance = 0.5 * (single_length + multiple_length) / 2
+
+    molecule = _two_carbon_molecule(smiles, distance)
+
+    assert structure_transformation.check_crowding(molecule) is True
+
+
+def test_check_crowding_uses_single_bond_reference_for_unbonded_pairs() -> None:
+    single_length = estimate_bond_length(6, 6, Chem.rdchem.BondType.SINGLE)
+    molecule = _two_carbon_molecule("C.C", 0.5 * 0.5 * single_length)
+
+    assert structure_transformation.check_crowding(molecule) is False

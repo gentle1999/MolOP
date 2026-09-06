@@ -11,6 +11,7 @@ from molop.io.logic.orca.log.frame_models.ORCALogFileFrame import (
     ORCALogFileFrameMemory,
 )
 from molop.io.logic.orca.log.frame_parsers._orca_extractors import (
+    extract_orca_atomic_masses,
     extract_orca_coords,
     extract_orca_electronic_states,
     extract_orca_energies,
@@ -63,6 +64,14 @@ class ORCALogFileFrameParserMixin:
         if atoms is not None and coords is not None:
             result.set("atoms", atoms)
             result.set("coords", coords)
+            if (
+                atomic_masses := extract_orca_atomic_masses(
+                    text,
+                    expected_atom_count=len(atoms),
+                )
+            ) is not None:
+                result.set("atomic_masses", atomic_masses)
+                result.set("atomic_masses_source", "orca_cartesian_au_mass")
             if capture_source_evidence:
                 result.set("coordinate_source", "observed")
                 result.set(

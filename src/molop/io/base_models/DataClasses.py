@@ -16,7 +16,10 @@ from molop.io.base_models.summary import (
     summary_item,
 )
 from molop.unit import atom_ureg
-from molop.utils.functions import invert_transform_coords, transform_coords
+from molop.utils.functions import (
+    invert_transform_displacements,
+    transform_displacements,
+)
 from molop.utils.types import (
     ArrayN,
     PintArray3,
@@ -1636,10 +1639,12 @@ class Vibration(BaseDataClassWithUnit):
     ) -> None:
         if inverse:
             mode = cast(Any, self.vibration_mode)
-            self.vibration_mode = invert_transform_coords(mode.m, transformation_matrix) * mode.u
+            self.vibration_mode = (
+                invert_transform_displacements(mode.m, transformation_matrix) * mode.u
+            )
         else:
             mode = cast(Any, self.vibration_mode)
-            self.vibration_mode = transform_coords(mode.m, transformation_matrix) * mode.u
+            self.vibration_mode = transform_displacements(mode.m, transformation_matrix) * mode.u
 
 
 class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
@@ -1808,13 +1813,14 @@ class Vibrations(BaseDataClassWithUnit, Sequence[Vibration]):
     ) -> None:
         if inverse:
             self.vibration_modes = [
-                invert_transform_coords(cast(Any, mode).m, transformation_matrix)
+                invert_transform_displacements(cast(Any, mode).m, transformation_matrix)
                 * cast(Any, mode).u
                 for mode in self.vibration_modes
             ]
         else:
             self.vibration_modes = [
-                transform_coords(cast(Any, mode).m, transformation_matrix) * cast(Any, mode).u
+                transform_displacements(cast(Any, mode).m, transformation_matrix)
+                * cast(Any, mode).u
                 for mode in self.vibration_modes
             ]
 

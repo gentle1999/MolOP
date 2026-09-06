@@ -11,6 +11,7 @@ from molop.io.logic.gaussian.fchk.output.frame_models.G16FchkFileFrame import (
     G16FchkFileFrameMemory,
 )
 from molop.io.logic.gaussian.fchk.output.parsers._fchk_extractors import (
+    extract_fchk_atomic_masses,
     extract_fchk_energies,
     extract_fchk_forces,
     extract_fchk_hessian,
@@ -56,6 +57,9 @@ class G16FchkFileFrameParserMixin:
         if atoms is not None and coords is not None:
             result.set("atoms", atoms)
             result.set("coords", coords)
+            if (atomic_masses := extract_fchk_atomic_masses(records, len(atoms))) is not None:
+                result.set("atomic_masses", atomic_masses)
+                result.set("atomic_masses_source", "gaussian_fchk_real_atomic_weights")
             if cast(_HasParseMethod, self).capture_source_evidence:
                 result.set("coordinate_source", "observed")
                 result.set(

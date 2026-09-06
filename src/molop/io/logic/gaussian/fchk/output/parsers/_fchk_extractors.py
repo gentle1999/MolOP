@@ -55,6 +55,7 @@ METADATA_LABELS = frozenset(
 FRAME_LABELS = frozenset(
     {
         "Atomic numbers",
+        "Real atomic weights",
         "Current cartesian coordinates",
         "Number of alpha electrons",
         "Number of beta electrons",
@@ -213,6 +214,18 @@ def extract_fchk_structure(
         return None, None
     coords = (np.asarray(coordinate_values).reshape(-1, 3) * atom_ureg.bohr).to(atom_ureg.angstrom)
     return atoms, coords
+
+
+def extract_fchk_atomic_masses(
+    records: Mapping[str, FCHKRecord],
+    num_atoms: int,
+) -> Any | None:
+    """Extract Gaussian fchk ``Real atomic weights`` in source atom order."""
+
+    values = _float_array(records, "Real atomic weights")
+    if len(values) != num_atoms:
+        return None
+    return np.asarray(values, dtype=float) * atom_ureg.amu
 
 
 def extract_fchk_energies(
@@ -505,6 +518,7 @@ def parse_fchk_frame_records(file_content: str) -> dict[str, FCHKRecord]:
 
 __all__ = [
     "extract_fchk_energies",
+    "extract_fchk_atomic_masses",
     "extract_fchk_forces",
     "extract_fchk_hessian",
     "extract_fchk_metadata",

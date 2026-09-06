@@ -137,6 +137,22 @@ def invert_transform_coords(orientation_coords: np.ndarray, T: np.ndarray) -> np
     return np.dot(orientation_coords - T[:3, 3], T[:3, :3])
 
 
+def transform_displacements(displacements: np.ndarray, T: np.ndarray) -> np.ndarray:
+    """Transform displacement vectors using only the rotational part of ``T``."""
+
+    return np.dot(displacements, T[:3, :3].T)
+
+
+def invert_transform_displacements(displacements: np.ndarray, T: np.ndarray) -> np.ndarray:
+    """Apply the inverse rotation of ``T`` to displacement vectors.
+
+    Unlike coordinate points, displacement vectors have no origin and must not
+    receive the translational component of a homogeneous rigid transform.
+    """
+
+    return np.dot(displacements, T[:3, :3])
+
+
 T = TypeVar("T", bound=BaseModel)
 
 

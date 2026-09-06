@@ -540,6 +540,18 @@ class G16LogPatterns:
         r"Pressure\s*(?P<pressure>\d+\.\d*)\s*Atm\.",
         description="The temperature and pressure of the Gaussian calculation. link 716",
     )
+    ATOMIC_WEIGHTS = MolOPPattern(
+        content_pattern=rf"^[ \t]*AtmWgt=[ \t]*(?P<values>{_FLOAT}(?:[ \t]+{_FLOAT})*)[ \t]*\r?$",
+        content_repeat=0,
+        description="The per-atom masses used by Gaussian, from the AtmWgt record.",
+    )
+    THERMOCHEMISTRY_ATOMIC_MASS = MolOPPattern(
+        content_pattern=rf"^[ \t]*Atom[ \t]+(?P<atom_index>\d+)[ \t]+has[ \t]+"
+        rf"atomic[ \t]+number[ \t]+(?P<atomic_number>\d+)[ \t]+and[ \t]+"
+        rf"mass[ \t]+(?P<mass>{_FLOAT})[ \t]*\r?$",
+        content_repeat=0,
+        description="The per-atom masses printed in Gaussian thermochemistry.",
+    )
     ROTATIONAL_TEMPERATURE = MolOPPattern(
         content_pattern=r"^\s*Rotational temperatures \(Kelvin\)(?P<a>\s*\d+\.\d*)"
         r"(?P<b>\s*\d+\.\d*)(?P<c>\s*\d+\.\d*)",

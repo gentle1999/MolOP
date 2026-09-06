@@ -10,6 +10,7 @@ from molop.io import AutoParser  # type: ignore[reportMissingImports]
 from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.gaussian.fchk.output.models.G16FchkFile import G16FchkFileDisk
 from molop.io.logic.gaussian.fchk.output.parsers._fchk_extractors import (
+    extract_fchk_atomic_masses,
     extract_fchk_populations,
 )
 from molop.io.logic.gaussian.fchk.output.parsers._fchk_records import (
@@ -22,6 +23,7 @@ from molop.io.logic.gaussian.fchk.output.parsers.G16FchkFileParser import (
     G16FchkFileParserMemory,
 )
 from molop.io.logic.gaussian.log.parsers.G16LogFileParser import G16LogFileParserDisk
+from molop.unit import atom_ureg
 
 
 FIXTURE_DIR = Path(__file__).resolve().parent / "test_files" / "g16fchk"
@@ -59,6 +61,12 @@ def test_g16fchk_frequency_fixture_exposes_structured_results() -> None:
     assert [task.task_type for task in parsed.task_requests] == ["opt", "freq"]
     assert frame.atoms == [6, 6, 1, 1, 1, 1, 1]
     assert frame.coords.shape == (7, 3)
+    assert frame.atomic_masses_source == "gaussian_fchk_real_atomic_weights"
+    assert frame.atomic_masses is not None
+    np.testing.assert_allclose(
+        frame.atomic_masses.m_as("amu"),
+        [12.0, 12.0, 1.00782504, 1.00782504, 1.00782504, 1.00782504, 1.00782504],
+    )
     assert frame.coordinate_source == "observed"
     assert frame.energies is not None
     assert frame.energies.total_energy.m_as("hartree") == pytest.approx(-79.1896514864202)
@@ -144,6 +152,25 @@ def test_g16fchk_population_records_support_spin_and_extensible_schemes() -> Non
     assert populations["npa_charges"].values == [-0.1, 0.1]
     assert populations["esp_charges"].values == [-0.3, 0.3]
     assert populations["npa_spins"].values == [0.7, 0.3]
+
+
+def test_g16fchk_atomic_mass_extractor_requires_one_mass_per_atom() -> None:
+    records = {
+        "Real atomic weights": FCHKRecord(
+            label="Real atomic weights",
+            data_type="R",
+            value=[12.0, 1.00782504],
+            count=2,
+        )
+    }
+
+    masses = extract_fchk_atomic_masses(records, num_atoms=2)
+
+    assert masses is not None
+    assert masses.units == atom_ureg.amu
+    np.testing.assert_allclose(masses.magnitude, [12.0, 1.00782504])
+    assert extract_fchk_atomic_masses(records, num_atoms=1) is None
+    assert extract_fchk_atomic_masses({}, num_atoms=2) is None
 
 
 @pytest.mark.parametrize(

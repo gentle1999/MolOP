@@ -149,9 +149,12 @@ batch_exports = batch.save_pre_post_ts("ts-endpoints-batch", format="sdf", n_job
 文件级返回 `{frame_id: (pre_path, post_path)}`；batch 级返回值再增加源文件路径这一层。混合
 batch 中不支持该操作的文件会记录 warning 并跳过。唯一 source stem 保持原名；重复 stem 会追加
 稳定的源路径摘要，避免覆盖其他文件的结果。导出的前后体是基于几何的候选，不是优化后的真实
-反应物或产物。前后体推断默认在每个振动方向上采样 `steps=9` 个振幅，范围为
-`min_ratio=0.2` 至 `max_ratio=1.8`；每侧选择出现频次最高的拓扑，再将碎片数更多的候选
-判为前体。
+反应物或产物。前后体推断默认在每个振动方向上采样 `steps=8` 个振幅，范围为
+`min_ratio=0.6` 至 `max_ratio=1.4`；每侧选择出现频次最高的拓扑，再将碎片数更多的候选
+判为前体。`sampling_method` 默认为 `"harmonic_potential"`，对振幅平方等距采样，从而在
+简谐近似下使势能（虚频模式取势能
+降低量的绝对值）等距。该参数同样适用于 `additional_pre_post_ts`、`to_diff_rdmol` 和
+`save_pre_post_ts`。
 
 标准前后体结果不会被额外采样替代。保留标准前后体的三维构象后，可调用
 `additional_pre_post_ts(pre, post)` 生成额外采样的一对表示；成键或断键相关原子固定在原前后体坐标，

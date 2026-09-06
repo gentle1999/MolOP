@@ -8,9 +8,11 @@ from molop.utils.functions import (
     fill_symmetric_matrix,
     find_rigid_transform,
     invert_transform_coords,
+    invert_transform_displacements,
     is_metal,
     merge_models,
     transform_coords,
+    transform_displacements,
     verify_transform_reversibility,
 )
 
@@ -84,6 +86,19 @@ def test_invert_transform_coords():
     inverted = invert_transform_coords(coords, T)
     expected = np.array([[1.0, 0.0, 0.0]])
     np.testing.assert_allclose(inverted, expected)
+
+
+def test_displacement_transforms_ignore_translation():
+    displacements = np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]])
+    T = np.eye(4)
+    T[:3, :3] = np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]])
+    T[:3, 3] = np.array([10.0, 20.0, 30.0])
+
+    transformed = transform_displacements(displacements, T)
+    inverted = invert_transform_displacements(transformed, T)
+
+    np.testing.assert_allclose(transformed, [[0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]])
+    np.testing.assert_allclose(inverted, displacements)
 
 
 class MockModel(BaseModel):
