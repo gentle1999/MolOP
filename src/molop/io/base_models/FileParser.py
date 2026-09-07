@@ -58,6 +58,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
     _frame_parser: type[FrameParserT] = PrivateAttr()
     _chem_file: type[FileT] = PrivateAttr()
     _file_path: str | None = PrivateAttr(default=None)
+    _parse_unselected_segment_metadata: ClassVar[bool] = False
     _segment_scoped_frame_metadata: ClassVar[frozenset[str]] = frozenset({"status", "running_time"})
     _assess_segment_calculation_status: ClassVar[bool] = False
     format_id: ClassVar[str] = ""
@@ -196,6 +197,17 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
 
         _ = segment_content, artifact_metadata
         return None
+
+    def _postprocess_segment_metadata(
+        self,
+        segment_metadata: Sequence[Mapping[str, Any]],
+        *,
+        artifact_metadata: Mapping[str, Any],
+    ) -> Sequence[Mapping[str, Any]]:
+        """Apply format-specific relationships between located segment metadata."""
+
+        _ = artifact_metadata
+        return segment_metadata
 
     def _validated_located_segments(
         self,
@@ -833,18 +845,59 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         else:
             selected_source_layouts = segment_layouts
 
+        metadata_source_layouts = (
+            segment_layouts if self._parse_unselected_segment_metadata else selected_source_layouts
+        )
+        parsed_segment_metadata = {
+            segment_index: dict(
+                self._parse_segment_metadata(
+                    normalize_parser_line_endings(located_segment.segment.text(file_content)),
+                    artifact_metadata=artifact_metadata,
+                )
+                or {}
+            )
+            for segment_index, located_segment, _selected_source_frames in metadata_source_layouts
+        }
+        if self._parse_unselected_segment_metadata:
+            ordered_segment_metadata = tuple(
+                parsed_segment_metadata[segment_index] for segment_index, _, _ in segment_layouts
+            )
+            processed_segment_metadata = self._postprocess_segment_metadata(
+                ordered_segment_metadata,
+                artifact_metadata=artifact_metadata,
+            )
+            if len(processed_segment_metadata) != len(ordered_segment_metadata):
+                raise ValueError("_postprocess_segment_metadata() must preserve the segment count")
+            parsed_segment_metadata = {
+                segment_index: dict(metadata)
+                for segment_index, metadata in enumerate(processed_segment_metadata)
+            }
+        else:
+            selected_metadata = tuple(
+                parsed_segment_metadata[segment_index]
+                for segment_index, _, _ in selected_source_layouts
+            )
+            processed_segment_metadata = self._postprocess_segment_metadata(
+                selected_metadata,
+                artifact_metadata=artifact_metadata,
+            )
+            if len(processed_segment_metadata) != len(selected_metadata):
+                raise ValueError("_postprocess_segment_metadata() must preserve the segment count")
+            parsed_segment_metadata = {
+                segment_index: dict(metadata)
+                for (segment_index, _, _), metadata in zip(
+                    selected_source_layouts,
+                    processed_segment_metadata,
+                    strict=True,
+                )
+            }
+
         selected_layouts = [
             (
                 segment_index,
                 located_segment,
                 selected_source_frames,
-                dict(
-                    self._parse_segment_metadata(
-                        normalize_parser_line_endings(located_segment.segment.text(file_content)),
-                        artifact_metadata=artifact_metadata,
-                    )
-                    or {}
-                ),
+                parsed_segment_metadata[segment_index],
             )
             for segment_index, located_segment, selected_source_frames in selected_source_layouts
         ]

@@ -31,6 +31,10 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      docs_version: ${{ steps.docs-version.outputs.version }}
+      update_latest: ${{ steps.docs-version.outputs.update_latest }}
+      pages_artifact_id: ${{ steps.pages-artifact.outputs.artifact_id }}
     env:
       MOLOP_DOCS_REF: ${{ inputs.source_ref || github.ref_name }}
       REQUEST_LATEST: ${{ inputs.update_latest || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) }}
@@ -151,6 +155,7 @@ jobs:
           git show origin/main:.github/pages-root-404.html > pages-site/404.html
 
       - name: Upload Pages artifact
+        id: pages-artifact
         uses: actions/upload-pages-artifact@v4
         with:
           path: pages-site
@@ -158,9 +163,120 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/github-script@v7
+        env:
+          PAGES_ARTIFACT_ID: ${{ needs.build.outputs.pages_artifact_id }}
+        with:
+          github-token: ${{ github.token }}
+          script: |
+            const artifactIdText = process.env.PAGES_ARTIFACT_ID || ""
+            const artifactId = Number(artifactIdText)
+            if (
+              !/^\d+$/.test(artifactIdText) ||
+              !Number.isSafeInteger(artifactId) ||
+              artifactId <= 0
+            ) {
+              throw new Error(`Invalid Pages artifact id: ${artifactIdText}`)
+            }
+
+            const oidcToken = await core.getIDToken()
+            const { data: deployment } = await github.rest.repos.createPagesDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              artifact_id: artifactId,
+              environment: "github-pages",
+              pages_build_version: artifactIdText,
+              oidc_token: oidcToken,
+            })
+
+            const deploymentId =
+              deployment.id ?? deployment.status_url?.split("/").pop()
+            if (!deploymentId) {
+              throw new Error("GitHub Pages deployment did not return an id")
+            }
+            core.setOutput("page_url", deployment.page_url || "")
+
+            const failureStatuses = new Set([
+              "deployment_cancelled",
+              "deployment_content_failed",
+              "deployment_failed",
+              "deployment_lost",
+              "deployment_perms_error",
+            ])
+            let succeeded = false
+            for (let attempt = 1; attempt <= 120; attempt += 1) {
+              const { data: status } =
+                await github.rest.repos.getPagesDeploymentStatus({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pages_deployment_id: String(deploymentId),
+                })
+
+              if (status.status === "succeed") {
+                succeeded = true
+                core.info(`GitHub Pages deployment succeeded: ${deploymentId}`)
+                break
+              }
+              if (failureStatuses.has(status.status)) {
+                throw new Error(
+                  `GitHub Pages deployment ${deploymentId} failed with status ${status.status}`,
+                )
+              }
+              core.info(
+                `GitHub Pages deployment is ${status.status}; waiting (${attempt}/120)`,
+              )
+              await new Promise((resolve) => setTimeout(resolve, 5000))
+            }
+            if (!succeeded) {
+              throw new Error(
+                `Timed out waiting for GitHub Pages deployment ${deploymentId}`,
+              )
+            }
+
+      - name: Verify the published documentation
+        env:
+          DOCS_SITE_URL: https://gentle1999.github.io/MolOP
+          EXPECTED_DOCS_VERSION: ${{ needs.build.outputs.docs_version }}
+          EXPECTED_UPDATE_LATEST: ${{ needs.build.outputs.update_latest }}
+        run: |
+          set -euo pipefail
+          for attempt in {1..30}; do
+            response="$(curl --fail --silent --show-error --location --max-time 20 \
+              "${DOCS_SITE_URL}/versions.json?deployment=${GITHUB_RUN_ID}-${attempt}" || true)"
+            if [[ -n "$response" ]] && printf '%s' "$response" | \
+              EXPECTED_DOCS_VERSION="$EXPECTED_DOCS_VERSION" \
+              EXPECTED_UPDATE_LATEST="$EXPECTED_UPDATE_LATEST" \
+              python -c '
+          import json
+          import os
+          import sys
+
+          versions = json.load(sys.stdin)
+          expected = os.environ["EXPECTED_DOCS_VERSION"]
+          current = next(
+              (item for item in versions if item.get("version") == expected),
+              None,
+          )
+          latest_ok = (
+              os.environ["EXPECTED_UPDATE_LATEST"] != "true"
+              or (current is not None and "latest" in current.get("aliases", []))
+          )
+          raise SystemExit(0 if current is not None and latest_ok else 1)
+          '; then
+              echo "Published documentation contains ${EXPECTED_DOCS_VERSION}."
+              exit 0
+            fi
+            echo "Published documentation is not visible yet (attempt ${attempt}/30)."
+            sleep 10
+          done
+          echo "::error::Published documentation does not contain ${EXPECTED_DOCS_VERSION}."
+          exit 1

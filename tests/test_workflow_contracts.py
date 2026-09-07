@@ -76,6 +76,19 @@ def test_github_actions_use_version_tags() -> None:
                 )
 
 
+def test_pages_deployment_uses_a_unique_uploaded_artifact_version() -> None:
+    workflow_text = (WORKFLOW_DIR / "docs-deploy.yml").read_text(encoding="utf-8")
+
+    assert "id: pages-artifact" in workflow_text
+    assert "pages_artifact_id" in workflow_text
+    assert "actions/github-script@v7" in workflow_text
+    assert "actions/deploy-pages@" not in workflow_text
+    assert "createPagesDeployment" in workflow_text
+    assert "pages_build_version: artifactIdText" in workflow_text
+    assert "getPagesDeploymentStatus" in workflow_text
+    assert "versions.json?deployment=" in workflow_text
+
+
 def test_release_deployment_requires_a_manually_created_github_release() -> None:
     workflow_text = (WORKFLOW_DIR / "ci.yaml").read_text(encoding="utf-8")
 

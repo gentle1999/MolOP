@@ -161,6 +161,39 @@ def test_g16log_generated_freq_link1_scans_full_segment_for_scf_status(
     assert segment.scf_status is True
 
 
+def test_g16log_generated_freq_section_inherits_previous_calculation_configuration() -> None:
+    parsed = G16LogFileParserMemory(capture_source_evidence=True).parse(DFT_FIXTURE.read_text())
+
+    previous_frame = parsed[0]
+    frequency_frame = parsed[-1]
+    assert [task.task_type for task in frequency_frame.task_requests] == ["freq"]
+    assert frequency_frame.keywords != previous_frame.keywords
+    assert frequency_frame.functional == "B3LYP"
+    assert frequency_frame.model_chemistry.dispersion_correction == "GD3BJ"
+    assert frequency_frame.model_chemistry.solvation_model == "smd"
+    assert frequency_frame.model_chemistry.solvent == "generic"
+    assert frequency_frame.solvent == previous_frame.solvent
+
+    frequency_protocol = parsed.source_segments[-1].protocol
+    assert frequency_protocol is not None
+    assert frequency_protocol["dispersion_correction"] == "GD3BJ"
+    assert frequency_protocol["solvation_model"] == "smd"
+
+
+def test_g16log_generated_freq_section_inherits_configuration_when_only_last_frame_is_selected() -> (
+    None
+):
+    parsed = G16LogFileParserMemory(
+        capture_source_evidence=True,
+        only_last_frame=True,
+    ).parse(DFT_FIXTURE.read_text())
+
+    assert len(parsed) == 1
+    assert parsed[0].task_requests[0].task_type == "freq"
+    assert parsed[0].model_chemistry.dispersion_correction == "GD3BJ"
+    assert parsed[0].functional == "B3LYP"
+
+
 def test_g16log_entering_link1_sections_propagate_section_metadata_to_later_frames() -> None:
     ccsd_header, ccsd_frames = _split_raw_gaussian_blocks(CCSD_FIXTURE.read_text())
     dft_header, dft_frames = _split_raw_gaussian_blocks(DFT_FIXTURE.read_text())

@@ -9,6 +9,7 @@ Description: 请填写简介
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast
 
@@ -82,6 +83,7 @@ class G16MetadataParsePhase(Enum):
 
 class G16LogFileParserMixin:
     format_id: ClassVar[str] = "g16log"
+    _parse_unselected_segment_metadata = True
     _assess_segment_calculation_status = True
 
     @classmethod
@@ -216,6 +218,194 @@ class G16LogFileParserMixin:
             metadata["atomic_masses_source"] = atomic_masses_source
         return {key: value for key, value in metadata.items() if value is not None}
 
+    @staticmethod
+    def _is_missing_configuration_value(value: Any) -> bool:
+        if value is None:
+            return True
+        if isinstance(value, str):
+            return not value.strip()
+        if isinstance(value, (list, tuple, set, dict)):
+            return not value
+        return False
+
+    @classmethod
+    def _inherit_missing_model_fields(cls, target: Any, source: Any) -> None:
+        if target is None or source is None:
+            return
+        for field_name in getattr(type(target), "model_fields", {}):
+            target_value = getattr(target, field_name, None)
+            source_value = getattr(source, field_name, None)
+            if cls._is_missing_configuration_value(target_value):
+                setattr(target, field_name, deepcopy(source_value))
+            elif isinstance(target_value, dict) and isinstance(source_value, Mapping):
+                merged = dict(deepcopy(source_value))
+                for key, value in target_value.items():
+                    if key not in merged or not cls._is_missing_configuration_value(merged[key]):
+                        merged[key] = value
+                setattr(target, field_name, merged)
+
+    @staticmethod
+    def _is_frequency_only_segment(metadata: Mapping[str, Any]) -> bool:
+        requests = metadata.get("task_requests")
+        if not isinstance(requests, Sequence) or isinstance(requests, str):
+            return False
+        task_types: set[str] = set()
+        for request in requests:
+            if isinstance(request, Mapping):
+                enabled = request.get("enabled", True)
+                task_type = request.get("task_type")
+            else:
+                enabled = getattr(request, "enabled", True)
+                task_type = getattr(request, "task_type", None)
+            if enabled and isinstance(task_type, str):
+                task_types.add(task_type)
+        return task_types == {"freq"}
+
+    @staticmethod
+    def _is_scrf_checkpoint_route(route: Any) -> bool:
+        option_maps = getattr(route, "option_maps", {})
+        scrf_option = option_maps.get("scrf") if isinstance(option_maps, Mapping) else None
+        scalar_value = getattr(scrf_option, "scalar_value", None)
+        if isinstance(scalar_value, str) and scalar_value.lower() in {"check", "restart"}:
+            return True
+        solvation_model = getattr(route, "solvation_model", None)
+        return isinstance(solvation_model, str) and solvation_model.replace(" ", "").lower() in {
+            "scrf=check",
+            "scrf=restart",
+        }
+
+    @staticmethod
+    def _has_explicit_dispersion_route(route: Any) -> bool:
+        for token in getattr(route, "tokens", ()):
+            key = getattr(token, "key", None)
+            if key in {"em", "empiricaldispersion"}:
+                return True
+        return False
+
+    @classmethod
+    def _inherit_frequency_segment_configuration(
+        cls,
+        current: dict[str, Any],
+        previous: Mapping[str, Any],
+    ) -> None:
+        for field_name in (
+            "options",
+            "method",
+            "basis_set",
+            "functional",
+            "solvent",
+            "resources_raw",
+            "request_num_cpu",
+            "request_memory",
+            "resource_request",
+        ):
+            current_value = current.get(field_name)
+            previous_value = previous.get(field_name)
+            if cls._is_missing_configuration_value(current_value) and previous_value is not None:
+                current[field_name] = deepcopy(previous_value)
+
+        current_route = current.get("semantic_route")
+        previous_route = previous.get("semantic_route")
+        if current_route is None or previous_route is None:
+            if cls._is_missing_configuration_value(current.get("model_chemistry")):
+                current["model_chemistry"] = deepcopy(previous.get("model_chemistry"))
+            return
+
+        merged_route = current_route.model_copy(deep=True)
+        cls._inherit_missing_model_fields(
+            merged_route.model_chemistry,
+            getattr(previous_route, "model_chemistry", None),
+        )
+
+        inherited_dispersion = False
+        if cls._is_missing_configuration_value(merged_route.empirical_dispersion):
+            inherited_dispersion = getattr(previous_route, "empirical_dispersion", None) is not None
+            merged_route.empirical_dispersion = getattr(
+                previous_route,
+                "empirical_dispersion",
+                None,
+            )
+
+        previous_scrf = getattr(previous_route, "scrf_options", None)
+        if previous_scrf is not None and getattr(previous_scrf, "enabled", False):
+            if cls._is_scrf_checkpoint_route(merged_route) or not getattr(
+                merged_route.scrf_options, "enabled", False
+            ):
+                merged_route.scrf_options = previous_scrf.model_copy(deep=True)
+                merged_route.solvation_model = getattr(
+                    previous_route,
+                    "solvation_model",
+                    merged_route.solvation_model,
+                )
+            else:
+                cls._inherit_missing_model_fields(merged_route.scrf_options, previous_scrf)
+
+        previous_route_modifiers = getattr(previous_route, "route_modifiers", [])
+        for modifier in previous_route_modifiers:
+            if (
+                modifier in {"em", "empiricaldispersion"}
+                and modifier not in merged_route.route_modifiers
+            ):
+                merged_route.route_modifiers.append(modifier)
+
+        previous_capabilities = getattr(previous_route, "capabilities", [])
+        for capability in ("Dispersion", "Solvation"):
+            if capability in previous_capabilities and capability not in merged_route.capabilities:
+                merged_route.capabilities.append(capability)
+
+        previous_option_maps = getattr(previous_route, "option_maps", {})
+        for option_name in ("em", "empiricaldispersion"):
+            if option_name not in merged_route.option_maps and option_name in previous_option_maps:
+                merged_route.option_maps[option_name] = deepcopy(previous_option_maps[option_name])
+
+        current["semantic_route"] = merged_route
+        current["model_chemistry"] = build_gaussian_model_chemistry(
+            merged_route,
+            keywords=str(current.get("keywords") or ""),
+            legacy_method=str(current.get("method") or ""),
+            legacy_basis_set=str(current.get("basis_set") or ""),
+            legacy_functional=str(current.get("functional") or ""),
+        )
+        if inherited_dispersion and not cls._has_explicit_dispersion_route(merged_route):
+            route_functional = merged_route.model_chemistry.functional
+            if route_functional:
+                current["model_chemistry"].functional = route_functional.upper()
+        current["task_requests"] = build_gaussian_task_requests(merged_route)
+
+    @classmethod
+    def _restore_inherited_frequency_functional(cls, frame: Any) -> None:
+        task_types = {task.task_type for task in frame.task_requests if task.enabled}
+        route = getattr(frame, "semantic_route", None)
+        if (
+            task_types != {"freq"}
+            or route is None
+            or route.empirical_dispersion is None
+            or cls._has_explicit_dispersion_route(route)
+        ):
+            return
+        route_functional = route.model_chemistry.functional
+        if route_functional:
+            frame.model_chemistry.functional = route_functional.upper()
+            frame.functional = frame.model_chemistry.functional
+
+    def _postprocess_segment_metadata(
+        self,
+        segment_metadata: Sequence[Mapping[str, Any]],
+        *,
+        artifact_metadata: Mapping[str, Any],
+    ) -> Sequence[Mapping[str, Any]]:
+        _ = artifact_metadata
+        resolved_metadata = [dict(metadata) for metadata in segment_metadata]
+        for segment_index in range(1, len(resolved_metadata)):
+            current = resolved_metadata[segment_index]
+            if not self._is_frequency_only_segment(current):
+                continue
+            self._inherit_frequency_segment_configuration(
+                current,
+                resolved_metadata[segment_index - 1],
+            )
+        return resolved_metadata
+
     def _prepare_file_metadata(
         self,
         artifact_metadata: Mapping[str, Any],
@@ -255,6 +445,7 @@ class G16LogFileParserMixin:
             and chem_file[-1].basis_set.lower() != "gen"
         ):
             frame.basis_set = chem_file[-1].basis_set
+        self._restore_inherited_frequency_functional(frame)
 
     def _source_frame_role(
         self,
