@@ -81,11 +81,11 @@ def test_pages_deployment_uses_a_unique_uploaded_artifact_version() -> None:
 
     assert "id: pages-artifact" in workflow_text
     assert "pages_artifact_id" in workflow_text
-    assert "actions/github-script@v7" in workflow_text
+    assert "actions/github-script@v8" in workflow_text
     assert "actions/deploy-pages@" not in workflow_text
-    assert "createPagesDeployment" in workflow_text
+    assert '"POST /repos/{owner}/{repo}/pages/deployments"' in workflow_text
     assert "pages_build_version: artifactIdText" in workflow_text
-    assert "getPagesDeploymentStatus" in workflow_text
+    assert '"GET /repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}"' in workflow_text
     assert "versions.json?deployment=" in workflow_text
 
 
