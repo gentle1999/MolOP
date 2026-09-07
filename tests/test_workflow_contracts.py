@@ -89,7 +89,7 @@ def test_pages_deployment_uses_a_unique_uploaded_artifact_version() -> None:
     assert "git rev-parse --verify 'gh-pages^{commit}'" in workflow_text
     assert "pages_build_version: buildVersion" in workflow_text
     assert "PAGES_BUILD_VERSION" in workflow_text
-    assert "environment: \"github-pages\"" not in workflow_text
+    assert 'environment: "github-pages"' not in workflow_text
     assert '"GET /repos/{owner}/{repo}/pages/deployments/{pages_deployment_id}"' in workflow_text
     assert "versions.json?deployment=" in workflow_text
 
