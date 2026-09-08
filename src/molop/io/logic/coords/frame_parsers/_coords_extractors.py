@@ -14,7 +14,7 @@ from rdkit.Chem.rdDepictor import Compute2DCoords
 
 from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.coords.frame_parsers._xyz_patterns import xyz_patterns
-from molop.structure.StructureTransformation import (
+from molop.structure.topology import (
     get_bond_pairs,
     get_formal_charges,
     get_formal_num_radicals,

@@ -31,10 +31,11 @@ from molop.io.base_models._format_transform import (
     FrameFormatTransformMixin,  # pyright: ignore[reportAttributeAccessIssue]
 )
 from molop.io.base_models.summary import SummaryDict, summary_column
+from molop.structure.editing import replace_substituent
 from molop.structure.FormatConverter import rdmol_to_omol
 from molop.structure.GeometryTransformation import get_geometry_info, standard_orient
-from molop.structure.StructureTransformation import (
-    attempt_replacement,
+from molop.structure.substitution_models import StereoPolicy
+from molop.structure.topology import (
     build_mol_from_atoms_and_bonds,
     get_bond_pairs,
     get_formal_charges,
@@ -694,7 +695,7 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         coords: np.ndarray,
         charge: int = 0,
         multiplicity: int = 1,
-        bonds: list[tuple[int, int, int]] | None = None,
+        bonds: list[tuple[int, int, int, int]] | None = None,
         formal_charges: list[int] | None = None,
         formal_num_radicals: list[int] | None = None,
     ) -> "Molecule":
@@ -723,9 +724,7 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         start_idx: int | None = None,
         end_idx: int | None = None,
         *,
-        replacement_relative_idx: int = 0,
-        replacement_absolute_idx: int | None = None,
-        prefer_ZE: str = "Z",
+        stereo_policy: StereoPolicy = "preserve",
     ) -> "Molecule":
         """
         Replace the substituent with the given SMARTS. The substituent is defined by the query_smi,
@@ -735,13 +734,11 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
             query (str | RdMol):
                 The SMARTS or Mol object to query the substituent in the original molecule.
             replacement (str | RdMol):
-                The SMARTS or Mol object of new substituent.
+                The SMILES or Mol object of the new substituent. It must
+                contain one RDKit ``[*]`` attachment marker.
             bind_idx (int):
-                The index of the atom to bind the new substituent. The default is None, which means
-                to replace the first legal atom in original molecule.
-                If specified, try to replace the legal substruct where the atom in it. User should
-                meke sure the atom is legal.
-                Detail example in (Repalce Substituent)[Repalce Substituent]
+                The atom index on the retained scaffold to which the substituent is attached.
+                Use it to disambiguate multiple pendant matches.
             replace_all (bool):
                 If True, replace all the substituent queried in the original molecule.
             attempt_num (int):
@@ -761,25 +758,13 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
             end_idx (int):
                 If both `start_idx` and `end_idx` are specified, simply ignore the `query`, break the
                 key between `start_idx` and `end_idx` and replace the base group where `end_idx` is located
-            replacement_relative_idx (int):
-                The relative index of the radical atom in the replacement molecule to be
-                transformed to the first atom.
-            replacement_absolute_idx (Union[int, None]):
-                Priority is higher than replacement_relative_idx.
-                The absolute index of the radical atom in the replacement molecule to be
-                transformed to the first atom.
-                If None, the function will try to find the first atom in the replacement
-                molecule that is a radical atom.
-            prefer_ZE (str):
-                The preferred stereochemistry of the bond to be replaced.
-                If "Z", the function will try to replace the bond with Z stereochemistry.
-                If "E", the function will try to replace the bond with E stereochemistry.
-                only works for bond type DOUBLE.
+            stereo_policy (str):
+                Double-bond stereo policy: "preserve", "E", "Z", or "any".
 
         Returns:
             Molecule: The new molecule with the substituent replaced.
         """
-        new_mol = attempt_replacement(
+        new_mol = replace_substituent(
             self.rdmol,
             query=query,
             replacement=replacement,
@@ -791,9 +776,7 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
             randomSeed=randomSeed,
             start_idx=start_idx,
             end_idx=end_idx,
-            replacement_relative_idx=replacement_relative_idx,
-            replacement_absolute_idx=replacement_absolute_idx,
-            prefer_ZE=prefer_ZE,
+            stereo_policy=stereo_policy,
         )
         return self.from_rdmol(new_mol)
 

@@ -4,10 +4,10 @@ from pathlib import Path
 import pytest
 from rdkit import Chem
 from rdkit.Chem import BondType
-from rdkit.Geometry import Point3D
 
 from molop.structure import StructureTransformation as ST
 from molop.structure.utils import bond_list, bond_stereo_list
+from molop.utils.decorators import ExperimentalWarning
 
 
 sys.path.append(str(Path(__file__).resolve().parent))
@@ -24,20 +24,6 @@ def _bond_tuple(begin: int, end: int, bond_type: BondType) -> tuple[int, int, in
     )
 
 
-def _radical_mol(radicals: list[int]) -> Chem.Mol:
-    rw_mol = Chem.RWMol()
-    for _ in radicals:
-        rw_mol.AddAtom(Chem.Atom("C"))
-    for idx, num_radical in enumerate(radicals):
-        rw_mol.GetAtomWithIdx(idx).SetNumRadicalElectrons(num_radical)
-    mol = rw_mol.GetMol()
-    conf = Chem.Conformer(len(radicals))
-    for idx in range(len(radicals)):
-        conf.SetAtomPosition(idx, Point3D(float(idx), 0.0, 0.0))
-    mol.AddConformer(conf, assignId=True)
-    return mol
-
-
 def test_formal_helpers_return_expected_values() -> None:
     mol = Chem.MolFromSmiles("[CH2][O-]")
     assert mol is not None
@@ -52,19 +38,13 @@ def test_formal_helpers_return_expected_values() -> None:
     assert ST.get_total_multiplicity(mol) == 2
 
 
-def test_basic_structure_helpers_cover_bonds_resonance_and_equality() -> None:
+def test_basic_structure_helpers_cover_bonds() -> None:
     mol = Chem.MolFromSmiles("C=C")
     assert mol is not None
 
     bond_pairs = ST.get_bond_pairs(mol)
     assert len(bond_pairs) == 1
     assert bond_pairs[0][2] == bond_list.index(BondType.DOUBLE)
-
-    resonance = list(ST.get_resonance_structures(Chem.MolFromSmiles("[O-][N+](=O)O")))
-    assert len(resonance) >= 1
-
-    assert ST.structure_score(Chem.MolFromSmiles("[CH2][O-]")) == 2
-    assert ST.check_mol_equal(Chem.MolFromSmiles("CC"), Chem.MolFromSmiles("CC")) is True
 
 
 def test_build_mol_from_atoms_and_bonds_without_coords() -> None:
@@ -113,60 +93,7 @@ def test_build_mol_from_atoms_and_bonds_invalid_coords_raise_value_error(
         )
 
 
-@pytest.mark.parametrize(
-    ("bond_type", "required_radicals"),
-    [
-        (BondType.SINGLE, 1),
-        (BondType.DOUBLE, 2),
-        (BondType.TRIPLE, 3),
-    ],
-)
-def test_transform_replacement_index_radical_selection(
-    bond_type: BondType, required_radicals: int
-) -> None:
-    mol = _radical_mol([0, required_radicals, required_radicals + 1])
-
-    by_relative = ST.transform_replacement_index(mol, bond_tag=bond_type, relative_idx=0)
-    by_absolute = ST.transform_replacement_index(mol, bond_tag=bond_type, absolute_idx=2)
-
-    assert by_relative.GetAtomWithIdx(0).GetNumRadicalElectrons() >= required_radicals
-    assert by_absolute.GetAtomWithIdx(0).GetNumRadicalElectrons() == required_radicals + 1
-
-
-@pytest.mark.parametrize("bond_type", [BondType.SINGLE, BondType.DOUBLE, BondType.TRIPLE])
-def test_transform_replacement_index_radical_error_cases(bond_type: BondType) -> None:
-    mol = _radical_mol([0, 1, 2, 3])
-
-    with pytest.raises(ValueError, match="Relative index is out of range\\."):
-        ST.transform_replacement_index(mol, bond_tag=bond_type, relative_idx=99)
-
-    with pytest.raises(ValueError, match="Absolute index is not a radical atom\\."):
-        ST.transform_replacement_index(mol, bond_tag=bond_type, absolute_idx=0)
-
-
-def test_transform_replacement_index_dative_selection_and_errors() -> None:
-    mol = _radical_mol([0, 0, 0])
-
-    by_relative = ST.transform_replacement_index(mol, bond_tag=BondType.DATIVE, relative_idx=1)
-    by_absolute = ST.transform_replacement_index(mol, bond_tag=BondType.DATIVE, absolute_idx=2)
-
-    assert by_relative.GetAtomWithIdx(0).GetIdx() == 0
-    assert by_absolute.GetAtomWithIdx(0).GetIdx() == 0
-
-    with pytest.raises(ValueError, match="Relative index is out of range\\."):
-        ST.transform_replacement_index(mol, bond_tag=BondType.DATIVE, relative_idx=10)
-
-    with pytest.raises(ValueError, match="Absolute index is not a legal atom\\."):
-        ST.transform_replacement_index(mol, bond_tag=BondType.DATIVE, absolute_idx=10)
-
-
-def test_transform_replacement_index_rejects_unsupported_bond_type() -> None:
-    mol = _radical_mol([1])
-    with pytest.raises(ValueError, match="Unsupported bond type"):
-        ST.transform_replacement_index(mol, bond_tag=BondType.QUADRUPLE)
-
-
-def test_get_skeleton_raises_when_query_is_ring_bond() -> None:
+def test_replace_substituent_rejects_ring_site() -> None:
     mol = Chem.MolFromSmiles("C1CCCCC1")
     assert mol is not None
 
@@ -174,19 +101,58 @@ def test_get_skeleton_raises_when_query_is_ring_bond() -> None:
     start = ring_bond.GetBeginAtomIdx()
     end = ring_bond.GetEndAtomIdx()
 
-    with pytest.raises(RuntimeError, match="query_mol should not be in a ring"):
-        ST.get_skeleton(Chem.RWMol(mol), start, end)
+    with pytest.raises(ValueError, match="ring bonds"):
+        ST.replace_substituent(
+            mol,
+            query="C",
+            replacement="[*]C",
+            start_idx=start,
+            end_idx=end,
+        )
 
 
-def test_attempt_replacement_raises_on_replace_all_endless_loop_guard() -> None:
+def test_multisite_replacement_is_marked_experimental() -> None:
     mol = Chem.MolFromSmiles("CC")
     assert mol is not None
+    assert getattr(ST.replace_multisite_substituent, "__experimental__", False) is True
 
-    with pytest.raises(RuntimeError, match="Endless loop"):
-        ST.attempt_replacement(mol, query="C", replacement="CC", replace_all=True)
+    with (
+        pytest.warns(ExperimentalWarning, match="replace_multisite_substituent"),
+        pytest.raises(ValueError, match="at least two"),
+    ):
+        ST.replace_multisite_substituent(
+            mol,
+            query="C",
+            replacement="[*]C",
+        )
 
 
-def test_attempt_replacement_happy_path_returns_sanitizable_molecule() -> None:
+def test_replace_substituent_requires_unambiguous_single_site() -> None:
+    mol = Chem.MolFromSmiles("OCCO")
+    assert mol is not None
+
+    with pytest.raises(ValueError, match="multiple pendant substituents"):
+        ST.replace_substituent(mol, query="O", replacement="[*]C")
+
+
+def test_replace_substituent_replace_all_is_finite() -> None:
+    mol = Chem.MolFromSmiles("OCCO")
+    assert mol is not None
+
+    replaced = ST.replace_substituent(
+        mol,
+        query="O",
+        replacement="[*]C",
+        replace_all=True,
+        attempt_num=2,
+        randomSeed=101,
+    )
+
+    assert not replaced.HasSubstructMatch(Chem.MolFromSmarts("O"))
+    Chem.SanitizeMol(replaced)
+
+
+def test_replace_substituent_happy_path_returns_sanitizable_molecule() -> None:
     mol = build_rdmol_with_conformer(
         atom_symbols=["C", "C", "O"],
         bonds=[(0, 1, 1), (1, 2, 1)],
@@ -197,10 +163,10 @@ def test_attempt_replacement_happy_path_returns_sanitizable_molecule() -> None:
         ],
     )
 
-    replaced = ST.attempt_replacement(
+    replaced = ST.replace_substituent(
         mol=mol,
         query="O",
-        replacement="[CH3]",
+        replacement="[*]C",
         replace_all=False,
         randomSeed=101,
         start_idx=1,
@@ -209,4 +175,48 @@ def test_attempt_replacement_happy_path_returns_sanitizable_molecule() -> None:
 
     assert replaced.GetNumAtoms() >= 3
     assert replaced.GetNumBonds() >= 2
+    Chem.SanitizeMol(replaced)
+
+
+@pytest.mark.parametrize("stereo", ["E", "Z"])
+def test_replace_substituent_double_bond_records_requested_stereo(stereo: str) -> None:
+    mol = Chem.MolFromSmiles("FC=O")
+    assert mol is not None
+
+    replaced = ST.replace_substituent(
+        mol,
+        query="O",
+        replacement="[*]=[CH](Cl)",
+        start_idx=1,
+        end_idx=2,
+        attempt_num=2,
+        randomSeed=101,
+        stereo_policy=stereo,
+    )
+
+    bond = replaced.GetBondBetweenAtoms(1, 2)
+    assert bond is not None
+    assert (
+        bond.GetStereo()
+        == {
+            "E": Chem.BondStereo.STEREOE,
+            "Z": Chem.BondStereo.STEREOZ,
+        }[stereo]
+    )
+
+
+def test_replace_substituent_accepts_explicit_site_without_query() -> None:
+    mol = Chem.MolFromSmiles("CCO")
+    assert mol is not None
+
+    replaced = ST.replace_substituent(
+        mol,
+        query=None,
+        replacement="[*]C",
+        start_idx=1,
+        end_idx=2,
+        attempt_num=1,
+    )
+
+    assert not replaced.HasSubstructMatch(Chem.MolFromSmarts("O"))
     Chem.SanitizeMol(replaced)

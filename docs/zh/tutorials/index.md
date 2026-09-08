@@ -47,5 +47,6 @@
     - [批量汇总、过滤与选择](../examples/02-batch-summary-filter-select.ipynb)
     - [转换与导出](../examples/03-transform-and-export.ipynb)
     - [过渡态前后体表示](../examples/04-transition-state-endpoints.ipynb)
+    - [复杂分子取代基替换](../examples/05-substituent-replacement.ipynb)
 
 新增 reader/writer 属于开发者任务，见[插件开发](../developer/plugins.md)。

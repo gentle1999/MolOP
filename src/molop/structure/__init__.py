@@ -1,7 +1,35 @@
-"""
-Author: TMJ
-Date: 2026-02-13 19:27:41
-LastEditors: TMJ
-LastEditTime: 2026-03-18 13:48:05
-Description: 请填写简介
-"""
+"""Core molecule topology, editing, geometry, and validation helpers."""
+
+from .editing import (
+    SubstituentReplacementError,
+    replace_multisite_substituent,
+    replace_substituent,
+)
+from .topology import (
+    build_mol_from_atoms_and_bonds,
+    get_bond_pairs,
+    get_formal_charges,
+    get_formal_num_radicals,
+    get_total_charge,
+    get_total_multiplicity,
+    get_total_num_radical,
+    reset_atom_index,
+)
+from .validation import check_crowding, get_crowding_score
+
+
+__all__ = [
+    "build_mol_from_atoms_and_bonds",
+    "check_crowding",
+    "get_bond_pairs",
+    "get_crowding_score",
+    "get_formal_charges",
+    "get_formal_num_radicals",
+    "get_total_charge",
+    "get_total_multiplicity",
+    "get_total_num_radical",
+    "replace_substituent",
+    "replace_multisite_substituent",
+    "SubstituentReplacementError",
+    "reset_atom_index",
+]

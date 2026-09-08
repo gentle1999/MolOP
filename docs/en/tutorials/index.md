@@ -48,5 +48,6 @@ These Markdown tutorials cover complete workflows without requiring a notebook.
     - [Batch summary, filter, and select](../examples/02-batch-summary-filter-select.ipynb)
     - [Transform and export](../examples/03-transform-and-export.ipynb)
     - [Transition-state endpoint representations](../examples/04-transition-state-endpoints.ipynb)
+    - [Complex substituent replacement](../examples/05-substituent-replacement.ipynb)
 
 Adding a reader or writer is a developer task. See [Plugin development](../developer/plugins.md).

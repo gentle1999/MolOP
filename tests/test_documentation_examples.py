@@ -60,6 +60,7 @@ NOTEBOOK_NAMES = (
     "02-batch-summary-filter-select.ipynb",
     "03-transform-and-export.ipynb",
     "04-transition-state-endpoints.ipynb",
+    "05-substituent-replacement.ipynb",
 )
 GENERATED_VISUALIZATION_ASSETS = (
     "mn_complex_graph_reconstruction.svg",

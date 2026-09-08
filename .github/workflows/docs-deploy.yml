@@ -28,6 +28,11 @@ concurrency:
   group: pages
   cancel-in-progress: false
 
+env:
+  OMP_NUM_THREADS: "1"
+  OPENBLAS_NUM_THREADS: "1"
+  MKL_NUM_THREADS: "1"
+
 jobs:
   build:
     runs-on: ubuntu-latest

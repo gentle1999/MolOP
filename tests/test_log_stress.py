@@ -63,6 +63,8 @@ def test_gaussian_log_lazy_reconstruction_stress() -> None:
     """Repeat the spawn/loky log workflow in isolated processes."""
 
     environment = os.environ.copy()
+    for variable in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS"):
+        environment[variable] = "1"
     source_path = str(ROOT / "src")
     environment["PYTHONPATH"] = os.pathsep.join(
         path for path in (source_path, environment.get("PYTHONPATH")) if path

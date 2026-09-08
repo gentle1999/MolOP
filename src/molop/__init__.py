@@ -8,11 +8,16 @@ Description: MolOP is a toolbox for molecule operations and QM information extra
 
 import importlib.metadata
 
-# Load RDKit's native Chem extension before MolOP imports Open Babel.
-from rdkit import Chem as _rdkit_chem  # noqa: F401
+from molop._runtime import configure_native_thread_limits
 
-from molop.config import molopconfig, moloplogger
-from molop.io import (
+
+configure_native_thread_limits()
+
+# Load RDKit's native Chem extension before MolOP imports Open Babel.
+from rdkit import Chem as _rdkit_chem  # noqa: E402, F401
+
+from molop.config import molopconfig, moloplogger  # noqa: E402
+from molop.io import (  # noqa: E402
     AutoBytesParser,
     AutoFileParser,
     AutoMemoryParser,
@@ -20,8 +25,12 @@ from molop.io import (
     AutoParserMemory,
     AutoTextParser,
 )
-from molop.io.codec_types import ParseOptions
-from molop.io.parse_outcomes import BatchParseResult, FileParseOutcome, ParseFailure
+from molop.io.codec_types import ParseOptions  # noqa: E402
+from molop.io.parse_outcomes import (  # noqa: E402
+    BatchParseResult,
+    FileParseOutcome,
+    ParseFailure,
+)
 
 
 try:

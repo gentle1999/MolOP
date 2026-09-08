@@ -55,7 +55,7 @@ from molop.io.base_models.source import (
     SourceSpan,
 )
 from molop.io.base_models.summary import SummaryDict, summary_column, summary_item
-from molop.structure.StructureTransformation import check_crowding
+from molop.structure.validation import check_crowding
 from molop.unit import atom_ureg
 from molop.utils.progressbar import NativeReconstructionConcurrencyError
 from molop.utils.types import OMol, PintArrayN, PintArrayNx3, PintSquareMatrix, RdMol
