@@ -17,7 +17,7 @@ else
 	OPEN_CMD := xdg-open
 endif
 
-.PHONY: help init install-uv install sync update tree format format-check lint lint-check type-check pyright check-types check test test-cov clean distclean build release docker-build docker-up docker-down gen-typing-stubs check-typing-stubs gen-format-transform-stubs check-format-transform-stubs docs-serve docs-build docs-build-strict
+.PHONY: help init install-uv install sync update tree format format-check lint lint-check type-check pyright check-types check check-fast check-science check-orca check-native check-docs check-release test test-science test-orca test-native test-cov clean distclean build release docker-build docker-up docker-down gen-typing-stubs check-typing-stubs gen-format-transform-stubs check-format-transform-stubs docs-serve docs-build docs-build-strict docs-check
 
 # =============================================================================
 # 📝 帮助文档
@@ -41,10 +41,14 @@ help:
 	@echo "  make check-typing-stubs   ✅ Verify typing stubs are up to date"
 	@echo "  make gen-format-transform-stubs     🧩 Generate format transform stubs"
 	@echo "  make check-format-transform-stubs   ✅ Verify format transform stubs are up to date"
-	@echo "  make check       🛡️ Run non-mutating quality checks"
+	@echo "  make check-fast  🛡️ Run source, typing, and generated-file checks"
+	@echo "  make check       🛡️ Compatibility alias for check-fast"
 	@echo ""
 	@echo "🧪 \033[1;33mTesting:\033[0m"
 	@echo "  make test        🌡️ Run unit tests"
+	@echo "  make test-science 🔬 Run regular science regressions"
+	@echo "  make test-orca    🧪 Run the complete ORCA output corpus"
+	@echo "  make test-native  ⚙️ Run isolated native stress tests"
 	@echo "  make test-cov    📊 Run tests with HTML coverage report & open it"
 	@echo ""
 	@echo "🏗️ \033[1;33mBuild & Release:\033[0m"
@@ -65,6 +69,8 @@ help:
 	@echo "  make docs-serve        🌐 Serve documentation locally"
 	@echo "  make docs-build        🏗️ Build documentation"
 	@echo "  make docs-build-strict ✅ Build documentation with strict mode"
+	@echo "  make docs-check        ✅ Run Markdown, docs tests, and strict build"
+	@echo "  make check-release     🚀 Run all release gates and artifact checks"
 	@echo ""
 	@echo "📌 Current Package: $(PACKAGE_NAME)"
 	@echo "📌 Detected Version: $(VERSION)"
@@ -140,7 +146,7 @@ lint:
 
 lint-check:
 	@echo "🔍 Running Ruff Linter..."
-	uv run ruff check src
+	uv run ruff check .
 
 type-check:
 	@echo "🦆 Running Mypy Type Checker..."
@@ -152,7 +158,9 @@ pyright:
 
 check-types: type-check pyright
 
-check: format-check lint-check check-types check-typing-stubs check-format-transform-stubs
+check-fast: format-check lint-check check-types check-typing-stubs check-format-transform-stubs
+
+check: check-fast
 
 # =============================================================================
 # 🧩 Typing stub generation
@@ -176,6 +184,18 @@ check-format-transform-stubs:
 test:
 	@echo "🧪 Running Pytest..."
 	uv run pytest
+
+test-science:
+	@echo "🔬 Running regular science regressions..."
+	uv run pytest --no-cov -o addopts='' -q -m 'not stress and not orca_output_corpus'
+
+test-orca:
+	@echo "🧪 Running the complete ORCA output corpus..."
+	uv run pytest --no-cov -o addopts='' -q -m orca_output_corpus tests/test_orca_output_fixtures.py
+
+test-native:
+	@echo "⚙️ Running isolated native stress tests..."
+	uv run pytest --no-cov -o addopts='' -q -m stress tests/test_log_stress.py
 
 test-cov:
 	@echo "📊 Running Test Coverage..."
@@ -255,3 +275,25 @@ docs-build:
 docs-build-strict:
 	@echo "✅ Building documentation (strict mode)..."
 	NO_MKDOCS_2_WARNING=1 uv run mkdocs build --strict
+
+docs-check:
+	@echo "✅ Running documentation gates..."
+	uv run rumdl check --no-cache README.md README.zh.md docs
+	uv run pytest --no-cov -q tests/test_documentation_examples.py
+	uv run pytest --no-cov -q tests/format_feature_coverage
+	NO_MKDOCS_2_WARNING=1 uv run mkdocs build --strict
+
+check-science: test-science
+
+check-orca: test-orca
+
+check-native: test-native
+
+check-docs: docs-check
+
+check-release: check-fast check-science check-orca check-native check-docs
+	uv lock --check
+	uv run pytest -q --cov-fail-under=85 --cov-report=xml
+	uv build
+	uv run python scripts/check_release_artifacts.py dist
+	uv run --group publish twine check --strict dist/*

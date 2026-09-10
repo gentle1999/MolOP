@@ -45,4 +45,24 @@ outcome 状态包括 `ok`、`empty`、`missing`、`skipped`、`unsupported`、`m
 reader warning 与可序列化失败信息保留在各 outcome 中；`report.batch` 仍是只包含成功文件的
 `FileBatchModelDisk`。
 
+如果不需要构造成功文件集合，可以使用顶层迭代接口逐条消费结果：
+
+```python
+from molop import iter_parse_outcomes
+
+for outcome in iter_parse_outcomes(["water_mp2.out", "missing.out"], n_jobs=2):
+    print(outcome.input_index, outcome.file_path, outcome.status)
+```
+
+??? example "输出"
+
+    ```text
+    0 /absolute/path/water_mp2.out ok
+    1 /absolute/path/missing.out missing
+    ```
+
+迭代结果按完成顺序产生，并保留 `input_index`；重复输入路径会产生重复结果。消费者提前关闭
+迭代器会回收 worker 和结果流。设置 `fail_fast=True` 会在首个非 `ok` 结果处抛出
+`BatchParseError`，并取消剩余工作。
+
 ::: molop.AutoParser

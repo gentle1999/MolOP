@@ -10,6 +10,7 @@
 | 解析单个文件 | [`AutoFileParser(...)`](#autofileparser) | file 级对象 |
 | 解析已加载的文本或 bytes | [`AutoMemoryParser(...)`](#automemoryparser) | 内存 file 级对象 |
 | 解析文件和 glob | [`AutoParser(...)`](#autoparser) | `FileBatchModelDisk` |
+| 逐条流式解析 | [`iter_parse_outcomes(...)`](#iter_parse_outcomes) | `FileParseOutcome` 迭代器 |
 | 选择 frame | [Frame 选择](#frame-selector) | 规范化后的 frame 索引 |
 | 格式转换 | [`format_transform(...)`](#format_transform) | 渲染文本或路径映射 |
 | 绘制轨迹 | [`draw_animation(...)`](#draw_animation) | GIF 或动画 SVG |
@@ -59,6 +60,27 @@ glob，将匹配项转为绝对路径、去重，并按规范化路径排序；�
 未匹配的 glob 不产生文件；空 iterable 返回空 batch。不存在的普通路径交给 batch parser，
 随后告警并跳过。嵌套 iterable 或非路径成员会抛出带输入索引的 `TypeError`。解析选项应用于
 每个展开后的路径。
+
+## `iter_parse_outcomes` {#iter_parse_outcomes}
+
+```python
+from molop import iter_parse_outcomes
+
+for outcome in iter_parse_outcomes(["water_mp2.out", "missing.out"], n_jobs=2):
+    print(outcome.input_index, outcome.status)
+```
+
+??? example "输出"
+
+    ```text
+    0 ok
+    1 missing
+    ```
+
+该接口不构造成功文件集合，而是为每个输入路径流式返回一个 `FileParseOutcome`。并行结果按
+完成顺序产生，同时保留 `input_index`；调用方传入的重复路径也会产生重复结果。提前关闭
+迭代器会回收 MolOP 创建的 worker 和结果流。设置 `fail_fast=True` 时，首个非 `ok` 结果会
+抛出 `BatchParseError`，并取消剩余工作。
 
 ## Frame 选择 {#frame-selector}
 

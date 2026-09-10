@@ -20,7 +20,9 @@
 - `model_chemistry.basis_set` -> `basis_set`
 - `resource_request.num_cpu/memory/raw` -> `request_num_cpu/request_memory/resources_raw`
 
-旧的 `refresh_common_qm_containers()` 仅用于兼容旧调用方：它只在结构化字段为空时从兼容字段补全，不允许覆盖已经解析出的结构化语义。
+旧的 `refresh_common_qm_containers()` 仅用于兼容旧调用方：它先在结构化字段为空时从兼容字段补全，
+再把结构化字段投影回兼容字段；已经解析出的结构化语义不会被平铺字段覆盖。需要修改规范化语义时，
+应直接修改结构化容器，再调用 `project_common_qm_fields()`。
 
 ## 输入请求容器
 

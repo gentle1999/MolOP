@@ -153,6 +153,14 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
     def __repr__(self) -> str:
         return f"frames={len(self)}, {super().__repr__()}"
 
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Restore navigation links after frame serialization."""
+
+        super().__setstate__(state)
+        for index, frame in enumerate(self._frames_):
+            frame._prev_frame = self._frames_[index - 1] if index > 0 else None
+            frame._next_frame = self._frames_[index + 1] if index + 1 < len(self._frames_) else None
+
     @overload
     def __getitem__(self, frame: int) -> FrameT: ...
     @overload
@@ -435,7 +443,9 @@ class BaseQMInputFile(BaseCoordsFile[QMInputFrameT], Generic[QMInputFrameT]):
         _project_common_qm_fields(self)
 
     def refresh_common_qm_containers(self) -> None:
+        """Backfill empty structured values and restore their projection."""
         self.backfill_common_qm_containers_from_legacy()
+        self.project_common_qm_fields()
 
 
 class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):

@@ -18,6 +18,10 @@ Start with `frame = AutoParser(path)[0][-1]`, then locate a public field by the 
 | Forces/Hessian | `frame.forces/hessian is not None` | `forces`, `hessian`, and axis metadata | hartree/bohr, etc. |
 | Status | Read directly | `is_normal`, `is_error`, `is_optimized`, `is_TS` | `bool | None` |
 
+`rdmol` is a defensive RDKit graph copy: mutating the object returned by `frame.rdmol` does not
+mutate the frame's cache. Edit `atoms`, `coords`, or explicit topology fields instead; those edits
+invalidate derived topology and SMILES caches.
+
 ## Unit-aware values
 
 ```python

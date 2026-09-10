@@ -5,6 +5,27 @@
 模块暴露进程级 `molopconfig` 对象，用于控制进度显示、并行任务上限、日志和结构恢复选项。
 单次调用的行为优先使用显式函数参数；只有需要影响后续调用的全局策略时才修改全局配置。
 
+## 导入副作用与显式初始化
+
+导入 `molop` 不会创建 `molop.log`、修改宿主进程的 Python 递归上限，也不会默认关闭 RDKit 或
+Open Babel 的原生日志。`rdkit-dof` 也只在需要景深绘制或显式调用相关设置时加载。需要文件日志或
+安静的原生日志时，显式创建配置并启用对应选项：
+
+```python
+from molop.config import MolOPConfig
+
+config = MolOPConfig(
+    log_to_file=True,
+    log_file_path="run.log",
+    suppress_rdkit_logs=True,
+    suppress_openbabel_logs=True,
+)
+config.configure_native_logging()
+```
+
+`enable_file_logging()`、`disable_file_logging()` 负责文件 handler 的生命周期；
+`set_max_recursion_depth()` 只在调用方明确请求时修改当前进程的递归上限。
+
 主进程拓扑预热由 `prewarm_topologies` 控制，默认值为 `False`。默认情况下，依赖分子图的操作会在
 使用结果的 spawn-like `loky` worker 中按需惰性重建，避免单独的主进程预热步骤。需要确定性主进程
 缓存的工作流可以显式开启：

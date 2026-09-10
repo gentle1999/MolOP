@@ -290,6 +290,19 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
 
         _ = frame, chem_file, segment_index, segment_frame_index, segment_frame_count
 
+    def _postprocess_frame_configuration(
+        self,
+        frame: FrameT,
+        segment_metadata: Mapping[str, Any],
+        *,
+        segment_index: int | None,
+        segment_frame_index: int,
+        segment_frame_count: int,
+    ) -> None:
+        """Complete one frame's calculation configuration from its source segment."""
+
+        _ = frame, segment_metadata, segment_index, segment_frame_index, segment_frame_count
+
     def _source_frame_role(
         self,
         frame: FrameT,
@@ -984,6 +997,13 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
                     frame,
                     charge=final_charge,
                     multiplicity=final_multiplicity,
+                )
+                self._postprocess_frame_configuration(
+                    frame,
+                    segment_metadata,
+                    segment_index=segment_index,
+                    segment_frame_index=segment_frame_index,
+                    segment_frame_count=all_frame_count,
                 )
                 self._postprocess_parsed_frame(
                     frame,

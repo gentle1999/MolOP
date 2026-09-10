@@ -27,7 +27,7 @@ def test_g16log_autoparser_exposes_stable_file_and_frame_fields() -> None:
     assert parsed_file.qm_software_version == "ES64L-G16RevC.01"
     assert parsed_file.method == frame.method == "DFT"
     assert parsed_file.basis_set == frame.basis_set == "pseudopotential"
-    assert parsed_file.functional == frame.functional == "B3LYP"
+    assert parsed_file.functional == frame.functional == "B3LYP-GD3BJ"
     assert parsed_file.charge == frame.charge == 0
     assert parsed_file.multiplicity == frame.multiplicity == 1
 

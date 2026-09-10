@@ -11,6 +11,7 @@ the [parser contract](../developer/parser-contract.md).
 | Parse one file | [`AutoFileParser(...)`](#autofileparser) | File-level model |
 | Parse loaded text or bytes | [`AutoMemoryParser(...)`](#automemoryparser) | Memory file-level model |
 | Parse files and globs | [`AutoParser(...)`](#autoparser) | `FileBatchModelDisk` |
+| Stream one outcome per input | [`iter_parse_outcomes(...)`](#iter_parse_outcomes) | `FileParseOutcome` iterator |
 | Select frames | [Frame selector](#frame-selector) | Normalized frame indices |
 | Convert formats | [`format_transform(...)`](#format_transform) | Rendered text or path mapping |
 | Render trajectories | [`draw_animation(...)`](#draw_animation) | GIF or animated SVG |
@@ -67,6 +68,29 @@ Unmatched globs add no files. An empty iterable returns an empty batch. A
 missing literal path is passed to the batch parser and then warned about and
 skipped. Nested iterables and non-path members raise `TypeError` with the input
 index. Parse options apply to every expanded path.
+
+## `iter_parse_outcomes` {#iter_parse_outcomes}
+
+```python
+from molop import iter_parse_outcomes
+
+for outcome in iter_parse_outcomes(["water_mp2.out", "missing.out"], n_jobs=2):
+    print(outcome.input_index, outcome.status)
+```
+
+??? example "Output"
+
+    ```text
+    0 ok
+    1 missing
+    ```
+
+This API does not construct a successful-file collection. It streams one
+`FileParseOutcome` for every input path. Parallel results are yielded as they
+complete while retaining `input_index`; repeated input paths produce repeated
+outcomes. Closing the iterator early releases MolOP-created workers and result
+streams. With `fail_fast=True`, the first non-`ok` outcome raises
+`BatchParseError` and cancels remaining work.
 
 ## Frame selector {#frame-selector}
 

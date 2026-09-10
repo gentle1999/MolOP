@@ -21,6 +21,7 @@ from molop.io.base_models.FileParser import (
 from molop.io.base_models.ParseContainers import ModelParseResult, TextParseContext
 from molop.io.base_models.source import LocatedSourceSegment
 from molop.io.logic.gaussian.input.GaussianRoute import (
+    _with_dispersion_suffix,
     build_gaussian_model_chemistry,
     build_gaussian_task_requests,
 )
@@ -85,6 +86,17 @@ class G16LogFileParserMixin:
     format_id: ClassVar[str] = "g16log"
     _parse_unselected_segment_metadata = True
     _assess_segment_calculation_status = True
+    _calculation_configuration_fields: ClassVar[tuple[str, ...]] = (
+        "options",
+        "method",
+        "basis_set",
+        "functional",
+        "solvent",
+        "resources_raw",
+        "request_num_cpu",
+        "request_memory",
+        "resource_request",
+    )
 
     @classmethod
     def _quick_check_file_format(cls, file_content: str) -> None:
@@ -274,31 +286,13 @@ class G16LogFileParserMixin:
             "scrf=restart",
         }
 
-    @staticmethod
-    def _has_explicit_dispersion_route(route: Any) -> bool:
-        for token in getattr(route, "tokens", ()):
-            key = getattr(token, "key", None)
-            if key in {"em", "empiricaldispersion"}:
-                return True
-        return False
-
     @classmethod
     def _inherit_frequency_segment_configuration(
         cls,
         current: dict[str, Any],
         previous: Mapping[str, Any],
     ) -> None:
-        for field_name in (
-            "options",
-            "method",
-            "basis_set",
-            "functional",
-            "solvent",
-            "resources_raw",
-            "request_num_cpu",
-            "request_memory",
-            "resource_request",
-        ):
+        for field_name in cls._calculation_configuration_fields:
             current_value = current.get(field_name)
             previous_value = previous.get(field_name)
             if cls._is_missing_configuration_value(current_value) and previous_value is not None:
@@ -317,9 +311,7 @@ class G16LogFileParserMixin:
             getattr(previous_route, "model_chemistry", None),
         )
 
-        inherited_dispersion = False
         if cls._is_missing_configuration_value(merged_route.empirical_dispersion):
-            inherited_dispersion = getattr(previous_route, "empirical_dispersion", None) is not None
             merged_route.empirical_dispersion = getattr(
                 previous_route,
                 "empirical_dispersion",
@@ -366,27 +358,91 @@ class G16LogFileParserMixin:
             legacy_basis_set=str(current.get("basis_set") or ""),
             legacy_functional=str(current.get("functional") or ""),
         )
-        if inherited_dispersion and not cls._has_explicit_dispersion_route(merged_route):
-            route_functional = merged_route.model_chemistry.functional
-            if route_functional:
-                current["model_chemistry"].functional = route_functional.upper()
         current["task_requests"] = build_gaussian_task_requests(merged_route)
 
     @classmethod
-    def _restore_inherited_frequency_functional(cls, frame: Any) -> None:
-        task_types = {task.task_type for task in frame.task_requests if task.enabled}
-        route = getattr(frame, "semantic_route", None)
-        if (
-            task_types != {"freq"}
-            or route is None
-            or route.empirical_dispersion is None
-            or cls._has_explicit_dispersion_route(route)
-        ):
+    def _supplement_frame_calculation_configuration(
+        cls,
+        frame: Any,
+        section_metadata: Mapping[str, Any],
+    ) -> None:
+        """Complete frame configuration from the resolved metadata of its section."""
+
+        for field_name in cls._calculation_configuration_fields:
+            section_value = section_metadata.get(field_name)
+            if cls._is_missing_configuration_value(section_value):
+                continue
+            if cls._is_missing_configuration_value(getattr(frame, field_name, None)):
+                setattr(frame, field_name, deepcopy(section_value))
+
+        section_route = section_metadata.get("semantic_route")
+        frame_route = getattr(frame, "semantic_route", None)
+        if section_route is not None and frame_route is None:
+            frame.semantic_route = deepcopy(section_route)
+            frame_route = frame.semantic_route
+        if section_route is not None and frame_route is not None:
+            cls._inherit_missing_model_fields(frame_route, section_route)
+            cls._inherit_missing_model_fields(
+                getattr(frame_route, "model_chemistry", None),
+                getattr(section_route, "model_chemistry", None),
+            )
+            if cls._is_missing_configuration_value(
+                getattr(frame_route, "empirical_dispersion", None)
+            ):
+                frame_route.empirical_dispersion = deepcopy(
+                    getattr(section_route, "empirical_dispersion", None)
+                )
+            cls._inherit_missing_model_fields(
+                getattr(frame_route, "scrf_options", None),
+                getattr(section_route, "scrf_options", None),
+            )
+
+        section_model = section_metadata.get("model_chemistry")
+        frame_model = getattr(frame, "model_chemistry", None)
+        if section_model is not None and frame_model is None:
+            frame.model_chemistry = deepcopy(section_model)
+            frame_model = frame.model_chemistry
+        elif section_model is not None and frame_model is not None:
+            cls._inherit_missing_model_fields(frame_model, section_model)
+
+        if frame_model is None:
             return
-        route_functional = route.model_chemistry.functional
-        if route_functional:
-            frame.model_chemistry.functional = route_functional.upper()
-            frame.functional = frame.model_chemistry.functional
+
+        section_route_model = getattr(section_route, "model_chemistry", None)
+        section_functional = getattr(section_model, "functional", None)
+        if section_functional is None:
+            section_functional = getattr(section_route_model, "functional", None)
+        section_dispersion = getattr(section_model, "dispersion_correction", None)
+        if section_dispersion is None:
+            section_dispersion = getattr(section_route, "empirical_dispersion", None)
+        canonical_section_functional = _with_dispersion_suffix(
+            section_functional,
+            section_dispersion,
+        )
+        frame_functional = getattr(frame_model, "functional", None) or getattr(
+            frame,
+            "functional",
+            None,
+        )
+        canonical_frame_functional = _with_dispersion_suffix(
+            frame_functional,
+            section_dispersion,
+        )
+        if canonical_section_functional and (
+            cls._is_missing_configuration_value(frame_functional)
+            or (
+                canonical_frame_functional is not None
+                and canonical_frame_functional.upper() == canonical_section_functional.upper()
+            )
+        ):
+            frame_model.functional = canonical_section_functional.upper()
+
+        backfill = getattr(frame, "backfill_common_qm_containers_from_legacy", None)
+        if callable(backfill):
+            backfill()
+        project = getattr(frame, "project_common_qm_fields", None)
+        if callable(project):
+            project()
 
     def _postprocess_segment_metadata(
         self,
@@ -445,7 +501,19 @@ class G16LogFileParserMixin:
             and chem_file[-1].basis_set.lower() != "gen"
         ):
             frame.basis_set = chem_file[-1].basis_set
-        self._restore_inherited_frequency_functional(frame)
+            frame.model_chemistry.basis_set = frame.basis_set
+
+    def _postprocess_frame_configuration(
+        self,
+        frame: G16LogFileFrameDisk | G16LogFileFrameMemory,
+        segment_metadata: Mapping[str, Any],
+        *,
+        segment_index: int | None,
+        segment_frame_index: int,
+        segment_frame_count: int,
+    ) -> None:
+        _ = segment_index, segment_frame_index, segment_frame_count
+        self._supplement_frame_calculation_configuration(frame, segment_metadata)
 
     def _source_frame_role(
         self,

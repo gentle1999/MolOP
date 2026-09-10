@@ -8,7 +8,7 @@ from copy import deepcopy
 from typing import Literal, Protocol, overload
 
 import numpy as np
-from rdkit import Chem, RDLogger
+from rdkit import Chem
 from rdkit.Chem import rdMolTransforms
 from rdkit.Chem.rdDistGeom import EmbedMolecule
 from rdkit.Geometry import Point3D
@@ -16,9 +16,6 @@ from scipy.spatial.transform import Rotation as R
 
 from ..utils.types import RdMol, RWMol
 from .utils import pt
-
-
-RDLogger.DisableLog("rdApp.*")  # type: ignore
 
 
 def merge_mols_directly(mols: list[RdMol | RWMol]):

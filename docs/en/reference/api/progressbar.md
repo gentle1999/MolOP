@@ -1,6 +1,8 @@
 # molop.utils.progressbar
 
-Progress bars and parallel execution helpers.
+Progress bars and parallel execution helpers. The native-reconstruction boundary and loky executor
+lifecycle are owned by a separate execution layer; this module keeps the legacy guard imports for
+existing callers.
 
 A directly runnable demonstration of every capture mode is available as
 [`scripts/progress_capture_demo.py`](https://github.com/gentle1999/MolOP/blob/main/scripts/progress_capture_demo.py):
@@ -26,6 +28,10 @@ Third-party tools can capture MolOP progress without parsing terminal output:
 - **Cross-process** — use
   [`progress_jsonl_sink`][molop.utils.progressbar.progress_jsonl_sink] to append
   JSON Lines to a file that other tools can tail or read.
+
+MolOP closes only an idle loky executor that it created and owns. An idle executor already owned by a
+host application is left alone; pending host work makes native reconstruction fail closed until that
+result stream is consumed or closed.
 
 Events are emitted even when the terminal bar is suppressed
 (`molopconfig.show_progress_bar = False`), because event emission is

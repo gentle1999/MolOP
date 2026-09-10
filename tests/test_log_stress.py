@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from molop.config import available_cpu_count
+from molop.io.logic.gaussian.log.locators import locate_g16_section_frames, locate_g16_sections
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -19,6 +20,11 @@ LOG_DIR = ROOT / "tests" / "test_files" / "g16log"
 # to the test data without requiring another hard-coded list.
 LOG_PATHS = tuple(path.relative_to(ROOT).as_posix() for path in sorted(LOG_DIR.glob("*.log")))
 EXPECTED_FILE_COUNT = len(LOG_PATHS)
+EXPECTED_FRAME_COUNT = sum(
+    len(locate_g16_section_frames(path.read_text(errors="replace"), section))
+    for path in sorted(LOG_DIR.glob("*.log"))
+    for section in locate_g16_sections(path.read_text(errors="replace"))
+)
 
 
 _STRESS_WORKER = textwrap.dedent(
@@ -32,11 +38,11 @@ _STRESS_WORKER = textwrap.dedent(
     assert molopconfig.prewarm_topologies is False
     n_jobs = int(sys.argv[1])
     paths = %r
-    batch = AutoParser(paths, n_jobs=n_jobs, only_last_frame=True)
+    batch = AutoParser(paths, n_jobs=n_jobs, only_last_frame=False)
     summary = batch.to_summary_df(frame="all", n_jobs=n_jobs)
     rendered = batch.format_transform("smi", frame="all", n_jobs=n_jobs)
     frame_count = sum(len(file_model) for file_model in batch)
-    assert frame_count == len(paths)
+    assert frame_count == %d
     assert len(summary) == frame_count
     assert len(rendered) == len(paths)
     # A source log can be valid while its coordinates do not yield a chemical
@@ -55,7 +61,7 @@ _STRESS_WORKER = textwrap.dedent(
         "n_jobs": n_jobs,
     }))
     """
-) % (list(LOG_PATHS),)
+) % (list(LOG_PATHS), EXPECTED_FRAME_COUNT)
 
 
 @pytest.mark.stress
@@ -70,36 +76,43 @@ def test_gaussian_log_lazy_reconstruction_stress() -> None:
         path for path in (source_path, environment.get("PYTHONPATH")) if path
     )
     assert EXPECTED_FILE_COUNT > 0
+    assert EXPECTED_FRAME_COUNT >= EXPECTED_FILE_COUNT
     # Keep the stress workload bounded while using the available runner
     # capacity up to four processes. A one-CPU runner falls back to serial mode.
     n_jobs = max(1, min(4, available_cpu_count(), EXPECTED_FILE_COUNT))
 
-    observed_counts: list[tuple[int, int]] = []
-    for iteration in range(3):
-        completed = subprocess.run(
-            [sys.executable, "-c", _STRESS_WORKER, str(n_jobs)],
-            cwd=ROOT,
-            env=environment,
-            capture_output=True,
-            text=True,
-            timeout=180,
-            check=False,
-        )
-        assert completed.returncode == 0, (
-            f"stress iteration {iteration + 1} failed with exit code "
-            f"{completed.returncode}\nstdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
-        )
-        output_lines = [line for line in completed.stdout.splitlines() if line.strip()]
-        assert output_lines, f"stress iteration {iteration + 1} produced no result"
-        result = json.loads(output_lines[-1])
-        assert result["files"] == EXPECTED_FILE_COUNT
-        assert result["frames"] == EXPECTED_FILE_COUNT
-        assert result["summary_rows"] == EXPECTED_FILE_COUNT
-        assert result["rendered_files"] == EXPECTED_FILE_COUNT
-        assert result["nonempty_rendered"] + result["empty_rendered"] == EXPECTED_FILE_COUNT
-        assert result["n_jobs"] == n_jobs
-        observed_counts.append((result["nonempty_rendered"], result["empty_rendered"]))
+    observed_counts: list[tuple[int, int, int]] = []
+    worker_counts = tuple(sorted({1, n_jobs}))
+    for worker_count in worker_counts:
+        for iteration in range(2):
+            completed = subprocess.run(
+                [sys.executable, "-c", _STRESS_WORKER, str(worker_count)],
+                cwd=ROOT,
+                env=environment,
+                capture_output=True,
+                text=True,
+                timeout=180,
+                check=False,
+            )
+            assert completed.returncode == 0, (
+                f"stress run n_jobs={worker_count}, iteration {iteration + 1} failed with exit code "
+                f"{completed.returncode}\nstdout:\n{completed.stdout}\nstderr:\n{completed.stderr}"
+            )
+            output_lines = [line for line in completed.stdout.splitlines() if line.strip()]
+            assert output_lines, (
+                f"stress run n_jobs={worker_count}, iteration {iteration + 1} produced no result"
+            )
+            result = json.loads(output_lines[-1])
+            assert result["files"] == EXPECTED_FILE_COUNT
+            assert result["frames"] == EXPECTED_FRAME_COUNT
+            assert result["summary_rows"] == EXPECTED_FRAME_COUNT
+            assert result["rendered_files"] == EXPECTED_FILE_COUNT
+            assert result["nonempty_rendered"] + result["empty_rendered"] == EXPECTED_FILE_COUNT
+            assert result["n_jobs"] == worker_count
+            observed_counts.append(
+                (worker_count, result["nonempty_rendered"], result["empty_rendered"])
+            )
 
     # Repeated isolated workers must produce the same success/failure split;
     # otherwise the stress run is exposing nondeterministic native behavior.
-    assert len(set(observed_counts)) == 1
+    assert len({counts[1:] for counts in observed_counts}) == 1

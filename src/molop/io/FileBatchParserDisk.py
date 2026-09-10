@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import os
 import pathlib
-from collections.abc import Iterable, Sequence, Sized
+from collections.abc import Iterable, Iterator, Sequence, Sized
 from contextlib import suppress
 from typing import Any, Literal, Protocol, cast, overload
 
@@ -20,7 +20,12 @@ from molop.config import molopconfig, moloplogger
 from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.codec_types import ParseOptions, ParseResult
 from molop.io.FileBatchModelDisk import FileBatchModelDisk, FileDiskObj, _looks_like_disk_file
-from molop.io.parse_outcomes import BatchParseResult, FileParseOutcome, ParseFailure
+from molop.io.parse_outcomes import (
+    BatchParseError,
+    BatchParseResult,
+    FileParseOutcome,
+    ParseFailure,
+)
 from molop.utils.progressbar import (
     DEFAULT_JOBLIB_BACKEND,
     AdaptiveProgress,
@@ -416,9 +421,63 @@ class FileBatchParserDisk:
             parser_detection (str):
                 if "auto", use the file extension to detect the parser, else use the given format id.
         """
+        outcomes = list(
+            self.iter_outcomes(
+                file_paths,
+                total_charge=total_charge,
+                total_multiplicity=total_multiplicity,
+                only_extract_structure=only_extract_structure,
+                only_last_frame=only_last_frame,
+                capture_source_evidence=capture_source_evidence,
+                source_encoding=source_encoding,
+                release_file_content=release_file_content,
+                parser_detection=parser_detection,
+                parse_options=parse_options,
+            )
+        )
+        outcomes.sort(
+            key=lambda outcome: (
+                outcome.input_index is None,
+                outcome.input_index if outcome.input_index is not None else 0,
+                outcome.file_path,
+            )
+        )
+        parsed_diskfiles = [
+            outcome.value for outcome in outcomes if outcome.succeeded and outcome.value is not None
+        ]
+        parsed_diskfiles.sort(key=lambda diskfile: diskfile.file_path)
+        batch = FileBatchModelDisk._new_batch_from_sorted_diskfiles(parsed_diskfiles)
+        return BatchParseResult(batch=batch, outcomes=tuple(outcomes))
+
+    def iter_outcomes(
+        self,
+        file_paths: Iterable[str] | Iterable[pathlib.Path],
+        total_charge: int | None = None,
+        total_multiplicity: int | None = None,
+        only_extract_structure: bool = False,
+        only_last_frame: bool = False,
+        capture_source_evidence: bool = False,
+        source_encoding: str = "utf-8",
+        release_file_content: bool = True,
+        parser_detection: str = "auto",
+        parse_options: ParseOptions | None = None,
+        fail_fast: bool = False,
+    ) -> Iterator[FileParseOutcome[FileDiskObj]]:
+        """Yield exactly one outcome for each input without collecting a batch.
+
+        Parallel outcomes are yielded in completion order and carry their
+        original ``input_index``.  Preflight failures are yielded as soon as
+        they are discovered.  Closing the iterator closes joblib's result
+        generator and the progress bar, which makes early consumer exit safe.
+
+        Set ``fail_fast=True`` to raise :class:`BatchParseError` at the first
+        unsuccessful input and cancel the remaining work by closing the
+        active result generator.
+        """
+
         hint_format = None if parser_detection == "auto" else parser_detection
         path_count = _length_or_none(file_paths)
-        parse_options = (
+        resolved_options = (
             parse_options
             or ParseOptions(
                 total_charge=total_charge,
@@ -430,8 +489,6 @@ class FileBatchParserDisk:
                 release_file_content=release_file_content,
             )
         ).resolved()
-
-        preflight_outcomes: list[FileParseOutcome[FileDiskObj]] = []
 
         def process_path(file_path: str | pathlib.Path, input_index: int):
             if isinstance(file_path, pathlib.Path):
@@ -497,7 +554,7 @@ class FileBatchParserDisk:
                 "capture_source_evidence": capture_source_evidence,
                 "source_encoding": source_encoding,
                 "release_file_content": release_file_content,
-                "parse_options": parse_options,
+                "parse_options": resolved_options,
                 "input_index": input_index,
                 "return_outcome": True,
             }
@@ -523,7 +580,10 @@ class FileBatchParserDisk:
             None,
             disable=not molopconfig.show_progress_bar,
             desc=desc,
-            total=path_count,
+            # Rich's fraction column requires a numeric total at creation
+            # time.  Unknown-length iterables start at zero and are extended
+            # by ``register_input_path`` as paths arrive.
+            total=path_count if path_count is not None else 0,
         )
 
         def register_input_path() -> None:
@@ -537,75 +597,73 @@ class FileBatchParserDisk:
             with suppress(Exception):
                 progress.update(1)
 
-        def close_progress() -> None:
-            with suppress(Exception):
-                progress.close()
+        def consume_outcome(
+            outcome: FileParseOutcome[FileDiskObj],
+        ) -> FileParseOutcome[FileDiskObj]:
+            mark_input_path_done()
+            if fail_fast and not outcome.succeeded:
+                raise BatchParseError(outcome)
+            return outcome
 
-        def iter_raw_tasks():
-            for input_index, file_path in enumerate(file_paths):
-                register_input_path()
-                task_or_outcome = process_path(
-                    cast(str | pathlib.Path, file_path),
-                    input_index,
-                )
-                if isinstance(task_or_outcome, FileParseOutcome):
-                    preflight_outcomes.append(task_or_outcome)
-                    mark_input_path_done()
-                else:
-                    yield task_or_outcome
-
-        def iter_tasks():
-            tasks = iter_raw_tasks()
-            if not use_parallel:
-                yield from tasks
-                return
-            yield from _iter_size_ordered_task_buffer(
-                tasks,
-                buffer_size=max(min(effective_jobs * 16, 256), 1),
-            )
-
-        try:
-            parsed_diskfiles: list[FileDiskObj] = []
-            parse_outcomes = preflight_outcomes
-
-            if use_parallel:
+        def parse_task_batch(
+            tasks: list[dict[str, Any]],
+        ) -> Iterator[FileParseOutcome[FileDiskObj]]:
+            ordered_tasks = sorted(tasks, key=_task_sort_size, reverse=True)
+            result_stream: Any | None = None
+            try:
                 with loky_parallel_guard():
-                    results = Parallel(
+                    result_stream = Parallel(
                         n_jobs=effective_jobs,
                         backend=DEFAULT_JOBLIB_BACKEND,
                         maxtasks_per_child=50,
                         return_as="generator_unordered",
                         max_nbytes=molopconfig.parallel_max_size,
-                    )(delayed(_run_single_file_task)(**task) for task in iter_tasks())
-                    for outcome in cast(Iterable[FileParseOutcome[FileDiskObj]], results):
-                        parse_outcomes.append(outcome)
-                        if outcome.succeeded and outcome.value is not None:
-                            parsed_diskfiles.append(outcome.value)
-                        mark_input_path_done()
-            else:
-                for outcome in cast(
-                    Iterable[FileParseOutcome[FileDiskObj]],
-                    (_run_single_file_task(**task) for task in iter_tasks()),
-                ):
-                    parse_outcomes.append(outcome)
-                    if outcome.succeeded and outcome.value is not None:
-                        parsed_diskfiles.append(outcome.value)
-                    mark_input_path_done()
+                    )(delayed(_run_single_file_task)(**task) for task in ordered_tasks)
+                    for outcome in cast(Iterable[FileParseOutcome[FileDiskObj]], result_stream):
+                        yield consume_outcome(outcome)
+            finally:
+                close_result_stream = getattr(result_stream, "close", None)
+                if callable(close_result_stream):
+                    with suppress(Exception):
+                        close_result_stream()
 
-            close_progress()
-            parsed_diskfiles.sort(key=lambda diskfile: diskfile.file_path)
-            parse_outcomes.sort(
-                key=lambda outcome: (
-                    outcome.input_index is None,
-                    outcome.input_index if outcome.input_index is not None else 0,
-                    outcome.file_path,
-                )
-            )
-            batch = FileBatchModelDisk._new_batch_from_sorted_diskfiles(parsed_diskfiles)
-            return BatchParseResult(batch=batch, outcomes=tuple(parse_outcomes))
-        except Exception:
-            close_progress()
-            raise
+        try:
+            if use_parallel:
+                task_batch: list[dict[str, Any]] = []
+                buffer_size = max(min(effective_jobs * 16, 256), 1)
+                for input_index, file_path in enumerate(file_paths):
+                    register_input_path()
+                    task_or_outcome = process_path(
+                        cast(str | pathlib.Path, file_path),
+                        input_index,
+                    )
+                    if isinstance(task_or_outcome, FileParseOutcome):
+                        yield consume_outcome(task_or_outcome)
+                        continue
+                    task_batch.append(task_or_outcome)
+                    if len(task_batch) >= buffer_size:
+                        yield from parse_task_batch(task_batch)
+                        task_batch.clear()
+                if task_batch:
+                    yield from parse_task_batch(task_batch)
+            else:
+                for input_index, file_path in enumerate(file_paths):
+                    register_input_path()
+                    task_or_outcome = process_path(
+                        cast(str | pathlib.Path, file_path),
+                        input_index,
+                    )
+                    if isinstance(task_or_outcome, FileParseOutcome):
+                        yield consume_outcome(task_or_outcome)
+                    else:
+                        yield consume_outcome(_run_single_file_task(**task_or_outcome))
+        finally:
+            with suppress(Exception):
+                progress.close()
+
+    # Descriptive alias for callers that prefer the public result type in the
+    # method name.  Keep both spellings during the migration period.
+    iter_parse_outcomes = iter_outcomes
 
     @property
     def n_jobs(self) -> int:

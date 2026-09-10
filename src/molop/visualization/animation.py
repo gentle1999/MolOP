@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, Literal, Protocol, TypeVar, cast
 
 from rdkit import Chem
+
+from molop.io.base_models.data_classes.vibrations import Vibration, Vibrations
 
 
 AnimationFormat = Literal["gif", "svg"]
@@ -16,6 +18,36 @@ FrameValueT = TypeVar("FrameValueT")
 class _HasRDKitMol(Protocol):
     @property
     def rdmol(self) -> Chem.Mol | None: ...
+
+
+def vibration_animation_legends(
+    candidates: Sequence[Any],
+    *,
+    vibration_id: int | None,
+    vibration: Vibration | None,
+    vibrations: Vibrations | None,
+) -> list[str]:
+    """Build default legends for a normal-mode animation."""
+
+    selected_vibration = vibration
+    selected_id = vibration_id
+    if selected_vibration is None:
+        selected_id = 0 if selected_id is None else selected_id
+        assert vibrations is not None
+        selected_vibration = vibrations[selected_id]
+
+    mode_label = "Mode" if selected_id is None else f"Mode {selected_id}"
+    frequency_label = "frequency unavailable"
+    if selected_vibration.frequency is not None:
+        try:
+            frequency = float(selected_vibration.frequency.m_as("cm^-1"))
+            frequency_label = f"frequency = {frequency:.2f} cm^-1"
+        except (AttributeError, TypeError, ValueError):
+            pass
+    return [
+        f"{mode_label} | {frequency_label} | geometry {index}/{len(candidates)}"
+        for index in range(1, len(candidates) + 1)
+    ]
 
 
 def _select_rendered_frame_values(
@@ -111,4 +143,59 @@ def render_molecule_animation(
         loop=loop,
         filename=filename,
         **rendered_kwargs,
+    )
+
+
+def render_vibration_animation(
+    vibration_runner: Callable[..., Sequence[Any]],
+    *,
+    vibration_id: int | None = None,
+    vibration: Vibration | None = None,
+    vibrations: Vibrations | None = None,
+    ratio: float = 1.75,
+    steps: int = 7,
+    image_format: AnimationFormat = "gif",
+    file_path: os.PathLike[str] | str | None = None,
+    duration: int | Sequence[int] = 200,
+    loop: int = 0,
+    legends: Sequence[str | None] | None = None,
+    prewarm: Callable[..., Any] | None = None,
+    legend_builder: Callable[..., Sequence[str | None]] | None = None,
+    renderer: Callable[..., Any] = render_molecule_animation,
+    **kwargs: Any,
+) -> Any:
+    """Generate and render a normal-mode animation through explicit services."""
+
+    candidates = vibration_runner(
+        vibration_id=vibration_id,
+        vibration=vibration,
+        ratio=ratio,
+        steps=steps,
+    )
+    if prewarm is not None:
+        prewarm(candidates, retain_results=False)
+
+    candidate_legends = legends
+    if candidate_legends is None:
+        if legend_builder is None:
+            candidate_legends = vibration_animation_legends(
+                candidates,
+                vibration_id=vibration_id,
+                vibration=vibration,
+                vibrations=vibrations,
+            )
+        else:
+            candidate_legends = legend_builder(
+                candidates,
+                vibration_id=vibration_id,
+                vibration=vibration,
+            )
+    return renderer(
+        candidates,
+        image_format=image_format,
+        file_path=file_path,
+        duration=duration,
+        loop=loop,
+        legends=candidate_legends,
+        **kwargs,
     )

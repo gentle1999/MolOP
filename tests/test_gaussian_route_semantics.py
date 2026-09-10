@@ -283,7 +283,7 @@ def test_g16log_link1_frames_use_stable_concrete_method_names() -> None:
 
     assert {frame.model_chemistry.method for frame in parsed_file} == {"B3LYP"}
     assert parsed_file[-1].semantic_route.model_chemistry.method_token == "rb3lyp"
-    assert parsed_file[-1].model_chemistry.functional == "B3LYP"
+    assert parsed_file[-1].model_chemistry.functional == "B3LYP-GD3BJ"
     assert parsed_file[-1].model_chemistry.spin_treatment == "R"
 
 

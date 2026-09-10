@@ -365,6 +365,61 @@ def test_batch_parser_can_parallelize_multi_file_source_capture(
     assert parallel_kwargs["n_jobs"] == 2
 
 
+def test_batch_parser_keeps_streamed_task_window_bounded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Reader:
+        format_id = "xyz"
+
+    submitted_batch_sizes: list[int] = []
+    consumed_path_count = 0
+
+    def fake_single_file_parser(**task: Any) -> _FakeDiskFile:
+        return _FakeDiskFile(task["file_path"])
+
+    def fake_parallel(*_args: Any, **kwargs: Any) -> Any:
+        def run(tasks: Any) -> list[Any]:
+            task_list = list(tasks)
+            submitted_batch_sizes.append(len(task_list))
+            outcomes = []
+            for task in task_list:
+                if isinstance(task, tuple):
+                    function, args, task_kwargs = task
+                    outcomes.append(function(*args, **task_kwargs))
+                else:
+                    outcomes.append(task())
+            return outcomes
+
+        assert kwargs["n_jobs"] == 2
+        return run
+
+    def streamed_paths() -> Any:
+        nonlocal consumed_path_count
+        for index in range(1000):
+            consumed_path_count += 1
+            yield f"/tmp/molop-window-{index}.xyz"
+
+    monkeypatch.setattr(file_batch_parser_module.os.path, "isfile", lambda _path: True)
+    monkeypatch.setattr(
+        file_batch_parser_module.codec_registry,
+        "select_reader",
+        lambda _path, hint_format=None: (Reader(),),
+    )
+    monkeypatch.setattr(file_batch_parser_module, "single_file_parser", fake_single_file_parser)
+    monkeypatch.setattr(file_batch_parser_module, "Parallel", fake_parallel)
+    monkeypatch.setattr(
+        file_batch_parser_module,
+        "_filter_readers_by_probe",
+        lambda _path, readers: readers,
+    )
+
+    batch = FileBatchParserDisk(n_jobs=2).parse(streamed_paths())
+
+    assert len(batch) == 1000
+    assert consumed_path_count == 1000
+    assert submitted_batch_sizes == [32] * 31 + [8]
+
+
 def test_parser_disk_reader_configures_parser_capture_flag() -> None:
     captured: dict[str, Any] = {}
 

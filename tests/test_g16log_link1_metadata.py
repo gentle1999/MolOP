@@ -168,7 +168,8 @@ def test_g16log_generated_freq_section_inherits_previous_calculation_configurati
     frequency_frame = parsed[-1]
     assert [task.task_type for task in frequency_frame.task_requests] == ["freq"]
     assert frequency_frame.keywords != previous_frame.keywords
-    assert frequency_frame.functional == "B3LYP"
+    assert frequency_frame.functional == "B3LYP-GD3BJ"
+    assert frequency_frame.model_chemistry.functional == "B3LYP-GD3BJ"
     assert frequency_frame.model_chemistry.dispersion_correction == "GD3BJ"
     assert frequency_frame.model_chemistry.solvation_model == "smd"
     assert frequency_frame.model_chemistry.solvent == "generic"
@@ -176,6 +177,7 @@ def test_g16log_generated_freq_section_inherits_previous_calculation_configurati
 
     frequency_protocol = parsed.source_segments[-1].protocol
     assert frequency_protocol is not None
+    assert frequency_protocol["functional"] == "B3LYP-GD3BJ"
     assert frequency_protocol["dispersion_correction"] == "GD3BJ"
     assert frequency_protocol["solvation_model"] == "smd"
 
@@ -191,7 +193,8 @@ def test_g16log_generated_freq_section_inherits_configuration_when_only_last_fra
     assert len(parsed) == 1
     assert parsed[0].task_requests[0].task_type == "freq"
     assert parsed[0].model_chemistry.dispersion_correction == "GD3BJ"
-    assert parsed[0].functional == "B3LYP"
+    assert parsed[0].functional == "B3LYP-GD3BJ"
+    assert parsed[0].model_chemistry.functional == "B3LYP-GD3BJ"
 
 
 def test_g16log_entering_link1_sections_propagate_section_metadata_to_later_frames() -> None:

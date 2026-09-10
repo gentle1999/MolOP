@@ -1,6 +1,7 @@
 # molop.utils.progressbar
 
-进度条与并行执行辅助函数。
+进度条与并行执行辅助函数。native 重建边界和 loky 执行器生命周期由独立执行层管理；本模块保留
+旧的 guard 导入路径以兼容已有调用方。
 
 所有捕获方式的可直接运行演示位于
 [`scripts/progress_capture_demo.py`](https://github.com/gentle1999/MolOP/blob/main/scripts/progress_capture_demo.py)：
@@ -24,6 +25,9 @@ MolOP 使用 [tqdm](https://github.com/tqdm/tqdm) 渲染进度条，但每个进
 - **跨进程** — 使用
   [`progress_jsonl_sink`][molop.utils.progressbar.progress_jsonl_sink]
   将 JSON Lines 追加写入文件，其他工具可以 tail 或读取该文件。
+
+MolOP 只会关闭自己创建且已经空闲的 loky 执行器。宿主程序已有的空闲执行器不会被关闭；如果
+宿主执行器仍有待处理任务，native 重建会 fail-closed 并要求先消费或关闭该结果流。
 
 即使终端进度条被关闭（`molopconfig.show_progress_bar = False`），事件仍然会发出，
 因为事件发送与渲染相互独立。每个进度条发出 `start` → (`update` / `description`)*

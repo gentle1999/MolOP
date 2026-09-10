@@ -9,16 +9,15 @@ Description: 请填写简介
 import json
 import sys
 import threading
-from collections.abc import Iterable, Mapping, Sequence
-from contextlib import ExitStack
+import weakref
+from collections.abc import Iterable, Iterator, Mapping, Sequence
+from contextlib import ExitStack, contextmanager
 from dataclasses import asdict
 from itertools import islice
-from typing import Any, ClassVar, Literal, Optional, cast
+from typing import Any, ClassVar, Literal, Optional, SupportsIndex, overload
 
 import numpy as np
-from molgr import ReconstructionBatchRequest, ReconstructionBatchResult, iter_xyz_to_rdmol_batch
 from molgr.config import CONFIG as MOLGR_CONFIG
-from molgr.interface import xyz_to_rdmol
 from openbabel import pybel
 from pint._typing import UnitLike
 from pydantic import Field, PrivateAttr, computed_field, model_validator
@@ -34,9 +33,9 @@ from molop.io.base_models.summary import SummaryDict, summary_column
 from molop.structure.editing import replace_substituent
 from molop.structure.FormatConverter import rdmol_to_omol
 from molop.structure.GeometryTransformation import get_geometry_info, standard_orient
+from molop.structure.serialization import xyz_block
 from molop.structure.substitution_models import StereoPolicy
 from molop.structure.topology import (
-    build_mol_from_atoms_and_bonds,
     get_bond_pairs,
     get_formal_charges,
     get_formal_num_radicals,
@@ -44,13 +43,20 @@ from molop.structure.topology import (
     get_total_multiplicity,
     reset_atom_index,
 )
+from molop.structure.topology_reconstruction import (
+    NativeReconstructionConcurrencyError,
+    ReconstructionBatchResult,
+    TopologyReconstructionTask,
+    is_loky_worker,
+    iter_reconstruct_topology_tasks,
+    iter_xyz_to_rdmol_batch,
+    materialize_topology_from_fields,
+    native_reconstruction_guard,
+    reconstruct_single_topology,
+    xyz_to_rdmol,
+)
 from molop.structure.utils import canonical_smiles
 from molop.unit import atom_ureg
-from molop.utils.progressbar import (
-    NativeReconstructionConcurrencyError,
-    is_loky_worker,
-    native_reconstruction_guard,
-)
 from molop.utils.types import PintArrayNx3, RdMol
 
 from .Bases import BaseDataClassWithUnit
@@ -65,6 +71,158 @@ _ReconstructionOptions = tuple[
     bool,
     bool,
 ]
+
+
+class _TrackedList(list[Any]):
+    """A list field that invalidates its owning molecule after in-place edits.
+
+    Pydantic validates assignment, but it cannot observe ``atoms[0] = ...`` or
+    ``bonds.clear()``.  Keeping the tracking wrapper private preserves the
+    existing list-shaped public API while closing that mutation gap.
+    """
+
+    __slots__ = ("_owner_ref", "_field")
+
+    def __init__(
+        self,
+        values: Iterable[Any] = (),
+        owner: Any | None = None,
+        field: str = "",
+    ) -> None:
+        super().__init__(values)
+        try:
+            self._owner_ref = weakref.ref(owner) if owner is not None else None
+        except TypeError:
+            self._owner_ref = None
+        self._field = field
+
+    def _changed(self) -> None:
+        owner_ref = self._owner_ref
+        owner = owner_ref() if owner_ref is not None else None
+        if owner is not None:
+            owner._on_structure_input_mutated(self._field)
+
+    @overload
+    def __setitem__(self, index: SupportsIndex, value: Any) -> None: ...
+
+    @overload
+    def __setitem__(self, index: slice, value: Iterable[Any]) -> None: ...
+
+    def __setitem__(self, index: SupportsIndex | slice, value: Any) -> None:
+        super().__setitem__(index, value)
+        self._changed()
+
+    def __delitem__(self, index: SupportsIndex | slice) -> None:
+        super().__delitem__(index)
+        self._changed()
+
+    def append(self, value: Any) -> None:
+        super().append(value)
+        self._changed()
+
+    def extend(self, values: Iterable[Any]) -> None:
+        super().extend(values)
+        self._changed()
+
+    def insert(self, index: SupportsIndex, value: Any) -> None:
+        super().insert(index, value)
+        self._changed()
+
+    def pop(self, index: SupportsIndex = -1) -> Any:
+        value = super().pop(index)
+        self._changed()
+        return value
+
+    def remove(self, value: Any) -> None:
+        super().remove(value)
+        self._changed()
+
+    def clear(self) -> None:
+        super().clear()
+        self._changed()
+
+    def reverse(self) -> None:
+        super().reverse()
+        self._changed()
+
+    def sort(self, *args: Any, **kwargs: Any) -> None:
+        super().sort(*args, **kwargs)
+        self._changed()
+
+    def __iadd__(self, values: Iterable[Any]) -> "_TrackedList":  # type: ignore[misc]
+        super().__iadd__(values)
+        self._changed()
+        return self
+
+    def __imul__(self, value: SupportsIndex) -> "_TrackedList":
+        super().__imul__(value)
+        self._changed()
+        return self
+
+    def __copy__(self) -> "_TrackedList":
+        return _TrackedList(self, field=self._field)
+
+    def __deepcopy__(self, memo: dict[int, Any]) -> "_TrackedList":
+        import copy
+
+        copied = _TrackedList(copy.deepcopy(list(self), memo), field=self._field)
+        memo[id(self)] = copied
+        return copied
+
+    def __reduce_ex__(self, protocol: SupportsIndex) -> tuple[Any, tuple[Any, ...]]:
+        _ = protocol
+        return type(self), (list(self), None, self._field)
+
+
+class _TrackedArray(np.ndarray):
+    """An ndarray view that reports coordinate edits to its owning molecule."""
+
+    def __new__(
+        cls,
+        values: Any,
+        owner: Any | None = None,
+        field: str = "coords",
+    ) -> "_TrackedArray":
+        array = np.asarray(values).view(cls)
+        try:
+            array._owner_ref = weakref.ref(owner) if owner is not None else None
+        except TypeError:
+            array._owner_ref = None
+        array._field = field
+        return array
+
+    def __array_finalize__(self, source: Any) -> None:
+        if source is None:
+            return
+        self._owner_ref = getattr(source, "_owner_ref", None)
+        self._field = getattr(source, "_field", "coords")
+
+    def _changed(self) -> None:
+        owner_ref = getattr(self, "_owner_ref", None)
+        owner = owner_ref() if owner_ref is not None else None
+        if owner is not None:
+            owner._on_structure_input_mutated(getattr(self, "_field", "coords"))
+
+    def __setitem__(self, index: Any, value: Any) -> None:
+        super().__setitem__(index, value)
+        self._changed()
+
+    def fill(self, value: Any) -> None:
+        super().fill(value)
+        self._changed()
+
+    def put(
+        self,
+        indices: Any,
+        values: Any,
+        mode: Literal["raise", "wrap", "clip"] = "raise",
+    ) -> None:
+        super().put(indices, values, mode=mode)
+        self._changed()
+
+    def __reduce_ex__(self, protocol: SupportsIndex) -> tuple[Any, tuple[Any, ...]]:
+        _ = protocol
+        return np.array, (np.asarray(self),)
 
 
 def _reconstruction_diagnostics_dict(status: object | None) -> dict[str, Any] | None:
@@ -112,6 +270,20 @@ EXCLUDE_FIELDS_IF_NO_BOND = {
 
 
 class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
+    _STRUCTURE_INPUT_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "atoms",
+            "coords",
+            "charge",
+            "multiplicity",
+            "bonds",
+            "formal_charges",
+            "formal_num_radicals",
+        }
+    )
+    _TOPOLOGY_VIEW_FIELDS: ClassVar[frozenset[str]] = frozenset(
+        {"bonds", "formal_charges", "formal_num_radicals", "source_to_topology_atom_permutation"}
+    )
     default_units: ClassVar[dict[str, UnitLike]] = {"coords": atom_ureg.angstrom}
     atoms: list[int] = Field(default_factory=list, description="atom numbers", title="Atom numbers")
     coords: PintArrayNx3 = Field(
@@ -215,6 +387,171 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
     _smiles_cache: str | None = PrivateAttr(default=None)
     _canonical_smiles_cache: str | None = PrivateAttr(default=None)
     _topology_lock: _PickleSafeRLock = PrivateAttr(default_factory=_PickleSafeRLock)
+    _structure_state_signature: tuple[Any, ...] | None = PrivateAttr(default=None)
+    _structure_tracking_ready: bool = PrivateAttr(default=False)
+    _structure_tracking_suspended: int = PrivateAttr(default=0)
+
+    def model_post_init(self, __context: Any) -> None:
+        super().model_post_init(__context)
+        self._structure_tracking_ready = True
+        self._bind_structure_trackers()
+        self._remember_structure_state()
+
+    def __setstate__(self, state: dict[str, Any]) -> None:
+        """Restore field trackers after pickle/loky removes weak owners."""
+
+        super().__setstate__(state)
+        # Use Pydantic's private-attribute assignment here.  ``object.__setattr__``
+        # would create shadowing entries in ``__dict__`` after unpickling, so
+        # later reads would see stale values instead of the private store.
+        self._structure_tracking_ready = False
+        self._structure_tracking_suspended = 0
+        self._bind_structure_trackers()
+        self._structure_tracking_ready = True
+        self._remember_structure_state()
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        super().__setattr__(name, value)
+        if (
+            name in self._STRUCTURE_INPUT_FIELDS
+            and getattr(self, "_structure_tracking_ready", False)
+            and not getattr(self, "_structure_tracking_suspended", 0)
+        ):
+            self._bind_structure_tracker(name)
+            self._on_structure_input_mutated(name)
+
+    def __getattribute__(self, name: str) -> Any:
+        # Coordinate arrays can be mutated through an alias obtained from
+        # ``coords.m``.  Synchronize before exposing topology-derived fields so
+        # callers cannot observe the old graph after such an edit.
+        if name in Molecule._TOPOLOGY_VIEW_FIELDS:
+            try:
+                ready = object.__getattribute__(self, "_structure_tracking_ready")
+            except AttributeError:
+                ready = False
+            if ready:
+                object.__getattribute__(self, "_ensure_structure_state_current")()
+        return super().__getattribute__(name)
+
+    @contextmanager
+    def _suspend_structure_tracking(self) -> Iterator[None]:
+        self._structure_tracking_suspended += 1
+        try:
+            yield
+        finally:
+            self._structure_tracking_suspended -= 1
+
+    @staticmethod
+    def _list_signature(value: Any) -> tuple[Any, ...]:
+        if value is None:
+            return ()
+        try:
+            return tuple(tuple(item) if isinstance(item, (list, tuple)) else item for item in value)
+        except TypeError:
+            return (repr(value),)
+
+    @staticmethod
+    def _coords_signature(value: Any) -> tuple[Any, ...]:
+        if value is None:
+            return ()
+        try:
+            magnitude = np.asarray(getattr(value, "magnitude", getattr(value, "m", value)))
+            return (
+                str(getattr(value, "units", "")),
+                magnitude.shape,
+                magnitude.dtype.str,
+                magnitude.tobytes(),
+            )
+        except (AttributeError, TypeError, ValueError):
+            return (repr(value),)
+
+    def _structure_state(self) -> tuple[Any, ...]:
+        get = object.__getattribute__
+        return (
+            (
+                self._list_signature(get(self, "atoms")),
+                self._coords_signature(get(self, "coords")),
+                get(self, "charge"),
+                get(self, "multiplicity"),
+            ),
+            (
+                self._list_signature(get(self, "bonds")),
+                self._list_signature(get(self, "formal_charges")),
+                self._list_signature(get(self, "formal_num_radicals")),
+            ),
+        )
+
+    def _remember_structure_state(self) -> None:
+        if not getattr(self, "_structure_tracking_ready", False):
+            return
+        self._structure_state_signature = self._structure_state()
+
+    def _bind_structure_tracker(self, field_name: str) -> None:
+        if field_name in {"atoms", "bonds", "formal_charges", "formal_num_radicals"}:
+            try:
+                value = object.__getattribute__(self, field_name)
+            except AttributeError:
+                return
+            if isinstance(value, _TrackedList):
+                owner_ref = value._owner_ref
+                if owner_ref is not None and owner_ref() is self and value._field == field_name:
+                    return
+            object.__setattr__(self, field_name, _TrackedList(value, self, field_name))
+            return
+
+        if field_name != "coords":
+            return
+        try:
+            coords = object.__getattribute__(self, "coords")
+            magnitude = coords._magnitude
+        except (AttributeError, TypeError):
+            return
+        if isinstance(magnitude, _TrackedArray):
+            owner_ref = getattr(magnitude, "_owner_ref", None)
+            if owner_ref is not None and owner_ref() is self:
+                return
+        # Detach from the array supplied by the caller.  The model owns this
+        # copy, and all subsequent in-place edits go through the tracker.
+        coords._magnitude = _TrackedArray(np.array(magnitude, copy=True), self, "coords")
+
+    def _bind_structure_trackers(self) -> None:
+        for field_name in ("atoms", "bonds", "formal_charges", "formal_num_radicals", "coords"):
+            self._bind_structure_tracker(field_name)
+
+    def _on_structure_input_mutated(self, field_name: str) -> None:
+        if getattr(self, "_structure_tracking_suspended", 0):
+            return
+        with self._suspend_structure_tracking():
+            self._rdmol = None
+            self._smiles_cache = None
+            self._canonical_smiles_cache = None
+            self.source_to_topology_atom_permutation = None
+            self.topology_reconstruction_status = None
+            self.topology_reconstruction_diagnostics = None
+            self.topology_reconstruction_config_sha256 = None
+            if field_name in {"atoms", "coords", "charge", "multiplicity"}:
+                self.bonds = []
+                self.formal_charges = []
+                self.formal_num_radicals = []
+        self._structure_state_signature = None
+
+    def _ensure_structure_state_current(self) -> None:
+        if not getattr(self, "_structure_tracking_ready", False):
+            return
+        current = self._structure_state()
+        previous = self._structure_state_signature
+        if previous is None:
+            self._structure_state_signature = current
+            return
+        if current == previous:
+            return
+        field_name = "coords"
+        if current[0] != previous[0]:
+            field_name = "coords"
+        elif current[1] != previous[1]:
+            field_name = "bonds"
+        self._on_structure_input_mutated(field_name)
+        self._structure_state_signature = self._structure_state()
 
     @model_validator(mode="after")
     def validate_source_to_topology_atom_permutation(self) -> "Molecule":
@@ -381,18 +718,13 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         self,
         status: Literal["provided", "succeeded"],
     ) -> RdMol:
-        if not self.formal_charges or not self.formal_num_radicals:
-            raise ValueError("If bonds given, formal charges and spins must be provided.")
-        rdmol = build_mol_from_atoms_and_bonds(
+        rdmol = materialize_topology_from_fields(
             self.atoms,
             self.bonds,
             self.formal_charges,
             self.formal_num_radicals,
             coords=self.coords.m,
         )
-        if rdmol is None:
-            raise ValueError("Building the provided topology returned no molecule.")
-        rdmol = cast(RdMol, rdmol)
         self._rdmol = rdmol
         self.topology_reconstruction_status = status
         self.__get_topology()
@@ -428,9 +760,11 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         self._record_source_to_topology_atom_permutation()
         if self.source_to_topology_atom_permutation is None:
             return
-        self.bonds = get_bond_pairs(rdmol)
-        self.formal_charges = get_formal_charges(rdmol)
-        self.formal_num_radicals = get_formal_num_radicals(rdmol)
+        with self._suspend_structure_tracking():
+            self.bonds = get_bond_pairs(rdmol)
+            self.formal_charges = get_formal_charges(rdmol)
+            self.formal_num_radicals = get_formal_num_radicals(rdmol)
+        self._remember_structure_state()
 
     def _materialize_unitless_dump_with_unit_keys(self) -> None:
         """Build lazy topology before Pydantic snapshots regular fields."""
@@ -460,12 +794,16 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
                 The rdkit molecule object. If reconstruction failed, return None.
         """
         with self._topology_lock:
+            self._ensure_structure_state_current()
             if self._rdmol is not None:
-                return self._rdmol
+                # RDKit molecules are mutable and do not provide a read-only
+                # view.  Return an isolated copy so a caller cannot mutate the
+                # cache without going through a Molecule editing contract.
+                return Chem.Mol(self._rdmol)
             if not self.atoms:
                 return None
             if self.bonds:
-                return self._materialize_topology_from_fields("provided")
+                return Chem.Mol(self._materialize_topology_from_fields("provided"))
             if self.topology_reconstruction_status in {"failed", "suspicious_fallback"}:
                 # A suspicious MolGR graph is raw evidence, not a trusted
                 # topology. Never rebuild a replacement from stale fields.
@@ -476,7 +814,7 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
                     # A prewarmed graph may cross a process boundary without
                     # its private RDKit cache. Rebuild that cache locally and
                     # do not re-enter MolGR in the worker.
-                    return self._materialize_topology_from_fields(status)
+                    return Chem.Mol(self._materialize_topology_from_fields(status))
                 except Exception as error:
                     self._apply_reconstruction_result(None, error=error)
                     return None
@@ -484,39 +822,36 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
 
     def _reconstruct_single_topology(self) -> RdMol | None:
         options = self._resolve_reconstruction_options()
-        attempt_started = False
         try:
-            with native_reconstruction_guard():
-                # A failed process-boundary check leaves status unset so a
-                # later access can retry. Once the guard is acquired, any
-                # interruption becomes a terminal failed reconstruction.
-                attempt_started = True
-                self._record_topology_reconstruction_provenance(options)
-                reconstructed = xyz_to_rdmol(
-                    self.to_XYZ(),
-                    self.charge,
-                    self.multiplicity,
-                    backend=options[0],
-                    make_dative_bonds=options[2],
-                    make_stereochemistry=options[3],
-                    config=MOLGR_CONFIG,
-                )
-            if reconstructed is None:
-                raise ValueError("MolGR topology reconstruction returned no molecule")
+            reconstructed = reconstruct_single_topology(
+                self.to_XYZ(),
+                self.charge,
+                self.multiplicity,
+                backend=options[0],
+                make_dative_bonds=options[2],
+                make_stereochemistry=options[3],
+                config=MOLGR_CONFIG,
+                reconstructor=xyz_to_rdmol,
+                native_guard=native_reconstruction_guard,
+                on_reconstruction_started=lambda: self._record_topology_reconstruction_provenance(
+                    options
+                ),
+            )
             self._apply_reconstruction_result(reconstructed)
         except NativeReconstructionConcurrencyError:
             raise
         except Exception as error:
             self._apply_reconstruction_result(None, error=error)
-        finally:
-            if (
-                attempt_started
-                and self._rdmol is None
-                and self.topology_reconstruction_status is None
-            ):
+        except BaseException:
+            # Keep the historical fail-closed behavior for cancellation or
+            # interruption after the native boundary has started.  Guard
+            # acquisition errors are raised as NativeReconstruction... above
+            # and leave a lazy molecule retryable.
+            if self._rdmol is None and self.topology_reconstruction_status is None:
                 self.topology_reconstruction_status = "failed"
                 self.__get_topology()
-        return self._rdmol
+            raise
+        return Chem.Mol(self._rdmol) if self._rdmol is not None else None
 
     def _apply_batch_reconstruction_result(
         self,
@@ -549,11 +884,12 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         Returns:
             str: The SMILES.
         """
+        rdmol = self.rdmol
         if self._smiles_cache is not None:
             return self._smiles_cache
-        if self.rdmol is None:
+        if rdmol is None:
             return ""
-        if smi := Chem.MolToSmiles(self.rdmol):
+        if smi := Chem.MolToSmiles(rdmol):
             self._smiles_cache = smi
             return smi
         moloplogger.error("SMILES building failed.")
@@ -589,9 +925,10 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         Returns:
             str: The InChI.
         """
-        if self.rdmol is None:
+        rdmol = self.rdmol
+        if rdmol is None:
             return ""
-        if inchi := Chem.MolToInchi(self.rdmol):
+        if inchi := Chem.MolToInchi(rdmol):
             return inchi  # type: ignore
         moloplogger.error("InChI building failed.")
         return ""
@@ -887,40 +1224,13 @@ class Molecule(FrameFormatTransformMixin, BaseDataClassWithUnit):
         return InternalCoords.from_cartesian_coords(self.atom_symbols, self.coords)
 
     def to_XYZ(self) -> str:
-        return f"{len(self.atoms)}\n\n" + "\n".join(
-            [
-                f"{atom:10s}{x:18.10f}{y:18.10f}{z:18.10f}"
-                for atom, (x, y, z) in zip(self.atom_symbols, self.coords.m, strict=True)
-            ]
+        return xyz_block(
+            self.atom_symbols,
+            self.coords.m,
         )
 
 
 _DEFAULT_TOPOLOGY_BATCH_SIZE = 256
-
-
-def _resolve_batch_worker_count(
-    max_workers: int | None,
-    backend: Literal["cpp", "python"],
-) -> int | None:
-    if backend == "python":
-        return 1
-    # MolGR owns the native pool, so its automatic worker count must use the
-    # stricter native-runtime budget rather than the general joblib limit.
-    worker_count = (
-        molopconfig.effective_molgr_max_jobs
-        if max_workers is None
-        else molopconfig.set_molgr_n_jobs(max_workers)
-    )
-    configured_limit = MOLGR_CONFIG.cpp_backend.max_threads
-    if configured_limit is not None:
-        worker_count = (
-            configured_limit if worker_count is None else min(worker_count, configured_limit)
-        )
-    # MolGR deliberately defaults to one Open Babel thread on Windows.  Keep
-    # that safety boundary even when MolOP receives an explicit n_jobs value.
-    if sys.platform == "win32" and configured_limit == 1:
-        worker_count = 1
-    return worker_count
 
 
 def reconstruct_topologies_batch(
@@ -969,7 +1279,6 @@ def reconstruct_topologies_batch(
             for _, molecule in indexed_chunk
             if isinstance(molecule, Molecule)
         }
-        grouped: dict[_ReconstructionOptions, list[tuple[int, Molecule]]] = {}
 
         # Lock acquisition is deterministic across concurrent batch calls.
         # The locks remain held while native work applies its results, so a
@@ -979,6 +1288,7 @@ def reconstruct_topologies_batch(
             for molecule in sorted(unique_molecules.values(), key=id):
                 molecule_locks.enter_context(molecule._topology_lock)
 
+            candidates: list[tuple[int, Molecule, _ReconstructionOptions]] = []
             for index, molecule in indexed_chunk:
                 if not isinstance(molecule, Molecule):
                     continue
@@ -995,89 +1305,86 @@ def reconstruct_topologies_batch(
                     make_dative_bonds=make_dative_bonds,
                     make_stereochemistry=make_stereochemistry,
                 )
-                grouped.setdefault(
-                    options,
-                    [],
-                ).append((index, molecule))
+                candidates.append((index, molecule, options))
 
-            if not grouped:
+            if not candidates:
                 continue
-            for (
-                group_backend,
-                group_failure_policy,
-                group_dative_bonds,
-                group_stereochemistry,
-            ), entries in grouped.items():
-                worker_count = _resolve_batch_worker_count(max_workers, group_backend)
-                received_indices: set[int] = set()
-                molecules_by_index = dict(entries)
-                attempt_started = False
-                try:
-                    with native_reconstruction_guard():
-                        # Do not mutate lazy reconstruction state until the
-                        # process-wide native boundary is acquired.  A
-                        # temporary contention error must leave all models
-                        # retryable instead of sealing them as failed.
-                        attempt_started = True
-                        for _, molecule in entries:
-                            molecule._record_topology_reconstruction_provenance(
-                                (
-                                    group_backend,
-                                    group_failure_policy,
-                                    group_dative_bonds,
-                                    group_stereochemistry,
-                                )
-                            )
-                        requests = [
-                            ReconstructionBatchRequest(
-                                molecule.to_XYZ(),
-                                total_charge=molecule.charge,
-                                spin_multiplicity=molecule.multiplicity,
-                            )
-                            for _, molecule in entries
-                        ]
-                        request_indices = {
-                            id(request): item_index
-                            for request, (item_index, _) in zip(requests, entries, strict=True)
-                        }
-                        for result in iter_xyz_to_rdmol_batch(
-                            requests,
-                            backend=group_backend,
-                            max_workers=worker_count,
-                            queue_size=queue_size,
-                            ordered=ordered,
-                            make_dative_bonds=group_dative_bonds,
-                            make_stereochemistry=group_stereochemistry,
-                            config=MOLGR_CONFIG,
-                            raise_on_error=raise_on_error,
-                        ):
-                            item_index = request_indices.get(id(result.input))
-                            if item_index is None:
-                                raise RuntimeError(
-                                    "MolGR batch returned a result for an unknown request"
-                                )
-                            if item_index in received_indices:
-                                raise RuntimeError(
-                                    "MolGR batch returned a duplicate result for one request"
-                                )
-                            molecule = molecules_by_index[item_index]
-                            molecule._apply_batch_reconstruction_result(result)
-                            received_indices.add(item_index)
-                            if retain_results:
-                                completed.append((item_index, result))
-                except BaseException:
-                    if attempt_started:
-                        for item_index, molecule in entries:
-                            if item_index not in received_indices:
-                                molecule.topology_reconstruction_status = "failed"
-                    raise
 
-                # A malformed or interrupted iterator must not leave an
-                # unprocessed coordinate-only model able to call native MolGR
-                # later from a worker.
-                for item_index, molecule in entries:
+            molecules_by_index = {index: molecule for index, molecule, _ in candidates}
+            tasks: list[TopologyReconstructionTask] = []
+            try:
+                for index, molecule, options in candidates:
+                    tasks.append(
+                        TopologyReconstructionTask(
+                            index=index,
+                            xyz_block=molecule.to_XYZ(),
+                            total_charge=molecule.charge,
+                            spin_multiplicity=molecule.multiplicity,
+                            options=options,
+                        )
+                    )
+            except BaseException:
+                for molecule in molecules_by_index.values():
+                    molecule.topology_reconstruction_status = "failed"
+                raise
+
+            received_indices: set[int] = set()
+
+            def record_batch_provenance(
+                batch_tasks: Sequence[TopologyReconstructionTask],
+                molecules_by_index: dict[int, Molecule] = molecules_by_index,
+            ) -> None:
+                for task in batch_tasks:
+                    molecules_by_index[task.index]._record_topology_reconstruction_provenance(
+                        task.options
+                    )
+
+            try:
+                effective_max_workers = (
+                    None if max_workers is None else molopconfig.set_molgr_n_jobs(max_workers)
+                )
+                result_stream = iter_reconstruct_topology_tasks(
+                    tasks,
+                    max_workers=effective_max_workers,
+                    queue_size=queue_size,
+                    ordered=ordered,
+                    raise_on_error=raise_on_error,
+                    config=MOLGR_CONFIG,
+                    default_worker_count=molopconfig.effective_molgr_max_jobs,
+                    configured_max_threads=MOLGR_CONFIG.cpp_backend.max_threads,
+                    platform_name=sys.platform,
+                    batch_iterator=iter_xyz_to_rdmol_batch,
+                    native_guard=native_reconstruction_guard,
+                    worker_process_checker=is_loky_worker,
+                    on_batch_started=record_batch_provenance,
+                )
+                try:
+                    for item_index, result in result_stream:
+                        molecule = molecules_by_index[item_index]
+                        molecule._apply_batch_reconstruction_result(result)
+                        received_indices.add(item_index)
+                        if retain_results:
+                            completed.append((item_index, result))
+                finally:
+                    close_result_stream = getattr(result_stream, "close", None)
+                    if callable(close_result_stream):
+                        close_result_stream()
+            except NativeReconstructionConcurrencyError:
+                # A temporary process-boundary conflict must leave every model
+                # retryable and must not record partial provenance.
+                raise
+            except BaseException:
+                for item_index, molecule in molecules_by_index.items():
                     if item_index not in received_indices:
                         molecule.topology_reconstruction_status = "failed"
+                raise
+
+            # A malformed or interrupted iterator must not leave an
+            # unprocessed coordinate-only model able to call native MolGR
+            # later from a worker.
+            for item_index, molecule in molecules_by_index.items():
+                if item_index not in received_indices:
+                    molecule.topology_reconstruction_status = "failed"
 
     if not retain_results:
         return []

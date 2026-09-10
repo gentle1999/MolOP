@@ -12,7 +12,7 @@ import os
 from collections.abc import Sequence
 from io import StringIO
 from pathlib import Path
-from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar, cast
+from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar
 
 import numpy as np
 import numpy.typing as npt
@@ -55,14 +55,28 @@ from molop.io.base_models.source import (
     SourceSpan,
 )
 from molop.io.base_models.summary import SummaryDict, summary_column, summary_item
+from molop.structure.serialization import rdmol_to_xyz
+from molop.structure.ts_analysis import (
+    VibrationSamplingMethod,
+    generate_vibration_geometries,
+    infer_additional_ts_endpoints,
+    infer_possible_ts_endpoints,
+    resample_ts_endpoint_side,
+)
+from molop.structure.ts_analysis import (
+    bond_change_pairs as _bond_change_pairs,
+)
+from molop.structure.ts_export import export_ts_endpoints
 from molop.structure.validation import check_crowding
 from molop.unit import atom_ureg
 from molop.utils.progressbar import NativeReconstructionConcurrencyError
 from molop.utils.types import OMol, PintArrayN, PintArrayNx3, PintSquareMatrix, RdMol
-from molop.visualization.animation import AnimationFormat, render_molecule_animation
-
-
-VibrationSamplingMethod = Literal["amplitude", "harmonic_potential"]
+from molop.visualization.animation import (
+    AnimationFormat,
+    render_molecule_animation,
+    render_vibration_animation,
+    vibration_animation_legends,
+)
 
 
 class _HasCoords(Protocol):
@@ -125,101 +139,6 @@ def _canonical_smiles_from_rdmol(rdmol: RdMol | None) -> str:
         return Chem.CanonSmiles(smiles)
     except Exception:
         return smiles
-
-
-def _topology_frequency_key(rdmol: RdMol) -> str | bytes:
-    """Return a conformer-independent key for TS endpoint voting."""
-
-    try:
-        smiles = Chem.MolToSmiles(rdmol, canonical=True, isomericSmiles=False)
-        if smiles:
-            return smiles
-    except Exception:
-        pass
-    topology = Chem.Mol(rdmol)
-    topology.RemoveAllConformers()
-    return topology.ToBinary()
-
-
-def _most_frequent_topology(candidates: Sequence[RdMol], *, side: str) -> RdMol:
-    """Select a side's topology mode and retain its largest-amplitude conformer."""
-
-    if not candidates:
-        raise ValueError(f"Failed to reconstruct any {side}-space TS endpoint candidates")
-
-    # Candidates arrive in ascending amplitude order. Updating the representative
-    # on every hit preserves the largest-amplitude conformer for the winning graph.
-    grouped: dict[str | bytes, tuple[int, int, RdMol]] = {}
-    for index, rdmol in enumerate(candidates):
-        key = _topology_frequency_key(rdmol)
-        count = grouped[key][0] + 1 if key in grouped else 1
-        grouped[key] = (count, index, Chem.Mol(rdmol))
-
-    _, _, representative = max(grouped.values(), key=lambda item: (item[0], item[1]))
-    return representative
-
-
-def _sample_vibration_amplitudes(
-    min_ratio: float,
-    max_ratio: float,
-    steps: int,
-    sampling_method: VibrationSamplingMethod,
-) -> npt.NDArray[np.float64]:
-    """Generate positive mode amplitudes for TS endpoint sampling.
-
-    For a harmonic mode, the potential-energy magnitude is proportional to the
-    square of the displacement amplitude, including for an imaginary TS mode
-    when the curvature's magnitude is used. Therefore equal-energy spacing is
-    obtained by spacing squared amplitudes linearly.
-    """
-
-    if sampling_method == "amplitude":
-        return np.linspace(
-            min_ratio,
-            max_ratio,
-            num=steps,
-            endpoint=True,
-            dtype=np.float64,
-        )
-    if sampling_method == "harmonic_potential":
-        return np.sqrt(np.linspace(min_ratio**2, max_ratio**2, num=steps, endpoint=True))
-    raise ValueError(
-        "Unsupported sampling_method: "
-        f"{sampling_method!r}. Use 'amplitude' or 'harmonic_potential'."
-    )
-
-
-def _bond_change_pairs(first: RdMol, second: RdMol) -> set[tuple[int, int]]:
-    """Return atom pairs whose bond presence or type differs between two graphs."""
-
-    if first.GetNumAtoms() != second.GetNumAtoms():
-        return set()
-
-    def bond_types(molecule: RdMol) -> dict[tuple[int, int], Chem.BondType]:
-        result: dict[tuple[int, int], Chem.BondType] = {}
-        for bond in molecule.GetBonds():
-            start_atom_idx = bond.GetBeginAtomIdx()
-            end_atom_idx = bond.GetEndAtomIdx()
-            if start_atom_idx > end_atom_idx:
-                start_atom_idx, end_atom_idx = end_atom_idx, start_atom_idx
-            result[(start_atom_idx, end_atom_idx)] = bond.GetBondType()
-        return result
-
-    first_bonds = bond_types(first)
-    second_bonds = bond_types(second)
-    return {
-        atom_pair
-        for atom_pair in first_bonds.keys() | second_bonds.keys()
-        if first_bonds.get(atom_pair) != second_bonds.get(atom_pair)
-    }
-
-
-def _bond_change_atom_indices(first: RdMol, second: RdMol) -> set[int]:
-    """Return atoms incident to bonds that differ between two endpoint graphs."""
-
-    return {
-        atom_index for atom_pair in _bond_change_pairs(first, second) for atom_index in atom_pair
-    }
 
 
 def _method_family_allows_functional(method_family: str | None) -> bool:
@@ -288,8 +207,10 @@ def _backfill_common_qm_containers_from_legacy(target: Any) -> None:
 
 def _project_common_qm_fields(target: Any) -> None:
     model = target.model_chemistry
-    if model.raw_keywords:
-        target.keywords = model.raw_keywords
+    # Structured containers are authoritative, including their explicit empty
+    # values.  Assigning an empty raw field clears a stale compatibility value
+    # instead of leaving two conflicting representations behind.
+    target.keywords = model.raw_keywords or ""
     target.method = _legacy_method_from_model_chemistry(model)
     target.functional = model.functional or ""
     target.basis_set = model.basis_set or ""
@@ -302,8 +223,7 @@ def _project_common_qm_fields(target: Any) -> None:
     resource = target.resource_request
     target.request_num_cpu = resource.num_cpu
     target.request_memory = resource.memory
-    if resource.raw:
-        target.resources_raw = resource.raw
+    target.resources_raw = resource.raw or ""
 
 
 def _process_bond_helper(
@@ -392,6 +312,18 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
     @property
     def prev(self) -> ChemFileFrame | None:
         return self._prev_frame
+
+    def __getstate__(self) -> dict[str, Any]:
+        """Exclude derived frame links from serialization recursion."""
+
+        state = super().__getstate__()
+        private = state.get("__pydantic_private__")
+        if isinstance(private, dict):
+            private = dict(private)
+            private.pop("_next_frame", None)
+            private.pop("_prev_frame", None)
+            state["__pydantic_private__"] = private
+        return state
 
     @property
     def is_error(self) -> bool | None:
@@ -524,7 +456,16 @@ class BaseQMInputFrame(BaseCoordsFrame[ChemFileFrame]):
         _project_common_qm_fields(self)
 
     def refresh_common_qm_containers(self) -> None:
+        """Backfill compatibility data, then restore its authoritative projection.
+
+        This method remains for older callers that used ``refresh`` as a
+        synchronization point.  New parser code should write structured
+        containers directly and call :meth:`project_common_qm_fields`.
+        Compatibility fields are never treated as an overwrite of populated
+        structured semantics here.
+        """
         self.backfill_common_qm_containers_from_legacy()
+        self.project_common_qm_fields()
 
 
 class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
@@ -911,52 +852,15 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             List[BaseMolFrameParser]: A list of base block parsers for vibration calculations.
         """
 
-        if vibration is None:
-            if vibration_id is None:
-                vibration_id = 0
-            if self.vibrations is None:
-                raise ValueError("No vibrations found in this frame")
-            if vibration_id < 0 or vibration_id >= len(self.vibrations):
-                raise IndexError(f"Invalid vibration id {vibration_id}")
-            vibration = self.vibrations[vibration_id]
-        assert vibration.vibration_mode.m.shape == self.coords.m.shape, "Invalid vibration mode"
-
-        temp_moleculues = []  # Initialize a list of base block parsers
-
-        # Iterate over a list of ratios
-        for r in np.linspace(-ratio, ratio, num=steps, endpoint=True):
-            # Calculate extreme coordinates based on current ratio
-            extreme_coords = cast(np.ndarray, self.coords.m - vibration.vibration_mode.m * r)
-
-            # Convert extreme coordinates to rdkit molecule object
-            rdmol = Chem.MolFromXYZBlock(
-                f"{len(self.atoms)}\n"
-                + f"charge {self.charge} multiplicity {self.multiplicity}\n"
-                + "\n".join(
-                    [
-                        f"{Chem.Atom(atom).GetSymbol():10s}{x:10.5f}{y:10.5f}{z:10.5f}"
-                        for atom, x, y, z in zip(
-                            self.atoms,
-                            *zip(*extreme_coords, strict=True),
-                            strict=True,
-                        )
-                    ]
-                )
-            )
-            # Rebuild using the rdkit molecule object
-            if rdmol is None:
-                continue
-            if not check_crowding(rdmol):
-                continue
-            molecule = Molecule.from_coords(
-                atom_symbols=self.atom_symbols,
-                coords=extreme_coords,
-                charge=self.charge,
-                multiplicity=self.multiplicity,
-            )
-            # Check if the molecule satisfies crowding conditions and append it to the list
-            temp_moleculues.append(molecule)
-        return temp_moleculues
+        return generate_vibration_geometries(
+            self,
+            vibration_id=vibration_id,
+            vibration=vibration,
+            ratio=ratio,
+            steps=steps,
+            molecule_factory=Molecule.from_coords,
+            crowding_checker=check_crowding,
+        )
 
     def draw_vibration_animation(
         self,
@@ -973,32 +877,21 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         **kwargs: Any,
     ) -> Any:
         """Render structures displaced along one normal mode as an animation."""
-
-        candidates = self.vibrate(
+        return render_vibration_animation(
+            self.vibrate,
             vibration_id=vibration_id,
             vibration=vibration,
+            vibrations=self.vibrations,
             ratio=ratio,
             steps=steps,
-        )
-        # Displaced vibration geometries are coordinate-only molecules.  An
-        # optional native batch avoids repeated lazy reconstruction when the
-        # caller has enabled parent-process topology prewarming.
-        if molopconfig.prewarm_topologies:
-            reconstruct_topologies_batch(candidates, retain_results=False)
-        candidate_legends = legends
-        if candidate_legends is None:
-            candidate_legends = self._vibration_animation_legends(
-                candidates,
-                vibration_id=vibration_id,
-                vibration=vibration,
-            )
-        return render_molecule_animation(
-            candidates,
             image_format=image_format,
             file_path=file_path,
             duration=duration,
             loop=loop,
-            legends=candidate_legends,
+            legends=legends,
+            prewarm=(reconstruct_topologies_batch if molopconfig.prewarm_topologies else None),
+            legend_builder=self._vibration_animation_legends,
+            renderer=render_molecule_animation,
             **kwargs,
         )
 
@@ -1009,25 +902,12 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         vibration_id: int | None,
         vibration: Vibration | None,
     ) -> list[str]:
-        selected_vibration = vibration
-        selected_id = vibration_id
-        if selected_vibration is None:
-            selected_id = 0 if selected_id is None else selected_id
-            assert self.vibrations is not None
-            selected_vibration = self.vibrations[selected_id]
-
-        mode_label = "Mode" if selected_id is None else f"Mode {selected_id}"
-        frequency_label = "frequency unavailable"
-        if selected_vibration.frequency is not None:
-            try:
-                frequency = float(selected_vibration.frequency.m_as("cm^-1"))
-                frequency_label = f"frequency = {frequency:.2f} cm^-1"
-            except (AttributeError, TypeError, ValueError):
-                pass
-        return [
-            f"{mode_label} | {frequency_label} | geometry {index}/{len(candidates)}"
-            for index in range(1, len(candidates) + 1)
-        ]
+        return vibration_animation_legends(
+            candidates,
+            vibration_id=vibration_id,
+            vibration=vibration,
+            vibrations=self.vibrations,
+        )
 
     def get_QRC(self, ratio: float = 1.75, vibration_id: int = 0) -> list[Molecule]:
         assert self.vibrations is not None and self.vibrations[vibration_id].is_imaginary, (
@@ -1118,41 +998,15 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         Returns:
             Tuple[Chem.rdchem.Mol, Chem.rdchem.Mol]: A tuple containing the possible pre- and post-transition state molecules.
         """
-        if not np.isfinite(min_ratio) or min_ratio <= 0:
-            raise ValueError("min_ratio must be a finite value greater than 0")
-        if not np.isfinite(max_ratio) or max_ratio < min_ratio:
-            raise ValueError("max_ratio must be finite and greater than or equal to min_ratio")
-        if steps < 1:
-            raise ValueError("steps must be >= 1")
-
-        amplitudes = _sample_vibration_amplitudes(
-            min_ratio,
-            max_ratio,
-            steps,
-            sampling_method,
+        return infer_possible_ts_endpoints(
+            self,
+            show_3D=show_3D,
+            min_ratio=min_ratio,
+            max_ratio=max_ratio,
+            steps=steps,
+            sampling_method=sampling_method,
+            vibration_runner=self.ts_vibration,
         )
-        selected_sides: list[RdMol] = []
-        for side_name, direction in (("negative", -1.0), ("positive", 1.0)):
-            side_candidates: list[RdMol] = []
-            for amplitude in amplitudes:
-                # With one vibration step, ``ratio`` selects the signed extreme.
-                displaced = self.ts_vibration(ratio=direction * float(amplitude), steps=1)
-                for molecule in displaced:
-                    if (rdmol := molecule.rdmol) is not None and getattr(
-                        molecule, "topology_reconstruction_status", None
-                    ) != "suspicious_fallback":
-                        side_candidates.append(rdmol)
-                        break
-            selected_sides.append(_most_frequent_topology(side_candidates, side=side_name))
-
-        # The side with more disconnected fragments is treated as the precursor.
-        # Equal fragment counts retain the deterministic negative/positive ordering.
-        selected_sides.sort(key=lambda mol: len(Chem.GetMolFrags(mol)), reverse=True)
-        reactant_rdmol, product_rdmol = selected_sides
-        if not show_3D:
-            reactant_rdmol.RemoveAllConformers()
-            product_rdmol.RemoveAllConformers()
-        return reactant_rdmol, product_rdmol
 
     def _additional_pre_post_ts_side(
         self,
@@ -1164,63 +1018,17 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         amplitudes: npt.NDArray[np.floating[Any]],
     ) -> RdMol | None:
         """Resample one mode direction while holding reaction-center atoms fixed."""
-
-        if endpoint.GetNumConformers() == 0:
-            raise ValueError(
-                "Additional TS endpoint sampling requires endpoint conformers; "
-                "call possible_pre_post_ts(show_3D=True) first."
-            )
-
-        endpoint_coords = np.asarray(endpoint.GetConformer().GetPositions(), dtype=float)
-        ts_coords = np.asarray(self.coords.m, dtype=float)
-        vibrations = self.vibrations
-        if vibrations is None:
-            raise ValueError("Additional TS endpoint sampling requires vibration data")
-        vibration = vibrations[self._ts_vibration_id()]
-        mode_coords = np.asarray(vibration.vibration_mode.m, dtype=float)
-        if endpoint_coords.shape != ts_coords.shape or mode_coords.shape != ts_coords.shape:
-            raise ValueError("TS endpoint and vibration coordinates must have matching shapes")
-
-        fixed_indices = sorted(fixed_atom_indices)
-        side_candidates: list[RdMol] = []
-        for amplitude in amplitudes:
-            displaced_coords = np.array(
-                ts_coords + direction * mode_coords * float(amplitude),
-                dtype=float,
-                copy=True,
-            )
-            displaced_coords[fixed_indices, :] = endpoint_coords[fixed_indices, :]
-            coordinate_rdmol = Chem.MolFromXYZBlock(
-                f"{len(self.atoms)}\n"
-                + f"charge {self.charge} multiplicity {self.multiplicity}\n"
-                + "\n".join(
-                    [
-                        f"{Chem.Atom(atom).GetSymbol():10s}{x:10.5f}{y:10.5f}{z:10.5f}"
-                        for atom, (x, y, z) in zip(
-                            self.atoms,
-                            displaced_coords,
-                            strict=True,
-                        )
-                    ]
-                )
-            )
-            if coordinate_rdmol is None or not check_crowding(coordinate_rdmol):
-                continue
-
-            molecule = Molecule.from_coords(
-                atom_symbols=self.atom_symbols,
-                coords=displaced_coords,
-                charge=self.charge,
-                multiplicity=self.multiplicity,
-            )
-            if (rdmol := molecule.rdmol) is not None and getattr(
-                molecule, "topology_reconstruction_status", None
-            ) != "suspicious_fallback":
-                side_candidates.append(rdmol)
-
-        if not side_candidates:
-            return None
-        return _most_frequent_topology(side_candidates, side=f"{side}-additional")
+        return resample_ts_endpoint_side(
+            self,
+            side=side,
+            direction=direction,
+            endpoint=endpoint,
+            fixed_atom_indices=fixed_atom_indices,
+            amplitudes=amplitudes,
+            vibration_id_resolver=self._ts_vibration_id,
+            molecule_factory=Molecule.from_coords,
+            crowding_checker=check_crowding,
+        )
 
     def additional_pre_post_ts(
         self,
@@ -1244,73 +1052,17 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         ``possible_pre_post_ts(show_3D=True)``.
         """
 
-        if not np.isfinite(min_ratio) or min_ratio <= 0:
-            raise ValueError("min_ratio must be a finite value greater than 0")
-        if not np.isfinite(max_ratio) or max_ratio < min_ratio:
-            raise ValueError("max_ratio must be finite and greater than or equal to min_ratio")
-        if steps < 1:
-            raise ValueError("steps must be >= 1")
-        if pre_rdmol.GetNumAtoms() != post_rdmol.GetNumAtoms() or pre_rdmol.GetNumAtoms() != len(
-            self.atoms
-        ):
-            raise ValueError("TS endpoints must contain the same atoms as the source frame")
-
-        amplitudes = _sample_vibration_amplitudes(
-            min_ratio,
-            max_ratio,
-            steps,
-            sampling_method,
+        return infer_additional_ts_endpoints(
+            self,
+            pre_rdmol,
+            post_rdmol,
+            min_ratio=min_ratio,
+            max_ratio=max_ratio,
+            steps=steps,
+            sampling_method=sampling_method,
+            vibration_id_resolver=self._ts_vibration_id,
+            side_sampler=self._additional_pre_post_ts_side,
         )
-
-        changed_atom_indices = _bond_change_atom_indices(pre_rdmol, post_rdmol)
-        if not changed_atom_indices:
-            return pre_rdmol, post_rdmol
-
-        ts_coords = np.asarray(self.coords.m, dtype=float)
-        vibrations = self.vibrations
-        if vibrations is None:
-            raise ValueError("Additional TS endpoint sampling requires vibration data")
-        vibration = vibrations[self._ts_vibration_id()]
-        mode_coords = np.asarray(vibration.vibration_mode.m, dtype=float)
-        if mode_coords.shape != ts_coords.shape:
-            raise ValueError("TS vibration mode and source coordinates must have matching shapes")
-
-        endpoint_directions: list[float] = []
-        for endpoint in (pre_rdmol, post_rdmol):
-            if endpoint.GetNumConformers() == 0:
-                raise ValueError(
-                    "Additional TS endpoint sampling requires endpoint conformers; "
-                    "call possible_pre_post_ts(show_3D=True) first."
-                )
-            endpoint_coords = np.asarray(endpoint.GetConformer().GetPositions(), dtype=float)
-            if endpoint_coords.shape != ts_coords.shape:
-                raise ValueError("TS endpoint and source coordinates must have matching shapes")
-            projection = float(np.sum((endpoint_coords - ts_coords) * mode_coords))
-            if np.isclose(projection, 0.0):
-                raise ValueError("Could not determine the vibration direction of a TS endpoint")
-            endpoint_directions.append(1.0 if projection > 0.0 else -1.0)
-
-        additional_endpoints: list[RdMol] = []
-        for side, direction, endpoint in zip(
-            ("pre", "post"),
-            endpoint_directions,
-            (pre_rdmol, post_rdmol),
-            strict=True,
-        ):
-            additional = self._additional_pre_post_ts_side(
-                side=side,
-                direction=direction,
-                endpoint=endpoint,
-                fixed_atom_indices=changed_atom_indices,
-                amplitudes=amplitudes,
-            )
-            additional_endpoints.append(additional if additional is not None else endpoint)
-
-        additional_endpoints.sort(
-            key=lambda molecule: len(Chem.GetMolFrags(molecule)),
-            reverse=True,
-        )
-        return additional_endpoints[0], additional_endpoints[1]
 
     def save_pre_post_ts(
         self,
@@ -1341,10 +1093,6 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                 :meth:`possible_pre_post_ts`.
         """
 
-        normalized_format = format.lower()
-        if normalized_format not in {"xyz", "sdf"}:
-            raise ValueError(f"Unsupported endpoint format: {format!r}. Use 'xyz' or 'sdf'.")
-
         pre_rdmol, post_rdmol = self.possible_pre_post_ts(
             show_3D=True,
             min_ratio=min_ratio,
@@ -1366,27 +1114,14 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             if source_prefix
             else f"ts_frame_{self.frame_id:03d}"
         )
-        destination = Path(output_dir)
-        destination.mkdir(parents=True, exist_ok=True)
-        pre_path = destination / f"{name_prefix}_pre.{normalized_format}"
-        post_path = destination / f"{name_prefix}_post.{normalized_format}"
-
-        if normalized_format == "xyz":
-            pre_path.write_text(Molecule.from_rdmol(pre_rdmol).to_XYZ(), encoding="utf-8")
-            post_path.write_text(Molecule.from_rdmol(post_rdmol).to_XYZ(), encoding="utf-8")
-        else:
-            for endpoint_name, rdmol, path in (
-                ("pre-TS endpoint candidate", pre_rdmol, pre_path),
-                ("post-TS endpoint candidate", post_rdmol, post_path),
-            ):
-                endpoint_rdmol = Chem.Mol(rdmol)
-                endpoint_rdmol.SetProp("_Name", endpoint_name)
-                writer = Chem.SDWriter(str(path))
-                try:
-                    writer.write(endpoint_rdmol)
-                finally:
-                    writer.close()
-        return pre_path, post_path
+        return export_ts_endpoints(
+            output_dir,
+            pre_rdmol,
+            post_rdmol,
+            prefix=name_prefix,
+            format=format,
+            xyz_serializer=rdmol_to_xyz,
+        )
 
     def to_diff_rdmol(
         self,

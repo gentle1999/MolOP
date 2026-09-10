@@ -8,7 +8,7 @@ Description: 请填写简介
 
 import glob
 import os
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, TypeAlias, cast, overload
 
@@ -30,7 +30,12 @@ from molop.io.memory_parser import (
     AutoParserMemory,
     AutoTextParser,
 )
-from molop.io.parse_outcomes import BatchParseResult
+from molop.io.parse_outcomes import (
+    BatchParseError,
+    BatchParseResult,
+    FileParseOutcome,
+    ParseFailure,
+)
 
 
 if TYPE_CHECKING:
@@ -175,6 +180,35 @@ def _normalize_file_paths(file_path: PathInput) -> list[Path]:
     return [paths_by_key[key] for key in sorted(paths_by_key)]
 
 
+def _expand_file_paths_preserving_duplicates(file_path: PathInput) -> list[Path]:
+    """Expand iterator inputs in caller order without applying batch deduplication."""
+
+    if isinstance(file_path, (str, os.PathLike)):
+        path_specs: Iterable[PathSpec] = (file_path,)
+    else:
+        try:
+            path_specs = iter(file_path)
+        except TypeError as exc:
+            raise TypeError(
+                "file_path must be a path-like object or an iterable of path-like objects"
+            ) from exc
+
+    paths: list[Path] = []
+    for index, path_spec in enumerate(path_specs):
+        if not isinstance(path_spec, (str, os.PathLike)):
+            raise TypeError(
+                f"file_path[{index}] must be a path-like object, got {type(path_spec).__name__}"
+            )
+        try:
+            expanded_paths = _expand_path_spec(path_spec)
+        except TypeError as exc:
+            raise TypeError(
+                f"file_path[{index}] must resolve to a text path, got {type(path_spec).__name__}"
+            ) from exc
+        paths.extend(Path(os.path.abspath(path)) for path in expanded_paths)
+    return paths
+
+
 @overload
 def AutoParser(
     file_path: PathInput,
@@ -300,6 +334,47 @@ def AutoParser(
     )
 
 
+def iter_parse_outcomes(
+    file_path: PathInput,
+    *,
+    total_charge: int | None = None,
+    total_multiplicity: int | None = None,
+    n_jobs: int = -1,
+    only_extract_structure: bool = False,
+    only_last_frame: bool = False,
+    capture_source_evidence: bool = False,
+    source_encoding: str = "utf-8",
+    release_file_content: bool = True,
+    parser_detection: str = "auto",
+    parse_options: ParseOptions | None = None,
+    fail_fast: bool = False,
+) -> Iterator[FileParseOutcome["FileDiskObj"]]:
+    """Stream one structured parse outcome for each normalized input path.
+
+    The returned iterator yields parallel results as they complete and closes
+    MolOP's worker/result resources when the consumer stops early.  Input
+    paths are expanded in caller order and repeated paths produce repeated
+    outcomes. Unlike :func:`AutoParser`, this function does not construct or
+    retain a successful batch. With ``fail_fast=True``, the first unsuccessful
+    input raises :class:`BatchParseError` after cancelling active work.
+    """
+
+    files = _expand_file_paths_preserving_duplicates(file_path)
+    return FileBatchParserDisk(n_jobs=n_jobs).iter_outcomes(
+        files,
+        total_charge=total_charge,
+        total_multiplicity=total_multiplicity,
+        only_extract_structure=only_extract_structure,
+        only_last_frame=only_last_frame,
+        capture_source_evidence=capture_source_evidence,
+        source_encoding=source_encoding,
+        release_file_content=release_file_content,
+        parser_detection=parser_detection,
+        parse_options=parse_options,
+        fail_fast=fail_fast,
+    )
+
+
 __all__ = [
     "AutoBytesParser",
     "AutoFileParser",
@@ -307,6 +382,11 @@ __all__ = [
     "AutoParser",
     "AutoParserMemory",
     "AutoTextParser",
+    "BatchParseError",
+    "BatchParseResult",
+    "FileParseOutcome",
+    "ParseFailure",
+    "iter_parse_outcomes",
     "FileBatchModelDisk",
     "FileBatchParserDisk",
     "split_path_pattern",

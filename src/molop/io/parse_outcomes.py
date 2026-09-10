@@ -8,7 +8,7 @@ serializing exception objects or coupling the batch model to parser failures.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Generic, Literal, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 from molop.io.codec_types import ParseWarning
 
@@ -53,6 +53,15 @@ class FileParseOutcome(Generic[T]):
         return self.status == "ok"
 
 
+class BatchParseError(RuntimeError):
+    """Raised by a fail-fast outcome iterator at its first unsuccessful input."""
+
+    def __init__(self, outcome: FileParseOutcome[Any]) -> None:
+        self.outcome = outcome
+        detail = outcome.failure.message if outcome.failure is not None else outcome.status
+        super().__init__(f"Parsing failed for {outcome.file_path}: {detail}")
+
+
 @dataclass(frozen=True, slots=True)
 class BatchParseResult(Generic[B, T]):
     """A successful batch plus one outcome for every supplied input path."""
@@ -70,6 +79,7 @@ class BatchParseResult(Generic[B, T]):
 
 
 __all__ = [
+    "BatchParseError",
     "BatchParseResult",
     "FileParseOutcome",
     "ParseFailure",

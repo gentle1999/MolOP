@@ -16,7 +16,7 @@ import importlib
 import itertools
 import json
 import logging
-import multiprocessing
+import multiprocessing  # noqa: F401 - retained for the legacy module surface
 import os
 import sys
 import threading
@@ -34,6 +34,12 @@ from joblib.parallel import get_active_backend
 from molgr.process_guard import ensure_current_process
 from tqdm import tqdm as st_tqdm
 
+from molop.utils import execution as _execution
+
+
+DEFAULT_JOBLIB_BACKEND = _execution.DEFAULT_JOBLIB_BACKEND
+NativeReconstructionConcurrencyError = _execution.NativeReconstructionConcurrencyError
+
 
 try:
     from tqdm.std import TqdmExperimentalWarning
@@ -44,191 +50,27 @@ except ImportError:
 T = TypeVar("T")
 R = TypeVar("R")
 
-# ``loky`` starts independent interpreter processes (spawn-like on POSIX) and
-# does not inherit MolGR's native runtime state through ``fork``. Keep this
-# explicit at every MolOP-managed process boundary instead of mutating
-# joblib's process-global context.
-DEFAULT_JOBLIB_BACKEND = "loky"
-
-
-_parallel_state = threading.Condition()
-_active_loky_threads: dict[int, int] = {}
-_native_reconstruction_active = False
-_native_reconstruction_owner: int | None = None
-
-
-class NativeReconstructionConcurrencyError(RuntimeError):
-    """Raised when native reconstruction would overlap Python parallel work."""
-
 
 def is_loky_worker() -> bool:
-    """Return whether the current process is a joblib child worker.
+    """Compatibility wrapper for :func:`molop.utils.execution.is_loky_worker`."""
 
-    ``joblib`` names loky workers ``LokyProcess-*`` and its legacy
-    multiprocessing backend ``ForkPoolWorker-*``/``SpawnPoolWorker-*``.
-    Checking process identity instead of one naming convention keeps the
-    native boundary intact for either process backend. Threading backends stay
-    in the main process and are intentionally not classified as workers.
-    """
-
-    process = multiprocessing.current_process()
-    return process.name != "MainProcess" and (
-        bool(getattr(process, "_identity", ()))
-        or process.name.startswith(("LokyProcess", "ForkPoolWorker", "SpawnPoolWorker"))
-    )
-
-
-def _shutdown_reusable_loky_executor() -> None:
-    """Drain and discard joblib's process-global reusable executor.
-
-    joblib's ``Parallel`` context only releases per-call resources; loky keeps
-    its reusable worker pool alive by design.  MolGR native reconstruction must
-    not start while those workers and queue threads are still alive, so the
-    native boundary explicitly drains that pool.  This is isolated here because
-    joblib does not expose a public "shutdown reusable executor" API.
-    """
-
-    try:
-        from joblib.externals.loky import reusable_executor
-    except ImportError:
-        return
-
-    if not hasattr(reusable_executor, "_executor_lock") or not hasattr(
-        reusable_executor, "_executor"
-    ):
-        raise NativeReconstructionConcurrencyError(
-            "Cannot verify joblib/loky executor state before MolGR native "
-            "reconstruction; this joblib version is unsupported by the native guard."
-        )
-    executor_lock = cast(Any, reusable_executor._executor_lock)
-    executor = cast(Any, reusable_executor._executor)
-    if executor_lock is None:
-        raise NativeReconstructionConcurrencyError(
-            "Cannot verify joblib/loky executor state before MolGR native "
-            "reconstruction; this joblib version is unsupported by the native guard."
-        )
-    with cast(Any, executor_lock):
-        if executor is None:
-            return
-        missing = object()
-        pending_work = getattr(executor, "_pending_work_items", missing)
-        running_work = getattr(executor, "_running_work_items", missing)
-        shutdown = getattr(executor, "shutdown", None)
-        if pending_work is missing or running_work is missing or not callable(shutdown):
-            raise NativeReconstructionConcurrencyError(
-                "Cannot verify joblib/loky executor state before MolGR native "
-                "reconstruction; this joblib version is unsupported by the native guard."
-            )
-        if pending_work or running_work:
-            raise NativeReconstructionConcurrencyError(
-                "MolGR topology reconstruction cannot start while an external "
-                "joblib/loky task is still running; consume or close that "
-                "parallel result before prewarming topologies."
-            )
-        # No MolOP-managed parallel operation can be active here.  Waiting for
-        # an idle external loky pool is safe and removes all worker/queue
-        # threads before native reconstruction starts.
-        shutdown(wait=True, kill_workers=False)
-        if getattr(reusable_executor, "_executor", None) is executor:
-            reusable_executor._executor = None
-            reusable_executor._executor_kwargs = None
-
-
-def _reject_active_child_processes() -> None:
-    """Reject unmanaged Python child processes at the native boundary."""
-
-    try:
-        children = multiprocessing.active_children()
-    except Exception as exc:
-        raise NativeReconstructionConcurrencyError(
-            "Cannot verify child-process state before MolGR native reconstruction."
-        ) from exc
-    if children:
-        names = ", ".join(
-            f"{getattr(child, 'name', type(child).__name__)}" for child in children[:4]
-        )
-        suffix = "..." if len(children) > 4 else ""
-        raise NativeReconstructionConcurrencyError(
-            "MolGR topology reconstruction cannot start while unmanaged child "
-            f"processes are active ({names}{suffix}); join or close them first."
-        )
+    return _execution.is_loky_worker()
 
 
 @contextmanager
 def loky_parallel_guard() -> Generator[None, None, None]:
-    """Serialize MolOP loky work against the native reconstruction boundary."""
+    """Compatibility wrapper for the execution-layer parallel guard."""
 
-    thread_id = threading.get_ident()
-    with _parallel_state:
-        if _native_reconstruction_active:
-            if _native_reconstruction_owner == thread_id:
-                message = (
-                    "joblib parallel execution cannot start from inside the MolGR native "
-                    "reconstruction guard."
-                )
-            else:
-                message = (
-                    "joblib parallel execution cannot start while the MolGR native "
-                    "reconstruction guard is active; prewarm before starting parallel work."
-                )
-            raise NativeReconstructionConcurrencyError(message)
-        _active_loky_threads[thread_id] = _active_loky_threads.get(thread_id, 0) + 1
-    try:
+    with _execution.loky_parallel_guard():
         yield
-    finally:
-        with _parallel_state:
-            remaining = _active_loky_threads.get(thread_id, 1) - 1
-            if remaining > 0:
-                _active_loky_threads[thread_id] = remaining
-            else:
-                _active_loky_threads.pop(thread_id, None)
-            _parallel_state.notify_all()
 
 
 @contextmanager
 def native_reconstruction_guard() -> Generator[None, None, None]:
-    """Acquire the process-wide native reconstruction boundary."""
+    """Compatibility wrapper for the execution-layer native guard."""
 
-    # MolGR records the PID that initialized its native/Open Babel runtime and
-    # rejects POSIX fork children. This also allows a fresh spawn/loky worker to
-    # perform an isolated single-molecule reconstruction after importing MolGR
-    # in that worker.
-    try:
-        ensure_current_process("MolOP native reconstruction")
-    except RuntimeError as exc:
-        # Keep MolGR's precise PID-baseline diagnostic while making it visible
-        # to callers that deliberately fail closed on native-boundary errors.
-        raise NativeReconstructionConcurrencyError(str(exc)) from exc
-
-    global _native_reconstruction_active, _native_reconstruction_owner
-    thread_id = threading.get_ident()
-    with _parallel_state:
-        if _active_loky_threads:
-            raise NativeReconstructionConcurrencyError(
-                "MolGR topology reconstruction cannot start while a MolOP-managed "
-                "joblib task or result generator is active. Prewarm topologies before "
-                "starting parallel execution."
-            )
-        if _native_reconstruction_active:
-            if _native_reconstruction_owner == thread_id:
-                message = "MolGR topology reconstruction guard cannot be re-entered."
-            else:
-                message = (
-                    "MolGR topology reconstruction guard is already active in another "
-                    "call; concurrent native reconstruction is not supported."
-                )
-            raise NativeReconstructionConcurrencyError(message)
-        _native_reconstruction_active = True
-        _native_reconstruction_owner = thread_id
-    try:
-        _shutdown_reusable_loky_executor()
-        _reject_active_child_processes()
+    with _execution.native_reconstruction_guard(process_validator=ensure_current_process):
         yield
-    finally:
-        with _parallel_state:
-            _native_reconstruction_active = False
-            _native_reconstruction_owner = None
-            _parallel_state.notify_all()
 
 
 if TYPE_CHECKING:

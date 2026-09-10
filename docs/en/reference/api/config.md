@@ -7,6 +7,28 @@ display, the maximum parallel-job limit, logging, and structure-recovery
 options. Prefer explicit function arguments for per-call behavior; change the
 global configuration only when the policy should apply to subsequent calls.
 
+## Import side effects and explicit initialization
+
+Importing `molop` does not create `molop.log`, change the host process's Python recursion limit, or
+silence RDKit/Open Babel native diagnostics by default. `rdkit-dof` is also loaded only when depth-aware
+drawing or an explicit related setting requires it. Create a configuration explicitly when a workflow
+wants file logging or quiet native diagnostics:
+
+```python
+from molop.config import MolOPConfig
+
+config = MolOPConfig(
+    log_to_file=True,
+    log_file_path="run.log",
+    suppress_rdkit_logs=True,
+    suppress_openbabel_logs=True,
+)
+config.configure_native_logging()
+```
+
+`enable_file_logging()` and `disable_file_logging()` own the file-handler lifecycle;
+`set_max_recursion_depth()` changes the current process only when the caller explicitly requests it.
+
 Parent-process topology prewarming is controlled by `prewarm_topologies` and defaults to `False`.
 With the default, graph-dependent operations reconstruct lazily in the spawn-like `loky` worker that
 uses the result, avoiding a separate parent-process warmup step. Set it to `True` when a workflow needs

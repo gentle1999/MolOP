@@ -20,7 +20,10 @@ Structured containers are authoritative. After parsing structured semantics, par
 - `model_chemistry.basis_set` -> `basis_set`
 - `resource_request.num_cpu/memory/raw` -> `request_num_cpu/request_memory/resources_raw`
 
-The legacy `refresh_common_qm_containers()` method is kept for existing callers only. It backfills empty structured fields from compatibility fields and must not overwrite already parsed structured semantics.
+The legacy `refresh_common_qm_containers()` method is kept for existing callers only. It backfills empty
+structured fields from compatibility fields and then projects the structured values back to compatibility
+fields. It never lets flat fields overwrite already parsed structured semantics. To change normalized
+semantics, modify the structured container and call `project_common_qm_fields()`.
 
 ## Input Requests
 

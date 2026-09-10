@@ -24,9 +24,11 @@ from molop.io import (  # noqa: E402
     AutoParser,
     AutoParserMemory,
     AutoTextParser,
+    iter_parse_outcomes,
 )
 from molop.io.codec_types import ParseOptions  # noqa: E402
 from molop.io.parse_outcomes import (  # noqa: E402
+    BatchParseError,
     BatchParseResult,
     FileParseOutcome,
     ParseFailure,
@@ -47,6 +49,8 @@ __all__ = [
     "AutoParser",
     "AutoParserMemory",
     "AutoTextParser",
+    "BatchParseError",
+    "iter_parse_outcomes",
     "BatchParseResult",
     "FileParseOutcome",
     "ParseFailure",

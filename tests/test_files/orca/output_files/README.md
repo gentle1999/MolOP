@@ -29,8 +29,8 @@
 
 ## Parser Contract
 
-- Default test runs do not require this optional corpus.
-- Run `uv run pytest -m orca_output_corpus tests/test_orca_output_fixtures.py`
-  when the complete corpus and `manifest.json` are available.
-- Tests in `tests/test_orca_output_fixtures.py` validate file presence and raw anchors.
-- Structured parsing tests are intentionally marked `xfail` until the ORCA output parser is implemented.
+- The representative ORCA output smoke test runs with the regular science regression.
+- Run `make check-orca` to execute the complete corpus. The tracked `manifest.json` is required;
+  a missing manifest is an error rather than a skipped test.
+- Tests in `tests/test_orca_output_fixtures.py` validate file presence, raw anchors, and structured
+  parser behavior for the covered feature families.

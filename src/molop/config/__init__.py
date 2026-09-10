@@ -19,19 +19,31 @@ from molgr.config import CONFIG as MOLGR_CONFIG
 # isort: off
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from rdkit import RDLogger
-from rdkit_dof import dofconfig
 from openbabel import pybel
 # isort: on
 
 
-RDLogger.DisableLog("rdApp.*")  # type: ignore
-pybel.ob.obErrorLog.StopLogging()
+class _LazyDofConfig:
+    """Load ``rdkit-dof`` only when depth-aware rendering is actually used."""
+
+    def enable_ipython_integration(self, enable: bool) -> None:
+        from rdkit_dof import dofconfig as real_config
+
+        real_config.enable_ipython_integration(enable)
+
+    def __getattr__(self, name: str) -> Any:
+        from rdkit_dof import dofconfig as real_config
+
+        return getattr(real_config, name)
+
+
+dofconfig = _LazyDofConfig()
+
+
 moloplogger = logging.getLogger("molop")
 moloplogger.propagate = False
-file_handler = logging.FileHandler("molop.log")
-file_handler.setLevel(logging.DEBUG)
 formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-file_handler.setFormatter(formatter)
+file_handler: logging.FileHandler | None = None
 stream_handler = logging.StreamHandler()
 stream_handler.setLevel(logging.DEBUG)
 sh_formatter = logging.Formatter("%(levelname)s - %(message)s")
@@ -97,6 +109,17 @@ class MolOPConfig(BaseModel):
 
     # --- Log File Control ---
     log_to_file: bool = Field(default=False, description="Whether to write log messages to a file")
+    log_file_path: str = Field(default="molop.log", description="Path used for optional file logs")
+
+    # --- Native library logging control ---
+    suppress_rdkit_logs: bool = Field(
+        default=False,
+        description="Whether to suppress RDKit native diagnostics",
+    )
+    suppress_openbabel_logs: bool = Field(
+        default=False,
+        description="Whether to suppress Open Babel native diagnostics",
+    )
 
     # --- DOF Effect Drawer Control ---
     use_dof_effect_drawer: bool = Field(
@@ -110,7 +133,6 @@ class MolOPConfig(BaseModel):
         if "max_jobs" not in data and (env_max_jobs := os.environ.get(MAX_JOBS_ENV_VAR)):
             data["max_jobs"] = env_max_jobs
         super().__init__(**data)
-        sys.setrecursionlimit(self.max_recursion_depth)
         # Set log state based on initial configuration values
         if self.show_progress_bar:
             self.verbose()
@@ -122,10 +144,14 @@ class MolOPConfig(BaseModel):
         else:
             self.disable_file_logging()
 
-        if self.use_dof_effect_drawer:
-            self.set_dof_effect_drawer(enable=True)
-        else:
+        # ``rdkit-dof`` changes the interpreter recursion limit when imported.
+        # Do not import it during a normal library import; explicit rendering
+        # configuration can still enable it through this method.
+        if not self.use_dof_effect_drawer:
             self.set_dof_effect_drawer(enable=False)
+
+        if self.suppress_rdkit_logs or self.suppress_openbabel_logs:
+            self.configure_native_logging()
 
     def quiet(self):
         """
@@ -146,18 +172,31 @@ class MolOPConfig(BaseModel):
 
     def enable_file_logging(self):
         """Enable logging to a file."""
+        global file_handler
+
         self.log_to_file = True
+        if file_handler is None or file_handler.baseFilename != os.path.abspath(self.log_file_path):
+            if file_handler is not None:
+                file_handler.close()
+            file_handler = logging.FileHandler(self.log_file_path)
+            file_handler.setLevel(logging.DEBUG)
+            file_handler.setFormatter(formatter)
         if file_handler not in moloplogger.handlers:
             moloplogger.addHandler(file_handler)
-        logging.info(
+        moloplogger.info(
             f"File logging enabled. Logs will be written to: {getattr(file_handler, 'baseFilename', 'N/A')}"
         )
 
     def disable_file_logging(self):
         """Disable logging to a file."""
+        global file_handler
+
         self.log_to_file = False
-        if file_handler in moloplogger.handlers:
+        if file_handler is not None and file_handler in moloplogger.handlers:
             moloplogger.removeHandler(file_handler)
+        if file_handler is not None:
+            file_handler.close()
+            file_handler = None
 
     def set_log_level(self, level: Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]):
         """
@@ -183,6 +222,19 @@ class MolOPConfig(BaseModel):
         sys.setrecursionlimit(depth)
         self.max_recursion_depth = depth
         logging.info(f"Maximum recursion depth set to {depth}")
+
+    def configure_native_logging(self) -> None:
+        """Apply optional native-library log suppression explicitly.
+
+        Importing MolOP leaves host-library logging untouched.  Applications
+        that want quiet native diagnostics can opt in through a configuration
+        instance or call this method during their own runtime setup.
+        """
+
+        if self.suppress_rdkit_logs:
+            RDLogger.DisableLog("rdApp.*")  # type: ignore
+        if self.suppress_openbabel_logs:
+            pybel.ob.obErrorLog.StopLogging()
 
     @property
     def effective_max_jobs(self) -> int:

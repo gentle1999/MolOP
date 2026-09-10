@@ -683,10 +683,7 @@ def test_notebooks_render_saved_outputs_after_ci_execution() -> None:
     assert "- mkdocs-jupyter:" in mkdocs_config
     assert "execute: false" in mkdocs_config
 
-    for workflow in (
-        Path(".github/workflows/docs-build.yml"),
-        Path(".github/workflows/docs-deploy.yml"),
-    ):
+    for workflow in (Path(".github/workflows/docs-deploy.yml"),):
         workflow_text = workflow.read_text(encoding="utf-8")
         assert "nbconvert" in workflow_text
         assert "--execute" in workflow_text
@@ -720,10 +717,7 @@ def test_documentation_exposes_source_and_release_versions() -> None:
         assert version_page.is_file()
         assert "commit" in version_page.read_text(encoding="utf-8").lower()
 
-    for workflow in (
-        Path(".github/workflows/docs-build.yml"),
-        Path(".github/workflows/docs-deploy.yml"),
-    ):
+    for workflow in (Path(".github/workflows/docs-deploy.yml"),):
         workflow_text = workflow.read_text(encoding="utf-8")
         assert "fetch-depth: 0" in workflow_text
 

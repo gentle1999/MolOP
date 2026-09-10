@@ -18,6 +18,9 @@
 | 力/Hessian | `frame.forces/hessian is not None` | `forces`, `hessian` 及 axis metadata | hartree/bohr 等 |
 | 状态 | 直接读取 | `is_normal`, `is_error`, `is_optimized`, `is_TS` | `bool | None` |
 
+`rdmol` 是受保护的 RDKit 图副本：修改 `frame.rdmol` 返回对象不会修改 frame 的缓存。需要编辑
+结构时应修改 `atoms`、`coords` 或显式拓扑字段；这些修改会使派生拓扑和 SMILES 缓存失效。
+
 ## 单位化数值
 
 ```python
