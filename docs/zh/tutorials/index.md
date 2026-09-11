@@ -49,4 +49,4 @@
     - [过渡态前后体表示](../examples/04-transition-state-endpoints.ipynb)
     - [复杂分子取代基替换](../examples/05-substituent-replacement.ipynb)
 
-新增 reader/writer 属于开发者任务，见[插件开发](../developer/plugins.md)。
+新增 reader/writer 属于开发者任务，见[插件开发](../developer/extensions/plugins.md)。

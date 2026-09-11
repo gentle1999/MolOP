@@ -138,4 +138,4 @@ molop -q parse "water_mp2.out" --output-format json \
   `draw-grid-image` 是最终操作，之后不能再接业务操作。
 - 使用 `molop parse --help` 查看操作列表，使用具体操作的 `--help` 查看参数。
 
-完整约束见 [CLI 命令参考](../command_line_interface.md)。
+完整约束见 [CLI 命令参考](../reference/cli.md)。

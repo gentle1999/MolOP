@@ -180,7 +180,7 @@ molecular viewer or molecular dynamics engine.
 - [Convert and export](https://gentle1999.github.io/MolOP/en/guides/conversion/)
 - [Optional structure recovery and graph visualization](https://gentle1999.github.io/MolOP/en/guides/structure-recovery/)
 - [Transition-state analysis and animations](https://gentle1999.github.io/MolOP/en/tutorials/transition-states/)
-- [Contributing](https://gentle1999.github.io/MolOP/en/contributing/)
+- [Contributing](https://gentle1999.github.io/MolOP/en/developer/contributing/)
 
 ## Development
 

@@ -140,4 +140,4 @@ shown below rather than a machine-specific prefix:
   terminal operations; no business operation may follow them.
 - Use `molop parse --help` for the operation list and a specific operation's `--help` for options.
 
-See the [CLI command reference](../command_line_interface.md) for exact constraints.
+See the [CLI command reference](../reference/cli.md) for exact constraints.

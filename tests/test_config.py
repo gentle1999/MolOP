@@ -13,6 +13,8 @@ def test_config_defaults(monkeypatch):
     assert config.effective_max_jobs >= 1
     assert config.prewarm_topologies is False
     assert config.log_to_file is False
+    assert config.suppress_rdkit_logs is True
+    assert config.suppress_openbabel_logs is True
 
 
 def test_logging_control():

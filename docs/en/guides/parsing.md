@@ -156,4 +156,4 @@ MolOP log. Retry with `n_jobs=1`, then check extensions, encoding, and format ID
 - [Read calculation results](results.md)
 - [Batch summaries](batch.md)
 - [Format overview](../reference/format_support.md)
-- [Source evidence and serialization](../reference/api_contracts.md)
+- [Source evidence and serialization](../developer/contracts/api.md)

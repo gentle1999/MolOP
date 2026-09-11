@@ -98,4 +98,4 @@ molop parse "results/*.out" --parser-detection orcaout \
 
 - [CLI 常用任务](../guides/cli-recipes.md)
 - [过滤与选择](../guides/filtering.md)
-- [CLI 完整参考](../command_line_interface.md)
+- [CLI 完整参考](../reference/cli.md)

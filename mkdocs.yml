@@ -88,12 +88,14 @@ plugins:
             首页: Home
             文档版本: Documentation Version
             快速开始: Quick Start
+            快速开始概览: Quick Start Overview
             安装: Installation
             5 分钟上手: 5-Minute Start
+            工作流: Workflows
             Python API 初体验: Python API First Steps
             CLI 初体验: CLI First Steps
-            理解 Batch、File 与 Frame: Understand Batch, File, and Frame
-            使用指南: User Guides
+            核心概念: Core Concepts
+            工作流概览: Workflow Overview
             解析文件: Parse Files
             读取计算结果: Read Calculation Results
             批量汇总: Batch Summaries
@@ -102,37 +104,44 @@ plugins:
             结构恢复: Structure Recovery
             CLI 常用任务: CLI Task Recipes
             常见问题: Troubleshooting
-            任务教程: Task Tutorials
             教程概览: Tutorial Overview
             Gaussian、ORCA 与 xTB 汇总: Gaussian, ORCA, and xTB Summary
             导出能量和热化学 CSV: Export Energy and Thermochemistry CSV
             筛选优化结果与过渡态: Select Optimized Results and Transition States
             过渡态分析: Transition-state Analysis
             导出结构和下一步输入: Export Structures and Next-Step Inputs
-            Notebook 补充: Notebook Supplements
             01-Gaussian 解析与检查: 01-Gaussian Parse and Inspect
             02-批量汇总、过滤与选择: 02-Batch Summary, Filter and Select
             03-转换与导出: 03-Transform and Export
             04-过渡态前后体表示: 04-Transition-state Endpoint Representations
             05-复杂分子取代基替换: 05-Complex Substituent Replacement
-            格式与数据参考: Formats and Data Reference
+            教程: Tutorials
+            示例: Examples
+            参考: Reference
+            参考概览: Reference Overview
+            工具选型: Tool Selection
+            配置: Configuration
             格式支持概览: Format Overview
             格式: Formats
-            按科学性质查找字段: Find Fields by Scientific Property
+            科学字段索引: Scientific Field Index
             CLI 命令参考: CLI Command Reference
-            API 参考: API Reference
+            Python API: Python API
             概览: Overview
-            关键入口: Key Entry Points
-            模块: Modules
+            核心入口: Core Entry Points
+            模块 API: Module API
+            行为与边界: Behavior and Boundaries
+            扩展: Extensions
+            契约: Contracts
+            架构与模型: Architecture and Models
+            贡献与质量: Contribution and Quality
+            发布: Release
             molop: molop
             molop.io: molop.io
             molop.cli: molop.cli
-            molop.config: molop.config
             molop.structure: molop.structure
             molop.unit: molop.unit
             molop.utils: molop.utils
             molop.utils.progressbar: molop.utils.progressbar
-            格式概览: Overview
             Gaussian 输入: Gaussian Input
             Gaussian 输出: Gaussian Output
             ORCA 输入: ORCA Input
@@ -140,9 +149,7 @@ plugins:
             CML writer: CML Writer
             Gaussian-like renderer: Gaussian-Like Renderer
             OpenBabel fallback: OpenBabel Fallback
-            转换行为: Transform Behaviors
             API 契约: API Contracts
-            进阶: Advanced
             精确转换行为: Exact Transform Behavior
             Source evidence 与序列化: Source Evidence and Serialization
             CLI 内部契约: Internal CLI Contract
@@ -152,22 +159,23 @@ plugins:
             完整 Parser 契约: Complete Parser Contract
             文档贡献: Documentation Contributions
             开发环境与质量门禁: Development Environment and Quality Gates
-            设计与模型: Design and Models
             贡献指南: Contributing
             更新日志: Changelog
+            Registry 扩展 API: Registry Extension API
 hooks:
   - scripts/mkdocs_hooks.py
 
 nav:
   - 首页: index.md
-  - 文档版本: versioning.md
   - 快速开始:
+    - 快速开始概览: getting_started/index.md
     - 安装: getting_started/installation.md
     - 5 分钟上手: getting_started/quickstart.md
+    - 核心概念: getting_started/concepts.md
     - Python API 初体验: getting_started/python-api.md
     - CLI 初体验: getting_started/cli.md
-    - 理解 Batch、File 与 Frame: concepts.md
-  - 使用指南:
+  - 工作流:
+    - 工作流概览: guides/index.md
     - 解析文件: guides/parsing.md
     - 读取计算结果: guides/results.md
     - 批量汇总: guides/batch.md
@@ -176,20 +184,24 @@ nav:
     - 结构恢复: guides/structure-recovery.md
     - CLI 常用任务: guides/cli-recipes.md
     - 常见问题: guides/troubleshooting.md
-  - 任务教程:
+  - 教程:
     - 教程概览: tutorials/index.md
     - Gaussian、ORCA 与 xTB 汇总: tutorials/qm-summary.md
     - 导出能量和热化学 CSV: tutorials/energy-csv.md
     - 筛选优化结果与过渡态: tutorials/select-results.md
     - 过渡态分析: tutorials/transition-states.md
     - 导出结构和下一步输入: tutorials/export-inputs.md
-    - Notebook 补充:
-      - 01-Gaussian 解析与检查: examples/01-gaussian-parse-and-inspect.ipynb
-      - 02-批量汇总、过滤与选择: examples/02-batch-summary-filter-select.ipynb
-      - 03-转换与导出: examples/03-transform-and-export.ipynb
-      - 04-过渡态前后体表示: examples/04-transition-state-endpoints.ipynb
-      - 05-复杂分子取代基替换: examples/05-substituent-replacement.ipynb
-  - 格式与数据参考:
+  - 示例:
+    - 01-Gaussian 解析与检查: examples/01-gaussian-parse-and-inspect.ipynb
+    - 02-批量汇总、过滤与选择: examples/02-batch-summary-filter-select.ipynb
+    - 03-转换与导出: examples/03-transform-and-export.ipynb
+    - 04-过渡态前后体表示: examples/04-transition-state-endpoints.ipynb
+    - 05-复杂分子取代基替换: examples/05-substituent-replacement.ipynb
+  - 参考:
+    - 参考概览: reference/index.md
+    - 工具选型: reference/comparison.md
+    - 配置: reference/config.md
+    - CLI 命令参考: reference/cli.md
     - 格式支持概览: reference/format_support.md
     - 格式:
       - XYZ: reference/formats/xyz.md
@@ -204,38 +216,42 @@ nav:
       - CML writer: reference/formats/cml.md
       - Gaussian-like renderer: reference/formats/fakeg.md
       - OpenBabel fallback: reference/formats/openbabel-fallback.md
-    - 按科学性质查找字段: reference/model_fields.md
-    - CLI 命令参考: command_line_interface.md
+    - 科学字段索引: reference/model_fields.md
     - Python API:
-      - 概览: reference/api.md
-      - AutoParser: reference/api/autoparser.md
-      - FileBatchModelDisk: reference/api/filebatchmodeldisk.md
-  - 进阶:
-    - 精确转换行为: reference/transform_behavior.md
-    - API 契约: reference/api_contracts.md
-    - Source evidence 与序列化: reference/serialization.md
-    - CLI 内部契约: advanced/cli-contract.md
+      - 概览: reference/api/index.md
+      - 核心入口:
+        - AutoParser: reference/api/autoparser.md
+        - FileBatchModelDisk: reference/api/filebatchmodeldisk.md
+      - 模块 API:
+        - molop: reference/api/molop.md
+        - molop.io: reference/api/io.md
+        - molop.cli: reference/api/cli.md
+        - molop.structure: reference/api/structure.md
+        - molop.unit: reference/api/unit.md
+        - molop.utils: reference/api/utils.md
+        - molop.utils.progressbar: reference/api/progressbar.md
+    - 行为与边界:
+      - 精确转换行为: reference/behavior/transforms.md
+      - Source evidence 与序列化: reference/behavior/serialization.md
   - 开发者:
-    - 开发者概览: developer/overview.md
-    - Reader/Writer 插件开发: developer/plugins.md
-    - 完整 Parser 契约: developer/parser-contract.md
-    - 文档贡献: developer/documentation.md
-    - 开发环境与质量门禁: developer/quality.md
-    - 设计与模型:
-      - QM 公共数据模型: design/qm_data_model.md
-      - ORCA 输入文件模型: design/orca_input_model.md
-    - 贡献指南: contributing.md
-    - 更新日志: changelog.md
-    - API 参考:
-      - Registry: reference/api/registry.md
-      - molop: reference/api/molop.md
-      - molop.io: reference/api/io.md
-      - molop.cli: reference/api/cli.md
-      - molop.config: reference/api/config.md
-      - molop.structure: reference/api/structure.md
-      - molop.unit: reference/api/unit.md
-      - molop.utils: reference/api/utils.md
-      - molop.utils.progressbar: reference/api/progressbar.md
+    - 开发者概览: developer/index.md
+    - 扩展:
+      - Reader/Writer 插件开发: developer/extensions/plugins.md
+      - Registry 扩展 API: developer/extensions/registry.md
+    - 契约:
+      - 完整 Parser 契约: developer/contracts/parser.md
+      - API 契约: developer/contracts/api.md
+      - CLI 内部契约: developer/contracts/cli.md
+    - 架构与模型:
+      - QM 公共数据模型: developer/architecture/qm_data_model.md
+      - ORCA 输入文件模型: developer/architecture/orca_input_model.md
+    - 贡献与质量:
+      - 贡献指南: developer/contributing/index.md
+      - 文档贡献: developer/contributing/documentation.md
+      - 开发环境与质量门禁: developer/contributing/quality.md
+    - 发布:
+      - 文档版本: developer/release/versioning.md
+      - 更新日志: developer/release/changelog.md
 
 
 extra_javascript:

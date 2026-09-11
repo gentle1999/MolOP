@@ -140,4 +140,4 @@ serialization of every calculation result. Use model serialization for complete 
 
 - [Export structures and next-step inputs](../tutorials/export-inputs.md)
 - [Structure recovery](structure-recovery.md)
-- [Exact transform behavior](../reference/transform_behavior.md)
+- [Exact transform behavior](../reference/behavior/transforms.md)

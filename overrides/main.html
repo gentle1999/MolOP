@@ -4,7 +4,7 @@
   {% set info = config.extra.docs_version %}
   {% set is_english = page and (page.url == "en/" or page.url.startswith("en/")) %}
   {% if is_english %}
-    {% set version_url = "en/versioning/" %}
+    {% set version_url = "en/developer/release/versioning/" %}
     <div class="molop-docs-version">
       {% if info.channel == "development" %}
         <strong>Development documentation</strong>
@@ -20,7 +20,7 @@
       <a href="{{ version_url | url }}">Version details</a>
     </div>
   {% else %}
-    {% set version_url = "versioning/" %}
+    {% set version_url = "developer/release/versioning/" %}
     <div class="molop-docs-version">
       {% if info.channel == "development" %}
         <strong>开发版文档</strong>

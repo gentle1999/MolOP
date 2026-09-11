@@ -50,4 +50,4 @@ These Markdown tutorials cover complete workflows without requiring a notebook.
     - [Transition-state endpoint representations](../examples/04-transition-state-endpoints.ipynb)
     - [Complex substituent replacement](../examples/05-substituent-replacement.ipynb)
 
-Adding a reader or writer is a developer task. See [Plugin development](../developer/plugins.md).
+Adding a reader or writer is a developer task. See [Plugin development](../developer/extensions/plugins.md).

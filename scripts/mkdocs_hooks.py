@@ -222,7 +222,14 @@ def on_post_build(config):
         if 'class="molop-docs-version"' not in index_output:
             raise RuntimeError(f"Documentation version banner is missing: {index_page}")
 
-        version_page = Path(config.site_dir) / locale_prefix / "versioning" / "index.html"
+        version_page = (
+            Path(config.site_dir)
+            / locale_prefix
+            / "developer"
+            / "release"
+            / "versioning"
+            / "index.html"
+        )
         if not version_page.is_file():
             raise RuntimeError(f"Documentation version page was not built: {version_page}")
 

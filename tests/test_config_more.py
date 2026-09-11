@@ -1,4 +1,5 @@
 import importlib.metadata
+from types import SimpleNamespace
 
 import pytest
 from pydantic import ValidationError
@@ -49,6 +50,73 @@ def test_config_init_false_branches(monkeypatch):
         _add_once(logger, config_module.stream_handler)
     if file_before:
         _add_once(logger, config_module.file_handler)
+
+
+def test_native_logging_policy_defaults_to_suppressed(monkeypatch):
+    calls = []
+
+    class FakeRDLogger:
+        @staticmethod
+        def DisableLog(pattern):
+            calls.append(("rdkit", "disable", pattern))
+
+        @staticmethod
+        def EnableLog(pattern):
+            calls.append(("rdkit", "enable", pattern))
+
+    class FakeErrorLog:
+        def StopLogging(self):
+            calls.append(("openbabel", "stop"))
+
+        def StartLogging(self):
+            calls.append(("openbabel", "start"))
+
+    monkeypatch.setattr(config_module, "RDLogger", FakeRDLogger)
+    monkeypatch.setattr(
+        config_module,
+        "pybel",
+        SimpleNamespace(ob=SimpleNamespace(obErrorLog=FakeErrorLog())),
+    )
+
+    config = config_module.MolOPConfig()
+
+    assert config.suppress_rdkit_logs is True
+    assert config.suppress_openbabel_logs is True
+    assert calls == [("rdkit", "disable", "rdApp.*"), ("openbabel", "stop")]
+
+
+def test_native_logging_policy_can_be_reenabled(monkeypatch):
+    calls = []
+
+    class FakeRDLogger:
+        @staticmethod
+        def DisableLog(pattern):
+            calls.append(("rdkit", "disable", pattern))
+
+        @staticmethod
+        def EnableLog(pattern):
+            calls.append(("rdkit", "enable", pattern))
+
+    class FakeErrorLog:
+        def StopLogging(self):
+            calls.append(("openbabel", "stop"))
+
+        def StartLogging(self):
+            calls.append(("openbabel", "start"))
+
+    monkeypatch.setattr(config_module, "RDLogger", FakeRDLogger)
+    monkeypatch.setattr(
+        config_module,
+        "pybel",
+        SimpleNamespace(ob=SimpleNamespace(obErrorLog=FakeErrorLog())),
+    )
+
+    config_module.MolOPConfig(
+        suppress_rdkit_logs=False,
+        suppress_openbabel_logs=False,
+    )
+
+    assert calls == [("rdkit", "enable", "rdApp.*"), ("openbabel", "start")]
 
 
 def test_set_n_jobs_boundaries(monkeypatch):

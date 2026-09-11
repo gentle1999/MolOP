@@ -174,7 +174,7 @@ MolOP 不运行量子化学计算，也不是专用分子查看器或分子动�
 - [格式转换与导出](https://gentle1999.github.io/MolOP/guides/conversion/)
 - [可选的结构恢复与分子图可视化](https://gentle1999.github.io/MolOP/guides/structure-recovery/)
 - [过渡态分析与动图](https://gentle1999.github.io/MolOP/tutorials/transition-states/)
-- [贡献指南](https://gentle1999.github.io/MolOP/contributing/)
+- [贡献指南](https://gentle1999.github.io/MolOP/developer/contributing/)
 
 ## 开发
 

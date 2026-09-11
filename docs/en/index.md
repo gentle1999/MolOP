@@ -1,9 +1,13 @@
 # MolOP
 
-Give MolOP any supported computational-chemistry file. It detects the format from content and
-normalizes the data into one `batch -> file -> frame` model. Format-specific logic stops at the
-reader boundary; scientific results, complete tables, batch selection, structure conversion, and
-automated workflows all use the same Python API and CLI.
+MolOP is a Python library and command-line tool for computational chemistry files. It reads existing
+Gaussian, ORCA, xTB, and structure files, detects their formats, and maps them into a common
+`batch -> file -> frame` object model.
+
+MolOP does not run quantum-chemistry calculations. It reads calculation results, supports batch
+filtering and summaries, converts structures, and provides an automation-friendly API.
+
+## Data-flow overview
 
 ```mermaid
 flowchart TB
@@ -37,57 +41,86 @@ flowchart TB
     batch --> workflow
 ```
 
-See the [format overview](reference/format_support.md) for the current reader/writer coverage and
-field boundaries.
-
-## Choose a task
-
 <div class="grid cards" markdown>
 
--   :material-download: **Install and verify**
+-   :material-download: **Start here**
 
-    [Installation](getting_started/installation.md){ .md-button }
+    Install MolOP and run a working example.
 
--   :material-language-python: **Use the Python API**
+    [Install and verify](getting_started/installation.md){ .md-button }
+
+-   :material-language-python: **Use Python**
+
+    Read results, build summaries, and export structures.
 
     [5-minute start](getting_started/quickstart.md){ .md-button }
 
 -   :material-console: **Use the CLI**
 
+    Chain parsing, filtering, and export from the shell.
+
     [CLI first steps](getting_started/cli.md){ .md-button }
 
--   :material-table: **Export a result table**
+-   :material-book-open-variant: **Look up details**
 
-    [Batch summaries](guides/batch.md){ .md-button }
+    Find formats, fields, configuration, and API members.
 
--   :material-share-variant: **Recover a molecular graph**
-
-    [Structure recovery](guides/structure-recovery.md){ .md-button }
+    [Reference](reference/index.md){ .md-button }
 
 </div>
 
-| Task | Start here |
+## Smallest runnable workflow
+
+```python
+from molop import AutoParser
+
+batch = AutoParser("water_mp2.out", n_jobs=1)
+frame = batch[0][-1]
+
+print(batch[0].detected_format_id)
+print(frame.energies.total_energy.m_as("hartree"))
+```
+
+??? example "Output"
+
+    ```text
+    orcaout
+    -74.999374598107
+    ```
+
+Use the bundled [ORCA water example](../assets/examples/water_mp2.out). Results are exposed through
+common fields; missing values remain `None` instead of being synthesized from absent source data.
+
+## Choose by task
+
+| Goal | Recommended entry |
 | --- | --- |
-| Install and verify the environment | [Installation](getting_started/installation.md) |
-| Parse a real file for the first time | [5-minute start](getting_started/quickstart.md) |
-| Read energies, frequencies, populations, or NMR data | [Read calculation results](guides/results.md) |
-| Export a batch summary to CSV | [Batch summaries](guides/batch.md) |
-| Select normal, optimized, or transition-state jobs | [Filter and select](guides/filtering.md) |
-| Recover a metal-complex graph from coordinates | [Structure recovery](guides/structure-recovery.md) |
-| Export XYZ, SDF, Gaussian, or ORCA inputs | [Convert and export](guides/conversion.md) |
-| Check what a format can provide | [Format overview](reference/format_support.md) |
+| Read one file or a batch | [Parse files](guides/parsing.md) |
+| Read energies, thermochemistry, vibrations, orbitals, or NMR | [Read calculation results](guides/results.md) |
+| Build CSV/JSON summary tables | [Batch summaries](guides/batch.md) |
+| Select normal, optimized, or transition-state results | [Filter and select](guides/filtering.md) |
+| Export XYZ, SDF, Gaussian, or ORCA input | [Convert and export](guides/conversion.md) |
+| Recover a molecular graph from coordinates | [Structure recovery](guides/structure-recovery.md) |
+| Diagnose paths, formats, or native-library issues | [Troubleshooting](guides/troubleshooting.md) |
+| Tune logging, parallelism, or structure recovery | [Configuration](reference/config.md) |
 
-## Common inputs
+## Supported scope
 
-MolOP currently provides dedicated readers or writers for Gaussian log/fchk/input, ORCA output/input, xTB
-output, XYZ, SDF/MOL, SMILES, CML, and related formats. Use the
-[format overview](reference/format_support.md) and individual format pages for exact fields and
-limitations.
+MolOP provides readers or writers for Gaussian log/fchk/input, ORCA output/input, xTB output, XYZ,
+SDF/MOL, SMILES, and CML-related workflows. See the [format overview](reference/format_support.md)
+for exact fields, targets, and information boundaries.
 
-MolOP does not run Gaussian, ORCA, or xTB calculations. It reads existing files and turns their
-contents into queryable and exportable objects.
+## Core data model
+
+```text
+input path or glob -> AutoParser -> batch -> file -> frame
+                                      |       |
+                                batch operations  one structure and result snapshot
+```
+
+Read [Core concepts](getting_started/concepts.md) for object levels, frame selection, and lazy structure recovery.
 
 ## Next step
 
-[Install MolOP](getting_started/installation.md), then follow the
-[5-minute start](getting_started/quickstart.md).
+Start with [Install and verify](getting_started/installation.md), or go directly to the
+[5-minute start](getting_started/quickstart.md) when an input file is ready.

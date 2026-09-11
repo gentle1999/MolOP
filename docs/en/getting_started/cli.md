@@ -100,4 +100,4 @@ molop parse "results/*.out" --parser-detection orcaout \
 
 - [CLI task recipes](../guides/cli-recipes.md)
 - [Filter and select](../guides/filtering.md)
-- [Full CLI reference](../command_line_interface.md)
+- [Full CLI reference](../reference/cli.md)

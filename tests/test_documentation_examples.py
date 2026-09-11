@@ -18,20 +18,17 @@ ORCA_EXAMPLE = EXAMPLE_DIR / "water_mp2.out"
 METAL_COMPLEX_EXAMPLE = EXAMPLE_DIR / "mn_complex_sp.log"
 USER_DOC_GLOBS = (
     "index.md",
-    "concepts.md",
-    "command_line_interface.md",
-    "advanced/*.md",
     "getting_started/*.md",
     "guides/*.md",
+    "tutorials/*.md",
     "reference/*.md",
     "reference/api/*.md",
+    "reference/behavior/*.md",
     "reference/formats/*.md",
-    "tutorials/*.md",
 )
 PAIRED_USER_PAGES = (
     "index.md",
-    "concepts.md",
-    "command_line_interface.md",
+    "getting_started/concepts.md",
     "getting_started/installation.md",
     "getting_started/quickstart.md",
     "getting_started/python-api.md",
@@ -50,10 +47,11 @@ PAIRED_USER_PAGES = (
     "tutorials/select-results.md",
     "tutorials/transition-states.md",
     "tutorials/export-inputs.md",
-    "reference/api_contracts.md",
-    "reference/serialization.md",
+    "reference/cli.md",
+    "reference/behavior/serialization.md",
     "reference/format_support.md",
     "reference/model_fields.md",
+    "developer/contracts/api.md",
 )
 NOTEBOOK_NAMES = (
     "01-gaussian-parse-and-inspect.ipynb",
@@ -156,14 +154,14 @@ def test_mixed_qm_outputs_share_one_batch_container() -> None:
 def test_homepage_leads_with_program_independent_processing() -> None:
     expected_content = {
         "zh": (
-            "把受支持的计算化学文件直接交给 MolOP",
-            "格式差异止于 reader",
-            "## 选择你的任务",
+            "MolOP 是面向计算化学文件的 Python 库和命令行工具",
+            "统一整理为 `batch -> file -> frame` 对象模型",
+            "## 数据流概览",
         ),
         "en": (
-            "Give MolOP any supported computational-chemistry file",
-            "Format-specific logic stops at the reader boundary",
-            "## Choose a task",
+            "MolOP is a Python library and command-line tool for computational chemistry files",
+            "maps them into a common `batch -> file -> frame` object model",
+            "## Data-flow overview",
         ),
     }
     for locale, expected in expected_content.items():
@@ -173,7 +171,6 @@ def test_homepage_leads_with_program_independent_processing() -> None:
         assert first_h2 == expected[2]
         assert all(" ".join(fragment.split()) in normalized_text for fragment in expected)
         assert "Gaussian 16" not in text
-        assert "water_mp2.out" not in text
         assert "mn_complex_graph_reconstruction.svg" not in text
 
     readmes = {
@@ -628,7 +625,7 @@ def test_api_contracts_stay_task_oriented() -> None:
     )
 
     for locale, sections in expected_sections.items():
-        text = (Path("docs") / locale / "reference/api_contracts.md").read_text(encoding="utf-8")
+        text = (Path("docs") / locale / "developer/contracts/api.md").read_text(encoding="utf-8")
         positions = [text.index(section) for section in sections]
         assert positions == sorted(positions)
         assert not any(term in text for term in parser_implementation_terms)
@@ -693,7 +690,7 @@ def test_notebooks_render_saved_outputs_after_ci_execution() -> None:
 def test_documentation_exposes_source_and_release_versions() -> None:
     mkdocs_config = Path("mkdocs.yml").read_text(encoding="utf-8")
     assert "custom_dir: overrides" in mkdocs_config
-    assert "- 文档版本: versioning.md" in mkdocs_config
+    assert "- 文档版本: developer/release/versioning.md" in mkdocs_config
     assert "provider: mike" in mkdocs_config
 
     template = Path("overrides/main.html").read_text(encoding="utf-8")
@@ -713,7 +710,7 @@ def test_documentation_exposes_source_and_release_versions() -> None:
     assert "MIKE_DOCS_VERSION" in hook
 
     for locale in ("zh", "en"):
-        version_page = Path("docs") / locale / "versioning.md"
+        version_page = Path("docs") / locale / "developer/release/versioning.md"
         assert version_page.is_file()
         assert "commit" in version_page.read_text(encoding="utf-8").lower()
 

@@ -54,7 +54,7 @@ Homepage = "https://github.com/gentle1999/MolOP"
 Repository = "https://github.com/gentle1999/MolOP"
 Documentation = "https://gentle1999.github.io/MolOP/"
 Issues = "https://github.com/gentle1999/MolOP/issues"
-Changelog = "https://gentle1999.github.io/MolOP/en/changelog/"
+Changelog = "https://gentle1999.github.io/MolOP/en/developer/release/changelog/"
 
 [project.scripts]
 molop = "molop.cli.app:app"

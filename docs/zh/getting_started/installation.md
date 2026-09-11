@@ -31,7 +31,7 @@ molop --help
 ## 常见问题
 
 ???+ note "从源码检出建立开发环境"
-    需要可编辑源码环境时，请使用[开发环境与质量门禁](../developer/quality.md)。面向终端用户的
+    需要可编辑源码环境时，请使用[开发环境与质量门禁](../developer/contributing/quality.md)。面向终端用户的
     示例假设 `molop` 命令已经位于 `PATH`。
 
 ### 导入 RDKit 和 Open Babel 时发生原生崩溃
@@ -49,7 +49,7 @@ MolOP 会在初始化 Open Babel 前先加载 RDKit，以避免原生库冲突�
 
 ## 开发环境
 
-源码检出、`uv sync` 和测试命令属于贡献者流程，见[开发环境与质量门禁](../developer/quality.md)。
+源码检出、`uv sync` 和测试命令属于贡献者流程，见[开发环境与质量门禁](../developer/contributing/quality.md)。
 
 ## 下一步
 

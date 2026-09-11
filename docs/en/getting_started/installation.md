@@ -33,7 +33,7 @@ The two `<version>` values should match. The exact version and full help text ar
 
 ???+ note "Install from a source checkout"
     Contributors who need an editable checkout should use the [development environment and quality
-    gates](../developer/quality.md). End-user examples assume the `molop` command is on `PATH`.
+    gates](../developer/contributing/quality.md). End-user examples assume the `molop` command is on `PATH`.
 
 ### Native crash when importing RDKit and Open Babel
 
@@ -51,7 +51,7 @@ MolOP initializes RDKit before Open Babel to avoid this native-library conflict.
 ## Development environment
 
 Source checkout, `uv sync`, and test commands belong to the contributor workflow. See
-[Development environment and quality gates](../developer/quality.md).
+[Development environment and quality gates](../developer/contributing/quality.md).
 
 ## Next step
 

@@ -140,4 +140,4 @@ XYZ 和 SMILES 无法承载完整能量、热化学、振动或 NMR 容器。SDF
 
 - [导出结构和下一步输入](../tutorials/export-inputs.md)
 - [结构恢复](structure-recovery.md)
-- [精确转换行为](../reference/transform_behavior.md)
+- [精确转换行为](../reference/behavior/transforms.md)

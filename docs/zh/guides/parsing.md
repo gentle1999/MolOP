@@ -150,4 +150,4 @@ for path in failed:
 - [读取计算结果](results.md)
 - [批量汇总](batch.md)
 - [格式支持概览](../reference/format_support.md)
-- [Source evidence 与序列化](../reference/api_contracts.md)
+- [Source evidence 与序列化](../developer/contracts/api.md)

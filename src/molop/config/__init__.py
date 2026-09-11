@@ -113,11 +113,11 @@ class MolOPConfig(BaseModel):
 
     # --- Native library logging control ---
     suppress_rdkit_logs: bool = Field(
-        default=False,
+        default=True,
         description="Whether to suppress RDKit native diagnostics",
     )
     suppress_openbabel_logs: bool = Field(
-        default=False,
+        default=True,
         description="Whether to suppress Open Babel native diagnostics",
     )
 
@@ -150,8 +150,7 @@ class MolOPConfig(BaseModel):
         if not self.use_dof_effect_drawer:
             self.set_dof_effect_drawer(enable=False)
 
-        if self.suppress_rdkit_logs or self.suppress_openbabel_logs:
-            self.configure_native_logging()
+        self.configure_native_logging()
 
     def quiet(self):
         """
@@ -224,17 +223,21 @@ class MolOPConfig(BaseModel):
         logging.info(f"Maximum recursion depth set to {depth}")
 
     def configure_native_logging(self) -> None:
-        """Apply optional native-library log suppression explicitly.
+        """Apply the configured native-library logging policy.
 
-        Importing MolOP leaves host-library logging untouched.  Applications
-        that want quiet native diagnostics can opt in through a configuration
-        instance or call this method during their own runtime setup.
+        Native diagnostics are suppressed by default.  Call this method after
+        changing either suppression flag to apply the new policy to the current
+        process.
         """
 
         if self.suppress_rdkit_logs:
             RDLogger.DisableLog("rdApp.*")  # type: ignore
+        else:
+            RDLogger.EnableLog("rdApp.*")  # type: ignore
         if self.suppress_openbabel_logs:
             pybel.ob.obErrorLog.StopLogging()
+        else:
+            pybel.ob.obErrorLog.StartLogging()
 
     @property
     def effective_max_jobs(self) -> int:
