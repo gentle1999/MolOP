@@ -173,7 +173,7 @@ lines-after-imports = 2
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = '-ra -q --cov=src --cov-report=term-missing -m "not orca_output_corpus"'
+addopts = '-ra -q --cov=src --cov-report=term-missing -m "not stress and not orca_output_corpus"'
 testpaths = ["tests"]
 markers = [
     "orca_output_corpus: tests requiring the optional ORCA output fixture corpus",
