@@ -1,0 +1,633 @@
+{
+  "schema_version": 1,
+  "sources": {
+    "local": {
+      "description": "ORCA output fixtures previously present in this repository.",
+      "license": "Repository local test fixture."
+    },
+    "cclib": {
+      "description": "Selected cclib ORCA regression output fixtures.",
+      "repository": "https://github.com/cclib/cclib",
+      "commit": "0e5d5dfd7d15b2fbd95e02fdd36bd4fe3336a5d5",
+      "upstream_root": "data/ORCA",
+      "license": "BSD-3-Clause",
+      "license_file": "cclib/LICENSE.cclib"
+    }
+  },
+  "fixtures": [
+    {
+      "path": "local/H2_sp_orca.out",
+      "source": "local",
+      "features": ["single_point", "mulliken", "loewdin", "dipole", "orca4"],
+      "anchors": [
+        "Program Version 4.1.1",
+        "FINAL SINGLE POINT ENERGY        -1.138965730007",
+        "MULLIKEN ATOMIC CHARGES",
+        "LOEWDIN ATOMIC CHARGES",
+        "DIPOLE MOMENT",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "4.1.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -1.138965730007,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "local/h2_disp_orca.out",
+      "source": "local",
+      "features": ["gradient", "dispersion", "mulliken", "loewdin", "hirshfeld", "dipole", "orca4"],
+      "anchors": [
+        "Program Version 4.2.1",
+        "DFT DISPERSION CORRECTION",
+        "CARTESIAN GRADIENT",
+        "FINAL SINGLE POINT ENERGY        -1.139851611666",
+        "HIRSHFELD ANALYSIS",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "4.2.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -1.139851611666,
+        "has_forces": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "local/h2_grad_orca.out",
+      "source": "local",
+      "features": ["gradient", "dispersion", "mulliken", "loewdin", "hirshfeld", "dipole", "orca4"],
+      "anchors": [
+        "Program Version 4.2.1",
+        "DFT DISPERSION CORRECTION",
+        "CARTESIAN GRADIENT",
+        "FINAL SINGLE POINT ENERGY        -1.139851613272",
+        "HIRSHFELD ANALYSIS",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "4.2.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -1.139851613272,
+        "has_forces": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "local/opt_orca.out",
+      "source": "local",
+      "features": ["optimization", "gradient", "dispersion", "mulliken", "loewdin", "hirshfeld", "dipole", "orca4"],
+      "anchors": [
+        "Program Version 4.2.1",
+        "GEOMETRY OPTIMIZATION CYCLE   1",
+        "THE OPTIMIZATION HAS CONVERGED",
+        "OPTIMIZATION RUN DONE",
+        "FINAL SINGLE POINT ENERGY      -499.734431042133",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "4.2.1",
+        "min_frames": 4,
+        "final_single_point_energy_hartree": -499.734431042133,
+        "has_optimization_status": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "local/numerical_orca.out",
+      "source": "local",
+      "features": ["numerical_gradient", "mulliken", "loewdin", "hirshfeld", "dipole", "orca4"],
+      "anchors": [
+        "Program Version 4.2.1",
+        "CARTESIAN GRADIENT (NUMERICAL)",
+        "FINAL SINGLE POINT ENERGY      -959.335925845645",
+        "HIRSHFELD ANALYSIS",
+        "DIPOLE MOMENT",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "4.2.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -959.335925845645,
+        "has_forces": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "local/h2o_orca_v5_charges.out",
+      "source": "local",
+      "features": ["single_point", "mulliken", "loewdin", "hirshfeld", "dispersion", "dipole", "orca5"],
+      "anchors": [
+        "Program Version 5.0.3",
+        "MULLIKEN ATOMIC CHARGES",
+        "LOEWDIN ATOMIC CHARGES",
+        "HIRSHFELD ANALYSIS",
+        "FINAL SINGLE POINT ENERGY       -76.377662808556",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "5.0.3",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -76.377662808556,
+        "has_charge_spin_populations": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "local/H2O_hess_orca.out",
+      "source": "local",
+      "features": ["frequency", "vibrations", "mulliken", "loewdin", "hirshfeld", "dipole", "orca4"],
+      "anchors": [
+        "Program Version 4.2.1",
+        "VIBRATIONAL FREQUENCIES",
+        "FINAL SINGLE POINT ENERGY       -76.272657076853",
+        "MULLIKEN ATOMIC CHARGES",
+        "DIPOLE MOMENT",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "4.2.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -76.272657076853,
+        "has_vibrations": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "local/test_ts_reopt_optts_orca.out",
+      "source": "local",
+      "features": ["optimization", "transition_state", "gradient", "hessian", "orca4"],
+      "anchors": [
+        "Program Version 4.1.1",
+        "GEOMETRY OPTIMIZATION CYCLE",
+        "FINAL SINGLE POINT ENERGY",
+        "CARTESIAN GRADIENT",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "4.1.1",
+        "min_frames": 2,
+        "has_optimization_status": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "local/tmp_orca.out",
+      "source": "local",
+      "features": ["gradient", "orca4"],
+      "anchors": [
+        "Program Version 4.2.1",
+        "FINAL SINGLE POINT ENERGY",
+        "NORM OF THE MP2 GRADIENT",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "4.2.1",
+        "min_frames": 1,
+        "has_forces": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA5.0/Trp_polar.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA5.0/Trp_polar.out",
+      "features": ["polarizability", "dipole", "orca5"],
+      "anchors": [
+        "Program Version 5.0.0",
+        "THE POLARIZABILITY TENSOR",
+        "Isotropic polarizability :  74.12424",
+        "FINAL SINGLE POINT ENERGY      -673.590571115294",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "5.0.0",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -673.590571115294,
+        "has_polarizability": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/water_mp2.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/water_mp2.out",
+      "features": ["single_point", "mp2", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "MP2 TOTAL ENERGY:      -74.999374598 Eh",
+        "FINAL SINGLE POINT ENERGY       -74.999374598107",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -74.999374598107,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/water_mp3.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/water_mp3.out",
+      "features": ["single_point", "mp2", "mp3", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "E(MP2)  =    -74.999374616",
+        "E(MP3)  =    -75.009120941",
+        "FINAL SINGLE POINT ENERGY       -75.009120940914",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -75.009120940914,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/water_ccsd.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/water_ccsd.out",
+      "features": ["single_point", "ccsd", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "COUPLED CLUSTER ENERGY",
+        "FINAL SINGLE POINT ENERGY       -75.013487814067",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -75.013487814067,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/water_ccsd_t.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/water_ccsd_t.out",
+      "features": ["single_point", "ccsd_t", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "E(CCSD(T))",
+        "FINAL SINGLE POINT ENERGY       -75.013556305763",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -75.013556305763,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/water_hf_solvent_cpcm.log",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/water_hf_solvent_cpcm.log",
+      "features": ["single_point", "solvation", "cpcm", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "CPCM SOLVATION MODEL",
+        "Solvent:                                          ... CUSTOM",
+        "FINAL SINGLE POINT ENERGY       -74.967672596588",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -74.967672596588,
+        "has_solvation": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/water_hf_solvent_cpcm_cosmo.log",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/water_hf_solvent_cpcm_cosmo.log",
+      "features": ["single_point", "solvation", "cpcm", "cosmo", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "CPCM SOLVATION MODEL",
+        "Solvent:                                          ... CUSTOM",
+        "FINAL SINGLE POINT ENERGY       -74.967076650145",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -74.967076650145,
+        "has_solvation": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/water_hf_solvent_smd.log",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/water_hf_solvent_smd.log",
+      "features": ["single_point", "solvation", "cpcm", "smd", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "Your calculation utilizes the SMD solvation module",
+        "SMD CDS free energy correction energy",
+        "FINAL SINGLE POINT ENERGY       -74.967666633980",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -74.96766663398,
+        "has_solvation": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/dvb_dispersion_bp86_d3zero.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/dvb_dispersion_bp86_d3zero.out",
+      "features": ["single_point", "dispersion", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "DFT DISPERSION CORRECTION",
+        "FINAL SINGLE POINT ENERGY      -382.331679393002",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -382.331679393002,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/dvb_gopt.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/dvb_gopt.out",
+      "features": ["optimization", "gradient", "orca6"],
+      "anchors": [
+        "Program Version 6.0.0",
+        "GEOMETRY OPTIMIZATION CYCLE   1",
+        "THE OPTIMIZATION HAS CONVERGED",
+        "OPTIMIZATION RUN DONE",
+        "FINAL SINGLE POINT ENERGY      -382.055133399486",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.0",
+        "min_frames": 3,
+        "final_single_point_energy_hartree": -382.055133399486,
+        "has_forces": true,
+        "has_optimization_status": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/dvb_ir.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/dvb_ir.out",
+      "features": ["frequency", "vibrations", "ir", "nmr", "dipole", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "VIBRATIONAL FREQUENCIES",
+        "IR SPECTRUM",
+        "FINAL SINGLE POINT ENERGY      -382.055107107616",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -382.055107107616,
+        "has_vibrations": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/dvb_raman.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/dvb_raman.out",
+      "features": ["frequency", "vibrations", "ir", "raman", "polarizability", "dipole", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "STATIC POLARIZABILITY TENSOR",
+        "VIBRATIONAL FREQUENCIES",
+        "IR SPECTRUM",
+        "RAMAN SPECTRUM",
+        "FINAL SINGLE POINT ENERGY      -382.055108617935",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -382.055108617935,
+        "has_vibrations": true,
+        "has_polarizability": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/Trp_polar.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/Trp_polar.out",
+      "features": ["polarizability", "nmr", "dipole", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "STATIC POLARIZABILITY TENSOR",
+        "DIPOLE MOMENT",
+        "FINAL SINGLE POINT ENERGY      -673.590571115239",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -673.590571115239,
+        "has_polarizability": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/dvb_nmr.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/dvb_nmr.out",
+      "features": ["nmr", "shielding", "dipole", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "CHEMICAL SHIELDINGS (ppm)",
+        "CHEMICAL SHIELDING SUMMARY (ppm)",
+        "FINAL SINGLE POINT ENERGY      -382.056221599749",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -382.056221599749,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/dvb_td.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/dvb_td.out",
+      "features": ["excited_state", "tddft", "absorption", "orca6"],
+      "anchors": [
+        "Program Version 6.0.0",
+        "ORCA TD-DFT/TDA CALCULATION",
+        "TD-DFT/TDA EXCITED STATES (SINGLETS)",
+        "ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS",
+        "FINAL SINGLE POINT ENERGY      -381.858419046289",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.0",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -381.858419046289,
+        "has_electronic_states": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/dvb_adc2.log",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/dvb_adc2.log",
+      "features": ["excited_state", "adc2", "absorption", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "RHF ADC2 CALCULATION",
+        "ADC(2) RESULTS (RHS)",
+        "ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS",
+        "FINAL SINGLE POINT ENERGY      -380.165181816960",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -380.16518181696,
+        "has_electronic_states": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/dvb_eom_ccsd.log",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/dvb_eom_ccsd.log",
+      "features": ["excited_state", "eom_ccsd", "absorption", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "RHF EOM-CCSD CALCULATION",
+        "EOM-CCSD RESULTS (RHS)",
+        "ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS",
+        "FINAL SINGLE POINT ENERGY      -380.500397408116",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -380.500397408116,
+        "has_electronic_states": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/dvb_pno_eom_ccsd.log",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/dvb_pno_eom_ccsd.log",
+      "features": ["excited_state", "pno_eom_ccsd", "absorption", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "bt-PNO-EOM-CCSD",
+        "EOM-CCSD RESULTS (RHS)",
+        "ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS",
+        "FINAL SINGLE POINT ENERGY      -380.298927429936",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -380.298927429936,
+        "has_electronic_states": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/dvb_steom_ccsd.log",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/dvb_steom_ccsd.log",
+      "features": ["excited_state", "steom_ccsd", "absorption", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "STEOM-CCSD RESULTS (SINGLETS)",
+        "ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS",
+        "FINAL SINGLE POINT ENERGY      -380.500397733623",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -380.500397733623,
+        "has_electronic_states": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/dvb_steom_dlpno_ccsd.log",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/dvb_steom_dlpno_ccsd.log",
+      "features": ["excited_state", "steom_dlpno_ccsd", "absorption", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "STEOM-DLPNO-CCSD",
+        "STEOM-CCSD RESULTS (SINGLETS)",
+        "ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS",
+        "FINAL SINGLE POINT ENERGY      -380.329061588675",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -380.329061588675,
+        "has_electronic_states": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.0/dvb_rocis.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.0/dvb_rocis.out",
+      "features": ["excited_state", "rocis", "spin_orbit", "absorption", "orca6"],
+      "anchors": [
+        "Program Version 6.0.1",
+        "ORCA ROCIS CALCULATION",
+        "ROCIS-EXCITATION SPECTRA",
+        "SOC CORRECTED ABSORPTION SPECTRUM",
+        "FINAL SINGLE POINT ENERGY      -380.892798900059",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.0.1",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -380.892798900059,
+        "has_electronic_states": true,
+        "normal_terminated": true
+      }
+    },
+    {
+      "path": "cclib/basicORCA6.1/dvb_coupling_nmr.out",
+      "source": "cclib",
+      "upstream_path": "data/ORCA/basicORCA6.1/dvb_coupling_nmr.out",
+      "features": ["nmr", "shielding", "spin_spin_coupling", "orca6"],
+      "anchors": [
+        "Program Version 6.1.0",
+        "CHEMICAL SHIELDINGS (ppm)",
+        "NMR SPIN-SPIN COUPLING CONSTANTS",
+        "FINAL SINGLE POINT ENERGY      -382.055109258623",
+        "****ORCA TERMINATED NORMALLY****"
+      ],
+      "structured_expectation": {
+        "version_prefix": "6.1.0",
+        "min_frames": 1,
+        "final_single_point_energy_hartree": -382.055109258623,
+        "normal_terminated": true
+      }
+    }
+  ]
+}

@@ -277,6 +277,8 @@ docs/zh/*/*.png
 optional.json
 *.json
 !pyrightconfig.json
+# The ORCA output corpus uses this JSON file as a tracked test manifest.
+!tests/test_files/orca/output_files/manifest.json
 ts_inital_log
 GEMINI.md
 .pyscn
