@@ -109,9 +109,9 @@
     <div class="molop-docs-version">
       
         <strong>开发版文档</strong>
-        <span>源码 <code>0.2.16.dev1+g33c40790f.d20260908</code></span>
-        <span><code>main@33c40790fae9</code></span>
-        <span>最近发布 <code>0.2.15</code></span>
+        <span>源码 <code>0.2.17.dev1+gc9fa8aa9c.d20260911</code></span>
+        <span><code>main@c9fa8aa9c512</code></span>
+        <span>最近发布 <code>0.2.16</code></span>
         <span>部分 API 可能尚未进入 PyPI 发布版。</span>
       
       <a href="../../versioning/">版本说明</a>
@@ -3263,7 +3263,9 @@
 <li><code>model_chemistry.basis_set</code> -&gt; <code>basis_set</code></li>
 <li><code>resource_request.num_cpu/memory/raw</code> -&gt; <code>request_num_cpu/request_memory/resources_raw</code></li>
 </ul>
-<p>旧的 <code>refresh_common_qm_containers()</code> 仅用于兼容旧调用方：它只在结构化字段为空时从兼容字段补全，不允许覆盖已经解析出的结构化语义。</p>
+<p>旧的 <code>refresh_common_qm_containers()</code> 仅用于兼容旧调用方：它先在结构化字段为空时从兼容字段补全，
+再把结构化字段投影回兼容字段；已经解析出的结构化语义不会被平铺字段覆盖。需要修改规范化语义时，
+应直接修改结构化容器，再调用 <code>project_common_qm_fields()</code>。</p>
 <h2 id="_3">输入请求容器<a class="headerlink" href="#_3" title="Permanent link">&para;</a></h2>
 <p><code>QMModelChemistry</code> 描述模型化学级别：</p>
 <ul>

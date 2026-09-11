@@ -111,9 +111,9 @@
     <div class="molop-docs-version">
       
         <strong>Development documentation</strong>
-        <span>Source <code>0.2.16.dev1+g33c40790f.d20260908</code></span>
-        <span><code>main@33c40790fae9</code></span>
-        <span>Latest release <code>0.2.15</code></span>
+        <span>Source <code>0.2.17.dev1+gc9fa8aa9c.d20260911</code></span>
+        <span><code>main@c9fa8aa9c512</code></span>
+        <span>Latest release <code>0.2.16</code></span>
         <span>Some APIs may not be available in the PyPI release.</span>
       
       <a href="../../versioning/">Version details</a>
@@ -3265,7 +3265,10 @@
 <li><code>model_chemistry.basis_set</code> -&gt; <code>basis_set</code></li>
 <li><code>resource_request.num_cpu/memory/raw</code> -&gt; <code>request_num_cpu/request_memory/resources_raw</code></li>
 </ul>
-<p>The legacy <code>refresh_common_qm_containers()</code> method is kept for existing callers only. It backfills empty structured fields from compatibility fields and must not overwrite already parsed structured semantics.</p>
+<p>The legacy <code>refresh_common_qm_containers()</code> method is kept for existing callers only. It backfills empty
+structured fields from compatibility fields and then projects the structured values back to compatibility
+fields. It never lets flat fields overwrite already parsed structured semantics. To change normalized
+semantics, modify the structured container and call <code>project_common_qm_fields()</code>.</p>
 <h2 id="input_requests">Input Requests<a class="headerlink" href="#input_requests" title="Permanent link">&para;</a></h2>
 <p><code>QMModelChemistry</code> describes model chemistry:</p>
 <ul>
