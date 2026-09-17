@@ -31,9 +31,7 @@ def test_comment_container_is_ordered_and_list_like() -> None:
 
 
 def test_file_and_frame_comments_have_one_access_pattern() -> None:
-    parsed_frame = XYZFileFrameParserMemory().parse(
-        "2\nframe note\nH 0.0 0.0 0.0\nH 0.0 0.0 1.0\n"
-    )
+    parsed_frame = XYZFileFrameParserMemory().parse("2\nframe note\nH 0.0 0.0 0.0\nH 0.0 0.0 1.0\n")
     parsed_file = XYZFileMemory.model_validate(
         {"comments": {"items": [{"text": "file note", "source_format": "xyz"}]}}
     )
@@ -41,12 +39,8 @@ def test_file_and_frame_comments_have_one_access_pattern() -> None:
 
     assert parsed_file.comments.texts == ["file note"]
     assert parsed_file[0].comments.texts == ["frame note"]
-    assert [comment.text for comment in parsed_file.iter_comments(scope="file")] == [
-        "file note"
-    ]
-    assert [comment.text for comment in parsed_file.iter_comments(scope="frame")] == [
-        "frame note"
-    ]
+    assert [comment.text for comment in parsed_file.iter_comments(scope="file")] == ["file note"]
+    assert [comment.text for comment in parsed_file.iter_comments(scope="frame")] == ["frame note"]
     assert [comment.text for comment in parsed_file.iter_comments()] == [
         "file note",
         "frame note",
@@ -54,9 +48,7 @@ def test_file_and_frame_comments_have_one_access_pattern() -> None:
 
 
 def test_format_specific_comment_fields_project_to_common_container() -> None:
-    orca = ORCAInpFileFrameParserMemory().parse(
-        "! HF\n# ORCA note\n* xyz 0 1\nH 0.0 0.0 0.0\n*\n"
-    )
+    orca = ORCAInpFileFrameParserMemory().parse("! HF\n# ORCA note\n* xyz 0 1\nH 0.0 0.0 0.0\n*\n")
     gaussian = GJFFileFrameParserMemory().parse(
         "#p hf/sto-3g\n\ngjf title\n\n0 1\nH 0.0 0.0 0.0\n\n"
     )
