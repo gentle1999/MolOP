@@ -12,6 +12,7 @@ from typing import Any, Literal, cast
 from pydantic import Field, model_validator
 
 from molop.io.base_models.ChemFileFrame import BaseQMInputFrame
+from molop.io.base_models.DataClasses import Comment
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
 from molop.io.logic.gaussian.input.GaussianInput import (
     GJFAtomSpecification as GJFAtomSpecification,
@@ -390,6 +391,21 @@ class GJFFileFrameMixin:
         typed_self.atoms = self.molecule_specifications.atomic_numbers()
         typed_self.coords = self.molecule_specifications.coords()
         populate_gaussian_legacy_qm_fields_from_semantic(typed_self, semantic_route)
+        title_text = self.title_card.title_card
+        if title_text:
+            typed_self.comments.ensure(
+                Comment(
+                    text=title_text,
+                    kind="title",
+                    source_format="gjf",
+                )
+            )
+        else:
+            title_comment = typed_self.comments.first(kind="title") or typed_self.comments.first(
+                kind="comment"
+            )
+            if title_comment is not None:
+                self.title_card = GJFTitleCard(title_card=title_comment.text)
         return self
 
 

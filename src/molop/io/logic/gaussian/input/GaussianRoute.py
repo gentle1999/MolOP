@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 
 from pydantic import Field, model_validator
 from typing_extensions import Self
 
 from molop.io.base_models.Bases import BaseDataClassWithUnit
 from molop.io.base_models.DataClasses import (
+    Comment,
     ExcitedStateRequest,
     QMModelChemistry,
     QMTaskRequest,
@@ -630,7 +631,23 @@ class GaussianRouteSemanticFieldsMixin:
 
     @model_validator(mode="after")
     def _normalize_gaussian_route_semantic_fields(self) -> Self:
+        typed_self = cast(Any, self)
         populate_gaussian_legacy_qm_fields_from_semantic(self, self.semantic_route)
+        if self.title_card:
+            source_format = getattr(self, "source_format", None) or "gaussian"
+            typed_self.comments.ensure(
+                Comment(
+                    text=self.title_card,
+                    kind="title",
+                    source_format=source_format,
+                )
+            )
+        else:
+            title_comment = typed_self.comments.first(kind="title") or typed_self.comments.first(
+                kind="comment"
+            )
+            if title_comment is not None:
+                self.title_card = title_comment.text
         return self
 
     @property

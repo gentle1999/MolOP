@@ -124,8 +124,8 @@ ts_frame.draw_ts_vibration_animation(file_path="ts-imaginary-mode.gif", steps=9)
 
 ```python
 try:
-    reactant, product = ts_frame.possible_pre_post_ts(show_3D=True)
-    print(reactant.GetNumAtoms(), product.GetNumAtoms())
+    mapped_rxn = ts_frame.to_mapped_rxn_smiles()
+    print(mapped_rxn)
 except ValueError as exc:
     print("endpoint inference failed:", exc)
 
@@ -133,6 +133,12 @@ difference = ts_frame.to_diff_rdmol()
 if difference is not None:
     print("difference graph bonds:", difference.GetNumBonds())
 ```
+
+`to_reaction` obtains its endpoints from `possible_pre_post_ts`, assigns each
+atom the 1-based map number from its source atom order, and returns an RDKit
+`ChemicalReaction`. `to_mapped_rxn_smiles()` uses that frame-level reaction
+directly and exports non-canonical `reactants>>products` RXN SMILES. To request
+additional endpoint sampling, call `ts_frame.to_mapped_rxn_smiles(additional=True)`.
 
 ??? example "Endpoint candidates and virtual-bond difference (image output)"
 

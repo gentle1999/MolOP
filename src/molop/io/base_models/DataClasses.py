@@ -4,6 +4,11 @@ Definitions live in domain-specific modules under :mod:`data_classes`; this
 module remains as the stable import path for existing callers.
 """
 
+from .data_classes.comments import (  # noqa: F401
+    Comment,
+    CommentContainer,
+    CommentKind,
+)
 from .data_classes.coordinates import (
     AtomInInternalCoords,  # noqa: F401
     CoordinateContainer,  # noqa: F401

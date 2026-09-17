@@ -33,6 +33,8 @@ from molop.io.base_models.ChemFileFrame import (
     _project_common_qm_fields,
 )
 from molop.io.base_models.DataClasses import (
+    Comment,
+    CommentContainer,
     ElectronicStates,
     ExcitedStateRequest,
     GeometryOptimizationStatus,
@@ -73,6 +75,10 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
     _frames_: list[FrameT] = PrivateAttr(default_factory=list)
 
     file_content: str = Field(default="", description="File content.", repr=False, exclude=True)
+    comments: CommentContainer = Field(
+        default_factory=CommentContainer,
+        description="File-level comments and annotations",
+    )
     schema_version: Literal["molop-calculation-export-v1"] = Field(
         default="molop-calculation-export-v1",
         frozen=True,
@@ -183,6 +189,25 @@ class BaseChemFile(FormatTransformMixin, BaseDataClassWithUnit, Sequence[FrameT]
 
     def __len__(self) -> int:
         return len(self._frames_)
+
+    def iter_comments(
+        self,
+        scope: Literal["file", "frame", "all"] = "all",
+    ) -> Iterator[Comment]:
+        """Iterate comments through one cross-format file-level interface.
+
+        ``file`` returns only comments attached to the file container,
+        ``frame`` returns comments attached to frames in frame order, and
+        ``all`` yields file-level comments followed by frame-level comments.
+        """
+
+        if scope not in {"file", "frame", "all"}:
+            raise ValueError("scope must be 'file', 'frame', or 'all'")
+        if scope in {"file", "all"}:
+            yield from self.comments
+        if scope in {"frame", "all"}:
+            for frame in self._frames_:
+                yield from frame.comments
 
     def append(
         self,

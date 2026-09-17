@@ -1,5 +1,6 @@
 """Domain-specific structured calculation data classes."""
 
+from .comments import Comment, CommentContainer, CommentKind
 from .coordinates import (
     AtomInInternalCoords,
     CoordinateContainer,
@@ -47,6 +48,9 @@ __all__ = [
     "AtomicPopulationSeries",
     "BondOrders",
     "ChargeSpinPopulations",
+    "Comment",
+    "CommentContainer",
+    "CommentKind",
     "Dispersions",
     "CoordinateContainer",
     "CoordinateParameter",

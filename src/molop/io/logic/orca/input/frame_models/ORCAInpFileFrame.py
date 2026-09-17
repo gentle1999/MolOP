@@ -7,7 +7,7 @@ from pydantic import Field, model_validator
 from typing_extensions import Self
 
 from molop.io.base_models.ChemFileFrame import BaseQMInputFrame
-from molop.io.base_models.DataClasses import ExplicitSolventRequest
+from molop.io.base_models.DataClasses import Comment, ExplicitSolventRequest
 from molop.io.base_models.Mixins import DiskStorageMixin, MemoryStorageMixin
 from molop.io.logic.orca.common import (
     ORCABlock,
@@ -76,11 +76,16 @@ class ORCAInpFileFrameMixin(ORCACommonQMFieldsMixin):
 
         _ = kwargs
         typed_self = cast(BaseQMInputFrame, self)
+        fallback_comments = self.comment_lines or [
+            ORCACommentLine(text=comment.text)
+            for comment in typed_self.comments
+            if comment.kind == "comment"
+        ]
         return render_orca_input_frame(
             fallback_keywords=typed_self.keywords,
             fallback_keyword_lines=self.keyword_lines,
             fallback_blocks=self.blocks,
-            fallback_comments=self.comment_lines,
+            fallback_comments=fallback_comments,
             fallback_trailing_lines=self.trailing_lines,
             geometry=self.geometry,
             keywords=keywords,
@@ -100,6 +105,26 @@ class ORCAInpFileFrameMixin(ORCACommonQMFieldsMixin):
             self.geometry,
             default_version="Any",
         )
+        return self
+
+    @model_validator(mode="after")
+    def sync_common_comments(self) -> Self:
+        typed_self = cast(BaseQMInputFrame, self)
+        if self.comment_lines:
+            for line in self.comment_lines:
+                typed_self.comments.ensure(
+                    Comment(
+                        text=line.text,
+                        marker="#",
+                        source_format="orcainp",
+                    )
+                )
+        elif typed_self.comments:
+            self.comment_lines = [
+                ORCACommentLine(text=comment.text)
+                for comment in typed_self.comments
+                if comment.kind == "comment"
+            ]
         return self
 
 

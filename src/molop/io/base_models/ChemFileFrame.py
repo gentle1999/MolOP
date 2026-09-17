@@ -9,7 +9,7 @@ Description: 请填写简介
 from __future__ import annotations
 
 import os
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from io import StringIO
 from pathlib import Path
 from typing import Any, ClassVar, Generic, Literal, Protocol, TypeVar
@@ -20,6 +20,7 @@ from pint._typing import UnitLike
 from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr, computed_field, model_validator
 from rdkit import Chem
+from rdkit.Chem import rdChemReactions
 from scipy.sparse import coo_matrix
 from typing_extensions import Self
 
@@ -28,6 +29,8 @@ from molop.io.base_models.DataClasses import (
     NMR,
     BondOrders,
     ChargeSpinPopulations,
+    Comment,
+    CommentContainer,
     ElectronicStates,
     Energies,
     ExcitedStateRequest,
@@ -139,6 +142,15 @@ def _canonical_smiles_from_rdmol(rdmol: RdMol | None) -> str:
         return Chem.CanonSmiles(smiles)
     except Exception:
         return smiles
+
+
+def _mapped_rdmol_from_rdmol(rdmol: RdMol) -> RdMol:
+    """Copy an RDKit molecule and assign source-order atom maps."""
+
+    mapped = Chem.Mol(rdmol)
+    for atom_index, atom in enumerate(mapped.GetAtoms(), start=1):
+        atom.SetAtomMapNum(atom_index)
+    return mapped
 
 
 def _method_family_allows_functional(method_family: str | None) -> bool:
@@ -259,6 +271,10 @@ ChemFileFrame = TypeVar("ChemFileFrame", bound="BaseChemFileFrame")
 class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
     frame_id: int = Field(default=0, description="Frame ID")
     frame_content: str = Field(default="", repr=False, exclude=True)
+    comments: CommentContainer = Field(
+        default_factory=CommentContainer,
+        description="Frame-level comments and annotations",
+    )
     source_span: SourceSpan | None = Field(
         default=None,
         description="Optional half-open source byte, character, and line offsets",
@@ -360,6 +376,11 @@ class BaseChemFileFrame(Molecule, Generic[ChemFileFrame]):
 
     def release_frame_content(self) -> None:
         self.frame_content = ""
+
+    def iter_comments(self) -> Iterator[Comment]:
+        """Iterate frame-level comments through the common interface."""
+
+        yield from self.comments
 
 
 class BaseCoordsFrame(BaseChemFileFrame[ChemFileFrame]):
@@ -1063,6 +1084,93 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             vibration_id_resolver=self._ts_vibration_id,
             side_sampler=self._additional_pre_post_ts_side,
         )
+
+    def to_reaction(
+        self,
+        *,
+        additional: bool = False,
+        min_ratio: float = 0.6,
+        max_ratio: float = 1.4,
+        steps: int = 8,
+        sampling_method: VibrationSamplingMethod = "harmonic_potential",
+    ) -> rdChemReactions.ChemicalReaction:
+        """Build a source-order-preserving, atom-mapped RDKit reaction.
+
+        Endpoints are always obtained from :meth:`possible_pre_post_ts`. Set
+        ``additional=True`` to retain endpoint conformers and run
+        :meth:`additional_pre_post_ts` before building the reaction.
+        Every endpoint atom receives the map number ``atom_index + 1`` on a
+        copied molecule, so the input RDKit molecules are not modified. The
+        mapped copies are then added to a RDKit ``ChemicalReaction`` (one
+        template per disconnected fragment). The returned reaction can be
+        serialized directly through ``ReactionToSmiles``.
+
+        The two endpoint molecules must have the same atom count and atom
+        order. Each disconnected endpoint fragment is added as an individual
+        reactant or product template.
+        """
+
+        endpoints = self.possible_pre_post_ts(
+            show_3D=additional,
+            min_ratio=min_ratio,
+            max_ratio=max_ratio,
+            steps=steps,
+            sampling_method=sampling_method,
+        )
+
+        if additional:
+            endpoints = self.additional_pre_post_ts(
+                endpoints[0],
+                endpoints[1],
+                min_ratio=min_ratio,
+                max_ratio=max_ratio,
+                steps=steps,
+                sampling_method=sampling_method,
+            )
+
+        reactant_rdmol, product_rdmol = endpoints
+        endpoint_atom_count = reactant_rdmol.GetNumAtoms()
+        if endpoint_atom_count == 0:
+            raise ValueError("TS endpoints must contain at least one atom")
+        if product_rdmol.GetNumAtoms() != endpoint_atom_count:
+            raise ValueError("TS endpoints must contain the same number of atoms")
+
+        reactant_atomic_numbers = [atom.GetAtomicNum() for atom in reactant_rdmol.GetAtoms()]
+        product_atomic_numbers = [atom.GetAtomicNum() for atom in product_rdmol.GetAtoms()]
+        if reactant_atomic_numbers != product_atomic_numbers:
+            raise ValueError("TS endpoints must preserve the same atom order")
+        if self.atoms and reactant_atomic_numbers != self.atoms:
+            raise ValueError("TS endpoints must preserve the source frame atom order")
+
+        reaction = rdChemReactions.ChemicalReaction()
+        mapped_reactant = _mapped_rdmol_from_rdmol(reactant_rdmol)
+        mapped_product = _mapped_rdmol_from_rdmol(product_rdmol)
+        for fragment in Chem.GetMolFrags(mapped_reactant, asMols=True, sanitizeFrags=False):
+            reaction.AddReactantTemplate(fragment)
+        for fragment in Chem.GetMolFrags(mapped_product, asMols=True, sanitizeFrags=False):
+            reaction.AddProductTemplate(fragment)
+
+        return reaction
+
+    def to_mapped_rxn_smiles(
+        self,
+        *,
+        additional: bool = False,
+        min_ratio: float = 0.6,
+        max_ratio: float = 1.4,
+        steps: int = 8,
+        sampling_method: VibrationSamplingMethod = "harmonic_potential",
+    ) -> str:
+        """Build this frame's reaction and export its mapped RXN SMILES."""
+
+        reaction = self.to_reaction(
+            additional=additional,
+            min_ratio=min_ratio,
+            max_ratio=max_ratio,
+            steps=steps,
+            sampling_method=sampling_method,
+        )
+        return rdChemReactions.ReactionToSmiles(reaction, canonical=False)
 
     def save_pre_post_ts(
         self,

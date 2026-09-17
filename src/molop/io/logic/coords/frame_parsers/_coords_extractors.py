@@ -12,6 +12,7 @@ import numpy as np
 from rdkit import Chem
 from rdkit.Chem.rdDepictor import Compute2DCoords
 
+from molop.io.base_models.DataClasses import Comment, CommentContainer
 from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.coords.frame_parsers._xyz_patterns import xyz_patterns
 from molop.structure.topology import (
@@ -72,7 +73,7 @@ def extract_sdf_frame_payload(block: str) -> dict[str, Any]:
         raise FormatMismatchError("Not an SDF/MOL frame: invalid mol block.")
     formal_charges = get_formal_charges(fake_mol)
     formal_num_radicals = get_formal_num_radicals(fake_mol)
-    return {
+    payload: dict[str, Any] = {
         "atoms": [cast(Chem.Atom, atom).GetAtomicNum() for atom in fake_mol.GetAtoms()],
         "coords": fake_mol.GetConformer().GetPositions() * atom_ureg.angstrom,
         "charge": sum(formal_charges),
@@ -81,6 +82,18 @@ def extract_sdf_frame_payload(block: str) -> dict[str, Any]:
         "formal_charges": formal_charges,
         "formal_num_radicals": formal_num_radicals,
     }
+    if fake_mol.HasProp("_Name") and (name := fake_mol.GetProp("_Name").strip()):
+        payload["comments"] = CommentContainer(
+            items=[
+                Comment(
+                    text=name,
+                    kind="title",
+                    source_format="sdf",
+                    source_line=0,
+                )
+            ]
+        )
+    return payload
 
 
 def extract_smi_frame_payload(block: str) -> dict[str, Any]:

@@ -119,8 +119,8 @@ ts_frame.draw_ts_vibration_animation(file_path="ts-imaginary-mode.gif", steps=9)
 
 ```python
 try:
-    reactant, product = ts_frame.possible_pre_post_ts(show_3D=True)
-    print(reactant.GetNumAtoms(), product.GetNumAtoms())
+    mapped_rxn = ts_frame.to_mapped_rxn_smiles()
+    print(mapped_rxn)
 except ValueError as exc:
     print("前后体推断失败：", exc)
 
@@ -128,6 +128,12 @@ difference = ts_frame.to_diff_rdmol()
 if difference is not None:
     print("差异图键数：", difference.GetNumBonds())
 ```
+
+`to_reaction` 内部从 `possible_pre_post_ts` 获取前后体候选，按源原子顺序为
+每个原子写入从 1 开始的 map number，并返回 RDKit `ChemicalReaction`。
+`to_mapped_rxn_smiles()` 直接使用本 frame 构建的 Reaction，并导出非 canonical
+的 `reactants>>products` RXN SMILES。若希望请求额外采样，可调用
+`ts_frame.to_mapped_rxn_smiles(additional=True)`。
 
 ??? example "前后体与虚键差异图（图像输出）"
 
