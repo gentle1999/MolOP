@@ -16,6 +16,27 @@ from molop.utils.functions import fill_symmetric_matrix
 pt = Chem.GetPeriodicTable()
 
 
+def _normalize_archive_text(text: str) -> str:
+    """Join Gaussian archive continuations and restore valid UTF-8 sequences.
+
+    With ``surrogateescape``, a UTF-8 character split across a physical archive
+    continuation line remains represented by byte-surrogate code points even
+    after the continuation marker is removed. Re-decoding after joining restores
+    such characters and replaces any still-invalid bytes with U+FFFD, so
+    extracted metadata is safe to serialize as JSON. The original source text
+    and byte evidence are not modified.
+    """
+    normalized = text.replace("\n ", "")
+    # Preserve surrogateescape's byte carriers, but replace any other unpaired
+    # surrogate before re-decoding the normalized archive text.
+    normalized = "".join(
+        "\ufffd" if 0xD800 <= ord(char) <= 0xDFFF and not 0xDC80 <= ord(char) <= 0xDCFF else char
+        for char in normalized
+    )
+    raw_bytes = normalized.encode("utf-8", errors="surrogateescape")
+    return raw_bytes.decode("utf-8", errors="replace")
+
+
 def extract_archive_tail_block(content: str) -> tuple[str | None, str]:
     located = g16_log_patterns.ARCHIVE_TAIL.locate_content(content)
     if located is None:
@@ -224,7 +245,7 @@ def parse_archive_tail_metadata(
     include_coords: bool = False,
 ) -> tuple[dict[str, Any], str]:
     tail_dict: dict[str, Any] = {}
-    focus_content = raw_tail_text.replace("\n ", "")
+    focus_content = _normalize_archive_text(raw_tail_text)
 
     focus_content = _parse_and_update_scalar(
         focus_content,
