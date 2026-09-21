@@ -29,6 +29,7 @@ def _parse_options_from_kwargs(kwargs: dict[str, Any]) -> ParseOptions:
             only_last_frame=kwargs.pop("only_last_frame", False),
             capture_source_evidence=kwargs.pop("capture_source_evidence", False),
             source_encoding=kwargs.pop("source_encoding", "utf-8"),
+            source_decode_errors=kwargs.pop("source_decode_errors", "strict"),
             release_file_content=kwargs.pop("release_file_content", True),
         )
     ).resolved()
@@ -55,6 +56,7 @@ class ParserMemoryReader:
             only_last_frame=options.only_last_frame,
             capture_source_evidence=options.capture_source_evidence,
             source_encoding=options.source_encoding,
+            source_decode_errors=options.source_decode_errors,
             parse_options=options,
         )
 
@@ -124,6 +126,7 @@ class ParserDiskReader:
                 only_last_frame=kwargs.pop("only_last_frame", False),
                 capture_source_evidence=kwargs.pop("capture_source_evidence", False),
                 source_encoding=kwargs.pop("source_encoding", "utf-8"),
+                source_decode_errors=kwargs.pop("source_decode_errors", "strict"),
                 release_file_content=kwargs.pop("release_file_content", True),
             )
         ).resolved()
@@ -134,6 +137,7 @@ class ParserDiskReader:
             only_last_frame=options.only_last_frame,
             capture_source_evidence=options.capture_source_evidence,
             source_encoding=options.source_encoding,
+            source_decode_errors=options.source_decode_errors,
             parse_options=options,
         )
         value = parser.parse(

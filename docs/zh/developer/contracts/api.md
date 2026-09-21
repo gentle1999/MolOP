@@ -45,6 +45,18 @@ parsed_bytes = AutoBytesParser(raw_bytes, parser_detection="xyz")
 file 级对象。`AutoTextParser` 和 `AutoBytesParser` 用于显式区分输入类型。源数据没有文件扩展名
 时应使用 `parser_detection`；默认的 `"auto"` 会尝试已注册的内存 reader 及其内容探测。二进制
 解析使用 `source_encoding` 解码；设置 `capture_source_evidence=True` 时仍保留精确源字节信息。
+默认严格解码。对仅有局部非法字节的 UTF-8 文件，可通过 `ParseOptions(source_decode_errors="surrogateescape")`
+保留这些原始字节并继续解析；此模式支持精确原文偏移，不会像 `ignore` 一样丢弃字节。
+
+```python
+from molop import AutoParser, ParseOptions
+
+batch = AutoParser(
+    "calculation.log",
+    parser_detection="g16log",
+    parse_options=ParseOptions(source_decode_errors="surrogateescape"),
+)
+```
 
 ## `AutoParser`
 

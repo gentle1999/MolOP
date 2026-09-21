@@ -36,7 +36,8 @@ molop [全局选项] parse PATTERN [解析选项] 操作 [操作参数] ...
 | `--only-extract-structure` | 关闭 | 跳过能量、频率等非结构结果 |
 | `--only-last-frame` | 关闭 | 每个文件只保留最后一帧 |
 | `--capture-source-evidence` | 关闭 | 捕获格式支持的原文位置、摘要与 parser provenance |
-| `--source-encoding` | `utf-8` | 严格文本解码和原文偏移所用编码 |
+| `--source-encoding` | `utf-8` | 文本解码和原文偏移所用编码 |
+| `--source-decode-errors` | `strict` | `strict` 遇到非法字节时报错；`surrogateescape` 保留非法字节并继续解析 |
 | `--release-file-content / --keep-file-content` | 释放 | 解析后释放或保留原文文本 |
 | `--force-unit-transform / --no-force-unit-transform` | 配置值 | 覆盖本次解析的单位转换策略 |
 | `--graph-reconstruction-backend` | 配置值 | 本次解析使用 `cpp` 或 `python` 图重建后端 |

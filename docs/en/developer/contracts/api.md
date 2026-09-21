@@ -50,6 +50,20 @@ stream and returns a memory-backed file model. `AutoTextParser` and
 source has no filename extension; `"auto"` tries the registered in-memory
 readers and their content probes. Binary parsing decodes with `source_encoding`
 and preserves exact source bytes when `capture_source_evidence=True`.
+Decoding is strict by default. For UTF-8 files with only localized invalid
+bytes, `ParseOptions(source_decode_errors="surrogateescape")` preserves those
+bytes and allows parsing to continue, while retaining exact source offsets
+(unlike `ignore`, no bytes are discarded).
+
+```python
+from molop import AutoParser, ParseOptions
+
+batch = AutoParser(
+    "calculation.log",
+    parser_detection="g16log",
+    parse_options=ParseOptions(source_decode_errors="surrogateescape"),
+)
+```
 
 ## `AutoParser`
 

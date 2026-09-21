@@ -56,6 +56,7 @@ class BatchInputConfig(CliModel):
     only_last_frame: bool = False
     capture_source_evidence: bool = False
     source_encoding: str = "utf-8"
+    source_decode_errors: Literal["strict", "surrogateescape"] = "strict"
     release_file_content: bool = True
     force_unit_transform: bool | None = None
     graph_reconstruction_backend: Literal["cpp", "python"] | None = None
@@ -72,6 +73,7 @@ class BatchInputConfig(CliModel):
             only_last_frame=self.only_last_frame,
             capture_source_evidence=self.capture_source_evidence,
             source_encoding=self.source_encoding,
+            source_decode_errors=self.source_decode_errors,
             release_file_content=self.release_file_content,
             force_unit_transform=self.force_unit_transform,
             graph_reconstruction_backend=self.graph_reconstruction_backend,

@@ -82,6 +82,11 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
     only_last_frame: bool = Field(default=False, exclude=True, repr=False)
     capture_source_evidence: bool = Field(default=False, exclude=True, repr=False)
     source_encoding: str = Field(default="utf-8", min_length=1, exclude=True, repr=False)
+    source_decode_errors: Literal["strict", "surrogateescape"] = Field(
+        default="strict",
+        exclude=True,
+        repr=False,
+    )
     parse_options: ParseOptions | None = Field(default=None, exclude=True, repr=False)
 
     @staticmethod
@@ -115,6 +120,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
                 "only_last_frame": options.only_last_frame,
                 "capture_source_evidence": options.capture_source_evidence,
                 "source_encoding": source_encoding,
+                "source_decode_errors": options.source_decode_errors,
             },
             "molop": {
                 "force_unit_transform": options.force_unit_transform,
@@ -144,14 +150,22 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
         source: str,
         source_type: Literal["file_path", "string"],
     ) -> DecodedSource:
-        """Load and strictly decode one parser source without losing byte offsets."""
+        """Load and decode one parser source without losing byte offsets."""
 
         if source_type == "file_path":
             self._file_path = source
-            return DecodedSource.from_bytes(Path(source).read_bytes(), self.source_encoding)
+            return DecodedSource.from_bytes(
+                Path(source).read_bytes(),
+                self.source_encoding,
+                errors=self.source_decode_errors,
+            )
         if source_type == "string":
             self._file_path = None
-            return DecodedSource.from_text(source, self.source_encoding)
+            return DecodedSource.from_text(
+                source,
+                self.source_encoding,
+                errors=self.source_decode_errors,
+            )
         raise ValueError(f"Invalid source_type: {source_type}")
 
     @staticmethod
@@ -806,6 +820,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
                 only_last_frame=self.only_last_frame,
                 capture_source_evidence=self.capture_source_evidence,
                 source_encoding=decoded_source.encoding,
+                source_decode_errors=decoded_source.decode_errors,
             ),
             total_charge=final_charge,
             total_multiplicity=final_multiplicity,
@@ -813,6 +828,7 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
             only_last_frame=self.only_last_frame,
             capture_source_evidence=self.capture_source_evidence,
             source_encoding=decoded_source.encoding,
+            source_decode_errors=decoded_source.decode_errors,
         ).resolved()
         parser_provenance = self._snapshot_parser_provenance(
             charge_override=final_charge,
@@ -1068,7 +1084,11 @@ class BaseFileParserMemory(BaseFileParser[FileT, FrameT, FrameParserT]):
         """Parse already-loaded source bytes without a filesystem round trip."""
 
         return self.parse_decoded_source(
-            DecodedSource.from_bytes(raw_bytes, self.source_encoding),
+            DecodedSource.from_bytes(
+                raw_bytes,
+                self.source_encoding,
+                errors=self.source_decode_errors,
+            ),
             total_charge=total_charge,
             total_multiplicity=total_multiplicity,
             release_file_content=release_file_content,
@@ -1152,7 +1172,11 @@ class BaseFileParserDisk(BaseFileParser[FileT, FrameT, FrameParserT]):
         """Parse loaded bytes while retaining a disk source identity."""
 
         return self.parse_decoded_source(
-            DecodedSource.from_bytes(raw_bytes, self.source_encoding),
+            DecodedSource.from_bytes(
+                raw_bytes,
+                self.source_encoding,
+                errors=self.source_decode_errors,
+            ),
             file_path=file_path,
             total_charge=total_charge,
             total_multiplicity=total_multiplicity,

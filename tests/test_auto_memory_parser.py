@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from molop import AutoBytesParser, AutoMemoryParser, AutoTextParser
+from molop import AutoBytesParser, AutoMemoryParser, AutoTextParser, ParseOptions
 from molop.io.base_models.ChemFile import BaseChemFile
 from molop.io.codec_exceptions import FormatMismatchError
 
@@ -39,6 +39,42 @@ def test_auto_bytes_parser_preserves_loaded_source_identity() -> None:
     assert parsed.file_content == raw_bytes.decode("utf-8")
     assert parsed[0].source_block_sha256 == sha256(raw_bytes).hexdigest()
     assert parsed[0].source_span.end_byte == len(raw_bytes)
+
+
+def test_auto_bytes_parser_can_preserve_local_invalid_utf8_bytes() -> None:
+    fixture = Path("tests/test_files/g16log/H2O.log")
+    raw_bytes = fixture.read_bytes().replace(
+        b"Entering Gaussian System",
+        b"Entering Gaussian System\xe2\n \x80\x93",
+        1,
+    )
+
+    with pytest.raises(UnicodeDecodeError):
+        AutoBytesParser(raw_bytes)
+
+    parsed = AutoBytesParser(
+        raw_bytes,
+        parse_options=ParseOptions(
+            capture_source_evidence=True,
+            source_decode_errors="surrogateescape",
+            release_file_content=False,
+        ),
+    )
+
+    assert parsed.source_format == "g16log"
+    assert parsed.artifact_sha256 == sha256(raw_bytes).hexdigest()
+    assert parsed.artifact_size_bytes == len(raw_bytes)
+    assert parsed.file_content.encode("utf-8", errors="surrogateescape") == raw_bytes
+    frame = parsed[0]
+    assert frame.source_span is not None
+    assert (
+        frame.source_block_sha256
+        == sha256(raw_bytes[frame.source_span.start_byte : frame.source_span.end_byte]).hexdigest()
+    )
+    assert (
+        parsed.parser_provenance.effective_config["parser"]["source_decode_errors"]
+        == "surrogateescape"
+    )
 
 
 def test_auto_memory_parser_accepts_text_and_binary_streams() -> None:

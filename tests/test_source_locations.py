@@ -85,6 +85,20 @@ def test_decoded_source_uses_strict_decoding() -> None:
         DecodedSource.from_bytes(b"\xff", "utf-8")
 
 
+def test_surrogateescape_preserves_invalid_bytes_and_exact_offsets() -> None:
+    raw_bytes = b"alpha\xffbeta\n"
+    source = DecodedSource.from_bytes(raw_bytes, errors="surrogateescape")
+    block = LocatedTextBlock(0, len(source.text))
+
+    source.prepare_blocks((block,))
+    span = source.span(block)
+
+    assert "\udcff" in source.text
+    assert span.start_byte == 0
+    assert span.end_byte == len(raw_bytes)
+    assert source.block_sha256(span) == sha256(raw_bytes).hexdigest()
+
+
 def test_located_source_segment_rejects_frames_outside_segment() -> None:
     with pytest.raises(ValueError, match="contained by their segment"):
         LocatedSourceSegment(

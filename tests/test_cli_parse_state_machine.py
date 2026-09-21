@@ -85,6 +85,7 @@ def test_parse_help_exposes_public_parse_options() -> None:
         "--only-last-frame",
         "--capture-source-evidence",
         "--source-encoding",
+        "--source-decode-errors",
         "--keep-file-content",
         "--force-unit-transform",
         "--graph-reconstruction-backend",
@@ -312,6 +313,7 @@ def test_parse_options_are_forwarded_as_one_immutable_snapshot(
         only_last_frame=True,
         capture_source_evidence=True,
         source_encoding="utf-16",
+        source_decode_errors="surrogateescape",
         release_file_content=False,
         force_unit_transform=True,
         graph_reconstruction_backend="python",
@@ -332,11 +334,32 @@ def test_parse_options_are_forwarded_as_one_immutable_snapshot(
     assert options.only_last_frame is True
     assert options.capture_source_evidence is True
     assert options.source_encoding == "utf-16"
+    assert options.source_decode_errors == "surrogateescape"
     assert options.release_file_content is False
     assert options.force_unit_transform is True
     assert options.graph_reconstruction_backend == "python"
     assert options.reconstruction_failure_policy == "return_suspicious"
     assert options.make_dative_bonds is False
+
+
+def test_source_decode_error_policy_is_available_from_cli(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def _capture_auto_parser(_file_path, **kwargs):
+        captured.update(kwargs)
+        return FileBatchModelDisk()
+
+    monkeypatch.setattr(state_machine, "AutoParser", _capture_auto_parser)
+    result = runner.invoke(
+        app,
+        ["-q", "parse", "--source-decode-errors", "surrogateescape", "dummy.log"],
+    )
+
+    assert result.exit_code == 0, result.output
+    options = captured["parse_options"]
+    assert options.source_decode_errors == "surrogateescape"
 
 
 def test_parse_report_cannot_be_chained_before_reading_files(

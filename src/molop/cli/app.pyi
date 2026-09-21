@@ -26,6 +26,7 @@ def execute_parse_chain(
     only_last_frame: bool = False,
     capture_source_evidence: bool = False,
     source_encoding: str = "utf-8",
+    source_decode_errors: Literal["strict", "surrogateescape"] = "strict",
     release_file_content: bool = True,
     force_unit_transform: bool | None = None,
     graph_reconstruction_backend: Literal["cpp", "python"] | None = None,

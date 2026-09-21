@@ -181,7 +181,7 @@ class LocatedSourceSegment:
 
 @dataclass(slots=True)
 class DecodedSource:
-    """One strictly decoded artifact with exact character-to-byte mapping."""
+    """One decoded artifact with exact character-to-byte mapping."""
 
     raw_bytes: bytes
     text: str
@@ -189,6 +189,7 @@ class DecodedSource:
     offset_encoding: str
     content_start_byte: int
     byte_offsets: dict[int, int] = field(default_factory=dict)
+    decode_errors: Literal["strict", "surrogateescape"] = "strict"
     _line_starts_cache: tuple[int, ...] | None = field(default=None, init=False, repr=False)
 
     @staticmethod
@@ -226,26 +227,51 @@ class DecodedSource:
         return tuple(starts)
 
     @classmethod
-    def from_bytes(cls, raw_bytes: bytes, encoding: str = "utf-8") -> DecodedSource:
+    def from_bytes(
+        cls,
+        raw_bytes: bytes,
+        encoding: str = "utf-8",
+        errors: Literal["strict", "surrogateescape"] = "strict",
+    ) -> DecodedSource:
+        if errors not in {"strict", "surrogateescape"}:
+            raise ValueError("errors must be 'strict' or 'surrogateescape'")
         canonical_encoding = codecs.lookup(encoding).name
-        text = raw_bytes.decode(canonical_encoding, errors="strict")
+        text = raw_bytes.decode(canonical_encoding, errors=errors)
         offset_encoding, content_start_byte = cls._offset_codec(
             raw_bytes,
             canonical_encoding,
         )
+        if errors == "surrogateescape":
+            encoder = codecs.getincrementalencoder(offset_encoding)(errors=errors)
+            if encoder.encode(text, final=True) != raw_bytes[content_start_byte:]:
+                raise ValueError(
+                    f"surrogateescape cannot preserve exact source bytes for {encoding!r}"
+                )
         return cls(
             raw_bytes=raw_bytes,
             text=text,
             encoding=canonical_encoding,
             offset_encoding=offset_encoding,
             content_start_byte=content_start_byte,
+            decode_errors=errors,
             byte_offsets={0: content_start_byte},
         )
 
     @classmethod
-    def from_text(cls, text: str, encoding: str = "utf-8") -> DecodedSource:
+    def from_text(
+        cls,
+        text: str,
+        encoding: str = "utf-8",
+        errors: Literal["strict", "surrogateescape"] = "strict",
+    ) -> DecodedSource:
+        if errors not in {"strict", "surrogateescape"}:
+            raise ValueError("errors must be 'strict' or 'surrogateescape'")
         canonical_encoding = codecs.lookup(encoding).name
-        return cls.from_bytes(text.encode(canonical_encoding), canonical_encoding)
+        return cls.from_bytes(
+            text.encode(canonical_encoding, errors=errors),
+            canonical_encoding,
+            errors=errors,
+        )
 
     def prepare_blocks(self, blocks: tuple[LocatedTextBlock, ...]) -> None:
         positions = sorted(
@@ -259,7 +285,7 @@ class DecodedSource:
         if not positions:
             return
 
-        encoder = codecs.getincrementalencoder(self.offset_encoding)(errors="strict")
+        encoder = codecs.getincrementalencoder(self.offset_encoding)(errors=self.decode_errors)
         previous_char = 0
         previous_byte = self.content_start_byte
         for position in positions:

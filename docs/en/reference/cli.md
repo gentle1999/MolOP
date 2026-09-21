@@ -37,7 +37,8 @@ needed.
 | `--only-extract-structure` | off | Skip energies, frequencies, and other non-structural results |
 | `--only-last-frame` | off | Retain only the final frame from each file |
 | `--capture-source-evidence` | off | Capture supported source spans, hashes, and parser provenance |
-| `--source-encoding` | `utf-8` | Strict text decoding and source-offset encoding |
+| `--source-encoding` | `utf-8` | Text decoding and source-offset encoding |
+| `--source-decode-errors` | `strict` | `strict` fails on invalid bytes; `surrogateescape` preserves them and continues parsing |
 | `--release-file-content / --keep-file-content` | release | Release or retain raw source text after parsing |
 | `--force-unit-transform / --no-force-unit-transform` | configured value | Override unit conversion for this parse |
 | `--graph-reconstruction-backend` | configured value | Use the `cpp` or `python` graph backend for this parse |

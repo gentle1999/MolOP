@@ -63,6 +63,7 @@ def test_parser_provenance_captures_complete_effective_config() -> None:
         "only_last_frame": True,
         "capture_source_evidence": True,
         "source_encoding": "utf-8",
+        "source_decode_errors": "strict",
     }
     assert provenance.effective_config["molop"] == {
         "force_unit_transform": molopconfig.force_unit_transform,

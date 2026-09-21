@@ -43,6 +43,11 @@ class ParseOptions:
     reconstruction_failure_policy: Literal["raise", "return_suspicious"] | None = None
     make_dative_bonds: bool | None = None
     make_stereochemistry: bool | None = None
+    source_decode_errors: Literal["strict", "surrogateescape"] = "strict"
+
+    def __post_init__(self) -> None:
+        if self.source_decode_errors not in {"strict", "surrogateescape"}:
+            raise ValueError("source_decode_errors must be 'strict' or 'surrogateescape'")
 
     def resolved(self) -> ParseOptions:
         """Snapshot process-global defaults that affect parse-time model behavior."""

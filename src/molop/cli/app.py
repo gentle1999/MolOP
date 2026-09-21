@@ -502,7 +502,14 @@ def completion_install(shell: Literal["auto", "bash", "zsh", "fish"] = "auto") -
     "--source-encoding",
     default="utf-8",
     show_default=True,
-    help="Text encoding used for strict source decoding.",
+    help="Text encoding used to decode source text and calculate byte offsets.",
+)
+@click.option(
+    "--source-decode-errors",
+    type=click.Choice(["strict", "surrogateescape"]),
+    default="strict",
+    show_default=True,
+    help="How to handle undecodable bytes while preserving exact source offsets.",
 )
 @click.option(
     "--release-file-content/--keep-file-content",
@@ -554,6 +561,7 @@ def _parse_callback(
     only_last_frame: bool = False,
     capture_source_evidence: bool = False,
     source_encoding: str = "utf-8",
+    source_decode_errors: Literal["strict", "surrogateescape"] = "strict",
     release_file_content: bool = True,
     force_unit_transform: bool | None = None,
     graph_reconstruction_backend: Literal["cpp", "python"] | None = None,
@@ -582,6 +590,7 @@ def execute_parse_chain(
     only_last_frame: bool = False,
     capture_source_evidence: bool = False,
     source_encoding: str = "utf-8",
+    source_decode_errors: Literal["strict", "surrogateescape"] = "strict",
     release_file_content: bool = True,
     force_unit_transform: bool | None = None,
     graph_reconstruction_backend: Literal["cpp", "python"] | None = None,
@@ -604,6 +613,7 @@ def execute_parse_chain(
                 only_last_frame=only_last_frame,
                 capture_source_evidence=capture_source_evidence,
                 source_encoding=source_encoding,
+                source_decode_errors=source_decode_errors,
                 release_file_content=release_file_content,
                 force_unit_transform=force_unit_transform,
                 graph_reconstruction_backend=graph_reconstruction_backend,

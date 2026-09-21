@@ -182,7 +182,14 @@ def _parse_loaded_source(
     hint_format = None if parser_detection == "auto" else parser_detection
     readers = codec_registry.select_memory_reader(hint_format=hint_format)
     if parser_detection == "auto":
-        probe_text = source if isinstance(source, str) else source.decode(options.source_encoding)
+        probe_text = (
+            source
+            if isinstance(source, str)
+            else source.decode(
+                options.source_encoding,
+                errors=options.source_decode_errors,
+            )
+        )
         readers = _filter_readers_by_text(probe_text, readers)
     return _parse_with_readers(
         source,
