@@ -10,6 +10,7 @@ explanation of a concept.
 | Configuration defaults and global policies | [Configuration](config.md) | Logging, parallelism, structure recovery, and drawing |
 | CLI parameters and chain rules | [CLI command reference](cli.md) | Global options, parse options, operations, and writer arguments |
 | Format capabilities | [Format overview](format_support.md) | Reader/writer status, scientific fields, and limits |
+| Understand containers and compare programs | [Data containers and cross-QM semantics](data_model.md) | Public containers, field relationships, units, identity and cross-QM rules |
 | One format in detail | [Format reference](formats/xyz.md) | Format-specific reading, writing, and boundaries |
 | A scientific field | [Scientific field index](model_fields.md) | Find common fields by property |
 | Python signatures and members | [Python API](api/index.md) | Core entry points, module APIs, and generated source reference |

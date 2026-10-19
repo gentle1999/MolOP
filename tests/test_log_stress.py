@@ -21,9 +21,9 @@ LOG_DIR = ROOT / "tests" / "test_files" / "g16log"
 LOG_PATHS = tuple(path.relative_to(ROOT).as_posix() for path in sorted(LOG_DIR.glob("*.log")))
 EXPECTED_FILE_COUNT = len(LOG_PATHS)
 EXPECTED_FRAME_COUNT = sum(
-    len(locate_g16_section_frames(path.read_text(errors="replace"), section))
+    len(locate_g16_section_frames(path.read_text(errors="surrogateescape"), section))
     for path in sorted(LOG_DIR.glob("*.log"))
-    for section in locate_g16_sections(path.read_text(errors="replace"))
+    for section in locate_g16_sections(path.read_text(errors="surrogateescape"))
 )
 
 
@@ -33,12 +33,17 @@ _STRESS_WORKER = textwrap.dedent(
     import sys
 
     from molop import AutoParser, molopconfig
+    from molop.io.codec_types import ParseOptions
 
     molopconfig.show_progress_bar = False
     assert molopconfig.prewarm_topologies is False
     n_jobs = int(sys.argv[1])
     paths = %r
-    batch = AutoParser(paths, n_jobs=n_jobs, only_last_frame=False)
+    # Two legacy logs wrap UTF-8 characters across archive lines. Preserve
+    # every source byte while using the same decoding policy as the count above.
+    batch = AutoParser(paths, n_jobs=n_jobs, parse_options=ParseOptions(
+        only_last_frame=False, source_decode_errors="surrogateescape",
+    ))
     summary = batch.to_summary_df(frame="all", n_jobs=n_jobs)
     rendered = batch.format_transform("smi", frame="all", n_jobs=n_jobs)
     frame_count = sum(len(file_model) for file_model in batch)

@@ -1,3 +1,11 @@
+"""ORCA output grammar.
+
+Basis: ORCA-OUTPUT and the output fixture manifest. See
+``docs/en/reference/formats/orcaout.md`` for verified
+official manuals and tutorials. For field mappings and MolOP conventions, see
+``docs/en/reference/data_model.md``.
+"""
+
 from __future__ import annotations
 
 from molop.io.base_models.SearchPattern import MolOPPattern
@@ -8,6 +16,128 @@ ORCA_FLOAT_PATTERN = r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[EeDd][-+]?\d+)?"
 
 class ORCALogPatterns:
     """ORCA output grammar fragments used by file and frame parsers."""
+
+    SECTION_HEADER = MolOPPattern(
+        content_pattern=r"^[ \t]*(?P<title>[A-Z][A-Z0-9 ()*/=.,:+-]*)[ \t]*\r?\n"
+        r"[ \t]*-{3,}[ \t]*$",
+        content_repeat=0,
+    )
+
+    # ORCA-OUTPUT / ORCA-METHOD: ORBITAL ENERGIES, including optional Irrep.
+    HF_TYPE = MolOPPattern(
+        content_pattern=r"(?i)Hartree-Fock type\s+HFTyp\s+\.{3,}\s+(?P<kind>\S+)",
+        content_repeat=0,
+    )
+    ROHF_CASE = MolOPPattern(content_pattern=r"(?i)\bROHF_case\s+(?P<case>\w+)", content_repeat=0)
+    REFERENCE_MULTIPLICITY = MolOPPattern(
+        content_pattern=r"Multiplicity\s+Mult\s+\.{3,}\s+(?P<value>\d+)",
+        content_repeat=0,
+    )
+    ORBITAL_ROW = MolOPPattern(
+        content_pattern=rf"^[ \t]*(?P<index>\d+)[ \t]+(?P<occupancy>{ORCA_FLOAT_PATTERN})"
+        rf"[ \t]+(?P<energy>{ORCA_FLOAT_PATTERN})[ \t]+{ORCA_FLOAT_PATTERN}"
+        r"(?:[ \t]+(?P<symmetry>\S+))?[ \t]*$",
+        content_repeat=0,
+    )
+    # ORCA-POP: thresholded B(atom, atom) rows may contain multiple pairs.
+    MAYER_THRESHOLD = MolOPPattern(
+        content_pattern=rf"Mayer bond orders larger than\s+(?P<value>{ORCA_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
+    MAYER_BOND = MolOPPattern(
+        content_pattern=rf"B\(\s*(?P<first>\d+)-[A-Za-z]+\s*,\s*"
+        rf"(?P<second>\d+)-[A-Za-z]+\s*\)\s*:\s*(?P<value>{ORCA_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
+    # ORCA-SPIN: observed expectation, not the adjacent ideal S*(S+1) value.
+    SPIN_SQUARE = MolOPPattern(
+        content_pattern=rf"Expectation value of <S\*\*2>\s*:\s*"
+        rf"(?P<value>{ORCA_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
+    # ORCA-THERMO: printed energy terms (including T*S) retain their labels.
+    FREQUENCY_SCALE = MolOPPattern(
+        content_pattern=rf"Scaling factor for frequencies\s*=\s*(?P<value>{ORCA_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
+    THERMAL_CUTOFF = MolOPPattern(
+        content_pattern=rf"Cut-Off Frequency\s*\.{{3}}\s*(?P<value>{ORCA_FLOAT_PATTERN})\s+cm\^-1",
+        content_repeat=0,
+    )
+    THERMAL_ROW = MolOPPattern(
+        content_pattern=rf"^[ \t]*(?P<label>[A-Za-z][A-Za-z ()-]*?)"
+        rf"[ \t]+(?:\.{{3}}[ \t]*)?(?P<value>{ORCA_FLOAT_PATTERN})[ \t]+"
+        r"(?P<unit>Eh|K|atm|AMU)\b",
+        content_repeat=0,
+    )
+    GIBBS_CORRECTION = MolOPPattern(
+        content_pattern=rf"G-E\(el\)\s*\.{{3}}\s*(?P<value>{ORCA_FLOAT_PATTERN})\s+Eh",
+        content_repeat=0,
+    )
+    ROTATIONAL_CONSTANTS = MolOPPattern(
+        content_pattern=rf"Rotational constants in cm-1:\s*(?P<x>{ORCA_FLOAT_PATTERN})"
+        rf"\s+(?P<y>{ORCA_FLOAT_PATTERN})\s+(?P<z>{ORCA_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
+    SYMMETRY_NUMBER = MolOPPattern(
+        content_pattern=r"Symmetry Number:\s*(?P<value>\d+)",
+        content_repeat=0,
+    )
+    # ORCA-VIB: blocked normal modes and source-indexed IR/Raman rows.
+    MODE_COLUMNS = MolOPPattern(
+        content_pattern=r"^[ \t]*(?P<indices>\d+(?:[ \t]+\d+)*)[ \t]*$",
+        content_repeat=0,
+    )
+    MODE_ROW = MolOPPattern(
+        content_pattern=rf"^[ \t]*(?P<index>\d+)[ \t]+"
+        rf"(?P<values>{ORCA_FLOAT_PATTERN}(?:[ \t]+{ORCA_FLOAT_PATTERN})*)[ \t]*$",
+        content_repeat=0,
+    )
+    SPECTRUM_ROW = MolOPPattern(
+        content_pattern=rf"^[ \t]*(?P<index>\d+):[ \t]+(?P<frequency>{ORCA_FLOAT_PATTERN})"
+        rf"[ \t]+(?P<values>{ORCA_FLOAT_PATTERN}(?:[ \t]+{ORCA_FLOAT_PATTERN})*)",
+        content_repeat=0,
+    )
+    # ORCA-NMR: zero-based output indices; fixtures define exact row spelling.
+    NMR_NUCLEUS = MolOPPattern(
+        content_pattern=r"^[ \t]*Nucleus\s+(?P<index>\d+)\s*(?P<symbol>[A-Z][a-z]?)\s*:",
+        content_repeat=0,
+    )
+    TENSOR_ROW = MolOPPattern(
+        content_pattern=rf"^[ \t]*(?P<x>{ORCA_FLOAT_PATTERN})[ \t]+"
+        rf"(?P<y>{ORCA_FLOAT_PATTERN})[ \t]+(?P<z>{ORCA_FLOAT_PATTERN})[ \t]*$",
+        content_repeat=0,
+    )
+    SHIELDING_PRINCIPAL_VALUES = MolOPPattern(
+        content_pattern=rf"^[ \t]*Total[ \t]+(?P<x>{ORCA_FLOAT_PATTERN})[ \t]+"
+        rf"(?P<y>{ORCA_FLOAT_PATTERN})[ \t]+(?P<z>{ORCA_FLOAT_PATTERN})"
+        rf"[ \t]+iso=\s*(?P<isotropic>{ORCA_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
+    SHIELDING_SUMMARY_ROW = MolOPPattern(
+        content_pattern=rf"^[ \t]*(?P<index>\d+)[ \t]+[A-Z][a-z]?[ \t]+"
+        rf"(?P<isotropic>{ORCA_FLOAT_PATTERN})[ \t]+(?P<anisotropy>{ORCA_FLOAT_PATTERN})[ \t]*$",
+        content_repeat=0,
+    )
+    NMR_GAUGE = MolOPPattern(
+        content_pattern=r"Choice of magnetic origin\s*\.{3}\s*(?P<gauge>\S+)",
+        content_repeat=0,
+    )
+    COUPLING_ISOTROPIC = MolOPPattern(
+        content_pattern=rf"J\[\s*(?P<first>\d+)\s*,\s*(?P<second>\d+)\s*\]"
+        rf"\((?P<component>DSO|PSO|FC|SD|Total)\)[^\r\n]*?"
+        rf"iso=\s*(?P<value>{ORCA_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
+    COUPLING_COLUMNS = MolOPPattern(
+        content_pattern=r"(?P<index>\d+)[ \t]+[A-Z][a-z]?",
+        content_repeat=0,
+    )
+    COUPLING_ROW = MolOPPattern(
+        content_pattern=rf"^[ \t]*(?P<index>\d+)[ \t]+[A-Z][a-z]?[ \t]+"
+        rf"(?P<values>{ORCA_FLOAT_PATTERN}(?:[ \t]+{ORCA_FLOAT_PATTERN})*)[ \t]*$",
+        content_repeat=0,
+    )
 
     FLOAT = MolOPPattern(content_pattern=rf"(?P<value>{ORCA_FLOAT_PATTERN})", content_repeat=0)
     BANNER = MolOPPattern(content_pattern=r"(?i)\*\s+O\s+R\s+C\s+A\s+\*")
@@ -26,6 +156,7 @@ class ORCALogPatterns:
     INPUT_NAME = MolOPPattern(content_pattern=r"^\s*NAME\s*=\s*(?P<name>.+?)\s*$")
     INPUT_LINE = MolOPPattern(content_pattern=r"^\|\s*\d+>\s?(?P<line>.*)$", content_repeat=0)
 
+    # ORCA-COORD: header units apply to coordinates; MASS in the A.U. table is amu.
     COORD_HEADER = MolOPPattern(
         content_pattern=r"^-+\s*\nCARTESIAN COORDINATES \(ANGSTROEM\)\s*\n-+\s*$",
         content_repeat=0,
@@ -43,11 +174,12 @@ class ORCALogPatterns:
         content_repeat=0,
     )
     COORD_AU_MASS_ROW = MolOPPattern(
-        content_pattern=rf"^[ \t]*(?P<index>\d+)[ \t]+[A-Z][a-z]?[ \t]+"
+        content_pattern=rf"^[ \t]*(?P<index>\d+)[ \t]+(?P<symbol>[A-Z][a-z]?)[ \t]+"
         rf"{ORCA_FLOAT_PATTERN}[ \t]+\d+[ \t]+(?P<mass>{ORCA_FLOAT_PATTERN})[ \t]+"
         rf"{ORCA_FLOAT_PATTERN}[ \t]+{ORCA_FLOAT_PATTERN}[ \t]+{ORCA_FLOAT_PATTERN}[ \t]*$",
         content_repeat=0,
     )
+    # ORCA-ENERGY: totals, references and correlation corrections are distinct.
     FINAL_ENERGY = MolOPPattern(
         content_pattern=rf"FINAL SINGLE POINT ENERGY\s+(?P<energy>{ORCA_FLOAT_PATTERN})",
         content_repeat=0,
@@ -115,12 +247,13 @@ class ORCALogPatterns:
         rf"(?P<energy>{ORCA_FLOAT_PATTERN})",
         content_repeat=0,
     )
+    # ORCA-ENERGY / ORCA-OPT: analytic, numerical and MP2 gradient variants.
     GRADIENT_HEADER = MolOPPattern(
         content_pattern=r"^-+\s*\nCARTESIAN GRADIENT(?: \(NUMERICAL\))?\s*\n-+\s*$",
         content_repeat=0,
     )
     GRADIENT_ROW = MolOPPattern(
-        content_pattern=rf"^\s*\d+\s+[A-Z][a-z]?\s*:\s+"
+        content_pattern=rf"^\s*(?P<index>\d+)\s+(?P<symbol>[A-Z][a-z]?)\s*:\s+"
         rf"(?P<x>{ORCA_FLOAT_PATTERN})\s+"
         rf"(?P<y>{ORCA_FLOAT_PATTERN})\s+"
         rf"(?P<z>{ORCA_FLOAT_PATTERN})\s*$",
@@ -131,7 +264,7 @@ class ORCALogPatterns:
         content_repeat=0,
     )
     MP2_GRADIENT_ROW = MolOPPattern(
-        content_pattern=rf"^\s*\d+\s*:\s*"
+        content_pattern=rf"^\s*(?P<index>\d+)\s*:\s*"
         rf"(?P<x>{ORCA_FLOAT_PATTERN})\s+"
         rf"(?P<y>{ORCA_FLOAT_PATTERN})\s+"
         rf"(?P<z>{ORCA_FLOAT_PATTERN})\s*$",
@@ -150,6 +283,7 @@ class ORCALogPatterns:
         ),
         content_repeat=0,
     )
+    # ORCA-OPT: preserve printed thresholds and source YES/NO decisions.
     OPTIMIZATION_CONVERGENCE_METRIC = MolOPPattern(
         content_pattern=(
             rf"^\s*(?P<label>Energy change|RMS gradient|MAX gradient|RMS step|MAX step)\s+"
@@ -159,19 +293,21 @@ class ORCALogPatterns:
         ),
         content_repeat=0,
     )
+    # ORCA-POP: charge-only and open-shell charge/spin tables.
     MULLIKEN_CHARGE_ROW = MolOPPattern(
         content_pattern=(
-            rf"^\s*\d+\s+[A-Z][a-z]?\s*:\s*(?P<value>{ORCA_FLOAT_PATTERN})"
+            rf"^\s*(?P<index>\d+)\s+(?P<symbol>[A-Z][a-z]?)\s*:\s*(?P<value>{ORCA_FLOAT_PATTERN})"
             rf"(?:\s+(?P<spin>{ORCA_FLOAT_PATTERN}))?\s*$"
         ),
         content_repeat=0,
     )
     HIRSHFELD_ROW = MolOPPattern(
-        content_pattern=rf"^\s*\d+\s+[A-Z][a-z]?\s+"
+        content_pattern=rf"^\s*(?P<index>\d+)\s+(?P<symbol>[A-Z][a-z]?)\s+"
         rf"(?P<charge>{ORCA_FLOAT_PATTERN})\s+"
         rf"(?P<spin>{ORCA_FLOAT_PATTERN})\s*$",
         content_repeat=0,
     )
+    # ORCA-ELECTRIC: vector in e*bohr; the adjacent magnitude has both au and Debye.
     DIPOLE = MolOPPattern(
         content_pattern=rf"Total Dipole Moment\s*:\s*(?P<x>{ORCA_FLOAT_PATTERN})\s+"
         rf"(?P<y>{ORCA_FLOAT_PATTERN})\s+(?P<z>{ORCA_FLOAT_PATTERN})",
@@ -195,6 +331,7 @@ class ORCALogPatterns:
         r"cm\*\*-1(?:\s+(?P<label>\S+))?\s*$",
         content_repeat=0,
     )
+    # ORCA-EXCITED: observed STATE/ROOT/absorption layouts in corpus fixtures.
     STATE = MolOPPattern(
         content_pattern=rf"(?i)STATE\s+(?P<root>\d+):\s+E=\s*"
         rf"(?P<au>{ORCA_FLOAT_PATTERN})\s+au\s+"
@@ -204,17 +341,27 @@ class ORCALogPatterns:
     STATE_MULTIPLICITY = MolOPPattern(content_pattern=r"\bMult\s+(?P<multiplicity>\d+)")
     STATE_IRREP = MolOPPattern(content_pattern=r"\bSym:\s*(?P<irrep>\S+)")
     ABS_TRANSITION = MolOPPattern(
-        content_pattern=rf"^\s*\S+\s+->\s+(?P<root>\d+)-(?P<label>\S+)\s+"
+        content_pattern=rf"^[ \t]*0-(?P<initial_label>\S+)[ \t]+->[ \t]+(?P<root>\d+)-"
+        rf"(?P<label>(?P<multiplicity>\d+)(?P<irrep>[^\s\d]\S*))[ \t]+"
         rf"(?P<ev>{ORCA_FLOAT_PATTERN})\s+(?P<cm>{ORCA_FLOAT_PATTERN})\s+"
-        rf"(?P<nm>{ORCA_FLOAT_PATTERN})\s+(?P<fosc>{ORCA_FLOAT_PATTERN})",
+        rf"(?P<nm>{ORCA_FLOAT_PATTERN})\s+(?P<fosc>{ORCA_FLOAT_PATTERN})"
+        rf"(?P<dipole>(?:[ \t]+{ORCA_FLOAT_PATTERN}){{4}})?[ \t]*$",
         content_repeat=0,
     )
     ROOT_TRANSITION = MolOPPattern(
         content_pattern=rf"^\s*(?P<root>\d+)\s+(?P<ev>{ORCA_FLOAT_PATTERN})\s+"
         rf"(?P<cm>{ORCA_FLOAT_PATTERN})\s+(?P<nm>{ORCA_FLOAT_PATTERN})\s+"
-        rf"(?P<fosc>{ORCA_FLOAT_PATTERN})",
+        rf"(?P<fosc>{ORCA_FLOAT_PATTERN})"
+        rf"(?P<dipole>(?:[ \t]+{ORCA_FLOAT_PATTERN}){{4}})?[ \t]*$",
         content_repeat=0,
     )
+    LEGACY_ROOT_TRANSITION = MolOPPattern(
+        content_pattern=rf"^[ \t]*(?P<root>\d+)[ \t]+(?P<cm>{ORCA_FLOAT_PATTERN})"
+        rf"[ \t]+(?P<nm>{ORCA_FLOAT_PATTERN})[ \t]+(?P<fosc>{ORCA_FLOAT_PATTERN})"
+        rf"(?P<dipole>(?:[ \t]+{ORCA_FLOAT_PATTERN}){{4}})?[ \t]*$",
+        content_repeat=0,
+    )
+    # ORCA-SOLVENT: CPCM/SMD output labels, not inferred solvent defaults.
     SOLVENT_NAME = MolOPPattern(content_pattern=r"Solvent:\s*\.\.\.\s*(?P<solvent>\S+)")
     SOLVENT_EPSILON = MolOPPattern(
         content_pattern=rf"Epsilon\s*\.\.\.\s*(?P<epsilon>{ORCA_FLOAT_PATTERN})"

@@ -153,8 +153,33 @@ class ThermalInformations(BaseDataClassWithUnit):
         "rotational_temperatures": atom_ureg.K,
         "rotational_constants": atom_ureg.gigahertz,
         "vibrational_temperatures": atom_ureg.K,
+        "temperature": atom_ureg.K,
+        "pressure": atom_ureg.atm,
+        "low_frequency_cutoff": atom_ureg.cm_1,
+        "rotor_reference_frequency": atom_ureg.cm_1,
+        "imaginary_frequency_cutoff": atom_ureg.cm_1,
     }
     set_default_units: ClassVar[bool] = True
+
+    source_program: str | None = None
+    derivations: dict[str, str] = Field(
+        default_factory=dict,
+        description="Derivation of thermal fields calculated from observed source values",
+        exclude_if=lambda value: not value,
+    )
+    temperature: PlainQuantity | None = None
+    pressure: PlainQuantity | None = None
+    entropy_model: Literal["RRHO", "QRRHO"] | None = Field(
+        default=None, description="Observed or format-defined vibrational entropy model"
+    )
+    frequency_scale_factor: float | None = Field(default=None, gt=0)
+    low_frequency_cutoff: PlainQuantity | None = Field(
+        default=None, description="Modes excluded below this frequency"
+    )
+    rotor_reference_frequency: PlainQuantity | None = Field(
+        default=None, description="HO/rotor entropy interpolation reference frequency"
+    )
+    imaginary_frequency_cutoff: PlainQuantity | None = None
 
     ZPVE: PlainQuantity | None = Field(
         default=None,
@@ -178,7 +203,7 @@ class ThermalInformations(BaseDataClassWithUnit):
     )
     U_0: PlainQuantity | None = Field(
         default=None,
-        description="Zero-point energy, unit is `kcal/mol`",
+        description="Electronic plus zero-point energy, unit is `kcal/mol`",
         exclude_if=lambda x: x is None,
     )
     U_T: PlainQuantity | None = Field(
@@ -281,12 +306,23 @@ class ThermalInformations(BaseDataClassWithUnit):
                 "C_V": self.C_V,
                 "molecular_mass": self.molecular_mass,
                 "rotational_symmetry_number": self.rotational_symmetry_number,
+                "temperature": self.temperature,
+                "pressure": self.pressure,
+                "frequency_scale_factor": self.frequency_scale_factor,
+                "low_frequency_cutoff": self.low_frequency_cutoff,
+                "rotor_reference_frequency": self.rotor_reference_frequency,
+                "imaginary_frequency_cutoff": self.imaginary_frequency_cutoff,
             }.items()
             if value is not None
         }
         return PropertyBundle(
             scalar_properties=scalar_properties,
-            metadata={"source": "ThermalInformations"},
+            metadata={
+                "source": "ThermalInformations",
+                "source_program": self.source_program,
+                "entropy_model": self.entropy_model,
+                "derivations": self.derivations,
+            },
         )
 
 

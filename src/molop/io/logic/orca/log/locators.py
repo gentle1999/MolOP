@@ -1,4 +1,9 @@
-"""Exact source locators for ORCA jobs and coordinate-bearing frames."""
+"""Exact source locators for ORCA jobs and coordinate-bearing frames.
+
+Basis: ORCA-INPUT and fixture JOB NUMBER/banner/coordinate anchors, documented
+in ``docs/en/reference/formats/orcaout.md``. Exact slice
+boundaries and fallback ordering are MolOP policies, not manual guarantees.
+"""
 
 from molop.io.base_models.source import LocatedTextBlock
 from molop.io.logic.orca.log.parsers._orca_log_patterns import orca_log_patterns

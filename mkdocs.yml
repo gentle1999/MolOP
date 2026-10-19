@@ -155,6 +155,7 @@ plugins:
             CLI 内部契约: Internal CLI Contract
             开发者: Developer
             开发者概览: Developer Overview
+            数据容器与跨 QM 语义: Data Containers and Cross-QM Semantics
             Reader/Writer 插件开发: Reader/Writer Plugin Development
             完整 Parser 契约: Complete Parser Contract
             文档贡献: Documentation Contributions
@@ -203,6 +204,7 @@ nav:
     - 配置: reference/config.md
     - CLI 命令参考: reference/cli.md
     - 格式支持概览: reference/format_support.md
+    - 数据容器与跨 QM 语义: reference/data_model.md
     - 格式:
       - XYZ: reference/formats/xyz.md
       - SDF/MOL: reference/formats/sdf.md

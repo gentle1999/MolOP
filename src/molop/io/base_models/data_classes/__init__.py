@@ -23,7 +23,13 @@ from .orbitals import (
     NaturalBondOrbitals,
 )
 from .populations import AtomicPopulationSeries, ChargeSpinPopulations, TotalSpin
-from .properties import BondOrders, Dispersions, Polarizability, SinglePointProperties
+from .properties import (
+    BondOrderMatrix,
+    BondOrders,
+    Dispersions,
+    Polarizability,
+    SinglePointProperties,
+)
 from .qm_requests import (
     ActiveSpace,
     ExcitedStateRequest,
@@ -46,6 +52,7 @@ __all__ = [
     "ActiveSpace",
     "AtomInInternalCoords",
     "AtomicPopulationSeries",
+    "BondOrderMatrix",
     "BondOrders",
     "ChargeSpinPopulations",
     "Comment",

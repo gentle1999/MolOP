@@ -47,11 +47,11 @@ does not validate compatibility among methods, basis sets, tasks, and Gaussian v
 
 | Feature | Support | Scope | Limits |
 | ------- | ------- | ----- | ------ |
-| <!-- feature-area:Fixture parse/render inventory -->Fixture parse/render inventory | Fixture-covered | Maintained Gaussian input fixtures are parseable and renderable. | Coverage is fixture-anchored rather than a complete Gaussian grammar proof. |
-| <!-- feature-area:Route semantics -->Route semantics | Partial | Model chemistry, job types, dispersion, solvation, population requests, and HF handling are parsed into shared semantic containers. | Functional is populated only for DFT/hybrid/double-hybrid semantics; method-specific Gaussian keywords outside tests may remain raw or unstructured. |
-| <!-- feature-area:Molecule specification -->Molecule specification | Partial | Cartesian, integer Cartesian, Z-matrix variables, free delimiters, fragments, and invalid-domain diagnostics. | Supported cases are the explicit molecule-spec grammar variants covered by tests. |
-| <!-- feature-area:Additional sections -->Additional sections | Partial | ModRedundant, GIC, NBO, structured rendering, and mixed-section diagnostics. | Mixed GIC/ModRedundant sections intentionally fall back to unknown with diagnostics. |
-| <!-- feature-area:Link1, includes, and writer options -->Link1, includes, and writer options | Partial | Link1 uses exact source spans with blank-line validation; Geom=AllCheck and checkpoint propagation during transform are supported. | `@include` crosses source artifacts and cannot be represented by the current single-artifact `SourceSpan`, so parsing rejects it with `MOL.PARSE.GJF_INCLUDE_PROVENANCE_UNSUPPORTED`; not every Gaussian writer option is covered. |
+| <!-- feature-area:Fixture parse/render inventory -->Input structure and writing | Partial | Reads and normalizes Link0, route, title, molecule specification and additional sections. | Unrecognized options can retain raw text; full Gaussian grammar and version compatibility are not guaranteed. |
+| <!-- feature-area:Route semantics -->Route settings | Partial | Model chemistry, job types, dispersion, solvation, population requests, and HF handling are parsed into shared semantic containers. | `functional` is populated only for DFT/hybrid/double-hybrid semantics; unrecognized Gaussian method keywords may remain raw or unstructured. |
+| <!-- feature-area:Molecule specification -->Molecule specification | Partial | Cartesian, integer Cartesian, Z-matrix variables, free delimiters, fragments, and invalid-domain diagnostics. | Only the molecule-specification forms listed below are supported; not every ONIOM/MM extension is covered. |
+| <!-- feature-area:Additional sections -->Additional input sections | Partial | ModRedundant, GIC, NBO, structured rendering, and mixed-section diagnostics. | Mixed GIC/ModRedundant sections intentionally fall back to unknown with diagnostics. |
+| <!-- feature-area:Link1, includes, and writer options -->Link1, includes and writer options | Partial | Link1 uses exact source spans with blank-line validation; Geom=AllCheck and checkpoint propagation during transform are supported. | `@include` crosses source artifacts and cannot be represented by the current single-artifact `SourceSpan`, so parsing rejects it with `MOL.PARSE.GJF_INCLUDE_PROVENANCE_UNSUPPORTED`; not every Gaussian writer option is covered. |
 
 ## Gaussian Input Capability Matrix
 
@@ -95,3 +95,22 @@ same calculation meaning in structured fields.
 The GJF writer is a **canonical writer** for constructing and normalizing Gaussian input,
 not a **source-preserving editor**. Do not use `parse -> render` as a lossless editing
 workflow when all untouched source text must remain byte-for-byte identical.
+
+## Property sources and reading conventions
+
+<!-- parsing-basis:start -->
+
+The table maps file contents to MolOP data. See [data containers and cross-QM
+semantics](../data_model.md) for shared units, indices and missing values.
+
+References: [Gaussian input reference](https://gaussian.com/input/).
+
+| Property | File marker or data source | Reading or writing convention |
+| -------- | -------------------------- | ----------------------------- |
+| <!-- parsing-basis:Fixture parse/render inventory -->Input structure and writing | `%Link0`; `# route`; `title`; `charge/multiplicity`; `molecule and trailing sections` | Read Link0, route, title, charge, multiplicity, molecule specification and additional sections. Writing normalizes whitespace and coordinates without checking Gaussian-version compatibility. |
+| <!-- parsing-basis:Route semantics -->Route settings | `HF/DFT/post-HF method/basis tokens`; `Opt/Freq/TD/SCRF/Pop` | `model_chemistry`, task/resource/excited-state/population/solvation requests derive from bounded token mappings. A requested property is not an observed result; unknown options remain raw. |
+| <!-- parsing-basis:Molecule specification -->Molecule specification | `Cartesian or Z-matrix records`; `variables`; `fragment charge/spin pairs` | Retain molecule specification, fragments, labels, dummy/ghost and frozen markers; derive Cartesian coordinates only for supported internal-coordinate cases. Lengths use Å; angles use degrees. |
+| <!-- parsing-basis:Additional sections -->Additional input sections | `ModRedundant/GIC records`; `$NBO ... $END`; `trailing blocks` | Classify supported additional sections into typed input objects. Mixed or unrecognized grammar is retained as unknown with diagnostics, not invented output properties. |
+| <!-- parsing-basis:Link1, includes, and writer options -->Link1, includes and writer options | `--Link1--`; `blank-line boundaries`; `%chk/%oldchk`; `@include`; `Geom=AllCheck` | Preserve source spans for steps; checkpoint chains and output paths follow writer policy. external files are not expanded; @include reports an unsupported-input error. |
+
+<!-- parsing-basis:end -->

@@ -145,6 +145,25 @@ def test_json_array_mode_rejects_non_finite_values(value: Any) -> None:
         model.to_unitless_dump_with_unit_keys()
 
 
+def test_masked_quantity_arrays_export_nulls_without_losing_units() -> None:
+    for values, mask, expected in (
+        ([1.0, np.nan], [False, True], [1.0, None]),
+        ([np.nan], [True], [None]),
+    ):
+        quantity = atom_ureg.Quantity(np.ma.array(values, mask=mask), atom_ureg.hartree)
+        model = _NestedSelection(energy=quantity, ignored=0)
+        exported = model.to_unitless_dump_with_unit_keys()
+        assert exported["energy (hartree)"] == expected
+        json.dumps(exported, allow_nan=False)
+        binary = model.to_unitless_dump_with_unit_keys(array_mode="ndarray")
+        assert not np.shares_memory(binary["energy (hartree)"], quantity.magnitude)
+    unmasked_infinity = atom_ureg.Quantity(
+        np.ma.array([np.nan, np.inf], mask=[True, False]), atom_ureg.hartree
+    )
+    with pytest.raises(ValueError, match="non-finite"):
+        _NestedSelection(energy=unmasked_infinity, ignored=0).to_unitless_dump_with_unit_keys()
+
+
 def test_complex_arrays_require_the_binary_sidecar_mode() -> None:
     model = _ArrayPayload(
         quantity_array=np.array([1.0]),

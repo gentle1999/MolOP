@@ -316,7 +316,8 @@ def test_orca_vibration_trimming_preserves_printed_mode_indices() -> None:
     )
 
     assert vibrations is not None
-    assert vibrations.mode_indices == [6, 7, 8]
+    assert vibrations.mode_indices == [0, 1, 2]
+    assert vibrations.source_mode_indices == [6, 7, 8]
     assert vibrations.frequencies.magnitude.tolist() == pytest.approx([1567.61, 3467.70, 3651.46])
 
 

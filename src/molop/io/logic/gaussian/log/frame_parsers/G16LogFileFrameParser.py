@@ -14,6 +14,7 @@ from molop.io.logic.gaussian.log.frame_parsers._g16_extractors import (
     ParseState,
     extract_archive_tail_payload_from_state,
     extract_berny_from_state,
+    extract_bond_orders_from_state,
     extract_electric_dipole_and_polarizability_from_state,
     extract_energies_and_total_spin_from_state,
     extract_forces_from_state,
@@ -182,11 +183,15 @@ class G16LogFileFrameParserMixin:
         """Parse population analysis, orbitals, and any coupled response data in that block."""
         if populations := extract_populations_from_state(state):
             result.update(populations)
+        if bond_orders := extract_bond_orders_from_state(
+            state, len(result.fields.get("atoms", []))
+        ):
+            result.set("bond_orders", bond_orders)
         return G16ParsePhase.FREQUENCY
 
     def _run_frequency_phase(self, state: ParseState, result: ModelParseResult) -> G16ParsePhase:
         """Parse vibrational frequency blocks if present."""
-        if vibrations := extract_vibrations_from_state(state):
+        if vibrations := extract_vibrations_from_state(state, result.fields.get("atoms")):
             result.set("vibrations", vibrations)
         return G16ParsePhase.THERMOCHEM
 

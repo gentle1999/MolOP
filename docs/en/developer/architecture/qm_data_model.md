@@ -50,6 +50,100 @@ semantics, modify the structured container and call `project_common_qm_fields()`
 
 `MultireferenceResult` stores multi-reference output data, including method, active space, state-resolved results, corrections, and diagnostics. It does not replace input-side `MultireferenceRequest`.
 
+## Result semantics across formats
+
+These contracts apply to Gaussian logs, formatted checkpoints, ORCA logs and xTB
+stdout. Tests live in `tests/test_qm_result_semantics.py` and the format-specific
+numerical suites.
+
+- **State identity:** `state_index` is an internal, unique non-negative index;
+  `root` is the program's root number. Set `is_ground_state` explicitly: `True`
+  identifies the ground state, `False` identifies an excited state, and `None`
+  leaves identity unknown. List position and root zero do not identify a ground
+  state. An excited-only collection exports every known transition. Its initial
+  internal state is `None` unless a ground-state record exists; printed initial
+  labels/root numbers remain in transition properties.
+- **Missing observations:** unknown orbital energies, bond orders and coupling
+  matrix entries remain numeric `np.nan` internally. Unknown occupations and
+  symmetry labels use `None`. Only these explicitly nullable fields mask NaN
+  for public JSON exports (`null`); binary ndarray exports preserve NaN. Infinities
+  still fail JSON validation. A printed zero remains zero. Each `BondOrderMatrix` in `BondOrders` retains
+  its print threshold and missing-entry reason alongside the matrix; RDKit
+  embedding skips unobserved pairs.
+- **Spin channels:** the common orbital validator aligns unequal or absent spin
+  channels with unknown entries, without assuming restriction. Parsers identify
+  shared restricted references explicitly. `orbital_basis`, `occupancy_origin`
+  and `total_occupancies` distinguish printed spin occupations from derived
+  shared-spatial occupations. Closed-shell totals split equally; evidenced
+  integer high-spin totals can split into alpha/beta; other open-shell totals
+  retain unknown spin occupations. xTB's omitted orbital ranges never imply zero
+  occupation. Printed HOMO/LUMO labels populate `reported_homo_index` and
+  `reported_lumo_index`; fractional occupations alone do not define frontiers
+  or SOMOs.
+- **Modes:** `mode_indices` are stable internal indices starting at zero when
+  parsed. `source_mode_indices` separately retain printed numbers, or `None`
+  where the source supplies only an array. Filtering retains both identities.
+  Single `Vibration` records and IR/Raman bands carry source program, orientation,
+  normalization and mass-weighting metadata. Source-normalized Cartesian vectors
+  are not rescaled to make different programs appear equivalent.
+- **Thermochemistry:** corrections and totals retain their existing definitions
+  (`U_T = Eel + TCE`, `H_T = Eel + TCH`, `G_T = Eel + TCG`). The container also
+  retains temperature, pressure, `entropy_model`, frequency scaling, excluded-mode
+  cutoff, HO/rotor interpolation reference and imaginary-frequency cutoff when
+  available. These are distinct conditions; a rotor interpolation reference is
+  not a frequency-exclusion threshold. Property-bundle exports retain the conditions.
+  Gaussian FCHK totals alone do not establish an entropy model.
+
+Gaussian Raman data retain plane-polarized and unpolarized depolarization
+ratios separately in `raman_depolarization_ratios_polarized` and
+`raman_depolarization_ratios_unpolarized`. The unsuffixed ratio field is
+reserved for source tables with unspecified polarization. xTB PTB calculations
+retain distinct `frequency_method` and `raman_activity_method` labels.
+FCHK thermal corrections carry their equations in `derivations`.
+See [data containers and cross-QM semantics](../../reference/data_model.md) for
+the public container overview and user-facing comparison rules.
+
+Migration: callers constructing electronic states must set `is_ground_state`
+explicitly. Callers needing original vibration numbers must use
+`source_mode_indices` (or `Vibration.source_mode_index`), not `mode_indices`.
+Do not replace missing matrix entries with zero when comparing programs.
+
+## Extensible bond-order records
+
+Like atomic populations, `BondOrders.bond_orders` maps stable identifiers to typed
+`BondOrderMatrix` records. Each record stores its extensible `scheme` string,
+`values`, optional spin channel, source label, print threshold, missing-entry reason
+and program-specific metadata. No parallel dictionaries link provenance by name.
+
+```python
+import numpy as np
+from molop.io.base_models.DataClasses import BondOrderMatrix, BondOrders
+
+orders = BondOrders(bond_orders={
+    "mayer_bond_order": BondOrderMatrix(
+        scheme="mayer",
+        values=np.array([[np.nan, 0.9], [0.9, np.nan]]),
+        source_label="Mayer bond orders larger than 0.1",
+        print_threshold=0.1,
+        missing_reason="unprinted atom pairs",
+    ),
+})
+matrix = orders["mayer_bond_order"].values
+```
+
+New schemes need only another dictionary entry. Serialization, property bundles
+and RDKit embedding do not enumerate supported scheme names. Matrices must be
+non-empty square arrays of the same shape; a frame with geometry also checks them
+against its source atom count. Access records through `bond_order_items()`,
+`bond_order_names`, `get_bond_order()` or indexing. RDKit skips missing observations
+and preserves observed zero values on existing bonds.
+
+Migrate `BondOrders(mayer_bond_order=matrix)` to the dictionary constructor above,
+and replace `frame.bond_orders.mayer_bond_order` with
+`frame.bond_orders["mayer_bond_order"].values`. Old flat fields are rejected rather
+than silently ignored. Serialized matrices live under `bond_orders[name]["values"]`;
+NaN entries still export as JSON `null`.
+
 ## Parser Rules
 
 New parser logic should follow this flow:

@@ -1,5 +1,8 @@
 # ORCA Input Model, Parser, and Renderer Guide
 
+Input syntax and official references are documented in
+[ORCA input format support](../../reference/formats/orcainp.md).
+
 This page documents the structured reader model and canonical writer for ORCA `.inp`
 files in MolOP. The ORCA writer is registered and can construct input from a
 coordinate-bearing frame plus explicit ORCA calculation settings. It is not a
@@ -140,4 +143,4 @@ for the complete boundary.
 - Do not restore `orca_raw_preamble` / `orca_raw_postamble`.
 - The ORCA writer guarantees canonical rendering only; do not claim source-preserving round trips until an ordered statement model exists.
 - Write program-specific syntax into ORCA structured fields and common QM structured containers first, then use `project_common_qm_fields()` to project compatibility fields such as `method`, `functional`, and `basis_set`.
-- Do not hide semantics in raw strings.
+- Extend the structured model before adding parser support for new syntax; do not hide semantics in raw strings.

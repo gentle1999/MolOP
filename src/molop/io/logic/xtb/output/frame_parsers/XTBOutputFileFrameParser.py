@@ -11,6 +11,7 @@ from molop.io.logic.xtb.output.frame_models.XTBOutputFileFrame import (
     XTBOutputFileFrameMemory,
 )
 from molop.io.logic.xtb.output.parsers._xtb_output_extractors import (
+    extract_xtb_bond_orders,
     extract_xtb_coords,
     extract_xtb_dipole,
     extract_xtb_final_energy,
@@ -88,8 +89,10 @@ class XTBOutputFileFrameParserMixin:
 
     @staticmethod
     def _run_populations_phase(text: str, result: ModelParseResult) -> XTBOutputParsePhase:
-        if populations := extract_xtb_populations(text):
+        if populations := extract_xtb_populations(text, result.fields.get("atoms")):
             result.set("charge_spin_populations", populations)
+        if bond_orders := extract_xtb_bond_orders(text, len(result.fields.get("atoms", []))):
+            result.set("bond_orders", bond_orders)
         if properties := extract_xtb_single_point_properties(text):
             result.set("single_point_properties", properties)
         return XTBOutputParsePhase.RESPONSE

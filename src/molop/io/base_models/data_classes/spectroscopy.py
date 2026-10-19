@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-from typing import ClassVar, Literal
+from typing import Any, ClassVar, Literal
 
 import numpy as np
 from pint._typing import UnitLike
 from pint.facets.plain import PlainQuantity
-from pydantic import Field, model_validator
+from pydantic import Field, field_serializer, model_validator
 from typing_extensions import Self
 
-from molop.io.base_models.Bases import BaseDataClassWithUnit
+from molop.io.base_models.Bases import BaseDataClassWithUnit, mask_missing_values
 from molop.io.base_models.summary import SummaryDict, summary_dict_from_fields
 from molop.unit import atom_ureg
 from molop.utils.types import PintArray3, PintArray3x3, PintSquareMatrix
@@ -128,6 +128,15 @@ class NMR(BaseDataClassWithUnit):
             description="Spin-spin coupling contribution matrices in Hz",
         )
     )
+
+    @field_serializer(
+        "spin_spin_coupling_k",
+        "spin_spin_coupling_j",
+        "spin_spin_coupling_k_components",
+        "spin_spin_coupling_j_components",
+    )
+    def serialize_couplings(self, value: Any) -> Any:
+        return mask_missing_values(value)
 
     @model_validator(mode="after")
     def validate_nmr(self) -> Self:

@@ -1,3 +1,11 @@
+"""ORCA input metadata projection.
+
+Basis: ORCA-INPUT, ORCA-METHOD. See
+``docs/en/reference/formats/orcainp.md`` for verified
+official manuals and tutorials. For field mappings and MolOP conventions, see
+``docs/en/reference/data_model.md``.
+"""
+
 from __future__ import annotations
 
 from typing import Any

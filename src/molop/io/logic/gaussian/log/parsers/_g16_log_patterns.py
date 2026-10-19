@@ -510,6 +510,7 @@ class G16LogPatterns:
         content_repeat=0,
         description="The frequencies of each vibration in the frequency analysis of the Gaussian calculation. link 716",
     )
+    MODE_INDEX_ROW = MolOPPattern(content_pattern=r"^[ \t]*(?P<indices>\d+(?:[ \t]+\d+)*)[ \t]*$")
     FREQUENCIES_REDUCED_MASS = MolOPPattern(
         content_pattern=r"Red. masses -- (?P<values>(?:\s+-?\d+\.\d*){1,3})",
         content_repeat=0,
@@ -528,9 +529,29 @@ class G16LogPatterns:
     FREQUENCIES_MODE = MolOPPattern(
         end_pattern="Thermochemistry",
         end_regex=False,
-        content_pattern=r"^\s+\d+\s+\d+\s*(?P<values>(?:\s*-?\d+\.\d*){3,9})",
+        content_pattern=rf"^[ \t]*(?P<atom_index>\d+)[ \t]+(?P<atomic_number>\d+)[ \t]+(?P<values>{_FLOAT}(?:[ \t]+{_FLOAT}){{2,8}})[ \t]*$",
         content_repeat=0,
         description="The mode of each vibration in the frequency analysis of the Gaussian calculation. link 716",
+    )
+    RAMAN_ACTIVITIES = MolOPPattern(
+        content_pattern=rf"^[ \t]*Raman Activ[ \t]*--[ \t]*(?P<values>{_FLOAT}(?:[ \t]+{_FLOAT})*)[ \t]*$",
+        content_repeat=0,
+    )
+    RAMAN_DEPOLARIZATION = MolOPPattern(
+        content_pattern=rf"^[ \t]*Depolar \((?P<polarization>P|U)\)[ \t]*--[ \t]*(?P<values>{_FLOAT}(?:[ \t]+{_FLOAT})*)[ \t]*$",
+        content_repeat=0,
+    )
+    NBO_SPIN_HEADER = MolOPPattern(
+        content_pattern=r"^[ \t]*\*+[ \t]*(?P<spin>Alpha|Beta)[ \t]+spin orbitals[ \t]*\*+[ \t]*$",
+    )
+    NBO_BOND_ORDER_HEADER = MolOPPattern(
+        content_pattern=r"^[ \t]*(?P<label>Wiberg bond index matrix in the NAO basis|Atom-atom overlap-weighted NAO bond order|MO bond order):[ \t]*$",
+    )
+    NBO_MATRIX_COLUMNS = MolOPPattern(
+        content_pattern=r"^[ \t]*Atom[ \t]+(?P<columns>\d+(?:[ \t]+\d+)*)[ \t]*$",
+    )
+    NBO_MATRIX_ROW = MolOPPattern(
+        content_pattern=rf"^[ \t]*(?P<atom>\d+)\.[ \t]+(?P<symbol>[A-Za-z]+)[ \t]+(?P<values>{_FLOAT}(?:[ \t]*{_FLOAT})*)[ \t]*$",
     )
     TEMPEREATURE_PRESSURE = MolOPPattern(
         start_pattern="- Thermochemistry",

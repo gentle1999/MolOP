@@ -22,7 +22,7 @@ from typing_extensions import Self
 
 from molop.config import molopconfig, moloplogger
 from molop.io.base_models.summary import SummaryDict, normalize_summary_series
-from molop.unit import unit_transform
+from molop.unit import atom_ureg, unit_transform
 from molop.utils.types import Array, PintArray, PintArray3, PintArrayN
 
 
@@ -94,14 +94,32 @@ def _canonical_unit_label(unit: Any) -> str:
     return f"{numerator_label}/{denominator_label}"
 
 
+def mask_missing_values(value: Any) -> Any:
+    """Mask NaN only for fields whose contract explicitly permits missing data.
+
+    Keep numeric arrays internally; masked exports become JSON null, while
+    infinities remain errors. This helper is opt-in, not a global NaN policy.
+    """
+    if isinstance(value, Mapping):
+        return {key: mask_missing_values(item) for key, item in value.items()}
+    if isinstance(value, PlainQuantity):
+        return atom_ureg.Quantity(mask_missing_values(value.magnitude), value.units)
+    if isinstance(value, np.ndarray) and value.dtype.kind in "fc":
+        return np.ma.masked_where(np.isnan(value), value) if np.isnan(value).any() else value
+    return value
+
+
 def _dump_ndarray(item: np.ndarray, array_mode: UnitlessDumpArrayMode) -> Any:
     if array_mode == "ndarray" and item.dtype.kind in "biufc":
+        if isinstance(item, np.ma.MaskedArray) and item.dtype.kind in "fc":
+            return item.filled(np.nan).copy()
         return item.copy()
     if item.dtype.kind == "O":
         raise ValueError("object-dtype arrays are not supported by the public dump")
     if item.dtype.kind == "c":
         raise ValueError("complex arrays require array_mode='ndarray'")
-    if item.dtype.kind == "f" and not np.isfinite(item).all():
+    observed = item.compressed() if isinstance(item, np.ma.MaskedArray) else item
+    if item.dtype.kind == "f" and not np.isfinite(observed).all():
         raise ValueError("non-finite array values are not valid JSON")
     return item.tolist()
 
@@ -194,10 +212,7 @@ class BaseDataClassWithUnit(BaseModel):
                 follow the same format as
                 [`model_dump`](https://docs.pydantic.dev/latest/concepts/serialization/) method.
         """
-        return {
-            k: BaseDataClassWithUnit.__unitless_dump__(getattr(self, k), **kwargs)
-            for k, v in self.model_dump(**kwargs).items()
-        }
+        return self.__unitless_dump__(self.model_dump(**kwargs), **kwargs)
 
     def _materialize_unitless_dump_with_unit_keys(self) -> None:
         """Materialize lazy public fields needed by the export dump."""
@@ -326,10 +341,13 @@ class PropertyTable(BaseDataClassWithUnit):
             return column[row_index]
         if isinstance(column, np.ndarray):
             item = column[row_index]
+            if np.ma.is_masked(item):
+                return None
             if isinstance(item, np.generic):
                 return cast(PropertyScalarValue, item.item())
             return cast(PropertyScalarValue, item)
-        return cast(PropertyScalarValue, cast(NumpyQuantity, column)[row_index])
+        value = cast(NumpyQuantity, column)[row_index]
+        return None if np.ma.is_masked(value.magnitude) else cast(PropertyScalarValue, value)
 
     @model_validator(mode="after")
     def validate_property_table(self) -> Self:

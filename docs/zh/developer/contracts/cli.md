@@ -14,7 +14,7 @@ molop parse PATTERN [解析选项] 操作 [操作选项] ...
 返回 batch 的操作可以继续连接；返回摘要、渲染文本或路径 mapping 的操作必须位于末尾。CLI 会
 在读取文件前检查这条规则。`--report` 也是终止解析模式，不能再连接操作命令。
 
-以下示例使用随文档提供的 [water_mp2.out](../../assets/examples/water_mp2.out)。
+以下示例使用随文档提供的 [water_mp2.out](../../../assets/examples/water_mp2.out)。
 
 ## 常见链
 

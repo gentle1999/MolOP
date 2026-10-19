@@ -1,3 +1,11 @@
+"""ORCA input grammar.
+
+Basis: ORCA-INPUT, ORCA-OUTPUT, ORCA-COORD. See
+``docs/en/reference/formats/orcainp.md`` for verified
+official manuals and tutorials. For field mappings and MolOP conventions, see
+``docs/en/reference/data_model.md``.
+"""
+
 from __future__ import annotations
 
 from molop.io.base_models.SearchPattern import MolOPPattern

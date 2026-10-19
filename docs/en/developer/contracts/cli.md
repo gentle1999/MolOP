@@ -16,7 +16,7 @@ operations that return a batch can be followed by more operations. Operations th
 rendered text, or path mapping must be last. The CLI checks this rule before reading files. The
 `--report` parse mode is also terminal and cannot be combined with operations.
 
-The examples below use the bundled [water_mp2.out](../../assets/examples/water_mp2.out).
+The examples below use the bundled [water_mp2.out](../../../assets/examples/water_mp2.out).
 
 ## Common chains
 

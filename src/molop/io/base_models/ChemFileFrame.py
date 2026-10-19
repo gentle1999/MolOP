@@ -21,7 +21,6 @@ from pint.facets.plain import PlainQuantity
 from pydantic import Field, PrivateAttr, computed_field, model_validator
 from rdkit import Chem
 from rdkit.Chem import rdChemReactions
-from scipy.sparse import coo_matrix
 from typing_extensions import Self
 
 from molop.config import molopconfig, moloplogger
@@ -665,6 +664,23 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             self.hessian_atom_order = self.hessian_atom_order or "source"
             self.hessian_orientation = self.hessian_orientation or "unknown"
 
+        if self.bond_orders is not None and atom_count:
+            for name, record in self.bond_orders.bond_order_items():
+                if record.values.shape != (atom_count, atom_count):
+                    raise ValueError(f"Bond-order matrix {name!r} must match the frame atom count")
+
+        if self.charge_spin_populations is not None and atom_count:
+            for name, series in self.charge_spin_populations.population_items():
+                if len(series.values) != atom_count:
+                    raise ValueError(f"Population {name!r} must match the frame atom count")
+
+        if (
+            self.vibrations is not None
+            and atom_count
+            and any(mode.shape != (atom_count, 3) for mode in self.vibrations.vibration_modes)
+        ):
+            raise ValueError("vibration_modes must match the frame atom count")
+
         if self.nmr is not None:
             for shielding in self.nmr.shielding_tensors:
                 if shielding.atom_index >= atom_count:
@@ -693,7 +709,8 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         If `embed_populations` is True, this function will use all population properties in the `charge_spin_populations` field
         to generate the population embedded rdkit molecule object.
         If `embed_bond_orders` is True, this function will use all bond order properties in the `bond_orders` field
-        to generate the bond order embedded rdkit molecule object.
+        to annotate existing chemical bonds. Nonbonded atom-pair values remain frame-level data;
+        a numerical bond order does not create a chemical bond in the molecular graph.
         If `embed_nmr` is True, per-atom shielding scalars, principal values, and tensor components
         are embedded in ppm. Spin-spin coupling matrices remain frame-level atom-pair data.
 
@@ -718,17 +735,11 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
                     rwmol, f"{population}_by_{self.qm_software}".upper()
                 )
         if embed_bond_orders and self.bond_orders is not None:
-            bond_orders: dict[str, npt.NDArray[np.floating]] = self.bond_orders.model_dump(
-                exclude_defaults=True
-            )
-            for bond_order, bond_order_matrix in bond_orders.items():
-                coo = coo_matrix(bond_order_matrix)
-                for i, j, val in zip(coo.row, coo.col, coo.data, strict=True):
-                    if rwmol.GetBondBetweenAtoms(i, j) is None:
-                        rwmol.AddBond(i, j, Chem.BondType.UNSPECIFIED)
-                    rwmol.GetBondBetweenAtoms(i, j).SetDoubleProp(
-                        f"{bond_order}_by_{self.qm_software}".upper(), val
-                    )
+            for bond_order, record in self.bond_orders.bond_order_items():
+                for bond in rwmol.GetBonds():
+                    val = float(record.values[bond.GetBeginAtomIdx(), bond.GetEndAtomIdx()])
+                    if np.isfinite(val):
+                        bond.SetDoubleProp(f"{bond_order}_by_{self.qm_software}".upper(), val)
                 Chem.CreateBondDoublePropertyList(
                     rwmol, f"{bond_order}_by_{self.qm_software}".upper()
                 )

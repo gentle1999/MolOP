@@ -8,6 +8,7 @@
 | 配置默认值和全局策略 | [配置](config.md) | 日志、并行度、结构恢复和绘图配置 |
 | CLI 参数和命令链规则 | [CLI 命令参考](cli.md) | 全局选项、解析选项、操作和 writer 参数 |
 | 某种格式支持什么 | [格式支持概览](format_support.md) | reader/writer 状态、科学字段和限制 |
+| 理解数据容器与跨程序结果 | [数据容器与跨 QM 语义](data_model.md) | 公共容器、字段关系、单位、身份和跨 QM 语义规则 |
 | 某个格式的细节 | [格式参考](formats/xyz.md) | 格式专用读取、写出和边界说明 |
 | 某个科学字段在哪里 | [科学字段索引](model_fields.md) | 按性质查找公共字段 |
 | Python 签名和成员 | [Python API](api/index.md) | 核心入口、模块 API 和源码生成参考 |

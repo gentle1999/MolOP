@@ -39,11 +39,11 @@ print(type(rendered).__name__)
 
 | 能力 | 支持程度 | 可渲染内容 | 边界 |
 | ---- | -------- | ---------- | ---- |
-| <!-- feature-area:File-level Gaussian-like writer -->文件级 Gaussian-like writer | 部分支持 | 从已解析 Gaussian 输出数据写出 `.fakeg` 文件。 | 只支持文件级渲染；不提供帧级 fakeG writer；选中帧遵循 `frame`；不保证逐字复现 Gaussian log。 |
-| <!-- feature-area:Structure and SCF energy rendering -->结构与 SCF 能量渲染 | 部分支持 | 从坐标和能量字段渲染归一化 orientation 与 SCF-cycle 文本。 | 渲染结果是语义化 Gaussian-like 文本，不是原始 log 文本。 |
-| <!-- feature-area:Vibrational frequency rendering -->振动频率渲染 | 部分支持 | frequency、reduced mass、force constant、IR intensity 和逐模式位移区段。 | 当前只声明 frequency 与 IR 相关字段；不声明 Raman/VCD 区段。 |
-| <!-- feature-area:Thermochemistry rendering -->热力学渲染 | 部分支持 | temperature、correction、energy、entropy、heat capacity、mass、inertia 和转动/振动 metadata。 | 这是归一化的热力学摘要，不是完整 Gaussian thermochemistry pretty-printer。 |
-| <!-- feature-area:Reparseable frequency and thermochemistry output -->可再次解析的频率与热力学输出 | 已支持 | 渲染出的频率和热力学内容可以再次解析回帧字段。 | Round trip 证明的是支持的语义字段，不表示与 Gaussian 原始输出逐字等价。 |
+| <!-- feature-area:File-level Gaussian-like writer -->Gaussian 风格文本写出 | 部分支持 | 从已解析 Gaussian 输出数据写出 `.fakeg` 文件。 | 只支持文件级渲染；不提供帧级 fakeG writer；选中帧遵循 `frame`；不保证逐字复现 Gaussian log。 |
+| <!-- feature-area:Structure and SCF energy rendering -->结构与能量写出 | 部分支持 | 从坐标和能量字段渲染归一化 orientation 与 SCF-cycle 文本。 | 渲染结果是语义化 Gaussian-like 文本，不是原始 log 文本。 |
+| <!-- feature-area:Vibrational frequency rendering -->振动数据写出 | 部分支持 | frequency、reduced mass、force constant、IR intensity 和逐模式位移区段。 | 当前只声明 frequency 与 IR 相关字段；不声明 Raman/VCD 区段。 |
+| <!-- feature-area:Thermochemistry rendering -->热化学数据写出 | 部分支持 | temperature、correction、energy、entropy、heat capacity、mass、inertia 和转动/振动 metadata。 | 这是归一化的热力学摘要，不是完整 Gaussian thermochemistry pretty-printer。 |
+| <!-- feature-area:Reparseable frequency and thermochemistry output -->重新读取生成文本 | 已支持 | 渲染出的频率和热力学内容可以再次解析回帧字段。 | Round trip 证明的是支持的语义字段，不表示与 Gaussian 原始输出逐字等价。 |
 
 ## fakeG 能力覆盖矩阵
 
@@ -89,3 +89,22 @@ fakeG 可以脱离原始 Gaussian log 合成该区段。
 
 fakeG 的设计目标是为测试和下游兼容生成“足够像 Gaussian 且可被 MolOP 再解析”的文本。
 它不应作为 Gaussian 计算成功、原始终止状态或完整 provenance 的证据。
+
+## 数据来源与写出约定
+
+<!-- parsing-basis:start -->
+
+下表说明文件中的信息如何对应 MolOP 数据。公共单位、编号和缺失值说明见
+[数据容器与跨 QM 语义](../data_model.md)。
+
+参考资料：[公共数据约定](../data_model.md); [Gaussian 输出读取](g16log.md)。
+
+| 属性 | 文件标记或数据来源 | 读取或写出约定 |
+| ---- | ------------------ | -------------- |
+| <!-- parsing-basis:File-level Gaussian-like writer -->Gaussian 风格文本写出 | `MolOP render_fakeg`; `selected parsed frames`; `synthetic Gaussian-like labels` | 这是 MolOP 的仅写出格式，标题与终止文本由渲染器生成；生成的正常终止行不能独立证明运行过 Gaussian。 |
+| <!-- parsing-basis:Structure and SCF energy rendering -->结构与能量写出 | 帧中的 `atoms`、`coords`、`energies.reference_energy` / `total_energy` | 由现有字段生成 Å 坐标和 Eh 能量；规范小数位与标签是写出策略，不是恢复原始精度。 |
+| <!-- parsing-basis:Vibrational frequency rendering -->振动数据写出 | `Vibrations` 中的频率、质量、力常数、IR 强度与位移数组 | 由存储数组生成频率组与位移行；支持频率与 IR 写出；不提供完整 Raman、VCD 或 ROA 写出。 |
+| <!-- parsing-basis:Thermochemistry rendering -->热化学数据写出 | `ThermalInformations` 中的总量、修正量和条件，以及优化收敛字段 | 按 Gaussian 风格单位与标签格式化已有热力学和收敛量；缺失值不成为新观测，模板文本不构成源程序熵模型依据。 |
+| <!-- parsing-basis:Reparseable frequency and thermochemistry output -->重新读取生成文本 | `render_fakeg()` 生成的频率与热化学区段 | 生成文本可由 Gaussian log 读取器读取频率和热化学字段；仅保留已写出的数据，不保证恢复完整原始日志或所有属性。 |
+
+<!-- parsing-basis:end -->

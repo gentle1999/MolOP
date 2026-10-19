@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Iterator, Sequence
-from typing import Any, ClassVar, cast, overload
+from typing import Any, ClassVar, Literal, cast, overload
 
 import numpy as np
 from pint._typing import UnitLike
 from pint.facets.plain import PlainQuantity
-from pydantic import Field, computed_field, model_validator
+from pydantic import Field, computed_field, field_serializer, model_validator
 from typing_extensions import Self
 
 from molop.io.base_models.Bases import (
@@ -16,6 +16,7 @@ from molop.io.base_models.Bases import (
     PropertyBundle,
     PropertyScalarValue,
     PropertyTable,
+    mask_missing_values,
 )
 from molop.io.base_models.summary import SummaryDict, summary_dict_from_fields, summary_item
 from molop.unit import atom_ureg
@@ -42,6 +43,9 @@ class MoleculeOrbital(BaseDataClassWithUnit):
     beta_occupancy: float | bool | None = Field(default=None, description="beta orbital occupancy")
     beta_symmetry: str | None = Field(default=None, description="beta orbital symmetry")
     coefficient: ArrayN | None = Field(default=None, description="coefficient of the orbital")
+    total_occupancy: float | None = Field(
+        default=None, description="Observed shared-spatial occupancy"
+    )
 
     def to_summary_dict(self, **kwargs) -> SummaryDict:
         return summary_dict_from_fields(self, "Orbital", **kwargs)
@@ -54,17 +58,78 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
     }
     set_default_units: ClassVar[bool] = True
 
+    orbital_basis: Literal["shared_spatial", "spin_resolved", "unknown"] = "unknown"
+    occupancy_origin: Literal[
+        "observed", "electron_counts", "restricted_equal_split", "high_spin", "unknown"
+    ] = "observed"
+    total_occupancies: list[float | None] = Field(
+        default_factory=list,
+        description="Source total occupations for shared spatial orbitals only",
+    )
+    reported_homo_index: int | None = Field(
+        default=None, ge=0, description="Source-labeled HOMO, converted to 0-based index"
+    )
+    reported_lumo_index: int | None = Field(
+        default=None, ge=0, description="Source-labeled LUMO, converted to 0-based index"
+    )
+
+    @classmethod
+    def from_spatial_orbitals(
+        cls,
+        energies: PintArrayN,
+        occupancies: list[float | None],
+        *,
+        closed_shell: bool = False,
+        high_spin: bool = False,
+        symmetries: list[str | None] | None = None,
+        reported_homo_index: int | None = None,
+        reported_lumo_index: int | None = None,
+    ) -> Self:
+        """Project a total OCC column only when its spin decomposition is known."""
+        alpha: list[float | None] = []
+        beta: list[float | None] = []
+        for occupation in occupancies:
+            if occupation is None:
+                a = b = None
+            elif closed_shell:
+                a = b = occupation / 2
+            elif high_spin and occupation in (0, 1, 2):
+                a, b = min(occupation, 1), max(occupation - 1, 0)
+            elif occupation in (0, 2):
+                a = b = occupation / 2
+            else:
+                a = b = None
+            alpha.append(a)
+            beta.append(b)
+        return cls(
+            alpha_energies=energies,
+            beta_energies=energies.copy(),
+            alpha_occupancies=alpha,
+            beta_occupancies=beta,
+            alpha_symmetries=symmetries or [],
+            beta_symmetries=list(symmetries or []),
+            total_occupancies=occupancies,
+            orbital_basis="shared_spatial",
+            occupancy_origin="restricted_equal_split"
+            if closed_shell
+            else "high_spin"
+            if high_spin
+            else "unknown",
+            reported_homo_index=reported_homo_index,
+            reported_lumo_index=reported_lumo_index,
+        )
+
     # orbital energies
     electronic_state: str | None = Field(
         default=None, description="electronic state of the molecule"
     )
     alpha_energies: PintArrayN = Field(
         default=np.array([]) * atom_ureg.hartree,
-        description="alpha orbital energies, unit is `hartree`",
+        description="alpha orbital energies, unit is `hartree`; unprinted entries are NaN",
     )
     beta_energies: PintArrayN = Field(
         default=np.array([]) * atom_ureg.hartree,
-        description="beta orbital energies, unit is `hartree`",
+        description="beta orbital energies, unit is `hartree`; unprinted entries are NaN",
     )
     alpha_occupancies: list[float | bool | None] = Field(
         default_factory=list, description="alpha orbital occupancies"
@@ -82,29 +147,62 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
         default_factory=list, description="coefficients of the orbitals"
     )
 
+    @field_serializer("alpha_energies", "beta_energies")
+    def serialize_energy_array(self, energies: PintArrayN) -> PintArrayN:
+        """Mask unknown energies for JSON-safe exports while retaining units."""
+        return mask_missing_values(energies)
+
+    def to_unitless_dump(self, **kwargs) -> dict[str, Any]:
+        return self.__unitless_dump__(self.model_dump(**kwargs), **kwargs)
+
+    @staticmethod
+    def _observed_energy(energies: PintArrayN, index: int) -> PlainQuantity | None:
+        energy = energies[index]
+        return None if np.ma.is_masked(energy.magnitude) or np.isnan(energy.magnitude) else energy
+
     @computed_field(description="HOMO orbital idx")  # type: ignore[prop-decorator]
     @property
     def HOMO_id(self) -> int | None:
+        if self.reported_homo_index is not None:
+            return self.reported_homo_index
         return self._frontier_occupied_id(self.alpha_occupancies)
 
     @computed_field(description="LUMO orbital idx")  # type: ignore[prop-decorator]
     @property
     def LUMO_id(self) -> int | None:
+        if self.reported_lumo_index is not None:
+            return self.reported_lumo_index
         if self.HOMO_id is None:
             return None
-        return self.HOMO_id + 1
+        index = self.HOMO_id + 1
+        if index >= len(self.alpha_occupancies) or self.alpha_occupancies[index] != 0:
+            return None
+        return index
 
     @computed_field(description="beta HOMO orbital idx")  # type: ignore[prop-decorator]
     @property
     def beta_HOMO_id(self) -> int | None:
+        if (
+            self.occupancy_origin == "restricted_equal_split"
+            and self.reported_homo_index is not None
+        ):
+            return self.reported_homo_index
         return self._frontier_occupied_id(self.beta_occupancies)
 
     @computed_field(description="beta LUMO orbital idx")  # type: ignore[prop-decorator]
     @property
     def beta_LUMO_id(self) -> int | None:
+        if (
+            self.occupancy_origin == "restricted_equal_split"
+            and self.reported_lumo_index is not None
+        ):
+            return self.reported_lumo_index
         if self.beta_HOMO_id is None:
             return None
-        return self.beta_HOMO_id + 1
+        index = self.beta_HOMO_id + 1
+        if index >= len(self.beta_occupancies) or self.beta_occupancies[index] != 0:
+            return None
+        return index
 
     @computed_field(description="SOMO orbital idx")  # type: ignore[prop-decorator]
     @property
@@ -116,7 +214,9 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
             for i, (alpha_occ, beta_occ) in enumerate(
                 zip(self.alpha_occupancies, self.beta_occupancies, strict=True)
             )
-            if self._occupancy_value(alpha_occ) > 0.0 and self._occupancy_value(beta_occ) <= 0.0
+            if alpha_occ is not None
+            and beta_occ is not None
+            and {self._occupancy_value(alpha_occ), self._occupancy_value(beta_occ)} == {0.0, 1.0}
         ]
 
     @computed_field(description="NHOMO orbital idx")  # type: ignore[prop-decorator]
@@ -144,7 +244,7 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
             return None
         if len(self.alpha_energies) <= self.HOMO_id:
             return None
-        return self.alpha_energies[self.HOMO_id]
+        return self._observed_energy(self.alpha_energies, self.HOMO_id)
 
     @computed_field(description="LUMO energy")  # type: ignore[prop-decorator]
     @property
@@ -153,7 +253,7 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
             return None
         if len(self.alpha_energies) <= self.LUMO_id:
             return None
-        return self.alpha_energies[self.LUMO_id]
+        return self._observed_energy(self.alpha_energies, self.LUMO_id)
 
     @computed_field(description="NHOMO energy")  # type: ignore[prop-decorator]
     @property
@@ -162,7 +262,7 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
             return None
         if len(self.alpha_energies) <= self.NHOMO_id:
             return None
-        return self.alpha_energies[self.NHOMO_id]
+        return self._observed_energy(self.alpha_energies, self.NHOMO_id)
 
     @computed_field(description="SLUMO energy")  # type: ignore[prop-decorator]
     @property
@@ -171,7 +271,7 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
             return None
         if len(self.alpha_energies) <= self.SLUMO_id:
             return None
-        return self.alpha_energies[self.SLUMO_id]
+        return self._observed_energy(self.alpha_energies, self.SLUMO_id)
 
     @computed_field(description="HOMO-LUMO gap")  # type: ignore[prop-decorator]
     @property
@@ -191,7 +291,7 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
             return None
         if len(self.beta_energies) <= self.beta_HOMO_id:
             return None
-        return self.beta_energies[self.beta_HOMO_id]
+        return self._observed_energy(self.beta_energies, self.beta_HOMO_id)
 
     @computed_field(description="beta LUMO energy")  # type: ignore[prop-decorator]
     @property
@@ -200,7 +300,7 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
             return None
         if len(self.beta_energies) <= self.beta_LUMO_id:
             return None
-        return self.beta_energies[self.beta_LUMO_id]
+        return self._observed_energy(self.beta_energies, self.beta_LUMO_id)
 
     @computed_field(description="beta HOMO-LUMO gap")  # type: ignore[prop-decorator]
     @property
@@ -225,7 +325,7 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
             return None
         if len(self.beta_energies) <= self.beta_NHOMO_id:
             return None
-        return self.beta_energies[self.beta_NHOMO_id]
+        return self._observed_energy(self.beta_energies, self.beta_NHOMO_id)
 
     @computed_field(description="beta SLUMO orbital idx")  # type: ignore[prop-decorator]
     @property
@@ -243,7 +343,7 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
             return None
         if len(self.beta_energies) <= self.beta_SLUMO_id:
             return None
-        return self.beta_energies[self.beta_SLUMO_id]
+        return self._observed_energy(self.beta_energies, self.beta_SLUMO_id)
 
     @overload
     def __getitem__(self, orbitalIDX: int) -> MoleculeOrbital: ...
@@ -256,6 +356,8 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
     ) -> MoleculeOrbital | list[MoleculeOrbital]:
         def get_item(seq: Any, idx: int):
             if len(seq) > abs(idx):
+                if isinstance(seq, PlainQuantity):
+                    return self._observed_energy(cast(PintArrayN, seq), idx)
                 return seq[idx]
             else:
                 return None
@@ -281,6 +383,7 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
                     "alpha_symmetry": get_item(self.alpha_symmetries, orbitalIDX),
                     "beta_symmetry": get_item(self.beta_symmetries, orbitalIDX),
                     "coefficient": get_item(self.coefficients, orbitalIDX),
+                    "total_occupancy": get_item(self.total_occupancies, orbitalIDX),
                 }
             )
         if isinstance(orbitalIDX, slice):
@@ -306,7 +409,11 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
     def _frontier_occupied_id(cls, occupancies: Sequence[float | bool | None]) -> int | None:
         last_occupied: int | None = None
         for idx, occupancy in enumerate(occupancies):
+            if occupancy is None:
+                return None
             value = cls._occupancy_value(occupancy)
+            if value not in (0, 1):
+                return None
             if value > 0.0:
                 last_occupied = idx
                 continue
@@ -354,12 +461,14 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
 
         columns = {
             "orbital_index": np.arange(num_orbitals),
-            "energy": energies,
+            "energy": self.serialize_energy_array(energies),
         }
         if occupancies:
             columns["occupancy"] = occupancies
         if symmetries:
             columns["symmetry"] = symmetries
+        if self.total_occupancies:
+            columns["total_occupancy"] = self.total_occupancies
 
         return PropertyTable(
             columns=columns,
@@ -370,6 +479,8 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
                 "index_base": 0,
                 "electronic_state": self.electronic_state,
                 "has_coefficients": bool(self.coefficients),
+                "orbital_basis": self.orbital_basis,
+                "occupancy_origin": self.occupancy_origin,
             },
         )
 
@@ -409,6 +520,29 @@ class MolecularOrbitals(BaseDataClassWithUnit, Sequence[MoleculeOrbital]):
         assert len(self.beta_energies) == len(self.beta_occupancies), (
             "beta orbital energies and occupancies must have the same length"
         )
+        count = max(len(self.alpha_energies), len(self.beta_energies))
+        for spin in ("alpha", "beta"):
+            energies = getattr(self, f"{spin}_energies")
+            occupancies = getattr(self, f"{spin}_occupancies")
+            missing = count - len(energies)
+            if missing:
+                setattr(
+                    self,
+                    f"{spin}_energies",
+                    np.concatenate([energies.m_as("hartree"), np.full(missing, np.nan)])
+                    * atom_ureg.hartree,
+                )
+                setattr(self, f"{spin}_occupancies", [*occupancies, *([None] * missing)])
+                symmetries = getattr(self, f"{spin}_symmetries")
+                if symmetries:
+                    setattr(self, f"{spin}_symmetries", [*symmetries, *([None] * missing)])
+        if self.total_occupancies and len(self.total_occupancies) != count:
+            raise ValueError("total_occupancies must match the shared orbital count")
+        for index in (self.reported_homo_index, self.reported_lumo_index):
+            if index is not None and (
+                index >= count or self._observed_energy(self.alpha_energies, index) is None
+            ):
+                raise ValueError("Reported frontier indices must refer to observed orbitals")
         if self.alpha_symmetries:
             assert len(self.alpha_symmetries) == len(self.alpha_energies), (
                 "alpha orbital symmetries and energies must have the same length"

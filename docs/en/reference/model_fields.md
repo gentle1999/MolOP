@@ -1,5 +1,7 @@
 # Find fields by scientific property
 
+See [data containers and cross-QM semantics](data_model.md) for container roles, field relationships and cross-program comparison rules.
+
 Start with `frame = AutoParser(path)[0][-1]`, then locate a public field by the result you need.
 
 ## Quick index

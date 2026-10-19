@@ -152,7 +152,35 @@ class XTBOutputPatterns:
     )
     REDUCED_MASS_HEADER = MolOPPattern(content_pattern=r"(?im)^\s*reduced masses \(amu\)\s*$")
     IR_HEADER = MolOPPattern(content_pattern=r"(?im)^\s*IR intensities \(km.mol.¹\)\s*$")
-    RAMAN_HEADER = MolOPPattern(content_pattern=r"(?im)^\s*Raman intensities")
+    RAMAN_HEADER = MolOPPattern(
+        content_pattern=r"(?im)^[ \t]*Raman intensities[ \t]*\((?P<unit>[^)]+)\)[ \t]*$"
+    )
+    HESSIAN_METHOD = MolOPPattern(
+        content_pattern=r"(?im)^[ \t]*Hessian matrix computed using (?P<method>[^.\r\n]+)\.[ \t]*$",
+        content_repeat=0,
+    )
+    VIB_INTENSITY_METHOD = MolOPPattern(
+        content_pattern=r"(?im)^[ \t]*Calculating vibrational intensities using (?P<method>\S+)[ \t]+\.\.\.[ \t]*$",
+        content_repeat=0,
+    )
+    WBO_HEADER = MolOPPattern(
+        content_pattern=rf"(?im)^[ \t]*largest[ \t]+\(>(?P<threshold>{XTB_FLOAT_PATTERN})\)[ \t]+Wiberg bond orders for each atom[ \t]*$",
+        content_repeat=0,
+    )
+    WBO_MODERN_ROW = MolOPPattern(
+        content_pattern=rf"^[ \t]*(?P<atom>\d+)[ \t]+\d+[ \t]+[A-Za-z]+[ \t]+(?P<total>{XTB_FLOAT_PATTERN})[ \t]+--[ \t]*(?P<pairs>.*)$"
+    )
+    WBO_LEGACY_ROW = MolOPPattern(
+        content_pattern=rf"^[ \t]*(?P<atom>\d+)[ \t]+[A-Za-z]+[ \t]+(?P<total>{XTB_FLOAT_PATTERN})[ \t]*(?P<pairs>.*)$"
+    )
+    WBO_MODERN_PAIR = MolOPPattern(
+        content_pattern=rf"(?P<atom>\d+)[ \t]+[A-Za-z]+[ \t]+(?P<value>{XTB_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
+    WBO_LEGACY_PAIR = MolOPPattern(
+        content_pattern=rf"[A-Za-z]+[ \t]+(?P<atom>\d+)[ \t]+(?P<value>{XTB_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
     FREQUENCY_ROW = MolOPPattern(
         content_pattern=r"(?im)^\s*eigval\s*:\s*(?P<values>.+)$",
         content_repeat=0,
@@ -186,6 +214,10 @@ class XTBOutputPatterns:
         content_pattern=r"(?im)^\s*TOT\s+(?P<values>.+)$",
         content_repeat=0,
     )
+    THERMO_SETTING = MolOPPattern(
+        content_pattern=rf"^[ \t]*:[ \t]+(?P<label>scaling factor|rotor cutoff|imag\. cutoff)[ \t]+(?P<value>{XTB_FLOAT_PATTERN})",
+        content_repeat=0,
+    )
     MOLECULAR_MASS = MolOPPattern(
         content_pattern=(rf"(?im)^\s*molecular mass/u\s*:\s*(?P<value>{XTB_FLOAT_PATTERN})"),
         content_repeat=0,
@@ -205,7 +237,7 @@ class XTBOutputPatterns:
     )
     GFN1_CHARGE_ROW = MolOPPattern(
         content_pattern=(
-            rf"^\s*\d+[A-Za-z]{{1,3}}\s+"
+            rf"^\s*(?P<index>\d+)(?P<symbol>[A-Za-z]{{1,3}})\s+"
             rf"(?P<mulliken>{XTB_FLOAT_PATTERN})\s+"
             rf"(?P<cm5>{XTB_FLOAT_PATTERN})"
         )
@@ -216,7 +248,7 @@ class XTBOutputPatterns:
     )
     GFN2_CHARGE_ROW = MolOPPattern(
         content_pattern=(
-            rf"^\s*\d+\s+\d+\s+[A-Za-z]{{1,3}}\s+{XTB_FLOAT_PATTERN}\s+"
+            rf"^\s*(?P<index>\d+)\s+(?P<atomic_number>\d+)\s+(?P<symbol>[A-Za-z]{{1,3}})\s+{XTB_FLOAT_PATTERN}\s+"
             rf"(?P<charge>{XTB_FLOAT_PATTERN})"
         )
     )

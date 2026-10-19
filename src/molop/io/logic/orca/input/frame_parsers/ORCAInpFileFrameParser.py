@@ -45,6 +45,9 @@ from molop.io.logic.orca.input.frame_parsers._orca_inp_resources import (
 from molop.io.logic.orca.input.frame_parsers._orca_inp_semantics import (
     build_orca_input_semantic_payload,
 )
+from molop.io.logic.orca.input.frame_parsers._orca_inp_tokens import (
+    strip_orca_inline_comment,
+)
 
 
 class ORCAInpParsePhase(Enum):
@@ -102,13 +105,14 @@ class ORCAInpFileFrameParserMixin:
         for line_idx, line in enumerate(context.lines):
             if line_in_spans(line_idx, occupied_spans):
                 continue
-            stripped = line.strip()
+            stripped = strip_orca_inline_comment(line).strip()
             if not stripped:
+                if line.lstrip().startswith("#"):
+                    context.comments.append(ORCACommentLine(text=line.strip()[1:].strip()))
                 continue
-            if stripped.startswith("#"):
-                context.comments.append(ORCACommentLine(text=stripped[1:].strip()))
-            elif stripped.startswith("!"):
-                context.keywords.append(ORCAKeywordLine(text=stripped[1:].strip()))
+            if stripped.startswith("!"):
+                original = line.strip() if line.lstrip().startswith("!") else stripped
+                context.keywords.append(ORCAKeywordLine(text=original[1:].strip()))
             elif not stripped.lower().startswith("$new_job"):
                 context.trailing_lines.append(line)
         return ORCAInpParsePhase.GEOMETRY
@@ -118,7 +122,7 @@ class ORCAInpFileFrameParserMixin:
     ) -> ORCAInpParsePhase:
         context.geometry = geometry_from_section(context.geometry_section, context.blocks)
         context.keyword_text = "\n".join(
-            line.text for line in context.keywords if line.text.strip()
+            strip_orca_inline_comment(line.text) for line in context.keywords if line.text.strip()
         )
 
         result.set("comment_lines", context.comments)

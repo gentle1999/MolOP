@@ -1,3 +1,11 @@
+"""ORCA inline and external geometry.
+
+Basis: ORCA-COORD. See
+``docs/en/reference/formats/orcainp.md`` for verified
+official manuals and tutorials. For field mappings and MolOP conventions, see
+``docs/en/reference/data_model.md``.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence

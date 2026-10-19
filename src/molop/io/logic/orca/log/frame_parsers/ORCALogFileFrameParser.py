@@ -12,14 +12,19 @@ from molop.io.logic.orca.log.frame_models.ORCALogFileFrame import (
 )
 from molop.io.logic.orca.log.frame_parsers._orca_extractors import (
     extract_orca_atomic_masses,
+    extract_orca_bond_orders,
     extract_orca_coords,
     extract_orca_electronic_states,
     extract_orca_energies,
     extract_orca_forces,
     extract_orca_geometry_optimization_status,
+    extract_orca_nmr,
+    extract_orca_orbitals,
     extract_orca_polarizability,
     extract_orca_populations,
     extract_orca_solvent,
+    extract_orca_thermochemistry,
+    extract_orca_total_spin,
     extract_orca_vibrations,
 )
 from molop.io.logic.orca.log.parsers._orca_log_shared import (
@@ -35,8 +40,11 @@ class ORCALogParsePhase(Enum):
     ENERGY = auto()
     STRUCTURE_ONLY_CHECK = auto()
     GRADIENT = auto()
+    ORBITALS = auto()
     VIBRATION = auto()
+    THERMOCHEMISTRY = auto()
     POPULATION = auto()
+    NMR = auto()
     POLARIZABILITY = auto()
     STATUS = auto()
     OPTIMIZATION = auto()
@@ -68,6 +76,7 @@ class ORCALogFileFrameParserMixin:
                 atomic_masses := extract_orca_atomic_masses(
                     text,
                     expected_atom_count=len(atoms),
+                    atoms=atoms,
                 )
             ) is not None:
                 result.set("atomic_masses", atomic_masses)
@@ -106,7 +115,9 @@ class ORCALogFileFrameParserMixin:
         )
 
     def _run_gradient_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
-        forces = extract_orca_forces(text, self._num_atoms_from_result(result))
+        forces = extract_orca_forces(
+            text, self._num_atoms_from_result(result), result.fields.get("atoms")
+        )
         if forces is not None:
             result.set("forces", forces)
             result.set("forces_axis_order", ("atom", "cartesian"))
@@ -118,18 +129,39 @@ class ORCALogFileFrameParserMixin:
                     "force_transformation",
                     "Elementwise negation of the ORCA Cartesian gradient in source atom order",
                 )
+        return ORCALogParsePhase.ORBITALS
+
+    def _run_orbitals_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
+        if orbitals := extract_orca_orbitals(text):
+            result.set("molecular_orbitals", orbitals)
         return ORCALogParsePhase.VIBRATION
 
     def _run_vibration_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
         vibrations = extract_orca_vibrations(text, self._num_atoms_from_result(result))
         if vibrations is not None:
             result.set("vibrations", vibrations)
+        return ORCALogParsePhase.THERMOCHEMISTRY
+
+    def _run_thermochemistry_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
+        for field, value in extract_orca_thermochemistry(text).items():
+            result.set(field, value)
         return ORCALogParsePhase.POPULATION
 
     def _run_population_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
-        populations = extract_orca_populations(text)
+        populations = extract_orca_populations(text, result.fields.get("atoms"))
         if populations is not None:
             result.set("charge_spin_populations", populations)
+        if (
+            bond_orders := extract_orca_bond_orders(text, self._num_atoms_from_result(result))
+        ) is not None:
+            result.set("bond_orders", bond_orders)
+        if (total_spin := extract_orca_total_spin(text)) is not None:
+            result.set("total_spin", total_spin)
+        return ORCALogParsePhase.NMR
+
+    def _run_nmr_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
+        if (nmr := extract_orca_nmr(text, self._num_atoms_from_result(result))) is not None:
+            result.set("nmr", nmr)
         return ORCALogParsePhase.POLARIZABILITY
 
     def _run_polarizability_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
@@ -188,10 +220,16 @@ class ORCALogFileFrameParserMixin:
                 phase = self._run_structure_only_check()
             elif phase is ORCALogParsePhase.GRADIENT:
                 phase = self._run_gradient_phase(text, result)
+            elif phase is ORCALogParsePhase.ORBITALS:
+                phase = self._run_orbitals_phase(text, result)
             elif phase is ORCALogParsePhase.VIBRATION:
                 phase = self._run_vibration_phase(text, result)
+            elif phase is ORCALogParsePhase.THERMOCHEMISTRY:
+                phase = self._run_thermochemistry_phase(text, result)
             elif phase is ORCALogParsePhase.POPULATION:
                 phase = self._run_population_phase(text, result)
+            elif phase is ORCALogParsePhase.NMR:
+                phase = self._run_nmr_phase(text, result)
             elif phase is ORCALogParsePhase.POLARIZABILITY:
                 phase = self._run_polarizability_phase(text, result)
             elif phase is ORCALogParsePhase.STATUS:

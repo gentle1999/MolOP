@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from typing import ClassVar, cast
+from typing import Any, ClassVar, Literal, cast
 
 import numpy as np
 from pint._typing import UnitLike
 from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity
-from pydantic import Field
+from pydantic import ConfigDict, Field, field_serializer, model_validator
+from typing_extensions import Self
 
 from molop.io.base_models.Bases import (
     BaseDataClassWithUnit,
@@ -18,6 +19,7 @@ from molop.io.base_models.Bases import (
     PropertyScalarValue,
     PropertyTable,
     TensorProperty,
+    mask_missing_values,
 )
 from molop.io.base_models.summary import SummaryDict, summary_dict_from_fields
 from molop.unit import atom_ureg
@@ -149,66 +151,97 @@ class Polarizability(BaseDataClassWithUnit):
         )
 
 
+class BondOrderMatrix(BaseDataClassWithUnit):
+    """One extensible atom-pair bond-order record in source atom order."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+
+    scheme: str = Field(min_length=1, description="Bond-order analysis scheme")
+    values: SquareArray = Field(
+        description="Square matrix in source atom order; unobserved entries are NaN"
+    )
+    spin_channel: Literal["alpha", "beta", "total"] | None = Field(
+        default=None, description="Spin channel when the source resolves one"
+    )
+    source_label: str | None = Field(default=None, description="Source table or record label")
+    print_threshold: float | None = Field(
+        default=None, description="Source threshold for printing atom-pair entries"
+    )
+    missing_reason: str | None = Field(
+        default=None, description="Meaning of unobserved matrix entries"
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict, description="Format-specific bond-order metadata"
+    )
+
+    @model_validator(mode="after")
+    def validate_values(self) -> Self:
+        if not self.values.size:
+            raise ValueError("Bond-order records require a non-empty matrix")
+        return self
+
+    @field_serializer("values")
+    def serialize_values(self, value: np.ndarray) -> Any:
+        return mask_missing_values(value)
+
+
 class BondOrders(BaseDataClassWithUnit):
-    wiberg_bond_order: SquareArray = Field(
-        default=np.zeros((0, 0)),
-        description="Wiberg bond order",
-        exclude_if=lambda x: x.shape == (0, 0),
+    """Extensible bond-order records keyed by stable snake_case identifiers."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
+
+    bond_orders: dict[str, BondOrderMatrix] = Field(
+        default_factory=dict,
+        description="Atom-aligned bond-order matrices keyed by a stable identifier",
+        exclude_if=lambda records: not records,
     )
-    mo_bond_order: SquareArray = Field(
-        default=np.zeros((0, 0)),
-        description="MO bond order, ∑[i∈A]∑[j∈B]P(i,j)",
-        exclude_if=lambda x: x.shape == (0, 0),
-    )
-    mayer_bond_order: SquareArray = Field(
-        default=np.zeros((0, 0)),
-        description="MAYER POPULATION ANALYSIS bond order, ∑[i∈A]∑[j∈B]P(i,j)",
-        exclude_if=lambda x: x.shape == (0, 0),
-    )
-    atom_atom_overlap_bond_order: SquareArray = Field(
-        default=np.zeros((0, 0)),
-        description="Atom-atom overlap bond order",
-        exclude_if=lambda x: x.shape == (0, 0),
-    )
-    nbo_bond_order: SquareArray = Field(
-        default=np.zeros((0, 0)),
-        description="NBO bond order",
-        exclude_if=lambda x: x.shape == (0, 0),
-    )
-    nbo_bond_order_for_alpha_spin: SquareArray = Field(
-        default=np.zeros((0, 0)),
-        description="NBO bond order for alpha spin",
-        exclude_if=lambda x: x.shape == (0, 0),
-    )
-    nbo_bond_order_for_beta_spin: SquareArray = Field(
-        default=np.zeros((0, 0)),
-        description="NBO bond order for beta spin",
-        exclude_if=lambda x: x.shape == (0, 0),
-    )
+
+    def bond_order_items(self) -> list[tuple[str, BondOrderMatrix]]:
+        return list(self.bond_orders.items())
+
+    def __getitem__(self, name: str) -> BondOrderMatrix:
+        return self.bond_orders[name]
+
+    def __len__(self) -> int:
+        return len(self.bond_orders)
+
+    def get_bond_order(self, name: str) -> BondOrderMatrix | None:
+        return self.bond_orders.get(name)
+
+    @property
+    def bond_order_names(self) -> list[str]:
+        return list(self.bond_orders)
+
+    @model_validator(mode="after")
+    def validate_bond_orders(self) -> Self:
+        shapes = {name: record.values.shape for name, record in self.bond_order_items()}
+        if len(set(shapes.values())) > 1:
+            raise ValueError(f"All bond-order matrices must have the same shape; got {shapes}")
+        return self
 
     def to_summary_dict(self, **kwargs) -> SummaryDict:
         return {}
 
-    @staticmethod
-    def _has_matrix_payload(value: np.ndarray) -> bool:
-        return value.shape != (0, 0)
-
     def to_property_bundle(self) -> PropertyBundle:
-        tensor_properties: dict[str, TensorProperty] = {
-            name: TensorProperty(label=name, tensor=value, frame="atom-pair")
-            for name, value in {
-                "wiberg_bond_order": self.wiberg_bond_order,
-                "mo_bond_order": self.mo_bond_order,
-                "mayer_bond_order": self.mayer_bond_order,
-                "atom_atom_overlap_bond_order": self.atom_atom_overlap_bond_order,
-                "nbo_bond_order": self.nbo_bond_order,
-                "nbo_bond_order_for_alpha_spin": self.nbo_bond_order_for_alpha_spin,
-                "nbo_bond_order_for_beta_spin": self.nbo_bond_order_for_beta_spin,
-            }.items()
-            if self._has_matrix_payload(value)
-        }
         return PropertyBundle(
-            tensor_properties=tensor_properties,
+            tensor_properties={
+                name: TensorProperty(
+                    label=name,
+                    tensor=mask_missing_values(record.values),
+                    frame="atom-pair",
+                    metadata={
+                        "scheme": record.scheme,
+                        "spin_channel": record.spin_channel,
+                        "source_label": record.source_label,
+                        "print_threshold": record.print_threshold,
+                        "missing_reason": record.missing_reason,
+                        "atom_order": "source",
+                        "index_base": 0,
+                        "source_metadata": record.metadata,
+                    },
+                )
+                for name, record in self.bond_order_items()
+            },
             metadata={"source": "BondOrders"},
         )
 
@@ -351,4 +384,10 @@ class SinglePointProperties(BaseDataClassWithUnit):
         return {}
 
 
-__all__ = ["BondOrders", "Dispersions", "Polarizability", "SinglePointProperties"]
+__all__ = [
+    "BondOrderMatrix",
+    "BondOrders",
+    "Dispersions",
+    "Polarizability",
+    "SinglePointProperties",
+]

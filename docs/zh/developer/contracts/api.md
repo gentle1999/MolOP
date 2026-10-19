@@ -186,8 +186,8 @@ batch 中不支持该操作的文件会记录 warning 并跳过。唯一 source 
 反应物或产物。前后体推断默认在每个振动方向上采样 `steps=8` 个振幅，范围为
 `min_ratio=0.6` 至 `max_ratio=1.4`；每侧选择出现频次最高的拓扑，再将碎片数更多的候选
 判为前体。`sampling_method` 默认为 `"harmonic_potential"`，对振幅平方等距采样，从而在
-简谐近似下使势能（虚频模式取势能
-降低量的绝对值）等距。该参数同样适用于 `additional_pre_post_ts`、`to_diff_rdmol` 和
+简谐近似下使势能（虚频模式取势能降低量的绝对值）等距。设为 `"amplitude"` 可恢复按振幅线性等距采样。
+该参数同样适用于 `additional_pre_post_ts`、`to_diff_rdmol` 和
 `save_pre_post_ts`。
 
 标准前后体结果不会被额外采样替代。保留标准前后体的三维构象后，可调用

@@ -40,11 +40,11 @@ print(type(rendered).__name__)
 
 | Capability | Support | Rendered content | Boundaries |
 | ---------- | ------- | ---------------- | ---------- |
-| <!-- feature-area:File-level Gaussian-like writer -->File-level Gaussian-like writer | Partial | `.fakeg` files from parsed Gaussian output data. | File-level rendering only; frame-level fakeG writing is not provided, the selected frames follow `frame`, and byte-for-byte Gaussian log reproduction is not claimed. |
-| <!-- feature-area:Structure and SCF energy rendering -->Structure and SCF energy rendering | Partial | Normalized orientation and SCF-cycle text from coordinate and energy fields. | Rendered sections are semantic Gaussian-like text, not original log text. |
-| <!-- feature-area:Vibrational frequency rendering -->Vibrational frequency rendering | Partial | Frequency, reduced-mass, force-constant, IR-intensity, and per-mode displacement sections. | Current coverage is limited to frequency and IR-related fields; Raman/VCD sections are not advertised. |
-| <!-- feature-area:Thermochemistry rendering -->Thermochemistry rendering | Partial | Temperature, correction, energy, entropy, heat-capacity, mass, inertia, and rotational/vibrational metadata. | This is a normalized thermochemistry summary, not a complete Gaussian thermochemistry pretty-printer. |
-| <!-- feature-area:Reparseable frequency and thermochemistry output -->Reparseable frequency and thermochemistry output | Supported | Rendered frequency and thermochemistry content can be parsed back into frame fields. | The round trip proves supported semantic fields, not byte-for-byte equivalence with Gaussian output. |
+| <!-- feature-area:File-level Gaussian-like writer -->Gaussian-like text output | Partial | `.fakeg` files from parsed Gaussian output data. | File-level rendering only; frame-level fakeG writing is not provided, the selected frames follow `frame`, and byte-for-byte Gaussian log reproduction is not claimed. |
+| <!-- feature-area:Structure and SCF energy rendering -->Structure and energy output | Partial | Normalized orientation and SCF-cycle text from coordinate and energy fields. | Rendered sections are semantic Gaussian-like text, not original log text. |
+| <!-- feature-area:Vibrational frequency rendering -->Vibrational data output | Partial | Frequency, reduced-mass, force-constant, IR-intensity, and per-mode displacement sections. | Current coverage is limited to frequency and IR-related fields; Raman/VCD sections are not advertised. |
+| <!-- feature-area:Thermochemistry rendering -->Thermochemistry output | Partial | Temperature, correction, energy, entropy, heat-capacity, mass, inertia, and rotational/vibrational metadata. | This is a normalized thermochemistry summary, not a complete Gaussian thermochemistry pretty-printer. |
+| <!-- feature-area:Reparseable frequency and thermochemistry output -->Reading generated text | Supported | Rendered frequency and thermochemistry content can be parsed back into frame fields. | The round trip proves supported semantic fields, not byte-for-byte equivalence with Gaussian output. |
 
 ## fakeG Capability Matrix
 
@@ -93,3 +93,22 @@ fakeG is designed to produce text that is sufficiently Gaussian-like for tests a
 downstream compatibility and can be reparsed by MolOP for covered fields. It must not be
 treated as evidence of source calculation success, original termination status, or complete
 provenance.
+
+## Data sources and writing conventions
+
+<!-- parsing-basis:start -->
+
+The table maps file contents to MolOP data. See [data containers and cross-QM
+semantics](../data_model.md) for shared units, indices and missing values.
+
+References: [Common data conventions](../data_model.md); [Gaussian output reader](g16log.md).
+
+| Property | File marker or data source | Reading or writing convention |
+| -------- | -------------------------- | ----------------------------- |
+| <!-- parsing-basis:File-level Gaussian-like writer -->Gaussian-like text output | `MolOP render_fakeg`; `selected parsed frames`; `synthetic Gaussian-like labels` | This is a writer-only MolOP format. Header and termination text are synthetic formatting; a rendered normal-termination line is not independent evidence that Gaussian ran. |
+| <!-- parsing-basis:Structure and SCF energy rendering -->Structure and energy output | `Frame atoms/coords and energies.reference_energy/total_energy` | Render orientation in Å and SCF-style energy in Eh from available model fields; canonical decimals and labels are writer policy, not recovered raw source precision. |
+| <!-- parsing-basis:Vibrational frequency rendering -->Vibrational data output | `Vibrations frequency/mass/force constant/IR/displacement fields` | Render frequency groups and displacement rows from stored arrays. Frequency and IR output are supported; full Raman, VCD and ROA output are unavailable. |
+| <!-- parsing-basis:Thermochemistry rendering -->Thermochemistry output | `ThermalInformations totals/corrections/conditions and convergence fields` | Format available thermal and convergence quantities with Gaussian-like units/labels. Absent values are not new observations; generated boilerplate does not establish a source program’s entropy model. |
+| <!-- parsing-basis:Reparseable frequency and thermochemistry output -->Reading generated text | Frequency and thermochemistry sections generated by `render_fakeg()` | The Gaussian log reader can read generated frequency and thermochemistry fields. Only written data can be recovered; the original log and all its properties are not reconstructed. |
+
+<!-- parsing-basis:end -->

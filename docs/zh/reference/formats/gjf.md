@@ -46,11 +46,11 @@ rendered = frame.format_transform(
 
 | 特性 | 支持程度 | 支持范围 | 明确边界 |
 | ---- | -------- | -------- | -------- |
-| <!-- feature-area:Fixture parse/render inventory -->Fixture parse/render inventory | fixture 覆盖 | 当前维护的 Gaussian 输入 fixtures 可解析、可渲染。 | 覆盖是 fixture-anchored，不等价于完整 Gaussian grammar 证明。 |
-| <!-- feature-area:Route semantics -->Route semantics | 部分支持 | 模型化学、任务类型、色散、溶剂化、布居请求和 HF 处理会解析到共享语义容器。 | `functional` 只为 DFT/hybrid/double-hybrid 语义填充；测试外的 Gaussian 方法关键字可能保留为 raw 或非结构化。 |
-| <!-- feature-area:Molecule specification -->Molecule specification | 部分支持 | Cartesian、整数 Cartesian、Z-matrix 变量、free delimiters、fragments 和非法 domain 诊断。 | 支持范围是测试覆盖的显式 molecule-spec grammar 变体。 |
-| <!-- feature-area:Additional sections -->Additional sections | 部分支持 | ModRedundant、GIC、NBO、结构化渲染和混合区段诊断。 | 混合 GIC/ModRedundant 区段按设计回退到 unknown，并保留诊断。 |
-| <!-- feature-area:Link1, includes, and writer options -->Link1、include 与 writer 选项 | 部分支持 | Link1 使用原文精确 span，并校验空行；支持 Geom=AllCheck 和转换时 checkpoint 传播。 | `@include` 涉及多个 source artifact，当前单 artifact `SourceSpan` 无法无歧义表达，因此 parser 以 `MOL.PARSE.GJF_INCLUDE_PROVENANCE_UNSUPPORTED` 明确拒绝；并非所有 Gaussian writer 选项都已覆盖。 |
+| <!-- feature-area:Fixture parse/render inventory -->输入结构与写出 | 部分支持 | 读取和规范化写出 Link0、Route、标题、分子规格及附加区段。 | 未识别的选项可保留原文，但不保证所有 Gaussian 输入语法及版本兼容性。 |
+| <!-- feature-area:Route semantics -->Route 计算设置 | 部分支持 | 模型化学、任务类型、色散、溶剂化、布居请求和 HF 处理会解析到共享语义容器。 | `functional` 只为 DFT/hybrid/double-hybrid 语义填充；未识别的 Gaussian 方法关键字可能保留为 raw 或非结构化。 |
+| <!-- feature-area:Molecule specification -->分子规格 | 部分支持 | Cartesian、整数 Cartesian、Z-matrix 变量、free delimiters、fragments 和非法 domain 诊断。 | 只支持下表列出的分子规格语法；未覆盖所有 ONIOM/MM 扩展。 |
+| <!-- feature-area:Additional sections -->附加输入区段 | 部分支持 | ModRedundant、GIC、NBO、结构化渲染和混合区段诊断。 | 混合 GIC/ModRedundant 区段按设计回退到 unknown，并保留诊断。 |
+| <!-- feature-area:Link1, includes, and writer options -->Link1、外部引用与写出选项 | 部分支持 | Link1 使用原文精确 span，并校验空行；支持 Geom=AllCheck 和转换时 checkpoint 传播。 | `@include` 涉及多个 source artifact，当前单 artifact `SourceSpan` 无法无歧义表达，因此 parser 以 `MOL.PARSE.GJF_INCLUDE_PROVENANCE_UNSUPPORTED` 明确拒绝；并非所有 Gaussian writer 选项都已覆盖。 |
 
 ## Gaussian 输入能力覆盖矩阵
 
@@ -79,7 +79,7 @@ rendered = frame.format_transform(
 | fragment molecule specification | 部分 | 支持 | 支持 | 不支持 | 要求每个原子声明连续的 `Fragment=n`，并校验声明的 fragment charge/multiplicity 数量。 |
 | `Geom=AllCheck` / `Geom=Checkpoint` | 支持 | 部分 | 部分 | 不支持 | parser 允许缺少 title 或 molecule block；canonical writer 仍按模型字段和默认标题重新组装。 |
 | connectivity section | 部分 | 不支持 | 部分 | 不支持 | 原始 connectivity 没有专用字段；`add_gjf_connectivity=True` 会从恢复的分子图重新生成连接表。 |
-| ModRedundant | 部分 | 部分 | 支持 | 不支持 | 覆盖已测试的行结构；复杂或未知命令可能作为 unknown/raw additional section。 |
+| ModRedundant | 部分 | 部分 | 支持 | 不支持 | 支持已识别的行结构；复杂或未知命令可能作为 unknown/raw additional section。 |
 | GIC | 部分 | 部分 | 支持 | 不支持 | 解析 label、options、function、arguments 和 standalone action；不声明完整 Gaussian GIC grammar。 |
 | `$NBO ... $END` | 部分 | 部分 | 支持 | 不支持 | 保存 header、commands 和 footer；NBO 命令内容不做进一步语义验证。 |
 | Gen/GenECP、自定义基组和其他附加输入 | 部分 | 不支持 | Raw | 部分 | route 可识别 `Gen` / `GenECP`；具体基组/ECP 文本通常作为 unknown additional section 保存和输出。 |
@@ -93,3 +93,22 @@ rendered = frame.format_transform(
 当前 GJF writer 是 **canonical writer**：适合构建和规范化 Gaussian 输入，不是
 **source-preserving editor**。需要只修改一个字段且保持其余输入逐字不变时，不应依赖
 `parse -> render` 作为无损编辑流程。
+
+## 属性来源与读取约定
+
+<!-- parsing-basis:start -->
+
+下表说明文件中的信息如何对应 MolOP 数据。公共单位、编号和缺失值说明见
+[数据容器与跨 QM 语义](../data_model.md)。
+
+参考资料：[Gaussian 输入格式](https://gaussian.com/input/)。
+
+| 属性 | 文件标记或数据来源 | 读取或写出约定 |
+| ---- | ------------------ | -------------- |
+| <!-- parsing-basis:Fixture parse/render inventory -->输入结构与写出 | `%Link0`; `# route`; `title`; `charge/multiplicity`; `molecule and trailing sections` | 读取 Link0、Route、标题、电荷、多重度、分子规格和附加区段；写出时规范化空白与坐标格式，不检查 Gaussian 版本兼容性。 |
+| <!-- parsing-basis:Route semantics -->Route 计算设置 | `HF/DFT/post-HF method/basis tokens`; `Opt/Freq/TD/SCRF/Pop` | 按有限词表生成方法、任务、资源、激发态、布居和溶剂请求；请求不等于结果，未知选项保留原文。 |
+| <!-- parsing-basis:Molecule specification -->分子规格 | `Cartesian or Z-matrix records`; `variables`; `fragment charge/spin pairs` | 保留分子规格、片段、标签、dummy/ghost、冻结标记；仅在支持的内坐标情形生成笛卡尔坐标，长度 Å、角度为度。 |
+| <!-- parsing-basis:Additional sections -->附加输入区段 | `ModRedundant/GIC records`; `$NBO ... $END`; `trailing blocks` | 将支持的附加节归入类型化输入对象；混合或未识别语法保留为未知并给出诊断，不补造输出属性。 |
+| <!-- parsing-basis:Link1, includes, and writer options -->Link1、外部引用与写出选项 | `--Link1--`; `blank-line boundaries`; `%chk/%oldchk`; `@include`; `Geom=AllCheck` | 按原文区间划分步骤；检查点链和输出路径由写出策略决定；不自动展开外部文件；遇到 @include 会报告不支持。 |
+
+<!-- parsing-basis:end -->

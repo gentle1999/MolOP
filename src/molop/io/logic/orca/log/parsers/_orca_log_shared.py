@@ -1,3 +1,11 @@
+"""ORCA explicit status and elapsed-time extraction.
+
+Basis: output fixture termination, SCF and TOTAL RUN TIME anchors. See
+``docs/en/reference/formats/orcaout.md`` for verified
+official manuals and tutorials. For field mappings and MolOP conventions, see
+``docs/en/reference/data_model.md``.
+"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -12,6 +20,11 @@ def _as_float(value: str) -> float:
 
 
 def extract_orca_status(text: str, *, include_termination: bool = True) -> Status | None:
+    """Use explicit output markers; the last observed status wins within scope.
+
+    Evidence: corpus termination anchors and synthetic contradictory-SCF tests;
+    see the reference index. Normal termination does not imply SCF convergence.
+    """
     status_dict: dict[str, bool] = {}
     if include_termination:
         normal_pos = text.rfind("****ORCA TERMINATED NORMALLY****")
@@ -35,6 +48,7 @@ def extract_orca_status(text: str, *, include_termination: bool = True) -> Statu
 
 
 def extract_orca_running_time(text: str) -> Any | None:
+    """Convert fixture TOTAL RUN TIME day/hour/minute/second/msec fields to seconds."""
     if matches := orca_log_patterns.RUN_TIME.find_matches(text):
         matched = matches[-1]
         seconds = (

@@ -93,9 +93,12 @@ FRAME_LABELS = frozenset(
         "Number of Normal Modes",
         "Vib-E2",
         "Vib-Modes",
+        "Polarizability Derivatives",
         "Thermal Energy",
         "Thermal Enthalpy",
         "Thermal Free Energy",
+        "Temperature",
+        "Pressure",
         "Job Status",
     }
 )
@@ -287,18 +290,38 @@ def extract_fchk_hessian(records: Mapping[str, FCHKRecord], num_atoms: int) -> A
     )
 
 
-def extract_fchk_orbitals(records: Mapping[str, FCHKRecord]) -> MolecularOrbitals | None:
+def extract_fchk_orbitals(
+    records: Mapping[str, FCHKRecord], *, reference_method: str | None = None
+) -> MolecularOrbitals | None:
     alpha = _float_array(records, "Alpha Orbital Energies")
     if not alpha:
         return None
-    beta = _float_array(records, "Beta Orbital Energies") or list(alpha)
-    alpha_electrons = _int_value(records, "Number of alpha electrons") or 0
-    beta_electrons = _int_value(records, "Number of beta electrons") or 0
+    beta = _float_array(records, "Beta Orbital Energies")
+    alpha_electrons = _int_value(records, "Number of alpha electrons")
+    beta_electrons = _int_value(records, "Number of beta electrons")
+    reference = (reference_method or "").upper()
+    shared = not beta and reference.startswith("R")
+    if shared:
+        beta = list(alpha)
     return MolecularOrbitals(
         alpha_energies=np.asarray(alpha) * atom_ureg.hartree,
         beta_energies=np.asarray(beta) * atom_ureg.hartree,
-        alpha_occupancies=[1.0 if index < alpha_electrons else 0.0 for index in range(len(alpha))],
-        beta_occupancies=[1.0 if index < beta_electrons else 0.0 for index in range(len(beta))],
+        alpha_occupancies=[
+            None if alpha_electrons is None else float(index < alpha_electrons)
+            for index in range(len(alpha))
+        ],
+        beta_occupancies=[
+            None if beta_electrons is None else float(index < beta_electrons)
+            for index in range(len(beta))
+        ],
+        orbital_basis="shared_spatial" if shared else "spin_resolved",
+        occupancy_origin="electron_counts",
+        total_occupancies=[
+            float((index < alpha_electrons) + (index < beta_electrons))
+            for index in range(len(alpha))
+        ]
+        if shared and alpha_electrons is not None and beta_electrons is not None
+        else [],
     )
 
 
@@ -444,6 +467,10 @@ def extract_fchk_nmr(
 
 
 def extract_fchk_vibrations(records: Mapping[str, FCHKRecord], num_atoms: int) -> Vibrations | None:
+    """Map Vib-E2 blocks validated against the matching Raman log/fchk fixture.
+
+    Basis and derivative-presence gate: docs/en/reference/formats/g16fchk.md.
+    """
     num_modes = _int_value(records, "Number of Normal Modes") or 0
     vib_e2 = _float_array(records, "Vib-E2")
     if num_modes <= 0 or len(vib_e2) < num_modes:
@@ -451,6 +478,7 @@ def extract_fchk_vibrations(records: Mapping[str, FCHKRecord], num_atoms: int) -
     payload: dict[str, Any] = {
         "frequencies": np.asarray(vib_e2[:num_modes]) * atom_ureg.cm_1,
         "mode_indices": list(range(num_modes)),
+        "source_program": "Gaussian",
     }
     if len(vib_e2) >= num_modes * 2:
         payload["reduced_masses"] = np.asarray(vib_e2[num_modes : num_modes * 2]) * atom_ureg.amu
@@ -462,6 +490,20 @@ def extract_fchk_vibrations(records: Mapping[str, FCHKRecord], num_atoms: int) -
         payload["IR_intensities"] = (
             np.asarray(vib_e2[num_modes * 3 : num_modes * 4]) * atom_ureg.km / atom_ureg.mol
         )
+    # Vib-E2 blocks 5/6/7 hold Raman activity and the P/U ratios. Confirm
+    # Raman was calculated using the polarizability derivative record, rather
+    # than interpreting uncomputed zero-filled slots as observed activities.
+    # Basis: matching generated Gaussian log/fchk water fixture (see references).
+    if len(_float_array(records, "Polarizability Derivatives")) == num_atoms * 18:
+        for block, field, unit in (
+            (4, "raman_activities", "angstrom**4/amu"),
+            (5, "raman_depolarization_ratios_polarized", "dimensionless"),
+            (6, "raman_depolarization_ratios_unpolarized", "dimensionless"),
+        ):
+            if len(vib_e2) >= num_modes * (block + 1):
+                payload[field] = atom_ureg.Quantity(
+                    np.asarray(vib_e2[num_modes * block : num_modes * (block + 1)]), unit
+                )
     mode_values = _float_array(records, "Vib-Modes")
     mode_size = num_atoms * 3
     if mode_size and len(mode_values) == num_modes * mode_size:
@@ -491,7 +533,23 @@ def extract_fchk_thermal_information(
         value = _float_value(records, label)
         if value is not None:
             payload[field] = value * atom_ureg.Unit("hartree / particle")
-    return ThermalInformations.model_validate(payload) if payload else None
+    if not payload:
+        return None
+    payload["source_program"] = "Gaussian"
+    electronic = _float_value(records, "Total Energy")
+    if electronic is not None:
+        reference = electronic * atom_ureg.Unit("hartree/particle")
+        derivations: dict[str, str] = {}
+        for total, correction in (("U_T", "TCE"), ("H_T", "TCH"), ("G_T", "TCG")):
+            if total in payload:
+                payload[correction] = payload[total] - reference
+                derivations[correction] = f"{total} - Total Energy"
+        payload["derivations"] = derivations
+    for label, unit in (("Temperature", atom_ureg.K), ("Pressure", atom_ureg.atm)):
+        if (value := _float_value(records, label)) is not None:
+            payload[label.lower()] = value * unit
+    # FCHK thermal totals do not identify the entropy approximation by themselves.
+    return ThermalInformations.model_validate(payload)
 
 
 def extract_fchk_status(records: Mapping[str, FCHKRecord]) -> Status:

@@ -17,6 +17,7 @@ from molop.io.base_models.DataClasses import (
     NMR,
     ActiveSpace,
     AtomicPopulationSeries,
+    BondOrderMatrix,
     BondOrders,
     ChargeSpinPopulations,
     Dispersions,
@@ -70,18 +71,61 @@ def test_molecular_orbitals_support_fractional_occupancies() -> None:
         beta_occupancies=[1.0, 0.0, 0.0],
     )
 
-    assert orbitals.HOMO_id == 1
+    assert orbitals.alpha_occupancies == [1.0, 0.5, 0.0]
+    assert orbitals.HOMO_id is None
     assert orbitals.beta_HOMO_id == 0
-    assert orbitals.SOMO_ids == [1]
-    assert orbitals.HOMO is not None
-    assert orbitals.HOMO.alpha_occupancy == 0.5
+    assert orbitals.SOMO_ids == []
+    assert orbitals[1].alpha_occupancy == 0.5
+
+
+def test_molecular_orbitals_keep_unknown_spin_entries_distinct_from_empty_orbitals() -> None:
+    orbitals = MolecularOrbitals(
+        alpha_energies=np.array([-0.5, -0.2, 0.1]) * atom_ureg.hartree,
+        beta_energies=np.array([-13.60569312299, np.nan, np.nan]) * atom_ureg.eV,
+        alpha_occupancies=[1.0, 0.5, 0.0],
+        beta_occupancies=[1.0, None, None],
+    )
+    assert orbitals.SOMO_ids == []
+    assert orbitals.beta_HOMO_id is None
+    assert orbitals.beta_LUMO_id is None
+    assert orbitals.beta_HOMO_LUMO_gap is None
+    assert orbitals.beta_energies[0].m_as("hartree") == pytest.approx(-0.5)
+    assert np.isnan(orbitals.beta_energies.m_as("eV")[1:]).all()
+    assert orbitals[1].beta_energy is None
+    dumped = orbitals.to_unitless_dump_with_unit_keys()
+    assert dumped["beta_energies (hartree)"][1:] == [None, None]
+    assert orbitals.to_unitless_dump()["beta_energies"][1:] == [None, None]
+    binary = orbitals.to_unitless_dump_with_unit_keys(array_mode="ndarray")
+    assert isinstance(binary["beta_energies (hartree)"], np.ndarray)
+    assert not isinstance(binary["beta_energies (hartree)"], np.ma.MaskedArray)
+    assert np.isnan(binary["beta_energies (hartree)"][1:]).all()
+    table = orbitals.to_orbital_table("beta")
+    assert table.row(0)["energy"].m_as("hartree") == pytest.approx(-0.5)
+    assert table.row(1)["energy"] is None
+    assert table.to_unitless_dump_with_unit_keys()["columns"]["energy (hartree)"][1:] == [
+        None,
+        None,
+    ]
+
+
+def test_molecular_orbitals_pad_shorter_spin_channel_with_unknown_values() -> None:
+    orbitals = MolecularOrbitals(
+        alpha_energies=np.array([-0.5, 0.1]) * atom_ureg.hartree,
+        beta_energies=np.array([-0.45]) * atom_ureg.hartree,
+        alpha_occupancies=[1, 0],
+        beta_occupancies=[1],
+    )
+    assert orbitals.beta_occupancies == [1, None]
+    assert np.isnan(orbitals.beta_energies.magnitude[1])
+    assert orbitals.beta_HOMO_id is None
+    assert orbitals.to_orbital_table("beta").row(1)["energy"] is None
 
 
 def test_common_data_containers_enforce_declared_array_shapes() -> None:
     assert Molecule().coords.shape == (0, 3)
     assert Vibration().vibration_mode.shape == (0, 3)
     assert "vibration_mode" not in Vibration().model_dump()
-    assert BondOrders().wiberg_bond_order.shape == (0, 0)
+    assert len(BondOrders()) == 0
 
     with pytest.raises(ValidationError, match="must have shape"):
         Molecule(coords=np.zeros((3, 2)) * atom_ureg.angstrom)
@@ -98,7 +142,7 @@ def test_common_data_containers_enforce_declared_array_shapes() -> None:
     with pytest.raises(ValidationError, match="must have shape"):
         Vibration(vibration_mode=np.zeros((3, 2)) * atom_ureg.angstrom)
     with pytest.raises(ValidationError, match="must have shape"):
-        BondOrders(wiberg_bond_order=np.zeros((2, 3)))
+        BondOrderMatrix(scheme="wiberg", values=np.zeros((2, 3)))
 
 
 def test_base_calc_frame_exposes_per_atom_masses_in_source_order() -> None:
@@ -292,11 +336,14 @@ def test_excited_state_request_and_result_states_are_sequence_like() -> None:
     )
     states = ElectronicStates(
         states=[
-            ElectronicState(state_index=0, label="S0", energy=-100 * atom_ureg.hartree),
+            ElectronicState(
+                state_index=0, is_ground_state=True, label="S0", energy=-100 * atom_ureg.hartree
+            ),
             ElectronicState(
                 state_index=1,
                 root=1,
                 label="T1",
+                is_ground_state=False,
                 multiplicity=3,
                 excitation_energy=1.5 * atom_ureg.eV,
                 oscillator_strength=0.0,
@@ -324,11 +371,14 @@ def test_excited_state_request_and_result_states_are_sequence_like() -> None:
 def test_electronic_states_project_to_state_table_and_transition_spectrum() -> None:
     states = ElectronicStates(
         states=[
-            ElectronicState(state_index=0, label="S0", energy=-100 * atom_ureg.hartree),
+            ElectronicState(
+                state_index=0, is_ground_state=True, label="S0", energy=-100 * atom_ureg.hartree
+            ),
             ElectronicState(
                 state_index=1,
                 root=1,
                 label="S1",
+                is_ground_state=False,
                 excitation_energy=2.5 * atom_ureg.eV,
                 oscillator_strength=0.12,
                 transition_dipole=np.array([0.1, 0.2, 0.3]) * atom_ureg.debye,
@@ -500,6 +550,8 @@ def test_property_bundle_and_spectrum_store_generic_property_shapes() -> None:
 def test_molecular_orbitals_project_to_columnar_tables_without_eager_records() -> None:
     orbitals = MolecularOrbitals(
         electronic_state="S0",
+        reported_homo_index=1,
+        reported_lumo_index=2,
         alpha_energies=np.array([-0.5, -0.2, 0.1]) * atom_ureg.hartree,
         beta_energies=np.array([-0.45, -0.1, 0.2]) * atom_ureg.hartree,
         alpha_occupancies=[1.0, 0.5, 0.0],
@@ -643,7 +695,9 @@ def test_scalar_and_matrix_properties_project_to_generic_bundles() -> None:
     spin_bundle = spin.to_property_bundle()
     assert spin_bundle.scalar_properties["spin_square"] == 0.75
 
-    bond_orders = BondOrders(wiberg_bond_order=np.eye(2))
+    bond_orders = BondOrders(
+        bond_orders={"wiberg_bond_order": BondOrderMatrix(scheme="wiberg", values=np.eye(2))}
+    )
     bond_bundle = bond_orders.to_property_bundle()
     assert isinstance(bond_bundle.tensor_properties["wiberg_bond_order"], TensorProperty)
     assert np.allclose(bond_bundle.tensor_properties["wiberg_bond_order"].tensor, np.eye(2))
@@ -707,7 +761,7 @@ def test_vibrations_keep_matrix_storage_with_lazy_views_and_spectrum_projection(
     assert isinstance(spectrum, Spectrum)
     assert len(spectrum.bands) == 2
     assert spectrum.bands[0].center is not None
-    assert spectrum.bands[0].center.units == atom_ureg.cm**-1
+    assert spectrum.bands[0].center.units == atom_ureg.cm_1
     assert spectrum.bands[0].intensity is not None
     assert spectrum.bands[0].intensity.units == atom_ureg.Unit("km/mol")
     assert spectrum.bands[0].metadata["mode_index"] == 0

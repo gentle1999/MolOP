@@ -27,6 +27,7 @@ from molop.io.logic.gaussian.fchk.output.parsers._fchk_extractors import (
     extract_fchk_vibrations,
     parse_fchk_frame_records,
 )
+from molop.io.logic.gaussian.fchk.output.parsers._fchk_records import parse_fchk_header
 
 
 class G16FchkParsePhase(Enum):
@@ -117,9 +118,9 @@ class G16FchkFileFrameParserMixin:
 
     @staticmethod
     def _run_orbitals_phase(
-        records: Mapping[str, Any], result: ModelParseResult
+        records: Mapping[str, Any], result: ModelParseResult, reference_method: str | None = None
     ) -> G16FchkParsePhase:
-        if orbitals := extract_fchk_orbitals(records):
+        if orbitals := extract_fchk_orbitals(records, reference_method=reference_method):
             result.set("molecular_orbitals", orbitals)
         if total_spin := extract_fchk_total_spin(records):
             result.set("total_spin", total_spin)
@@ -202,7 +203,7 @@ class G16FchkFileFrameParserMixin:
             elif phase is G16FchkParsePhase.DERIVATIVES:
                 phase = self._run_derivatives_phase(records, result)
             elif phase is G16FchkParsePhase.ORBITALS:
-                phase = self._run_orbitals_phase(records, result)
+                phase = self._run_orbitals_phase(records, result, parse_fchk_header(text).method)
             elif phase is G16FchkParsePhase.POPULATIONS:
                 phase = self._run_populations_phase(records, result)
             elif phase is G16FchkParsePhase.RESPONSE:

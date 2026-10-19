@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity, PlainUnit
 
 from molop.config import moloplogger
-from molop.io.base_models.DataClasses import EnergyObservation
+from molop.io.base_models.DataClasses import BondOrderMatrix, BondOrders, EnergyObservation
 from molop.io.base_models.SearchPattern import MolOPPattern
 from molop.io.logic.gaussian.log.frame_parsers._g16_shared import (
     ARCHIVE_TAIL,
@@ -32,6 +32,7 @@ from molop.io.logic.gaussian.log.frame_parsers._g16_shared import (
     _extract_labeled_float_tokens,
     _extract_molecular_orbital_payload_from_text,
     _summarize_parse_context,
+    _temperature_and_pressure_from_block,
     _trim_molecular_orbital_symmetries,
     extract_coords,
     extract_rotation_constants,
@@ -276,7 +277,7 @@ def _extract_nmr_coupling_matrix(content: str, size: int) -> np.ndarray | None:
             if 0 <= row_index < size and 0 <= column_index < size:
                 matrix[row_index, column_index] = value
                 matrix[column_index, row_index] = value
-    return matrix if np.isfinite(matrix).all() else None
+    return matrix if np.isfinite(matrix).any() else None
 
 
 def extract_populations_from_state(state: ParseState) -> dict[str, Any]:
@@ -299,7 +300,13 @@ def extract_populations_from_state(state: ParseState) -> dict[str, Any]:
             sub_focus_content, focus_content = pattern.split_content(focus_content)
             if matches := pattern.find_matches(sub_focus_content):
                 mo[key] = [sym for matched in matches for sym in matched.group("symbols").split()]
-        mo.update(_extract_molecular_orbital_payload_from_text(focus_content))
+        references = g16_log_patterns.SCF_ENERGY_AND_FUNCTIONAL.find_matches(state.content)
+        mo.update(
+            _extract_molecular_orbital_payload_from_text(
+                focus_content,
+                reference_method=references[-1].group("functional") if references else None,
+            )
+        )
         patterns_and_keys_2: list[tuple[MolOPPattern, str, str, str, str, str | None]] = [
             (
                 g16_log_patterns.MULLIKEN_SPIN_DENSITY,
@@ -435,6 +442,12 @@ def extract_populations_from_state(state: ParseState) -> dict[str, Any]:
             )
         if mo:
             mo = _trim_molecular_orbital_symmetries(mo)
+            if (
+                mo.get("orbital_basis") == "shared_spatial"
+                and mo.get("alpha_symmetries")
+                and not mo.get("beta_symmetries")
+            ):
+                mo["beta_symmetries"] = list(mo["alpha_symmetries"])
             infos["molecular_orbitals"] = mo
         if pops:
             infos["charge_spin_populations"] = {"populations": pops}
@@ -451,7 +464,76 @@ def extract_populations_from_state(state: ParseState) -> dict[str, Any]:
     return infos
 
 
-def extract_vibrations_from_state(state: ParseState) -> dict[str, Any] | None:
+def extract_bond_orders_from_state(state: ParseState, num_atoms: int) -> BondOrders | None:
+    """Read NBO atom-pair tables without merging total, alpha and beta channels.
+
+    Basis: NBO BNDIDX tables; see docs/en/reference/formats/g16log.md and the NBO manual linked there. Missing cells stay NaN.
+    """
+    schemes = {
+        "Wiberg bond index matrix in the NAO basis": ("wiberg_bond_order", "wiberg"),
+        "Atom-atom overlap-weighted NAO bond order": (
+            "atom_atom_overlap_bond_order",
+            "overlap_weighted_nao",
+        ),
+        "MO bond order": ("mo_bond_order", "mo"),
+    }
+    if num_atoms <= 0 or not any(label in state.content for label in schemes):
+        return None
+    spin: Literal["alpha", "beta", "total"] = "total"
+    records: dict[str, BondOrderMatrix] = {}
+    lines = state.content.splitlines()
+    for index, line in enumerate(lines):
+        if matched := g16_log_patterns.NBO_SPIN_HEADER.match(line):
+            spin = "alpha" if matched.group("spin") == "Alpha" else "beta"
+        header = g16_log_patterns.NBO_BOND_ORDER_HEADER.match(line)
+        if header is None:
+            continue
+        label = header.group("label")
+        name, scheme = schemes[label]
+        matrix = np.full((num_atoms, num_atoms), np.nan)
+        columns: list[int] = []
+        invalid = False
+        for table_line in lines[index + 1 :]:
+            if matched := g16_log_patterns.NBO_MATRIX_COLUMNS.match(table_line):
+                columns = [int(value) - 1 for value in matched.group("columns").split()]
+                if any(column < 0 or column >= num_atoms for column in columns):
+                    invalid = True
+                    break
+            elif matched := g16_log_patterns.NBO_MATRIX_ROW.match(table_line):
+                row = int(matched.group("atom")) - 1
+                values = _extract_float_tokens(matched.group("values"))
+                if row < 0 or row >= num_atoms or not columns or len(values) > len(columns):
+                    invalid = True
+                    break
+                for column, value in zip(columns[: len(values)], values, strict=True):
+                    matrix[row, column] = value
+            elif table_line.strip() and set(table_line.strip()) != {"-"}:
+                # Column underlines contain spaces between their dash groups.
+                if set(table_line.strip()) <= {"-", " "}:
+                    continue
+                break
+        if invalid or not np.isfinite(matrix).any():
+            continue
+        key = name if spin == "total" else f"{name}_for_{spin}_spin"
+        records[key] = BondOrderMatrix(
+            scheme=scheme,
+            values=matrix,
+            spin_channel=spin,
+            source_label=f"{label}:",
+            missing_reason="cell not printed in source table" if np.isnan(matrix).any() else None,
+            metadata={"source_program": "Gaussian", **({"basis": "NAO"} if scheme != "mo" else {})},
+        )
+    return BondOrders(bond_orders=records) if records else None
+
+
+def extract_vibrations_from_state(
+    state: ParseState, atoms: Sequence[int] | None = None
+) -> dict[str, Any] | None:
+    """Read mode groups, IR, Raman activity and independent P/U ratios.
+
+    Basis: Gaussian Freq and locally calculated water/hydrogen Raman fixtures;
+    see docs/en/reference/formats/g16log.md.
+    """
     block = state.content
     start_index = block.find(
         "Harmonic frequencies (cm**-1), IR intensities (KM/Mole), Raman scattering",
@@ -466,7 +548,7 @@ def extract_vibrations_from_state(state: ParseState) -> dict[str, Any] | None:
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
-    vib_dict: dict[str, Any] = {}
+    vib_dict: dict[str, Any] = {"source_program": "Gaussian"}
     length = 0
     if matches := g16_log_patterns.FREQUENCIES.find_matches(focus_content):
         vib_dict["frequencies"] = (
@@ -480,6 +562,17 @@ def extract_vibrations_from_state(state: ParseState) -> dict[str, Any] | None:
             * atom_ureg.cm_1
         )
         length = len(vib_dict["frequencies"])
+        source_indices: list[int] = []
+        lines = focus_content.splitlines()
+        for index, line in enumerate(lines):
+            if not line.strip().startswith("Frequencies --"):
+                continue
+            for previous in reversed(lines[max(0, index - 2) : index]):
+                if header := g16_log_patterns.MODE_INDEX_ROW.match(previous):
+                    source_indices.extend(int(value) for value in header.group("indices").split())
+                    break
+        if len(source_indices) == length:
+            vib_dict["source_mode_indices"] = source_indices
     if matches := g16_log_patterns.FREQUENCIES_REDUCED_MASS.find_matches(focus_content):
         vib_dict["reduced_masses"] = (
             np.array(
@@ -515,19 +608,53 @@ def extract_vibrations_from_state(state: ParseState) -> dict[str, Any] | None:
             * atom_ureg.km
             / atom_ureg.mol
         )
-    if matches := g16_log_patterns.FREQUENCIES_MODE.find_matches(focus_content):
-        v = np.array(
-            [
-                value
-                for matched in matches
-                for value in _extract_float_tokens(matched.group("values"))
-            ]
-        ).reshape(-1, 3)
-        L = len(v) // length
-        v1, v2, v3 = v[0::3], v[1::3], v[2::3]
-        vib_dict["vibration_modes"] = [
-            vn[i * L : i * L + L] for i in range(length // 3) for vn in [v1, v2, v3]
-        ] * atom_ureg.angstrom
+    for field in ("reduced_masses", "force_constants", "IR_intensities"):
+        if field in vib_dict and len(vib_dict[field]) != length:
+            del vib_dict[field]
+    if matches := g16_log_patterns.RAMAN_ACTIVITIES.find_matches(focus_content):
+        activities = [
+            value for matched in matches for value in _extract_float_tokens(matched.group("values"))
+        ]
+        if len(activities) == length:
+            vib_dict["raman_activities"] = np.asarray(activities) * atom_ureg.Unit(
+                "angstrom**4/amu"
+            )
+    for polarization, field in (("P", "polarized"), ("U", "unpolarized")):
+        values = [
+            value
+            for matched in g16_log_patterns.RAMAN_DEPOLARIZATION.find_matches(focus_content)
+            if matched.group("polarization") == polarization
+            for value in _extract_float_tokens(matched.group("values"))
+        ]
+        if values and len(values) == length:
+            vib_dict[f"raman_depolarization_ratios_{field}"] = (
+                np.asarray(values) * atom_ureg.dimensionless
+            )
+    modes: list[NumpyQuantity] = []
+    frequency_groups = g16_log_patterns.FREQUENCIES.find_matches(focus_content)
+    for index, group in enumerate(frequency_groups):
+        end = (
+            frequency_groups[index + 1].start()
+            if index + 1 < len(frequency_groups)
+            else len(focus_content)
+        )
+        group_size = len(_extract_float_tokens(group.group("values")))
+        mode_rows = g16_log_patterns.FREQUENCIES_MODE.find_matches(focus_content[group.end() : end])
+        atom_indices = [int(row.group("atom_index")) for row in mode_rows]
+        atomic_numbers = [int(row.group("atomic_number")) for row in mode_rows]
+        rows = [_extract_float_tokens(row.group("values")) for row in mode_rows]
+        if (
+            not rows
+            or atom_indices != list(range(1, len(rows) + 1))
+            or (atoms is not None and atomic_numbers != list(atoms))
+            or any(len(row) != 3 * group_size for row in rows)
+        ):
+            modes.clear()
+            break
+        vectors = np.asarray(rows).reshape(len(rows), group_size, 3).transpose(1, 0, 2)
+        modes.extend(vector * atom_ureg.angstrom for vector in vectors)
+    if modes and len(modes) == length:
+        vib_dict["vibration_modes"] = modes
         vib_dict.update(
             {
                 "axis_order": ("mode", "atom", "cartesian"),
@@ -545,7 +672,8 @@ def extract_thermal_infos_from_state(state: ParseState) -> dict[str, Any] | None
     if focus_content == "":
         return None
     state.advance_to(next_cursor)
-    thermal_dict: dict[str, Any] = {}
+    thermal_dict: dict[str, Any] = {"source_program": "Gaussian", "entropy_model": "RRHO"}
+    thermal_dict.update(_temperature_and_pressure_from_block(source_content))
     if matches := g16_log_patterns.MOLECULAR_MASS.find_matches(source_content):
         thermal_dict["molecular_mass"] = float(matches[0].group("mass")) * atom_ureg.amu
     if matches := g16_log_patterns.MOMENTS_OF_INERTIA.find_matches(source_content):

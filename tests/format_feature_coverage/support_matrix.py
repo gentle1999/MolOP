@@ -327,9 +327,11 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="Vibrations, thermochemistry, and status",
                 support="partial",
-                scope="Parses frequencies, reduced masses, force constants, IR intensities, normal-mode vectors, thermal energy/enthalpy/free energy, Job Status, and optimization completion.",
-                limitations="Raman/ROA/VCD data, detailed thermochemical corrections, temperature/pressure, and optimization convergence history are not mapped from the current fixtures.",
+                scope="Parses frequencies, masses, force constants, IR, normal modes, derivative-evidenced Raman activity and P/U ratios, thermal totals, derived TCE/TCH/TCG with equations, temperature/pressure when printed, Job Status and optimization completion.",
+                limitations="Raman requires complete polarizability derivatives. ROA/VCD and convergence history remain unmapped; thermal totals do not establish an entropy model.",
                 tests=(
+                    "tests/test_gaussian_xtb_properties.py::test_gaussian_raman_activity_and_both_polarizations_match_fchk",
+                    "tests/test_gaussian_xtb_properties.py::test_fchk_thermal_corrections_are_derived_and_export_their_basis",
                     "tests/test_g16fchk_parser.py::test_g16fchk_frequency_fixture_exposes_structured_results",
                 ),
             ),
@@ -425,9 +427,11 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="Molecular orbitals and population analysis",
                 support="partial",
-                scope="Population analysis exposes molecular orbital energies and occupancies; Mulliken charge/spin, APT, Lowdin, Hirshfeld/CM5, NPA, and ESP charge series; electronic spatial extent; multipole data; and early polarizability values where present.",
-                limitations="Orbital coefficient matrices, NBO orbital/bond-order details, and population schemes without a recognized atomic table are not claimed.",
+                scope="Parses molecular orbital energies and occupancies, atomic population schemes, multipole values, and independent total/alpha/beta NBO Wiberg, overlap-weighted NAO and MO bond-order matrices.",
+                limitations="Orbital coefficient matrices, detailed NBO orbital analysis and population schemes without recognized tables are not mapped.",
                 tests=(
+                    "tests/test_gaussian_xtb_properties.py::test_gaussian_closed_shell_nbo_matrices_reach_common_container",
+                    "tests/test_gaussian_xtb_properties.py::test_gaussian_nbo_spin_channels_are_independent_observations",
                     "tests/test_g16log_mo_regression.py::test_default_g16log_parser_preserves_open_shell_mo_counts",
                     "tests/test_g16log_mo_regression.py::test_default_g16log_parser_handles_concatenated_orbital_energies",
                     "tests/test_g16log_component_tree_payloads.py::test_g16log_component_tree_major_components_expose_model_payloads",
@@ -438,9 +442,11 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="Vibrational frequencies and IR intensities",
                 support="partial",
-                scope="Frequency analysis exposes vibrational frequencies, reduced masses, force constants, IR intensities, per-mode displacement vectors, and imaginary-mode flags.",
-                limitations="Raman/VCD and other spectrum variants are not advertised unless backed by explicit tests.",
+                scope="Parses frequencies, reduced masses, force constants, IR intensities, displacement vectors, Raman activities and separate P/U depolarization ratios, including a single linear-molecule mode.",
+                limitations="VCD, ROA and resonance Raman variants remain outside the tested contract.",
                 tests=(
+                    "tests/test_gaussian_xtb_properties.py::test_gaussian_raman_activity_and_both_polarizations_match_fchk",
+                    "tests/test_gaussian_xtb_properties.py::test_gaussian_linear_one_mode_keeps_displacements_and_raman",
                     "tests/test_g16log_numeric_regression.py::test_default_g16log_parser_handles_concatenated_frequency_values",
                     "tests/test_g16log_component_tree.py::test_g16log_component_tree_expands_l716_child_nodes",
                     "tests/test_g16log_component_tree_payloads.py::test_g16log_l716_vibration_mode_children_expose_per_mode_semantics",
@@ -731,6 +737,26 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
         summary="ORCA output parsing for user-facing result attributes such as energies, forces, vibrations, populations, solvation, excited states, and response properties.",
         features=(
             FeatureSupport(
+                area="Molecular orbitals",
+                support="partial",
+                scope="Orbital energies, fractional occupations, spin channels and printed symmetry labels are structured in the shared orbital model.",
+                limitations="Spin channels are aligned by source orbital index. Unprinted energies use NaN internally and null on JSON export; occupations and symmetry labels use None. Orbital coefficients are unavailable.",
+                tests=(
+                    "tests/test_orca_property_extractors.py::test_orca_water_orbitals_mayer_and_thermochemistry_are_numeric",
+                    "tests/test_orca_property_extractors.py::test_orca_rocis_spin_and_truncated_spin_channels_are_structured",
+                ),
+            ),
+            FeatureSupport(
+                area="Thermochemistry",
+                support="partial",
+                scope="The last temperature block supplies ZPVE, thermal corrections, internal energy, enthalpy, Gibbs energy, entropy, molecular mass and rotational constants, with frame temperature and pressure.",
+                limitations="Entropy energy terms are divided by temperature; heat capacities and additional partition-function diagnostics are unavailable.",
+                tests=(
+                    "tests/test_orca_property_extractors.py::test_orca_water_orbitals_mayer_and_thermochemistry_are_numeric",
+                    "tests/test_orca_property_extractors.py::test_orca_last_temperature_block_and_entropy_energy_semantics",
+                ),
+            ),
+            FeatureSupport(
                 area="Software metadata, frames, and status",
                 support="fixture-covered",
                 scope="Local and cclib ORCA fixtures expose software name/version, frame counts, and normal termination status across legacy and modern ORCA versions.",
@@ -763,9 +789,11 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="Vibrations and vibrational spectra",
                 support="fixture-covered",
-                scope="Vibration containers are exposed for covered frequency outputs; fixture inventory includes IR and Raman examples.",
-                limitations="Feature counts prove fixture presence; only fields asserted in the structured parse contract are guaranteed structured.",
+                scope="Frequencies, source mode indices, Cartesian normal modes, legacy/modern IR intensities, Raman activities and depolarization ratios are structured for covered outputs.",
+                limitations="Mode-resolved arrays require complete rows aligned to stored frequencies; Raman activities do not include experimental laser or temperature factors.",
                 tests=(
+                    "tests/test_orca_property_extractors.py::test_orca_water_ir_and_normal_modes_align_with_source_indices",
+                    "tests/test_orca_property_extractors.py::test_orca_raman_activities_depolarization_and_modern_ir_are_structured",
                     "tests/test_orca_output_fixtures.py::test_orca_output_fixture_manifest_inventory_is_broad",
                     "tests/test_orca_output_fixtures.py::test_orca_output_structured_parse_contract",
                     "tests/test_orca_output_fixtures.py::test_orca_output_fixture_feature_counts",
@@ -774,9 +802,11 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="Charge and spin populations",
                 support="partial",
-                scope="Parses closed- and open-shell Mulliken and Loewdin atomic charge/spin tables plus Hirshfeld charge/spin tables in covered ORCA outputs.",
-                limitations="Reduced orbital populations, Mayer valence/bond-order tables, and schemes outside the tested fixtures remain unstructured.",
+                scope="Parses Mulliken, Loewdin and Hirshfeld charge/spin tables, printed Mayer bond orders and the expectation value of total spin squared.",
+                limitations="Mayer matrices retain unprinted entries as NaN (JSON null) and preserve the print threshold; reduced orbital populations, Mayer valence diagnostics and untested schemes remain unavailable.",
                 tests=(
+                    "tests/test_orca_property_extractors.py::test_orca_water_orbitals_mayer_and_thermochemistry_are_numeric",
+                    "tests/test_orca_property_extractors.py::test_orca_rocis_spin_and_truncated_spin_channels_are_structured",
                     "tests/test_orca_output_fixtures.py::test_orca_output_structured_parse_contract",
                     "tests/test_orca_output_fixtures.py::test_orca_closed_shell_population_schemes_are_all_structured",
                     "tests/test_orca_output_fixtures.py::test_orca_open_shell_mulliken_and_lowdin_charge_spin_tables_are_structured",
@@ -807,9 +837,10 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="Response properties",
                 support="partial",
-                scope="Polarizability is exposed as a structured field for covered outputs; fixture inventory also includes NMR and spin-spin coupling examples.",
-                limitations="NMR and spin-spin coupling are currently fixture-anchored and may not yet be lifted into dedicated common fields.",
+                scope="Polarizability, NMR shielding tensors and isotropic spin-spin J matrices are structured, including printed shielding principal values, anisotropy and FC/SD/PSO/DSO J contributions.",
+                limitations="Full Cartesian coupling tensors and SD/FC cross terms are not exposed; coupling matrices retain source atom indices and use NaN (JSON null) for unprinted entries.",
                 tests=(
+                    "tests/test_orca_property_extractors.py::test_orca_nmr_shielding_and_coupling_tables_are_numeric",
                     "tests/test_orca_output_fixtures.py::test_orca_output_fixture_manifest_inventory_is_broad",
                     "tests/test_orca_output_fixtures.py::test_orca_output_structured_parse_contract",
                     "tests/test_orca_output_fixtures.py::test_orca_output_fixture_feature_counts",
@@ -864,9 +895,11 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="Orbitals, populations, and dipole",
                 support="partial",
-                scope="Parses legacy and modern orbital energies/occupancies, GFN1 Mulliken/CM5 charges, GFN2 Mulliken charges, molecular dipole, and rotational constants where printed.",
-                limitations="Wiberg bond-order tables, quadrupoles, dispersion-property tables, and omitted orbital ranges are not fully reconstructed.",
+                scope="Parses legacy/modern orbitals, GFN1 Mulliken/CM5 and GFN2 Mulliken charges, molecular dipole, rotational constants and thresholded Wiberg AO bond orders with wrapped-neighbor support.",
+                limitations="Quadrupoles, dispersion-property tables and omitted orbital ranges are not fully reconstructed. Unprinted bond-order pairs remain unknown.",
                 tests=(
+                    "tests/test_gaussian_xtb_properties.py::test_xtb_legacy_wiberg_neighbors_are_thresholded_not_mayer",
+                    "tests/test_gaussian_xtb_properties.py::test_xtb_modern_wrapped_neighbors_parse_without_inventing_geometry",
                     "tests/test_xtbout_parser.py::test_xtbout_legacy_v5_contract_parses_metadata_geometry_and_results",
                     "tests/test_xtbout_parser.py::test_xtbout_modern_single_point_keeps_results_without_embedded_geometry",
                     "tests/test_xtbout_parser.py::test_xtbout_modern_optimization_parses_xyz_and_sdf_final_structures",
@@ -875,9 +908,10 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="Vibrations and thermochemistry",
                 support="partial",
-                scope="Parses projected physical frequencies, reduced masses, IR intensities, zero-point energy, total enthalpy, total free energy, heat capacity, entropy, temperature, and molecular mass where printed.",
-                limitations="Normal-mode displacement vectors, Hessian sidecar files, Raman intensities, and detailed rotor/interpolation tables are not structured from stdout.",
+                scope="Parses projected physical frequencies, reduced masses, IR, explicitly unit-qualified Raman activities and frequency/activity method labels, plus printed thermochemical summary values and conditions.",
+                limitations="Normal-mode vectors, Hessian sidecars, Raman depolarization, undefined old (amu) Raman columns and detailed rotor tables are not structured from stdout.",
                 tests=(
+                    "tests/test_gaussian_xtb_properties.py::test_xtb_ptb_raman_uses_stdout_units_and_preserves_method_identity",
                     "tests/test_xtbout_parser.py::test_xtbout_frequency_and_thermochemistry_are_structured",
                 ),
             ),

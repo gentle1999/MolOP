@@ -1,0 +1,12 @@
+%mem=256MB
+%nprocshared=1
+%chk=water_raman.chk
+#p HF/STO-3G Opt Freq=Raman NoSymm
+
+MolOP minimal water Raman and depolarization fixture
+
+0 1
+O  0.000000  0.000000  0.000000
+H  0.000000  0.000000  0.960000
+H  0.929422  0.000000 -0.240365
+

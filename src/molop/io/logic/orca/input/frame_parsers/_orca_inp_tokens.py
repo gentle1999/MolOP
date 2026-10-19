@@ -1,3 +1,11 @@
+"""ORCA lexical conversion and comments.
+
+Basis: ORCA-INPUT. See
+``docs/en/reference/formats/orcainp.md`` for verified
+official manuals and tutorials. For field mappings and MolOP conventions, see
+``docs/en/reference/data_model.md``.
+"""
+
 from __future__ import annotations
 
 
@@ -30,12 +38,33 @@ def parse_orca_int(token: str) -> int | None:
 
 
 def strip_orca_inline_comment(line: str) -> str:
-    stripped = line.lstrip()
-    if stripped.startswith("#"):
-        return ""
-    if "#" in line:
-        return line.split("#", 1)[0]
-    return line
+    """ORCA-INPUT: # comments end at a second # or the end of the line.
+
+    Quoted filenames retain literal # characters. A removed comment separates
+    tokens, so text on its two sides cannot accidentally become one keyword.
+    """
+    result: list[str] = []
+    quote: str | None = None
+    in_comment = False
+    for character in line:
+        if in_comment:
+            if character == "#":
+                in_comment = False
+            elif character in "\r\n":
+                in_comment = False
+                result.append(character)
+        elif quote is not None:
+            result.append(character)
+            if character == quote:
+                quote = None
+        elif character == "#":
+            in_comment = True
+            result.append(" ")
+        else:
+            result.append(character)
+            if character in {"'", '"'}:
+                quote = character
+    return "".join(result)
 
 
 def split_orca_key_value(line: str) -> tuple[str, str]:

@@ -1,5 +1,7 @@
 # ORCA 输入文件模型与解析渲染指南
 
+输入语法及官方资料见 [ORCA 输入格式支持](../../reference/formats/orcainp.md)。
+
 本文说明 MolOP 中 ORCA `.inp` 的结构化读取模型和规范化 writer。ORCA writer 已注册，
 可从带坐标的 frame 和显式 ORCA 计算设置构建输入；它不是 source-preserving writer，
 不要依赖 `orca_raw_preamble` / `orca_raw_postamble` 或 raw round-trip 兼容。

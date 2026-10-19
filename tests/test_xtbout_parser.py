@@ -85,10 +85,9 @@ def test_xtbout_major_seven_uses_the_modern_six_contract() -> None:
         frame_v6.molecular_orbitals.alpha_energies.magnitude,
         equal_nan=True,
     )
-    np.testing.assert_allclose(
-        frame_v7.molecular_orbitals.alpha_occupancies,
-        frame_v6.molecular_orbitals.alpha_occupancies,
-        equal_nan=True,
+    assert (
+        frame_v7.molecular_orbitals.alpha_occupancies
+        == frame_v6.molecular_orbitals.alpha_occupancies
     )
     assert frame_v7.charge_spin_populations is not None
     assert frame_v6.charge_spin_populations is not None

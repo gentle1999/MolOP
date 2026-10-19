@@ -8,7 +8,8 @@ from typing import Any, ClassVar, overload
 import numpy as np
 from pint._typing import UnitLike
 from pint.facets.plain import PlainQuantity
-from pydantic import Field
+from pydantic import Field, model_validator
+from typing_extensions import Self
 
 from molop.io.base_models.Bases import (
     BaseDataClassWithUnit,
@@ -18,6 +19,7 @@ from molop.io.base_models.Bases import (
     PropertyTable,
     PropertyTransition,
     Spectrum,
+    mask_missing_values,
 )
 from molop.unit import atom_ureg
 from molop.utils.types import PintArray3
@@ -43,6 +45,9 @@ class ElectronicState(BaseDataClassWithUnit):
     set_default_units: ClassVar[bool] = True
 
     state_index: int | None = Field(default=None, description="0-based electronic state index")
+    is_ground_state: bool | None = Field(
+        default=None, description="Explicit ground-state identity; None means unknown"
+    )
     root: int | None = Field(default=None, description="Program root index")
     label: str | None = Field(default=None, description="Electronic-state label")
     multiplicity: int | None = Field(default=None, description="Spin multiplicity")
@@ -69,6 +74,23 @@ class ElectronicStates(BaseDataClassWithUnit, Sequence[ElectronicState]):
         default_factory=list, description="Electronic states ordered by source output"
     )
 
+    @model_validator(mode="after")
+    def validate_state_identity(self) -> Self:
+        if sum(state.is_ground_state is True for state in self.states) > 1:
+            raise ValueError("Only one state may be identified as the ground state")
+        known = [state.state_index for state in self.states if state.state_index is not None]
+        if len(known) != len(set(known)) or any(index < 0 for index in known):
+            raise ValueError("state_index must be unique and non-negative")
+        used = set(known)
+        for state in self.states:
+            if state.state_index is None:
+                index = 0
+                while index in used:
+                    index += 1
+                state.state_index = index
+                used.add(index)
+        return self
+
     def __iter__(self) -> Iterator[ElectronicState]:  # type: ignore[override]
         return iter(self.states)
 
@@ -86,11 +108,11 @@ class ElectronicStates(BaseDataClassWithUnit, Sequence[ElectronicState]):
 
     @property
     def ground_state(self) -> ElectronicState | None:
-        return self.states[0] if self.states else None
+        return next((state for state in self.states if state.is_ground_state is True), None)
 
     @property
     def excited_states(self) -> list[ElectronicState]:
-        return self.states[1:]
+        return [state for state in self.states if state.is_ground_state is False]
 
     def to_state_table(self) -> PropertyTable:
         columns: dict[str, PropertyColumnValue] = {
@@ -99,6 +121,7 @@ class ElectronicStates(BaseDataClassWithUnit, Sequence[ElectronicState]):
                 for idx, state in enumerate(self.states)
             ],
             "root": [state.root for state in self.states],
+            "is_ground_state": [state.is_ground_state for state in self.states],
             "label": [state.label for state in self.states],
             "multiplicity": [state.multiplicity for state in self.states],
             "spin": [state.spin for state in self.states],
@@ -133,6 +156,7 @@ class ElectronicStates(BaseDataClassWithUnit, Sequence[ElectronicState]):
                 * atom_ureg.eV
             )
 
+        columns = {key: mask_missing_values(value) for key, value in columns.items()}
         return PropertyTable(
             columns=columns,
             row_labels=[
@@ -145,9 +169,9 @@ class ElectronicStates(BaseDataClassWithUnit, Sequence[ElectronicState]):
     def to_transitions(self) -> list[PropertyTransition]:
         transitions: list[PropertyTransition] = []
         ground_state = self.ground_state
-        initial_state = ground_state.state_index if ground_state else 0
+        initial_state = ground_state.state_index if ground_state else None
         for idx, state in enumerate(self.states):
-            if state is ground_state:
+            if state.is_ground_state is not False:
                 continue
             final_state = state.state_index if state.state_index is not None else idx
             transitions.append(
@@ -159,6 +183,7 @@ class ElectronicStates(BaseDataClassWithUnit, Sequence[ElectronicState]):
                     oscillator_strength=state.oscillator_strength,
                     transition_dipole=state.transition_dipole,
                     properties={
+                        **state.properties,
                         "root": state.root,
                         "multiplicity": state.multiplicity,
                         "spin": state.spin,

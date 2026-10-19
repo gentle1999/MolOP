@@ -7,6 +7,7 @@ import numpy as np
 from pint.facets.numpy.quantity import NumpyQuantity
 from pint.facets.plain import PlainQuantity
 
+from molop.io.base_models.DataClasses import MolecularOrbitals
 from molop.io.base_models.SearchPattern import MolOPMatch
 from molop.io.logic.gaussian.log.parsers._g16_log_patterns import g16_log_patterns
 from molop.unit import atom_ureg
@@ -120,7 +121,9 @@ def _extract_labeled_float_tokens(
     return []
 
 
-def _extract_molecular_orbital_payload_from_text(focus_content: str) -> dict[str, Any]:
+def _extract_molecular_orbital_payload_from_text(
+    focus_content: str, *, reference_method: str | None = None
+) -> dict[str, Any]:
     mo: dict[str, Any] = {}
     temp_alpha_orbitals: list[float] = []
     temp_alpha_occupancies: list[bool] = []
@@ -169,6 +172,28 @@ def _extract_molecular_orbital_payload_from_text(focus_content: str) -> dict[str
     if temp_beta_orbitals:
         mo["beta_energies"] = np.array(temp_beta_orbitals) * atom_ureg.hartree
         mo["beta_occupancies"] = temp_beta_occupancies
+
+    reference = (reference_method or "").upper()
+    if (
+        temp_alpha_orbitals
+        and not temp_beta_orbitals
+        and reference.startswith("R")
+        and not reference.startswith("RO")
+    ):
+        shared = MolecularOrbitals.from_spatial_orbitals(
+            mo["alpha_energies"],
+            [2.0 * value for value in temp_alpha_occupancies],
+            closed_shell=True,
+        )
+        mo.update(
+            shared.model_dump(
+                exclude_computed_fields=True,
+                exclude={"electronic_state", "alpha_symmetries", "beta_symmetries"},
+            )
+        )
+    elif mo:
+        mo["orbital_basis"] = "spin_resolved"
+        mo["occupancy_origin"] = "observed"
 
     return mo
 

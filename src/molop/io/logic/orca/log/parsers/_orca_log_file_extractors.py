@@ -1,3 +1,11 @@
+"""ORCA printed-input and file metadata extraction.
+
+Basis: ORCA-INPUT, ORCA-OUTPUT and output fixture headers. See
+``docs/en/reference/formats/orcaout.md`` for verified
+official manuals and tutorials. For field mappings and MolOP conventions, see
+``docs/en/reference/data_model.md``.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Sequence

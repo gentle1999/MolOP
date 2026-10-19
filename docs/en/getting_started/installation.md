@@ -33,7 +33,8 @@ The two `<version>` values should match. The exact version and full help text ar
 
 ???+ note "Install from a source checkout"
     Contributors who need an editable checkout should use the [development environment and quality
-    gates](../developer/contributing/quality.md). End-user examples assume the `molop` command is on `PATH`.
+    gates](../developer/contributing/quality.md). End-user examples assume the `molop` command
+    is on `PATH`.
 
 ### Native crash when importing RDKit and Open Babel
 

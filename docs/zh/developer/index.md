@@ -24,6 +24,8 @@
 | 运行测试和质量门禁 | [开发环境与质量门禁](contributing/quality.md) |
 | 理解 QM 公共数据模型 | [QM 公共数据模型](architecture/qm_data_model.md) |
 | 理解 ORCA 输入模型 | [ORCA 输入文件模型](architecture/orca_input_model.md) |
+| 核对 ORCA 属性与解析依据 | [输入格式](../reference/formats/orcainp.md)、[输出格式](../reference/formats/orcaout.md) |
+| 理解公共数据容器与跨程序结果 | [数据容器与跨 QM 语义](../reference/data_model.md) |
 | 理解 source lifecycle | [API 契约](contracts/api.md) |
 
 用户任务说明不应依赖本区内容；公共 API 的变化需要同步更新用户指南和可执行示例。

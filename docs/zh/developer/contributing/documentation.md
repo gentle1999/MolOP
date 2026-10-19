@@ -74,10 +74,13 @@ Notebook 并渲染 HTML；不要手动修改 Notebook 的 `outputs`、执行计�
 - `mkdocs.yml` 导航。
 - 可执行代码对应测试。
 
+更新已有页面时，也应同步中英文的能力声明、限制、API 字段、默认值、单位和示例参数。
+双语检查会核对链接目标、API 渲染范围、表格及示例计算逻辑；提示文字可以翻译，正文含义仍需人工复核。
+
 ## 校验
 
 ```bash
 uv run rumdl check README.md README.zh.md $(rg --files docs -g '*.md')
-uv run pytest -q tests/test_documentation_examples.py --no-cov
+uv run pytest -q tests/test_documentation_examples.py tests/test_bilingual_documentation.py --no-cov
 NO_MKDOCS_2_WARNING=1 uv run mkdocs build --strict
 ```

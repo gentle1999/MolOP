@@ -1,3 +1,11 @@
+"""ORCA block boundaries and nested statements.
+
+Basis: ORCA-INPUT. See
+``docs/en/reference/formats/orcainp.md`` for verified
+official manuals and tutorials. For field mappings and MolOP conventions, see
+``docs/en/reference/data_model.md``.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Sequence
@@ -60,7 +68,7 @@ def is_coords_open_line(line: str) -> bool:
 
 
 def _parse_percent_header(line: str) -> tuple[str, str] | None:
-    stripped = line.strip()
+    stripped = strip_orca_inline_comment(line).strip()
     if not stripped.startswith("%"):
         return None
     rest = stripped[1:].strip()
@@ -133,7 +141,7 @@ def extract_block_spans(block: str) -> list[ORCABlockSpan]:
         if not inline_closed:
             scan_idx = idx + 1
             while scan_idx < len(spans):
-                candidate = spans[scan_idx].line.strip()
+                candidate = strip_orca_inline_comment(spans[scan_idx].line).strip()
                 lowered = candidate.lower()
                 if is_coords_open_line(lowered):
                     nested_depth += 1

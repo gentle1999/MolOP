@@ -191,7 +191,7 @@ test-science:
 
 test-orca:
 	@echo "🧪 Running the complete ORCA output corpus..."
-	uv run pytest --no-cov -o addopts='' -q -m orca_output_corpus tests/test_orca_output_fixtures.py
+	uv run pytest --no-cov -o addopts='' -q -m orca_output_corpus tests/test_orca_output_fixtures.py tests/test_orca_property_extractors.py
 
 test-native:
 	@echo "⚙️ Running isolated native stress tests..."
@@ -278,8 +278,8 @@ docs-build-strict:
 
 docs-check:
 	@echo "✅ Running documentation gates..."
-	uv run rumdl check --no-cache README.md README.zh.md docs
-	uv run pytest --no-cov -q tests/test_documentation_examples.py
+	uv run rumdl check --no-cache README.md README.zh.md $$(rg --files docs -g '*.md')
+	uv run pytest --no-cov -q tests/test_documentation_examples.py tests/test_bilingual_documentation.py
 	uv run pytest --no-cov -q tests/format_feature_coverage
 	NO_MKDOCS_2_WARNING=1 uv run mkdocs build --strict
 

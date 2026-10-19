@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import ast
+import re
 from pathlib import Path
 
+from molop.io.base_models import Bases, data_classes
 from molop.io.codec_registry import Registry
 
 from .support_matrix import (
@@ -122,3 +124,65 @@ def test_format_support_docs_have_overview_and_per_format_pages() -> None:
                 assert f"<!-- feature-area:{feature.area} -->" in text, (
                     f"{locale} {format_id} page does not document {feature.area!r}."
                 )
+
+
+def test_every_format_capability_has_traceable_bilingual_parsing_basis() -> None:
+    """Every capability needs a user-facing source and interpretation, in both locales."""
+    repo_root = Path(__file__).resolve().parents[2]
+    for locale in ("en", "zh"):
+        for format_id, report in FORMAT_SUPPORT.items():
+            page = repo_root / "docs" / locale / "reference" / "formats" / f"{format_id}.md"
+            text = page.read_text(encoding="utf-8")
+            start = "<!-- parsing-basis:start -->"
+            end = "<!-- parsing-basis:end -->"
+            assert text.count(start) == text.count(end) == 1, page
+            section = text.split(start, 1)[1].split(end, 1)[0]
+            assert "../data_model.md" in section, page
+            inline_source = re.search(r"\]\((?:https://|g16log\.md)", section)
+            reference_sources = re.findall(r"\]\[([\w-]+)\]", section)
+            assert inline_source or reference_sources, page
+            for reference in reference_sources:
+                assert re.search(rf"^\[{re.escape(reference)}\]: https://", text, re.M), (
+                    page,
+                    reference,
+                )
+            rows: dict[str, list[str]] = {}
+            for line in section.splitlines():
+                marker = re.search(r"<!-- parsing-basis:(?P<area>.*?) -->", line)
+                if marker is None:
+                    continue
+                area = marker.group("area")
+                assert area not in rows, (page, area)
+                cells = [cell.strip() for cell in re.split(r"(?<!\\)\|", line)[1:-1]]
+                assert len(cells) == 3 and all(cells), (page, area)
+                assert re.sub(r"<!--.*?-->", "", cells[0]).strip(), (page, area)
+                rows[area] = cells
+            assert set(rows) == {feature.area for feature in report.features}, page
+
+
+def test_property_references_are_user_documentation() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    forbidden = ("tests/", "src/molop/", "::test_", "fixture", "regression", "回归", "本次", "实算")
+    for locale in ("en", "zh"):
+        reference = repo_root / "docs" / locale / "reference"
+        pages = [reference / "data_model.md"]
+        pages.extend(reference.glob("formats/*.md"))
+        for page in pages:
+            text = re.sub(r"<!--.*?-->", "", page.read_text(encoding="utf-8"), flags=re.S)
+            for token in forbidden:
+                assert token not in text.lower(), (page, token)
+
+
+def test_data_model_reference_covers_public_data_containers() -> None:
+    repo_root = Path(__file__).resolve().parents[2]
+    container_names = set(data_classes.__all__)
+    container_names.update(
+        name
+        for name, value in vars(Bases).items()
+        if isinstance(value, type) and value.__module__ == Bases.__name__
+    )
+    for locale in ("en", "zh"):
+        page = repo_root / "docs" / locale / "reference" / "data_model.md"
+        text = page.read_text(encoding="utf-8")
+        for name in container_names:
+            assert f"`{name}`" in text, (page, name)

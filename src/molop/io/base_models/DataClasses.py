@@ -36,6 +36,7 @@ from .data_classes.populations import (  # noqa: F401
     TotalSpin,
 )
 from .data_classes.properties import (  # noqa: F401
+    BondOrderMatrix,
     BondOrders,
     Dispersions,
     Polarizability,

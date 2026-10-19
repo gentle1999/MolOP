@@ -8,6 +8,8 @@ import numpy as np
 from rdkit import Chem
 
 from molop.io.base_models.DataClasses import (
+    BondOrderMatrix,
+    BondOrders,
     ChargeSpinPopulations,
     Energies,
     EnergyObservation,
@@ -465,7 +467,9 @@ def _extract_indexed_values(block: str) -> list[float]:
         (int(matched.group("index")), _to_float(matched.group("value")))
         for matched in xtb_output_patterns.INDEXED_VALUE.find_matches(block)
     ]
-    if not indexed:
+    if not indexed or any(index < 1 for index, _ in indexed):
+        return []
+    if len({index for index, _ in indexed}) != len(indexed):
         return []
     result = [np.nan] * max(index for index, _ in indexed)
     for index, value in indexed:
@@ -474,6 +478,11 @@ def _extract_indexed_values(block: str) -> list[float]:
 
 
 def extract_xtb_vibrations(file_content: str) -> Vibrations | None:
+    """Read projected modes and unit-qualified Raman activities from stdout.
+
+    Basis: xTB v6.7.1 hessian.F90 and the locally calculated PTB water fixture;
+    see docs/en/reference/formats/xtbout.md for units and companion-file limits.
+    """
     starts = xtb_output_patterns.FREQUENCY_HEADER.find_matches(file_content)
     if not starts:
         return None
@@ -520,12 +529,132 @@ def extract_xtb_vibrations(file_content: str) -> Vibrations | None:
     payload: dict[str, Any] = {
         "frequencies": np.asarray(frequencies) * atom_ureg.cm_1,
         "mode_indices": list(range(len(frequencies))),
+        "source_program": "xTB",
     }
-    if len(reduced_masses) == len(frequencies):
+    if ir_start is not None:
+        end = raman_start.start() if raman_start else len(block)
+        printed_indices = sorted(
+            {
+                int(matched.group("index"))
+                for matched in xtb_output_patterns.INDEXED_VALUE.find_matches(
+                    block[ir_start.end() : end]
+                )
+            }
+        )
+        if leading_external_modes in {5, 6}:
+            printed_indices = printed_indices[leading_external_modes:]
+        if len(printed_indices) == len(frequencies):
+            payload["source_mode_indices"] = printed_indices
+    if matches := xtb_output_patterns.HESSIAN_METHOD.find_matches(
+        file_content[: starts[-1].start()]
+    ):
+        payload["frequency_method"] = matches[-1].group("method")
+    if len(reduced_masses) == len(frequencies) and np.isfinite(reduced_masses).all():
         payload["reduced_masses"] = np.asarray(reduced_masses) * atom_ureg.amu
-    if len(intensities) == len(frequencies):
+    if len(intensities) == len(frequencies) and np.isfinite(intensities).all():
         payload["IR_intensities"] = np.asarray(intensities) * atom_ureg.Unit("km/mol")
+    # v6.7.1 calls this "intensities", but hessian.F90 computes activities.
+    # Older "(amu)" zero-filled tables have no established activity unit.
+    if raman_start is not None and raman_start.group("unit") in {
+        "Ä⁴*amu⁻¹",
+        "Å⁴*amu⁻¹",
+        "A**4/amu",
+        "Å^4/amu",
+    }:
+        values = _extract_indexed_values(
+            block[raman_start.end() :].split("output can be read", 1)[0]
+        )
+        if leading_external_modes in {5, 6}:
+            values = values[leading_external_modes:]
+        if len(values) == len(frequencies) and np.isfinite(values).all():
+            payload["raman_activities"] = np.asarray(values) * atom_ureg.Unit("angstrom**4/amu")
+            if matches := xtb_output_patterns.VIB_INTENSITY_METHOD.find_matches(
+                file_content[: starts[-1].start()]
+            ):
+                payload["raman_activity_method"] = matches[-1].group("method")
     return Vibrations.model_validate(payload)
+
+
+def extract_xtb_bond_orders(file_content: str, num_atoms: int) -> BondOrders | None:
+    """Read thresholded WBO neighbors in legacy and modern stdout layouts.
+
+    Basis: xTB v6.7.1 printout; see docs/en/reference/formats/xtbout.md.
+    Reciprocal entries can differ in the last printed decimal. Keep the first
+    observed value symmetrically, without averaging or filling unprinted zeros.
+    """
+    headers = xtb_output_patterns.WBO_HEADER.find_matches(file_content)
+    if not headers:
+        return None
+    header = headers[-1]
+    lines = file_content[header.end() :].splitlines()
+    for index, line in enumerate(lines):
+        if line.strip().startswith(("molecular ", "Topologies ", "Writing topology")):
+            lines = lines[:index]
+            break
+    atom_count_source = "frame atoms"
+    if num_atoms <= 0:
+        # Single-point/hessian stdout can omit coordinates. Complete WBO row
+        # numbering still defines the matrix axes; it does not supply geometry.
+        indices = {
+            int(row.group("atom"))
+            for line in lines
+            if (
+                row := xtb_output_patterns.WBO_MODERN_ROW.match(line)
+                or xtb_output_patterns.WBO_LEGACY_ROW.match(line)
+            )
+            is not None
+        }
+        if not indices or indices != set(range(1, max(indices) + 1)):
+            return None
+        num_atoms = max(indices)
+        atom_count_source = "source WBO row indices"
+    matrix = np.full((num_atoms, num_atoms), np.nan)
+    atom: int | None = None
+    modern = False
+    for line in lines:
+        if line.strip().startswith(("molecular ", "Topologies ", "Writing topology")):
+            break
+        if row := xtb_output_patterns.WBO_MODERN_ROW.match(line):
+            modern = True
+        elif not modern:
+            row = xtb_output_patterns.WBO_LEGACY_ROW.match(line)
+        if row is not None:
+            atom = int(row.group("atom")) - 1
+            pairs = row.group("pairs")
+        elif modern and line[:1].isspace():
+            pairs = line
+        else:
+            continue
+        if atom is None:
+            continue
+        pattern = (
+            xtb_output_patterns.WBO_MODERN_PAIR if modern else xtb_output_patterns.WBO_LEGACY_PAIR
+        )
+        for pair in pattern.find_matches(pairs):
+            neighbor = int(pair.group("atom")) - 1
+            if not (0 <= atom < num_atoms and 0 <= neighbor < num_atoms) or atom == neighbor:
+                return None
+            if np.isnan(matrix[atom, neighbor]):
+                matrix[atom, neighbor] = matrix[neighbor, atom] = _to_float(pair.group("value"))
+    if not np.isfinite(matrix).any():
+        return None
+    return BondOrders(
+        bond_orders={
+            "wiberg_bond_order": BondOrderMatrix(
+                scheme="wiberg",
+                values=matrix,
+                source_label="Wiberg/Mayer (AO) data: Wiberg bond orders",
+                print_threshold=_to_float(header.group("threshold")),
+                missing_reason="pair not printed in thresholded source table",
+                metadata={
+                    "source_program": "xTB",
+                    "basis": "AO",
+                    "reciprocal_value_policy": "first_printed",
+                    "atom_count_source": atom_count_source,
+                },
+            )
+        }
+    )
 
 
 def extract_xtb_thermal_information(file_content: str) -> ThermalInformations | None:
@@ -546,6 +675,19 @@ def extract_xtb_thermal_information(file_content: str) -> ThermalInformations | 
             payload["S"] = _to_float(values[2]) * atom_ureg.Unit("cal/mol/K")
     if payload and (value := _last_group(xtb_output_patterns.MOLECULAR_MASS, file_content)):
         payload["molecular_mass"] = _to_float(value) * atom_ureg.amu
+    if payload:
+        payload.update(source_program="xTB", temperature=extract_xtb_temperature(file_content))
+        for matched in xtb_output_patterns.THERMO_SETTING.find_matches(file_content):
+            setting_value = _to_float(matched.group("value"))
+            label = matched.group("label")
+            if label == "scaling factor":
+                payload["frequency_scale_factor"] = setting_value
+            elif label == "rotor cutoff":
+                payload["rotor_reference_frequency"] = setting_value * atom_ureg.cm_1
+            elif label == "imag. cutoff":
+                payload["imaginary_frequency_cutoff"] = setting_value * atom_ureg.cm_1
+        if "T·S(HO)" in file_content and "T·S(FR)" in file_content:
+            payload["entropy_model"] = "QRRHO"
     return ThermalInformations.model_validate(payload) if payload else None
 
 
@@ -557,8 +699,18 @@ def extract_xtb_rotation_constants(file_content: str):
     return values * 29.9792458 * atom_ureg.gigahertz
 
 
-def extract_xtb_populations(file_content: str) -> ChargeSpinPopulations | None:
+def extract_xtb_populations(
+    file_content: str, atoms: list[int] | None = None
+) -> ChargeSpinPopulations | None:
+    """Read indexed charge tables, allowing symmetry notices interleaved in stdout.
+
+    Basis: xTB charge tables and the locally calculated PTB water fixture;
+    see docs/en/reference/formats/xtbout.md. Incomplete or misidentified atom
+    rows cannot be assigned to the frame's source atom order.
+    """
     populations: dict[str, Any] = {}
+    table_indices: list[int] = []
+    table_atoms: list[int] = []
     gfn1_headers = xtb_output_patterns.GFN1_CHARGE_HEADER.find_matches(file_content)
     if gfn1_headers:
         mulliken: list[float] = []
@@ -570,6 +722,8 @@ def extract_xtb_populations(file_content: str) -> ChargeSpinPopulations | None:
                     break
                 continue
             matched = row_matches[0]
+            table_indices.append(int(matched.group("index")))
+            table_atoms.append(Chem.GetPeriodicTable().GetAtomicNumber(matched.group("symbol")))
             mulliken.append(_to_float(matched.group("mulliken")))
             cm5.append(_to_float(matched.group("cm5")))
         if mulliken:
@@ -591,13 +745,23 @@ def extract_xtb_populations(file_content: str) -> ChargeSpinPopulations | None:
     gfn2_headers = xtb_output_patterns.GFN2_CHARGE_HEADER.find_matches(file_content)
     if gfn2_headers:
         mulliken = []
+        table_indices = []
+        table_atoms = []
         for line in file_content[gfn2_headers[-1].end() :].splitlines():
             row_matches = xtb_output_patterns.GFN2_CHARGE_ROW.find_matches(line)
             if not row_matches:
+                if line.strip().startswith(
+                    ("Molecule has the following symmetry elements:", "It seems to be the")
+                ):
+                    continue
                 if mulliken:
                     break
                 continue
             matched = row_matches[0]
+            table_indices.append(int(matched.group("index")))
+            table_atoms.append(int(matched.group("atomic_number")))
+            if Chem.GetPeriodicTable().GetElementSymbol(table_atoms[-1]) != matched.group("symbol"):
+                return None
             mulliken.append(_to_float(matched.group("charge")))
         if mulliken:
             populations = {
@@ -608,13 +772,27 @@ def extract_xtb_populations(file_content: str) -> ChargeSpinPopulations | None:
                     "source_label": "GFN2 atom-resolved q column",
                 }
             }
+    if table_indices != list(range(1, len(table_indices) + 1)):
+        return None
+    if atoms and table_atoms != atoms:
+        return None
     return (
         ChargeSpinPopulations.model_validate({"populations": populations}) if populations else None
     )
 
 
-def _occupancy_channels(occupancy: float) -> tuple[float, float]:
-    return min(max(occupancy, 0.0), 1.0), min(max(occupancy - 1.0, 0.0), 1.0)
+def _shared_xtb_orbitals(
+    file_content: str, energies: Any, occupancies: list[float | None], **frontiers: Any
+) -> MolecularOrbitals:
+    multiplicity = extract_xtb_multiplicity(file_content, extract_xtb_program_call(file_content))
+    high_spin = (
+        multiplicity > 1
+        and all(value in (0, 1, 2) for value in occupancies)
+        and sum(value == 1 for value in occupancies) == multiplicity - 1
+    )
+    return MolecularOrbitals.from_spatial_orbitals(
+        energies, occupancies, closed_shell=multiplicity == 1, high_spin=high_spin, **frontiers
+    )
 
 
 def _extract_modern_orbitals(file_content: str) -> MolecularOrbitals | None:
@@ -627,8 +805,8 @@ def _extract_modern_orbitals(file_content: str) -> MolecularOrbitals | None:
         block = block[: ends[0].start()]
 
     energies: list[float] = []
-    alpha: list[float | bool | None] = []
-    beta: list[float | bool | None] = []
+    occupancies: list[float | None] = []
+    frontiers: dict[str, int] = {}
     for line in block.splitlines():
         if "..." in line:
             continue
@@ -643,21 +821,18 @@ def _extract_modern_orbitals(file_content: str) -> MolecularOrbitals | None:
         energy = _to_float(numeric[-2])
         while len(energies) < index - 1:
             energies.append(np.nan)
-            alpha.append(0.0)
-            beta.append(0.0)
-        alpha_occ, beta_occ = _occupancy_channels(occupancy)
+            occupancies.append(None)
+        if len(energies) != index - 1:
+            return None
         energies.append(energy)
-        alpha.append(alpha_occ)
-        beta.append(beta_occ)
+        occupancies.append(occupancy)
+        for marker, field in (("(HOMO)", "reported_homo_index"), ("(LUMO)", "reported_lumo_index")):
+            if marker in line:
+                frontiers[field] = index - 1
     if not energies:
         return None
     energy_array = np.asarray(energies) * atom_ureg.hartree
-    return MolecularOrbitals(
-        alpha_energies=energy_array,
-        beta_energies=energy_array.copy(),
-        alpha_occupancies=alpha,
-        beta_occupancies=beta,
-    )
+    return _shared_xtb_orbitals(file_content, energy_array, occupancies, **frontiers)
 
 
 def _extract_legacy_orbitals(file_content: str) -> MolecularOrbitals | None:
@@ -671,7 +846,7 @@ def _extract_legacy_orbitals(file_content: str) -> MolecularOrbitals | None:
     pairs = xtb_output_patterns.LEGACY_ORBITAL_ROWS.find_matches(block)
     if not pairs:
         return None
-    occupancies: list[float] = []
+    occupancies: list[float | None] = []
     energies_ev: list[float] = []
     for matched in pairs:
         occupancies.extend(
@@ -680,19 +855,8 @@ def _extract_legacy_orbitals(file_content: str) -> MolecularOrbitals | None:
         energies_ev.extend(_to_float(token) for token in _float_tokens(matched.group("energies")))
     if not energies_ev or len(occupancies) != len(energies_ev):
         return None
-    alpha: list[float | bool | None] = []
-    beta: list[float | bool | None] = []
-    for occupancy in occupancies:
-        alpha_occ, beta_occ = _occupancy_channels(occupancy)
-        alpha.append(alpha_occ)
-        beta.append(beta_occ)
     energy_array = (np.asarray(energies_ev) * atom_ureg.electron_volt).to(atom_ureg.hartree)
-    return MolecularOrbitals(
-        alpha_energies=energy_array,
-        beta_energies=energy_array.copy(),
-        alpha_occupancies=alpha,
-        beta_occupancies=beta,
-    )
+    return _shared_xtb_orbitals(file_content, energy_array, occupancies)
 
 
 def extract_xtb_orbitals(file_content: str) -> MolecularOrbitals | None:
@@ -746,6 +910,7 @@ def extract_xtb_single_point_properties(file_content: str) -> SinglePointPropert
 
 __all__ = [
     "ensure_xtb_output_content",
+    "extract_xtb_bond_orders",
     "extract_xtb_coords",
     "extract_xtb_dipole",
     "extract_xtb_final_energy",

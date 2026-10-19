@@ -6,6 +6,8 @@ import pytest
 
 from molop.io import AutoParser  # type: ignore[reportMissingImports]
 from molop.io.logic.orca.input.frame_models.ORCAInpFileFrame import ORCAInpFileFrameDisk
+from molop.io.logic.orca.input.frame_parsers._orca_inp_tokens import strip_orca_inline_comment
+from molop.io.logic.orca.input.parsers.ORCAInpFileParser import ORCAInpFileParserMemory
 
 
 ORCA_FIXTURE_DIR = Path(__file__).resolve().parent / "test_files" / "orca"
@@ -25,6 +27,46 @@ ORCA_INPUT_FIXTURE_DIRS = (
     ORCA_MRCI_INPUT_DIR,
     ORCA_SOLVATOR_INPUT_DIR,
 )
+
+
+def test_orca_closed_comments_keep_following_code_and_quoted_hashes():
+    # ORCA 6.1 input manual, section 2.1: the second # closes a comment.
+    code = strip_orca_inline_comment("TolE=1e-5; #Energy conv.# TolMaxP=1e-6; #Density conv.#")
+    assert code.split() == ["TolE=1e-5;", "TolMaxP=1e-6;"]
+    assert strip_orca_inline_comment('MOInp "name#part.gbw" # ignored').strip() == (
+        'MOInp "name#part.gbw"'
+    )
+    assert strip_orca_inline_comment("nprocs# separator #4").split() == ["nprocs", "4"]
+
+
+@pytest.mark.parametrize("inline", [False, True])
+def test_orca_comments_do_not_hide_resources_or_block_end(inline):
+    pal = (
+        "%pal # closed # nprocs = 4 end # trailing"
+        if inline
+        else "%pal\n# closed # nprocs = 4\nend # trailing"
+    )
+    text = f"""! HF # PBE0 is a comment # def2-SVP
+%maxcore # 999 is a comment # 2000
+{pal}
+%output
+# closed # Print[P_Basis] 2 # trailing
+end # trailing
+* xyz 0 1
+H 0 0 0
+H 0 0 1
+*
+"""
+    frame = ORCAInpFileParserMemory().parse(text)[-1]
+    assert frame.resource_request.num_cpu == 4
+    assert frame.resource_request.memory.m_as("MB") == 2000
+    assert frame.method == "HF"
+    assert frame.basis_set == "def2-SVP"
+    assert frame.output_print_settings[0].target == "P_Basis"
+    assert frame.output_print_settings[0].value == "2"
+    assert len(frame.blocks) == 3
+    assert frame.blocks[1].raw_text == pal
+    assert len(frame.atoms) == 2
 
 
 @pytest.mark.parametrize(
