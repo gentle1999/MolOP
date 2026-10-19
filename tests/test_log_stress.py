@@ -21,9 +21,13 @@ LOG_DIR = ROOT / "tests" / "test_files" / "g16log"
 LOG_PATHS = tuple(path.relative_to(ROOT).as_posix() for path in sorted(LOG_DIR.glob("*.log")))
 EXPECTED_FILE_COUNT = len(LOG_PATHS)
 EXPECTED_FRAME_COUNT = sum(
-    len(locate_g16_section_frames(path.read_text(errors="surrogateescape"), section))
+    len(
+        locate_g16_section_frames(
+            path.read_text(encoding="utf-8", errors="surrogateescape"), section
+        )
+    )
     for path in sorted(LOG_DIR.glob("*.log"))
-    for section in locate_g16_sections(path.read_text(errors="surrogateescape"))
+    for section in locate_g16_sections(path.read_text(encoding="utf-8", errors="surrogateescape"))
 )
 
 

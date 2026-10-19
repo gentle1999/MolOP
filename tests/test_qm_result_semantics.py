@@ -53,7 +53,7 @@ def test_state_identity_does_not_depend_on_position_or_program_root():
 @pytest.mark.parametrize("filename, count", [("dvb_td.out", 10), ("dvb_adc2.log", 2)])
 def test_orca_excited_only_results_export_every_observed_transition(filename, count):
     path = FILES / "orca/output_files/cclib/basicORCA6.0" / filename
-    states = ORCALogFileParserMemory().parse(path.read_text())[-1].electronic_states
+    states = ORCALogFileParserMemory().parse(path.read_text(encoding="utf-8"))[-1].electronic_states
     assert states.ground_state is None
     assert len(states.excited_states) == count
     assert len(states.to_spectrum().transitions) == count
@@ -126,8 +126,12 @@ def test_gaussian_restricted_sharing_requires_reference_evidence():
 
 
 def test_real_gaussian_log_and_fchk_closed_shell_channels_agree():
-    log = G16LogFileParserMemory().parse((FILES / "g16log/test_nmr.log").read_text())[-1]
-    fchk = G16FchkFileParserMemory().parse((FILES / "g16fchk/molecule.fchk").read_text())[-1]
+    log = G16LogFileParserMemory().parse(
+        (FILES / "g16log/test_nmr.log").read_text(encoding="utf-8")
+    )[-1]
+    fchk = G16FchkFileParserMemory().parse(
+        (FILES / "g16fchk/molecule.fchk").read_text(encoding="utf-8")
+    )[-1]
     a, b = log.molecular_orbitals, fchk.molecular_orbitals
     assert a.orbital_basis == b.orbital_basis == "shared_spatial"
     assert a.alpha_occupancies == a.beta_occupancies == b.alpha_occupancies == b.beta_occupancies
@@ -135,7 +139,9 @@ def test_real_gaussian_log_and_fchk_closed_shell_channels_agree():
 
 
 def test_xtb_frontiers_survive_omitted_orbitals_and_fractional_smearing():
-    frame = XTBOutputFileParserMemory().parse((FILES / "xtbout/6-6-1-hess.out").read_text())[-1]
+    frame = XTBOutputFileParserMemory().parse(
+        (FILES / "xtbout/6-6-1-hess.out").read_text(encoding="utf-8")
+    )[-1]
     orbitals = frame.molecular_orbitals
     assert (orbitals.HOMO_id, orbitals.LUMO_id) == (22, 23)
     assert orbitals.HOMO_LUMO_gap.m_as("eV") == pytest.approx(0.28295295, abs=5e-6)
@@ -165,7 +171,7 @@ def test_xtb_frontiers_survive_omitted_orbitals_and_fractional_smearing():
 def test_mode_identity_and_thermal_conditions_survive_container_interfaces(
     parser, relative, source_indices, entropy_model
 ):
-    frame = parser().parse((FILES / relative).read_text())[-1]
+    frame = parser().parse((FILES / relative).read_text(encoding="utf-8"))[-1]
     modes = frame.vibrations
     assert modes.mode_indices == list(range(len(modes)))
     assert modes.source_mode_indices[:3] == source_indices

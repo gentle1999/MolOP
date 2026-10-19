@@ -12,7 +12,7 @@ FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "3-m-Py_an
 
 
 def test_g16log_fakeg_render_contains_expected_gaussian_sections():
-    file_content = FIXTURE.read_text()
+    file_content = FIXTURE.read_text(encoding="utf-8")
     frame = G16LogFileParserMemory().parse(file_content)[-1]
     rendered = frame.render_fakeg()
 
@@ -27,7 +27,7 @@ def test_g16log_fakeg_render_contains_expected_gaussian_sections():
 
 
 def test_g16log_fakeg_can_render_specific_l716_child_nodes():
-    file_content = FIXTURE.read_text()
+    file_content = FIXTURE.read_text(encoding="utf-8")
     frame = G16LogFileParserMemory().parse(file_content)[-1]
     tree = frame.component_tree
 
@@ -44,7 +44,9 @@ def test_g16log_fakeg_can_render_specific_l716_child_nodes():
 
 
 def test_g16log_file_model_can_render_fakeg_for_all_frames():
-    rendered = cast(str, G16LogFileParserMemory().parse(FIXTURE.read_text()).render_fakeg())
+    rendered = cast(
+        str, G16LogFileParserMemory().parse(FIXTURE.read_text(encoding="utf-8")).render_fakeg()
+    )
 
     assert "gaussian 16:" in rendered.lower()
     assert "symbolic z-matrix:" in rendered.lower()
@@ -79,7 +81,7 @@ def test_g16log_fakeg_header_uses_shared_link0_cpu_projection() -> None:
 
 
 def test_g16log_file_format_transform_registers_fakeg_file_renderer_only():
-    parsed = G16LogFileParserMemory().parse(FIXTURE.read_text())
+    parsed = G16LogFileParserMemory().parse(FIXTURE.read_text(encoding="utf-8"))
 
     rendered = cast(str, parsed.format_transform("fakeg"))
 
@@ -91,7 +93,9 @@ def test_g16log_file_format_transform_registers_fakeg_file_renderer_only():
 
 
 def test_g16log_rendered_fakeg_can_be_reparsed_with_frequency_and_thermochemistry():
-    rendered = cast(str, G16LogFileParserMemory().parse(FIXTURE.read_text()).render_fakeg())
+    rendered = cast(
+        str, G16LogFileParserMemory().parse(FIXTURE.read_text(encoding="utf-8")).render_fakeg()
+    )
     reparsed = G16LogFileParserMemory().parse(rendered)
 
     assert len(reparsed.frames) == 5

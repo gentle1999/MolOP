@@ -18,9 +18,9 @@ def test_detected_format_id_persisted_on_parsed_file() -> None:
 
 
 def test_filter_by_codec_id_uses_detected_format_id(tmp_path: Path) -> None:
-    xyz_content = _fixture_xyz_path().read_text()
+    xyz_content = _fixture_xyz_path().read_text(encoding="utf-8")
     unknown_suffix_path = tmp_path / "fixture.foo"
-    unknown_suffix_path.write_text(xyz_content)
+    unknown_suffix_path.write_text(xyz_content, encoding="utf-8")
 
     batch = AutoParser(str(unknown_suffix_path))
     assert len(batch) > 0

@@ -160,7 +160,7 @@ def test_extract_labeled_float_tokens_handles_concatenated_polarizability_values
 def test_g16log_file_running_time_is_accumulated_into_model_field() -> None:
     fixture = Path(__file__).resolve().parent / "test_files" / "g16log" / "H2O.log"
     parser = G16LogFileParserMemory()
-    parsed = parser.parse(fixture.read_text())
+    parsed = parser.parse(fixture.read_text(encoding="utf-8"))
 
     assert parsed.running_time is not None
     assert parsed.running_time.to("second").m == pytest.approx(5.8)
@@ -191,7 +191,7 @@ def test_default_g16log_parser_uses_archive_energy_for_terminal_frequency_frame(
 
 
 def test_g16log_archive_tail_payload_extracts_thermal_and_polar_fields() -> None:
-    frames = _located_frame_texts(TERMINAL_ARCHIVE_ENERGY_FIXTURE.read_text())
+    frames = _located_frame_texts(TERMINAL_ARCHIVE_ENERGY_FIXTURE.read_text(encoding="utf-8"))
 
     optimization_tail = extract_archive_tail_payload_from_state(ParseState(frames[25]))
     optimization_polar = optimization_tail["polarizability"]

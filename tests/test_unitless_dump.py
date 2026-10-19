@@ -181,7 +181,7 @@ def test_complex_arrays_require_the_binary_sidecar_mode() -> None:
 
 def test_real_frame_dump_is_separate_complete_and_repeatable() -> None:
     fixture = Path(__file__).resolve().parent / "test_files" / "g16log" / "H2O.log"
-    chem_file = G16LogFileParserMemory().parse(fixture.read_text())
+    chem_file = G16LogFileParserMemory().parse(fixture.read_text(encoding="utf-8"))
     file_payload = chem_file.to_unitless_dump_with_unit_keys(exclude_none=True)
     frame = chem_file.frames[0]
     source_atoms = list(frame.atoms)

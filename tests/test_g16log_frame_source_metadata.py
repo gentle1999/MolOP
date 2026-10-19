@@ -22,7 +22,7 @@ FIXTURE_ROOT = Path(__file__).resolve().parent / "test_files" / "g16log"
 
 
 def _frame_blocks(name: str) -> list[str]:
-    text = (FIXTURE_ROOT / name).read_text()
+    text = (FIXTURE_ROOT / name).read_text(encoding="utf-8")
     return [
         frame.text(text)
         for section in locate_g16_sections(text)

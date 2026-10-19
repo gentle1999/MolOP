@@ -65,7 +65,7 @@ class FrameFormatTransformMixin:
         )
         if write_to_disk:
             output_path = cast(str, writer_file_path)
-            with open(output_path, "w") as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 f.write(rendered)
         return rendered
 
@@ -141,12 +141,12 @@ class FormatTransformMixin:
             extension = codec_registry.get_writer_output_extension(format)
             if isinstance(rendered, str):
                 output_path = os.path.join(dir_path, f"{base}.{extension}")
-                with open(output_path, "w") as f:
+                with open(output_path, "w", encoding="utf-8") as f:
                     f.write(rendered)
             elif isinstance(rendered, list):
                 for idx, frame_content in zip(frame_ids, rendered, strict=True):
                     filename = base + f"{idx:03d}.{extension}"
                     output_path = os.path.join(dir_path, filename)
-                    with open(output_path, "w") as f:
+                    with open(output_path, "w", encoding="utf-8") as f:
                         f.write(frame_content)
         return rendered

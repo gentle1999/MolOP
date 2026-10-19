@@ -1520,7 +1520,7 @@ def test_frame_format_transform_writes_requested_output_file(
     rendered = frame.format_transform("xyz", file_path=target, write_to_disk=True)
 
     assert rendered == "xyz-block"
-    assert (tmp_path / "frame.xyz").read_text() == "xyz-block"
+    assert (tmp_path / "frame.xyz").read_text(encoding="utf-8") == "xyz-block"
 
 
 def test_frame_format_transform_cml_routes_through_codec_registry(

@@ -89,7 +89,9 @@ def test_orca_output_fixture_manifest_inventory_is_broad() -> None:
 
 
 def test_orca_closed_shell_population_schemes_are_all_structured() -> None:
-    source = (ORCA_OUTPUT_FIXTURE_DIR / "local" / "h2o_orca_v5_charges.out").read_text()
+    source = (ORCA_OUTPUT_FIXTURE_DIR / "local" / "h2o_orca_v5_charges.out").read_text(
+        encoding="utf-8"
+    )
     populations = ORCALogFileParserMemory().parse(source)[-1].charge_spin_populations
 
     assert populations is not None
@@ -103,7 +105,9 @@ def test_orca_closed_shell_population_schemes_are_all_structured() -> None:
 
 
 def test_orca_open_shell_mulliken_and_lowdin_charge_spin_tables_are_structured() -> None:
-    source = (ORCA_OUTPUT_FIXTURE_DIR / "cclib" / "basicORCA6.0" / "dvb_rocis.out").read_text()
+    source = (ORCA_OUTPUT_FIXTURE_DIR / "cclib" / "basicORCA6.0" / "dvb_rocis.out").read_text(
+        encoding="utf-8"
+    )
     populations = ORCALogFileParserMemory().parse(source)[-1].charge_spin_populations
 
     assert populations is not None
@@ -180,7 +184,9 @@ def test_orca_output_metadata_result_is_model_ready() -> None:
 
 
 def test_orca_parses_masses_from_cartesian_au_coordinates() -> None:
-    source = (ORCA_OUTPUT_FIXTURE_DIR / "local" / "h2o_orca_v5_charges.out").read_text()
+    source = (ORCA_OUTPUT_FIXTURE_DIR / "local" / "h2o_orca_v5_charges.out").read_text(
+        encoding="utf-8"
+    )
     frame = ORCALogFileParserMemory().parse(source)[-1]
 
     assert frame.atomic_masses_source == "orca_cartesian_au_mass"

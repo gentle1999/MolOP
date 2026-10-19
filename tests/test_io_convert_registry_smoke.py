@@ -69,11 +69,11 @@ def test_registry_convert_g16log_smoke() -> None:
 
 def test_unknown_extension_fallback_smoke() -> None:
     fixture_path = Path(__file__).resolve().parent / "test_files" / "xyz" / "dsgdb9nsd_004015-7.xyz"
-    xyz_content = fixture_path.read_text()
+    xyz_content = fixture_path.read_text(encoding="utf-8")
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         temp_path = Path(tmp_dir) / "fixture.foo"
-        temp_path.write_text(xyz_content)
+        temp_path.write_text(xyz_content, encoding="utf-8")
 
         batch = AutoParser(str(temp_path))
         assert len(batch) > 0

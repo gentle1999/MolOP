@@ -19,7 +19,7 @@ FIXTURE = Path(__file__).resolve().parent / "test_files" / "g16log" / "3-m-Py_an
 
 
 def _parsed_frames():
-    return G16LogFileParserMemory().parse(FIXTURE.read_text()).frames
+    return G16LogFileParserMemory().parse(FIXTURE.read_text(encoding="utf-8")).frames
 
 
 def _last_frame():

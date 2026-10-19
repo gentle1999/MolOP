@@ -69,7 +69,7 @@ def test_gaussian_job_time_converts_day_hour_minute_units_independently():
 def test_gaussian_real_multistep_totals_follow_selected_segment_scope(mode):
     path = FIXTURES / "g16log/H2O.log"
     if mode == "memory":
-        parsed = G16LogFileParserMemory().parse(path.read_text())
+        parsed = G16LogFileParserMemory().parse(path.read_text(encoding="utf-8"))
     else:
         parsed = AutoParser(str(path), n_jobs=1, only_last_frame=mode == "last_frame")[0]
     assert parsed.cpu_time.m_as("second") == pytest.approx(46.9 if mode == "last_frame" else 96.7)
@@ -81,7 +81,7 @@ def test_gaussian_real_multistep_totals_follow_selected_segment_scope(mode):
 
 
 def test_gaussian_cpu_only_log_keeps_wall_time_missing():
-    content = (FIXTURES / "g16log/H2O.log").read_text()
+    content = (FIXTURES / "g16log/H2O.log").read_text(encoding="utf-8")
     content = "\n".join(
         line
         for line in content.splitlines()
@@ -99,7 +99,7 @@ def test_gaussian_cpu_only_log_keeps_wall_time_missing():
 
 
 def test_gaussian_incomplete_segment_time_is_not_reported_as_a_complete_file_total():
-    content = (FIXTURES / "g16log/H2O.log").read_text()
+    content = (FIXTURES / "g16log/H2O.log").read_text(encoding="utf-8")
     boundary = "Link1:  Proceeding to internal job step number  2."
     first, second = content.split(boundary, 1)
     second = "\n".join(
@@ -185,7 +185,7 @@ def test_xtb_missing_total_kind_does_not_reuse_a_component_time(kind):
 
 @pytest.mark.parametrize("copies", [1, 2])
 def test_xtb_real_cpu_and_wall_totals_survive_file_and_frame_parsing(copies):
-    content = (FIXTURES / "xtbout/water_raman_ptb_6_7_1.out").read_text()
+    content = (FIXTURES / "xtbout/water_raman_ptb_6_7_1.out").read_text(encoding="utf-8")
     parsed = XTBOutputFileParserMemory().parse("\n".join([content] * copies))
     assert parsed.cpu_time.m_as("second") == pytest.approx(copies * 0.039)
     assert parsed.wall_time.m_as("second") == pytest.approx(copies * 0.136)
@@ -195,7 +195,7 @@ def test_xtb_real_cpu_and_wall_totals_survive_file_and_frame_parsing(copies):
 
 
 def test_xtb_missing_cpu_total_in_one_run_does_not_reuse_the_first_run_total():
-    content = (FIXTURES / "xtbout/water_raman_ptb_6_7_1.out").read_text()
+    content = (FIXTURES / "xtbout/water_raman_ptb_6_7_1.out").read_text(encoding="utf-8")
     missing_cpu = "\n".join(line for line in content.splitlines() if "0.039 sec" not in line)
     assert missing_cpu != content
     parsed = XTBOutputFileParserMemory().parse(content + "\n" + missing_cpu)
@@ -205,7 +205,7 @@ def test_xtb_missing_cpu_total_in_one_run_does_not_reuse_the_first_run_total():
 
 
 def test_orca_serial_input_estimates_cpu_time_without_changing_wall_time():
-    content = (FIXTURES / "orca/output_files/local/h2_grad_orca.out").read_text()
+    content = (FIXTURES / "orca/output_files/local/h2_grad_orca.out").read_text(encoding="utf-8")
     parsed = ORCALogFileParserMemory().parse(content)
     assert parsed.running_time == parsed.wall_time
     assert parsed.wall_time.m_as("second") > 0
@@ -256,7 +256,7 @@ def test_orca_cpu_fallback_does_not_replace_observed_cpu_time_or_invent_wall_tim
 def test_orca_parallel_cpu_estimate_reaches_files_frames_and_exports(mode):
     path = FIXTURES / "orca/output_files/cclib/basicORCA6.0/dvb_rocis.out"
     parsed = (
-        ORCALogFileParserMemory().parse(path.read_text())
+        ORCALogFileParserMemory().parse(path.read_text(encoding="utf-8"))
         if mode == "memory"
         else AutoParser(str(path), parser_detection="orcaout", n_jobs=1)[0]
     )
@@ -276,8 +276,10 @@ def test_orca_parallel_cpu_estimate_reaches_files_frames_and_exports(mode):
 
 
 def test_orca_file_sums_each_segment_estimate_using_its_own_process_count():
-    serial = (FIXTURES / "orca/output_files/local/h2_grad_orca.out").read_text()
-    parallel = (FIXTURES / "orca/output_files/cclib/basicORCA6.0/dvb_rocis.out").read_text()
+    serial = (FIXTURES / "orca/output_files/local/h2_grad_orca.out").read_text(encoding="utf-8")
+    parallel = (FIXTURES / "orca/output_files/cclib/basicORCA6.0/dvb_rocis.out").read_text(
+        encoding="utf-8"
+    )
     parsed = ORCALogFileParserMemory().parse(
         "******** JOB NUMBER 1 ********\n"
         + serial
@@ -339,7 +341,7 @@ def test_fakeg_does_not_infer_uniform_process_count_when_one_marker_lacks_it():
 
 def test_fakeg_cpu_estimation_provenance_reaches_reparsed_files_and_frames():
     parsed = G16LogFileParserMemory().parse(
-        (FIXTURES / "g16log/water_raman_hf_sto3g.log").read_text()
+        (FIXTURES / "g16log/water_raman_hf_sto3g.log").read_text(encoding="utf-8")
     )
     frame = parsed[-1]
     frame.cpu_time = 40 * atom_ureg.second
@@ -354,7 +356,7 @@ def test_fakeg_cpu_estimation_provenance_reaches_reparsed_files_and_frames():
 
 def test_fakeg_time_labels_preserve_values_and_emit_each_kind_once():
     parsed = G16LogFileParserMemory().parse(
-        (FIXTURES / "g16log/water_raman_hf_sto3g.log").read_text()
+        (FIXTURES / "g16log/water_raman_hf_sto3g.log").read_text(encoding="utf-8")
     )
     frame = parsed[-1]
     rendered = frame.render_fakeg()

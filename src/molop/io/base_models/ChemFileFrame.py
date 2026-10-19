@@ -881,7 +881,7 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
             embed_bond_orders (bool): If True, embed the bond order properties. Defaults to True.
             embed_nmr (bool): If True, embed per-atom NMR shielding properties. Defaults to True.
         """
-        with open(filepath, "w") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             f.write(
                 self.to_population_embedded_SDF_block(
                     embed_populations, embed_bond_orders, embed_nmr

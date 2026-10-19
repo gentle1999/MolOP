@@ -38,7 +38,9 @@ def test_g16log_artifact_metadata_does_not_run_segment_parser(monkeypatch) -> No
         fail_segment_parse,
     )
 
-    metadata = G16LogFileParserMemory()._parse_artifact_metadata(DFT_FIXTURE.read_text())
+    metadata = G16LogFileParserMemory()._parse_artifact_metadata(
+        DFT_FIXTURE.read_text(encoding="utf-8")
+    )
 
     assert metadata == {
         "qm_software": "Gaussian",
@@ -47,7 +49,7 @@ def test_g16log_artifact_metadata_does_not_run_segment_parser(monkeypatch) -> No
 
 
 def test_g16log_shared_lifecycle_preserves_gen_basis_inheritance() -> None:
-    parsed = G16LogFileParserMemory().parse(GEN_INHERITANCE_FIXTURE.read_text())
+    parsed = G16LogFileParserMemory().parse(GEN_INHERITANCE_FIXTURE.read_text(encoding="utf-8"))
 
     assert parsed[-2].basis_set == "6-311+G(d,p)"
     assert parsed[-1].basis_set == parsed[-2].basis_set
@@ -64,8 +66,8 @@ def _split_raw_gaussian_blocks(file_content: str) -> tuple[str, list[str]]:
 
 
 def test_g16log_link1_sections_propagate_section_metadata_to_later_frames() -> None:
-    ccsd_header, ccsd_frames = _split_raw_gaussian_blocks(CCSD_FIXTURE.read_text())
-    dft_header, dft_frames = _split_raw_gaussian_blocks(DFT_FIXTURE.read_text())
+    ccsd_header, ccsd_frames = _split_raw_gaussian_blocks(CCSD_FIXTURE.read_text(encoding="utf-8"))
+    dft_header, dft_frames = _split_raw_gaussian_blocks(DFT_FIXTURE.read_text(encoding="utf-8"))
 
     combined = "\n".join(
         [
@@ -91,8 +93,8 @@ def test_g16log_link1_sections_propagate_section_metadata_to_later_frames() -> N
 
 
 def test_g16log_link1_segments_export_distinct_protocol_evidence() -> None:
-    ccsd_header, ccsd_frames = _split_raw_gaussian_blocks(CCSD_FIXTURE.read_text())
-    dft_header, dft_frames = _split_raw_gaussian_blocks(DFT_FIXTURE.read_text())
+    ccsd_header, ccsd_frames = _split_raw_gaussian_blocks(CCSD_FIXTURE.read_text(encoding="utf-8"))
+    dft_header, dft_frames = _split_raw_gaussian_blocks(DFT_FIXTURE.read_text(encoding="utf-8"))
     combined = "\n".join(
         [
             ccsd_header + ccsd_frames[0],
@@ -116,7 +118,7 @@ def test_g16log_link1_segments_export_distinct_protocol_evidence() -> None:
 
 def test_g16log_segment_metadata_result_is_canonical_model_data() -> None:
     parser = G16LogFileParserMemory()
-    result = parser._parse_segment_metadata_result(DFT_FIXTURE.read_text())
+    result = parser._parse_segment_metadata_result(DFT_FIXTURE.read_text(encoding="utf-8"))
     metadata = result.model_data()
 
     assert isinstance(result, ModelParseResult)
@@ -144,7 +146,7 @@ def test_g16log_segment_metadata_result_is_canonical_model_data() -> None:
 def test_g16log_generated_freq_link1_scans_full_segment_for_scf_status(
     fixture: Path,
 ) -> None:
-    source = fixture.read_text()
+    source = fixture.read_text(encoding="utf-8")
     parsed = G16LogFileParserMemory(capture_source_evidence=True).parse(source)
     segment = next(segment for segment in parsed.source_segments if segment.task_types == ["freq"])
     segment_content = locate_g16_sections(source)[segment.segment_index].text(source)
@@ -162,7 +164,9 @@ def test_g16log_generated_freq_link1_scans_full_segment_for_scf_status(
 
 
 def test_g16log_generated_freq_section_inherits_previous_calculation_configuration() -> None:
-    parsed = G16LogFileParserMemory(capture_source_evidence=True).parse(DFT_FIXTURE.read_text())
+    parsed = G16LogFileParserMemory(capture_source_evidence=True).parse(
+        DFT_FIXTURE.read_text(encoding="utf-8")
+    )
 
     previous_frame = parsed[0]
     frequency_frame = parsed[-1]
@@ -188,7 +192,7 @@ def test_g16log_generated_freq_section_inherits_configuration_when_only_last_fra
     parsed = G16LogFileParserMemory(
         capture_source_evidence=True,
         only_last_frame=True,
-    ).parse(DFT_FIXTURE.read_text())
+    ).parse(DFT_FIXTURE.read_text(encoding="utf-8"))
 
     assert len(parsed) == 1
     assert parsed[0].task_requests[0].task_type == "freq"
@@ -198,8 +202,8 @@ def test_g16log_generated_freq_section_inherits_configuration_when_only_last_fra
 
 
 def test_g16log_entering_link1_sections_propagate_section_metadata_to_later_frames() -> None:
-    ccsd_header, ccsd_frames = _split_raw_gaussian_blocks(CCSD_FIXTURE.read_text())
-    dft_header, dft_frames = _split_raw_gaussian_blocks(DFT_FIXTURE.read_text())
+    ccsd_header, ccsd_frames = _split_raw_gaussian_blocks(CCSD_FIXTURE.read_text(encoding="utf-8"))
+    dft_header, dft_frames = _split_raw_gaussian_blocks(DFT_FIXTURE.read_text(encoding="utf-8"))
 
     combined = "\n".join(
         [

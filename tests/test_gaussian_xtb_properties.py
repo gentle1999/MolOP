@@ -38,7 +38,7 @@ def parse_fixture(request):
         path = FIXTURES / relative_path
         if request.param == "auto":
             return AutoParser(str(path), parser_detection=relative_path.split("/", 1)[0])[0][-1]
-        return parsers[relative_path.split("/", 1)[0]]().parse(path.read_text())[-1]
+        return parsers[relative_path.split("/", 1)[0]]().parse(path.read_text(encoding="utf-8"))[-1]
 
     return parse
 
@@ -142,7 +142,7 @@ def test_xtb_modern_wrapped_neighbors_parse_without_inventing_geometry(parse_fix
 
 
 def test_xtb_wbo_invalid_atom_reference_is_not_silently_clipped():
-    content = (FIXTURES / "xtbout/water_raman_ptb_6_7_1.out").read_text()
+    content = (FIXTURES / "xtbout/water_raman_ptb_6_7_1.out").read_text(encoding="utf-8")
     assert extract_xtb_bond_orders(content, 2) is None
 
 
@@ -221,7 +221,7 @@ def test_xtb_ptb_raman_uses_stdout_units_and_preserves_method_identity(parse_fix
 
 @pytest.mark.parametrize("mutation", ["missing_atom", "wrong_index", "wrong_element"])
 def test_xtb_charge_table_cannot_shift_values_between_atoms(mutation):
-    content = (FIXTURES / "xtbout/water_raman_ptb_6_7_1.out").read_text()
+    content = (FIXTURES / "xtbout/water_raman_ptb_6_7_1.out").read_text(encoding="utf-8")
     row = "     2   1 H        0.806     0.282     0.776     1.384"
     assert row in content
     replacement = {
@@ -235,7 +235,9 @@ def test_xtb_charge_table_cannot_shift_values_between_atoms(mutation):
 
 
 def test_fchk_raman_requires_computation_evidence_even_with_allocated_slots():
-    records = parse_fchk_records((FIXTURES / "g16fchk/water_raman_hf_sto3g.fchk").read_text())
+    records = parse_fchk_records(
+        (FIXTURES / "g16fchk/water_raman_hf_sto3g.fchk").read_text(encoding="utf-8")
+    )
     assert len(extract_fchk_vibrations(records, 3).raman_activities) == 3
     # A computed, physically zero activity remains observed when derivatives exist.
     records["Vib-E2"].value[12:21] = [0.0] * 9
@@ -257,7 +259,7 @@ def test_fchk_raman_requires_computation_evidence_even_with_allocated_slots():
 )
 def test_incomplete_gaussian_raman_columns_do_not_discard_frequencies(label, field):
     path = FIXTURES / "g16log/water_raman_hf_sto3g.log"
-    lines = path.read_text().splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     lines = [line.rsplit(None, 1)[0] if line.strip().startswith(label) else line for line in lines]
     vibrations = G16LogFileParserMemory().parse("\n".join(lines))[-1].vibrations
     assert len(vibrations.frequencies) == 3
@@ -275,7 +277,7 @@ def test_incomplete_gaussian_raman_columns_do_not_discard_frequencies(label, fie
     ],
 )
 def test_xtb_missing_index_does_not_shift_or_export_unmasked_nan(token, field):
-    content = (FIXTURES / "xtbout/water_raman_ptb_6_7_1.out").read_text()
+    content = (FIXTURES / "xtbout/water_raman_ptb_6_7_1.out").read_text(encoding="utf-8")
     assert token in content
     content = content.replace(token, "")
     vibrations = XTBOutputFileParserMemory().parse(content)[-1].vibrations
@@ -286,7 +288,7 @@ def test_xtb_missing_index_does_not_shift_or_export_unmasked_nan(token, field):
 
 @pytest.mark.parametrize("mutation", ["truncated", "wrong_index", "wrong_element"])
 def test_gaussian_displacements_require_complete_matching_atom_identities(mutation):
-    content = (FIXTURES / "g16log/water_raman_hf_sto3g.log").read_text()
+    content = (FIXTURES / "g16log/water_raman_hf_sto3g.log").read_text(encoding="utf-8")
     lines = content.splitlines()
     start = next(i for i, line in enumerate(lines) if line.strip().startswith("Atom  AN"))
     row = start + 2

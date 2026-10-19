@@ -33,7 +33,7 @@ def parse_orca(request):
     def parse(relative_path):
         path = CORPUS / relative_path
         if request.param == "memory":
-            return ORCALogFileParserMemory().parse(path.read_text())[-1]
+            return ORCALogFileParserMemory().parse(path.read_text(encoding="utf-8"))[-1]
         batch = AutoParser(str(path), parser_detection="orcaout", n_jobs=1)
         assert len(batch) == 1
         return batch[0][-1]
@@ -557,7 +557,9 @@ def test_raman_fields_survive_iteration_filtering_and_public_export():
 @pytest.mark.orca_output_corpus
 def test_orca_structure_only_skips_additional_properties():
     path = CORPUS / "local/H2O_hess_orca.out"
-    frame = ORCALogFileParserMemory(only_extract_structure=True).parse(path.read_text())[-1]
+    frame = ORCALogFileParserMemory(only_extract_structure=True).parse(
+        path.read_text(encoding="utf-8")
+    )[-1]
     assert len(frame.atoms) == 3
     for name in (
         "molecular_orbitals",

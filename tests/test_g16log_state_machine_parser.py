@@ -42,7 +42,7 @@ ATOMIC_MASS_FIXTURE = (
 
 
 def _last_frame_block(fixture: Path) -> str:
-    file_content = fixture.read_text()
+    file_content = fixture.read_text(encoding="utf-8")
     frame_blocks = [
         frame
         for section in locate_g16_sections(file_content)
@@ -69,7 +69,7 @@ def test_g16log_locator_lifecycle_retains_a_zero_frame_segment() -> None:
 def test_g16log_zero_frame_segment_retains_portable_protocol_evidence() -> None:
     source = (
         FIXTURES[0]
-        .read_text()
+        .read_text(encoding="utf-8")
         .replace("Input orientation:", "Input geometry omitted:")
         .replace("Standard orientation:", "Standard geometry omitted:")
     )
@@ -95,7 +95,7 @@ def test_g16log_state_machine_frame_parser_matches_file_parser_frames():
     for fixture in FIXTURES:
         block = _last_frame_block(fixture)
         direct_frame = G16LogFileFrameParserMemory().parse(block)
-        file_frame = G16LogFileParserMemory().parse(fixture.read_text())[-1]
+        file_frame = G16LogFileParserMemory().parse(fixture.read_text(encoding="utf-8"))[-1]
 
         assert direct_frame.atoms == file_frame.atoms
         assert direct_frame.coords is not None
@@ -122,7 +122,7 @@ def test_g16log_state_machine_frame_parser_matches_file_parser_frames():
 
 
 def test_g16log_parses_atmwgt_masses_for_every_geometry_frame() -> None:
-    parsed = G16LogFileParserMemory().parse(ATOMIC_MASS_FIXTURE.read_text())
+    parsed = G16LogFileParserMemory().parse(ATOMIC_MASS_FIXTURE.read_text(encoding="utf-8"))
 
     assert len(parsed.frames) == 18
     expected_masses = [
@@ -141,7 +141,9 @@ def test_g16log_parses_atmwgt_masses_for_every_geometry_frame() -> None:
 
 
 def test_g16log_only_last_frame_keeps_masses_on_frame_only() -> None:
-    parsed = G16LogFileParserMemory(only_last_frame=True).parse(ATOMIC_MASS_FIXTURE.read_text())
+    parsed = G16LogFileParserMemory(only_last_frame=True).parse(
+        ATOMIC_MASS_FIXTURE.read_text(encoding="utf-8")
+    )
 
     assert len(parsed.frames) == 1
     frame = parsed.frames[0]
@@ -152,7 +154,7 @@ def test_g16log_only_last_frame_keeps_masses_on_frame_only() -> None:
 
 
 def test_g16log_backfills_thermochemistry_masses_to_matching_frames() -> None:
-    parsed = G16LogFileParserMemory().parse(FIXTURES[0].read_text())
+    parsed = G16LogFileParserMemory().parse(FIXTURES[0].read_text(encoding="utf-8"))
 
     expected_masses = [
         12.0,
@@ -264,7 +266,7 @@ def test_g16log_mass_backfill_does_not_resolve_conflicting_equal_priority_masses
 
 
 def test_g16log_open_shell_mulliken_and_npa_populations_are_both_retained() -> None:
-    parsed = G16LogFileParserMemory().parse(OPEN_SHELL_NPA_FIXTURE.read_text())
+    parsed = G16LogFileParserMemory().parse(OPEN_SHELL_NPA_FIXTURE.read_text(encoding="utf-8"))
     populations = parsed[-1].charge_spin_populations
 
     assert populations is not None
@@ -335,7 +337,7 @@ def test_g16log_state_machine_uses_archive_energies_without_inventing_live_statu
 
 def test_g16log_state_machine_preserves_live_reference_energy_over_archive_value():
     frame = G16LogFileFrameParserMemory().parse(_last_frame_block(CCSD_FIXTURE))
-    parsed_frame = G16LogFileParserMemory().parse(CCSD_FIXTURE.read_text())[-1]
+    parsed_frame = G16LogFileParserMemory().parse(CCSD_FIXTURE.read_text(encoding="utf-8"))[-1]
 
     assert frame.energies is not None
     assert parsed_frame.energies is not None
@@ -414,7 +416,7 @@ def test_g16log_component_tree_is_model_derived_view():
 
 
 def test_g16log_file_parser_frames_expose_model_derived_component_tree():
-    parsed = G16LogFileParserMemory().parse(FIXTURES[0].read_text())
+    parsed = G16LogFileParserMemory().parse(FIXTURES[0].read_text(encoding="utf-8"))
 
     assert parsed[0].component_tree is not None
     assert "l1.header" in parsed[0].component_tree.component_names()

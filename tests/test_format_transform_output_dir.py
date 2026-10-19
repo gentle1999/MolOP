@@ -1,3 +1,4 @@
+import builtins
 import importlib
 from pathlib import Path
 
@@ -6,6 +7,53 @@ import pytest
 from molop.config import molopconfig
 from molop.io import AutoParser
 from molop.io.codec_exceptions import UnsupportedFormatError
+
+
+@pytest.mark.parametrize("scope", ["frame", "file", "separate_frames"])
+def test_format_transform_writes_unicode_as_utf8_under_cp1252_default(tmp_path, monkeypatch, scope):
+    source_path = tmp_path / "unicode.xyz"
+    source_path.write_text(
+        "1\n第一帧：Å⁴/amu\nHe 0.0 0.0 0.0\n1\n第二帧：拉曼活性\nHe 0.0 0.0 1.0\n",
+        encoding="utf-8",
+    )
+    parsed = AutoParser(str(source_path), n_jobs=1)[0]
+    original_open = builtins.open
+
+    def cp1252_open(
+        file, mode="r", buffering=-1, encoding=None, errors=None, newline=None, **kwargs
+    ):
+        if "b" not in mode and encoding is None:
+            encoding = "cp1252"
+        return original_open(
+            file,
+            mode,
+            buffering=buffering,
+            encoding=encoding,
+            errors=errors,
+            newline=newline,
+            **kwargs,
+        )
+
+    monkeypatch.setattr(builtins, "open", cp1252_open)
+    output_path = tmp_path / "output.xyz"
+    if scope == "frame":
+        rendered = parsed[0].format_transform("xyz", file_path=output_path, write_to_disk=True)
+    else:
+        rendered = parsed.format_transform(
+            "xyz",
+            frame="all",
+            file_path=output_path,
+            write_to_disk=True,
+            embed_in_one_file=scope == "file",
+        )
+    if isinstance(rendered, str):
+        assert "第一帧：Å⁴/amu" in rendered
+        assert output_path.read_text(encoding="utf-8") == rendered
+    else:
+        assert "第二帧：拉曼活性" in rendered[1]
+        for index, text in enumerate(rendered):
+            path = output_path.with_stem(f"output{index:03d}")
+            assert path.read_text(encoding="utf-8") == text
 
 
 def test_format_transform_unsupported_format_raises_error(tmp_path):
@@ -199,7 +247,7 @@ def test_format_transform_gjf_chk_propagation_single_file(tmp_path):
     )
 
     assert out_file.exists()
-    content = out_file.read_text()
+    content = out_file.read_text(encoding="utf-8")
     assert "%chk=custom.chk" in content
 
 
@@ -224,8 +272,8 @@ def test_format_transform_gjf_chk_propagation_multi_file(tmp_path):
     assert gjf0.exists()
     assert gjf1.exists()
 
-    assert "%chk=1000.chk" in gjf0.read_text()
-    assert "%chk=1001.chk" in gjf1.read_text()
+    assert "%chk=1000.chk" in gjf0.read_text(encoding="utf-8")
+    assert "%chk=1001.chk" in gjf1.read_text(encoding="utf-8")
 
 
 def test_format_transform_write_to_disk_defaults_to_source_directory(tmp_path):

@@ -15,11 +15,12 @@ from molop.io.logic.gaussian.input.parsers.GJFFileParser import (
 def test_gjf_disk_parser_rejects_include_without_multi_artifact_spans(tmp_path: Path) -> None:
     included = tmp_path / "included.gjf"
     included.write_text(
-        "%chk=inc.chk\n#p hf/3-21g\n\nincluded title\n\n0 1\nH 0.0 0.0 0.0\nH 0.0 0.0 0.7\n"
+        "%chk=inc.chk\n#p hf/3-21g\n\nincluded title\n\n0 1\nH 0.0 0.0 0.0\nH 0.0 0.0 0.7\n",
+        encoding="utf-8",
     )
 
     main = tmp_path / "main.gjf"
-    main.write_text("@included.gjf\n")
+    main.write_text("@included.gjf\n", encoding="utf-8")
 
     with pytest.raises(ParseError, match=GJF_INCLUDE_PROVENANCE_DIAGNOSTIC):
         GJFFileParserDisk().parse(str(main))
@@ -35,8 +36,8 @@ def test_gjf_disk_parser_rejects_include_before_following_recursive_sources(
 ) -> None:
     a_file = tmp_path / "a.gjf"
     b_file = tmp_path / "b.gjf"
-    a_file.write_text("@b.gjf\n")
-    b_file.write_text("@a.gjf\n")
+    a_file.write_text("@b.gjf\n", encoding="utf-8")
+    b_file.write_text("@a.gjf\n", encoding="utf-8")
 
     with pytest.raises(ParseError, match=GJF_INCLUDE_PROVENANCE_DIAGNOSTIC):
         GJFFileParserDisk().parse(str(a_file))

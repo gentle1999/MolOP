@@ -269,7 +269,9 @@ def test_g16log_frame_exposes_shared_semantic_route() -> None:
 def test_g16log_segment_metadata_result_populates_semantic_route() -> None:
     fixture_path = Path(__file__).resolve().parent / "test_files" / "g16log" / "1.log"
 
-    result = G16LogFileParserMemory()._parse_segment_metadata_result(fixture_path.read_text())
+    result = G16LogFileParserMemory()._parse_segment_metadata_result(
+        fixture_path.read_text(encoding="utf-8")
+    )
     semantic = result.model_data()["semantic_route"]
 
     assert isinstance(semantic, GaussianRouteSemantic)
