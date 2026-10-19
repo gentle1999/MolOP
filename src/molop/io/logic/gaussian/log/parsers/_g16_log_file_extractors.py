@@ -12,6 +12,7 @@ from molop.io.base_models.ParseContainers import TextParseContext
 from molop.io.base_models.SearchPattern import MolOPPattern
 from molop.io.codec_exceptions import FormatMismatchError
 from molop.io.logic.gaussian.log.parsers._g16_log_patterns import g16_log_patterns
+from molop.io.logic.gaussian.log.parsers._g16_timing import extract_g16_timings
 from molop.io.logic.gaussian.log.parsers._g16log_archive_tail import (
     extract_archive_tail_block,
     parse_archive_tail_energies,
@@ -258,16 +259,7 @@ def extract_g16_temperature_and_pressure(
 
 
 def extract_g16_running_time(context: TextParseContext) -> PlainQuantity | None:
-    if matches := g16_log_patterns.JOB_TIME.find_matches(context.content):
-        total_seconds = 0.0
-        for matched in matches:
-            days = float(matched.group("days"))
-            hours = float(matched.group("hours"))
-            minutes = float(matched.group("minutes"))
-            seconds = float(matched.group("seconds"))
-            total_seconds += (days * 24 + hours) * 3600 + minutes * 60 + seconds
-        return total_seconds * atom_ureg.second
-    return None
+    return extract_g16_timings(context.content)["wall_time"]
 
 
 def extract_g16_termination_status(

@@ -5,6 +5,7 @@ from collections.abc import Iterator
 from typing import Any
 
 import numpy as np
+from pint.facets.plain import PlainQuantity
 from rdkit import Chem
 
 from molop.io.base_models.DataClasses import (
@@ -393,21 +394,33 @@ def extract_xtb_final_energy(
     return Energies(electronic_energy=energy, observations=observations)
 
 
-def extract_xtb_running_time(file_content: str):
-    matches = xtb_output_patterns.TOTAL_WALL_TIME.find_matches(file_content)
-    matched = matches[-1] if matches else None
-    if matched is None:
-        matches = xtb_output_patterns.ANY_WALL_TIME.find_matches(file_content)
-        matched = matches[-1] if matches else None
-    if matched is None:
-        return None
-    seconds = (
-        int(matched.group("days")) * 86_400
-        + int(matched.group("hours")) * 3_600
-        + int(matched.group("minutes")) * 60
-        + _to_float(matched.group("seconds"))
-    )
-    return seconds * atom_ureg.second
+def extract_xtb_timings(file_content: str) -> dict[str, Any]:
+    """Read CPU and wall durations independently, preferring total over module rows."""
+    timings: dict[str, PlainQuantity | None] = {"cpu_time": None, "wall_time": None}
+    total_headers = xtb_output_patterns.TOTAL_TIME_HEADER.find_matches(file_content)
+    timing_content = file_content[total_headers[-1].start() :] if total_headers else file_content
+    for field, total_pattern, fallback_pattern in (
+        ("wall_time", xtb_output_patterns.TOTAL_WALL_TIME, xtb_output_patterns.ANY_WALL_TIME),
+        ("cpu_time", xtb_output_patterns.TOTAL_CPU_TIME, xtb_output_patterns.ANY_CPU_TIME),
+    ):
+        pattern = total_pattern if total_headers else fallback_pattern
+        matches = pattern.find_matches(timing_content)
+        if not matches:
+            continue
+        matched = matches[-1]
+        seconds = (
+            int(matched.group("days")) * 86_400
+            + int(matched.group("hours")) * 3_600
+            + int(matched.group("minutes")) * 60
+            + _to_float(matched.group("seconds"))
+        )
+        timings[field] = seconds * atom_ureg.second
+    timings["running_time"] = timings["wall_time"]
+    return timings | {"cpu_time_source": "observed" if timings["cpu_time"] is not None else None}
+
+
+def extract_xtb_running_time(file_content: str) -> PlainQuantity | None:
+    return extract_xtb_timings(file_content)["wall_time"]
 
 
 def extract_xtb_status(file_content: str, *, include_termination: bool = True) -> Status:
@@ -924,6 +937,7 @@ __all__ = [
     "extract_xtb_single_point_properties",
     "extract_xtb_status",
     "extract_xtb_thermal_information",
+    "extract_xtb_timings",
     "extract_xtb_version",
     "extract_xtb_vibrations",
     "iter_xtb_version_matches",

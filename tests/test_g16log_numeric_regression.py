@@ -163,7 +163,9 @@ def test_g16log_file_running_time_is_accumulated_into_model_field() -> None:
     parsed = parser.parse(fixture.read_text())
 
     assert parsed.running_time is not None
-    assert parsed.running_time.to("second").m == 102.5
+    assert parsed.running_time.to("second").m == pytest.approx(5.8)
+    assert parsed.wall_time.to("second").m == pytest.approx(5.8)
+    assert parsed.cpu_time.to("second").m == pytest.approx(96.7)
 
 
 def test_g16log_thermochemistry_cv_and_entropy_follow_gaussian_header() -> None:

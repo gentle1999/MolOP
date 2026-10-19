@@ -18,7 +18,8 @@ import pandas as pd
 from molgr import ReconstructionBatchResult
 from pint._typing import UnitLike
 from pint.facets.plain import PlainQuantity
-from pydantic import Field, PrivateAttr
+from pydantic import Field, PrivateAttr, model_validator
+from typing_extensions import Self
 
 from molop.config import molopconfig, moloplogger
 from molop.io.base_models._format_transform import FormatTransformMixin
@@ -54,6 +55,7 @@ from molop.io.base_models.source import (
     SourceSegmentEvidence,
 )
 from molop.io.base_models.summary import SummaryDict, build_summary_df, summary_column, summary_item
+from molop.io.base_models.timing import resolve_wall_time
 from molop.io.frame_selection import FrameSelector, normalize_frame_selector
 from molop.unit import atom_ureg
 from molop.utils.progressbar import is_loky_worker
@@ -478,6 +480,8 @@ class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):
         "temperature": atom_ureg.K,
         "electron_temperature": atom_ureg.K,
         "running_time": atom_ureg.second,
+        "cpu_time": atom_ureg.second,
+        "wall_time": atom_ureg.second,
     }
     # Note: QM input metadata (keywords/method/basis_set/functional/resources_raw)
     # lives on BaseQMInputFile.
@@ -497,8 +501,35 @@ class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):
     )
     running_time: PlainQuantity | None = Field(
         default=None,
-        description="Running time of the QM calculation, unit is `second`",
+        description="Wall-clock duration, alias of wall_time, unit is `second`",
     )
+    cpu_time: PlainQuantity | None = Field(
+        default=None,
+        description="CPU duration of the QM calculation, unit is `second`",
+        exclude_if=lambda value: value is None,
+    )
+    cpu_time_source: Literal["observed", "estimated"] | None = Field(
+        default=None,
+        description="Whether CPU duration is observed or estimated",
+        exclude_if=lambda value: value is None,
+    )
+    cpu_time_num_processes: int | None = Field(
+        default=None,
+        ge=1,
+        description="Process count used to estimate CPU duration, when uniform",
+        exclude_if=lambda value: value is None,
+    )
+    wall_time: PlainQuantity | None = Field(
+        default=None,
+        description="Wall-clock duration of the QM calculation, unit is `second`",
+        exclude_if=lambda value: value is None,
+    )
+
+    @model_validator(mode="after")
+    def validate_calculation_timings(self) -> Self:
+        self.running_time = self.wall_time = resolve_wall_time(self.running_time, self.wall_time)
+        return self
+
     electronic_states: ElectronicStates | None = Field(
         default=None,
         description="Electronic-state resolved properties",
@@ -651,9 +682,20 @@ class BaseCalcFile(BaseQMInputFile[CalcFrameT], Generic[CalcFrameT]):
             if item is not None:
                 column, value = item
                 brief_dict[column] = value
-        if self.running_time:
+        if self.running_time is not None:
             item = summary_item("Status", "RuningTime", self.running_time)
             if item is not None:
                 column, value = item
                 brief_dict[column] = value
+        for field, label in (
+            ("cpu_time", "CPUTime"),
+            ("wall_time", "WallTime"),
+            ("cpu_time_source", "CPUTimeSource"),
+            ("cpu_time_num_processes", "CPUTimeNumProcesses"),
+        ):
+            if (duration := getattr(self, field)) is not None:
+                item = summary_item("Status", label, duration)
+                if item is not None:
+                    column, value = item
+                    brief_dict[column] = value
         return brief_dict

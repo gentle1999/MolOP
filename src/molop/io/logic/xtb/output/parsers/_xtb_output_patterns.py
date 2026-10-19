@@ -111,12 +111,23 @@ class XTBOutputPatterns:
         r"(?P<days>\d+)\s*d,\s*(?P<hours>\d+)\s*h,\s*"
         rf"(?P<minutes>\d+)\s*min,\s*(?P<seconds>{XTB_FLOAT_PATTERN})\s*sec"
     )
+    TOTAL_TIME_HEADER = MolOPPattern(content_pattern=r"(?im)^\s*total:\s*$", content_repeat=0)
     TOTAL_WALL_TIME = MolOPPattern(
         content_pattern=rf"(?im)^\s*total:\s*$\s*^\s*\*\s*wall-time:\s*{TIME_VALUE}",
         content_repeat=0,
     )
     ANY_WALL_TIME = MolOPPattern(
         content_pattern=rf"(?im)^\s*\*\s*wall-time:\s*{TIME_VALUE}",
+        content_repeat=0,
+    )
+    TOTAL_CPU_TIME = MolOPPattern(
+        content_pattern=rf"(?im)^\s*total:\s*$\s*"
+        rf"(?:^\s*\*\s*wall-time:[^\r\n]*[\r\n]+)?"
+        rf"^\s*\*\s*cpu-time:\s*{TIME_VALUE}",
+        content_repeat=0,
+    )
+    ANY_CPU_TIME = MolOPPattern(
+        content_pattern=rf"(?im)^\s*\*\s*cpu-time:\s*{TIME_VALUE}",
         content_repeat=0,
     )
     FINAL_STRUCTURE = MolOPPattern(

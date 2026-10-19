@@ -46,14 +46,16 @@ def _format_float(value: Any, digits: int = 6) -> str:
     return f"{float(value):.{digits}f}"
 
 
-def _format_job_time_seconds(seconds: float) -> str:
+def _format_job_time_seconds(seconds: float, *, label: str = "Job cpu time") -> str:
     days = int(seconds // 86400)
     seconds -= days * 86400
     hours = int(seconds // 3600)
     seconds -= hours * 3600
     minutes = int(seconds // 60)
     seconds -= minutes * 60
-    return f"Job cpu time: {days} days {hours} hours {minutes} minutes {_format_float(seconds, 2)} seconds."
+    return (
+        f"{label}: {days} days {hours} hours {minutes} minutes {_format_float(seconds, 2)} seconds."
+    )
 
 
 def _render_orientation_block(title: str, payload: Mapping[str, Any]) -> str:
@@ -373,20 +375,13 @@ class G16L1HeaderComponent(G16BaseComponent):
             "title_card",
             "charge",
             "multiplicity",
-            "running_time",
         ):
             if (value := getattr(frame, key, None)) is not None:
                 payload[key] = value
         return payload
 
     def _render_fakeg(self, **kwargs) -> str:
-        running_time = _restore_raw_payload(self.payload.get("running_time"))
-        if running_time is None:
-            return self.raw_text
-        seconds = float(
-            running_time.to("second").m if hasattr(running_time, "to") else running_time
-        )
-        return _format_job_time_seconds(seconds)
+        return self.raw_text
 
 
 class G16L101TitleComponent(G16BaseComponent):
@@ -1281,24 +1276,50 @@ class G16JobCPUComponent(G16BaseComponent):
     component_name = "jobcpu"
     gaussian_block = "jobcpu"
     allowed_child_component_names = ()
-    required_frame_fields = ("running_time",)
+
+    @classmethod
+    def can_build_from_frame(cls, frame: Any) -> bool:
+        return any(
+            getattr(frame, field, None) is not None
+            for field in ("cpu_time", "wall_time", "running_time")
+        )
 
     def _render_fakeg(self, **kwargs) -> str:
-        running_time = _restore_raw_payload(
-            self.payload.get("job_cpu_time") or self.payload.get("running_time")
-        )
-        if running_time is None:
-            return self.raw_text
-        seconds = float(
-            running_time.to("second").m if hasattr(running_time, "to") else running_time
-        )
-        return _format_job_time_seconds(seconds)
+        lines: list[str] = []
+        cpu_time = self.payload.get("cpu_time")
+        if cpu_time is None:
+            cpu_time = self.payload.get("job_cpu_time")
+        wall_time = self.payload.get("wall_time")
+        if wall_time is None:
+            wall_time = self.payload.get("running_time")
+        for value, label in ((cpu_time, "Job cpu time"), (wall_time, "Elapsed time")):
+            value = _restore_raw_payload(value)
+            if value is not None:
+                seconds = float(value.to("second").m if hasattr(value, "to") else value)
+                lines.append(_format_job_time_seconds(seconds, label=label))
+        if cpu_time is not None and self.payload.get("cpu_time_source") == "estimated":
+            marker = "MolOP CPU time source: estimated"
+            if (count := self.payload.get("cpu_time_num_processes")) is not None:
+                marker += f"; processes={count}"
+            lines.append(marker)
+        return "\n".join(lines) if lines else self.raw_text
 
     @classmethod
     def build_payload_from_frame(cls, frame: Any) -> dict[str, Any]:
-        if (running_time := getattr(frame, "running_time", None)) is not None:
-            return {"running_time": running_time, "job_cpu_time": running_time}
-        return {}
+        payload = {
+            field: value
+            for field in (
+                "cpu_time",
+                "wall_time",
+                "running_time",
+                "cpu_time_source",
+                "cpu_time_num_processes",
+            )
+            if (value := getattr(frame, field, None)) is not None
+        }
+        if "cpu_time" in payload:
+            payload["job_cpu_time"] = payload["cpu_time"]
+        return payload
 
 
 class G16LinkEnterComponent(G16BaseComponent):

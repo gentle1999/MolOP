@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from pint.facets.plain import PlainQuantity
+
 from molop.io.base_models.DataClasses import Status
 from molop.io.logic.orca.log.parsers._orca_log_patterns import orca_log_patterns
 from molop.unit import atom_ureg
@@ -60,3 +62,38 @@ def extract_orca_running_time(text: str) -> Any | None:
         )
         return seconds * atom_ureg.second
     return None
+
+
+def extract_orca_cpu_timing(
+    text: str,
+    wall_time: PlainQuantity | None,
+    *,
+    cpu_time: PlainQuantity | None = None,
+    requested_num_cpu: int | None = None,
+    inherited_num_cpu: int | None = None,
+    keywords: str = "",
+    serial_input: bool = False,
+) -> dict[str, Any]:
+    """Estimate missing CPU usage from elapsed time and the process count.
+
+    This is a fallback estimate, not a measured utilization counter. Runtime
+    MPI counts precede input requests; complete serial input defaults to one
+    process. The multiplier remains available with the timing provenance.
+    """
+    num_cpu = inherited_num_cpu
+    if matches := orca_log_patterns.RUNTIME_PROCESS_COUNT.find_matches(text):
+        num_cpu = int(matches[-1].group("count"))
+    elif num_cpu is None:
+        if requested_num_cpu is not None:
+            num_cpu = requested_num_cpu
+        elif matches := orca_log_patterns.PAL_PROCESS_COUNT.find_matches(keywords):
+            num_cpu = int(matches[-1].group("count"))
+        elif serial_input:
+            num_cpu = 1
+    if num_cpu is not None and num_cpu <= 0:
+        num_cpu = None
+    source = "observed" if cpu_time is not None else None
+    if cpu_time is None and wall_time is not None and num_cpu is not None:
+        cpu_time = wall_time * num_cpu
+        source = "estimated"
+    return {"cpu_time": cpu_time, "cpu_time_source": source, "cpu_time_num_processes": num_cpu}

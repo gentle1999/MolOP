@@ -818,10 +818,15 @@ class G16LogPatterns:
         content_repeat=0,
         description="The Hessian in the archive tail of the Gaussian calculation. link 9999",
     )
+    CPU_TIME_SOURCE = MolOPPattern(
+        content_pattern=r"^[ \t]*MolOP CPU time source: (?P<source>observed|estimated)"
+        r"(?:; processes=(?P<count>\d+))?[ \t]*$",
+        content_repeat=0,
+    )
     JOB_TIME = MolOPPattern(
-        content_pattern=r"(?r)^\s*(?P<label>Job cpu time|Elapsed time):\s*"
+        content_pattern=r"(?r)^[ \t]*(?P<label>Job cpu time|Elapsed time):[ \t]*"
         r"(?P<days>\d+)\s*days\s*(?P<hours>\d+)\s*hours\s*"
-        r"(?P<minutes>\d+)\s*minutes\s*(?P<seconds>\d+\.\d*)\s*seconds",
+        r"(?P<minutes>\d+)\s*minutes\s*(?P<seconds>\d+(?:\.\d*)?)\s*seconds",
         content_repeat=0,
         description="The job cpu or elapsed time of the Gaussian calculation. link 9999",
     )
@@ -834,8 +839,8 @@ class G16LogPatterns:
         description="The termination status of the Gaussian calculation. link 9999",
     )
     PROCEDURE_TIME = MolOPPattern(
-        content_pattern=r"MaxMem=\s*(?P<max_mem>\d+)\s*cpu:\s*(?P<cpu>\d+.\d+)\s*"
-        r"elap:\s*(?P<elapsed>\d+.\d+)",
+        content_pattern=r"MaxMem=\s*(?P<max_mem>\d+)\s*cpu:\s*(?P<cpu>\d+(?:\.\d*)?)\s*"
+        r"elap:\s*(?P<elapsed>\d+(?:\.\d*)?)",
         content_repeat=0,
         description="The procedure time of the end of link. link any",
     )

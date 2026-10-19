@@ -19,10 +19,10 @@ from molop.io.logic.xtb.output.parsers._xtb_output_extractors import (
     extract_xtb_orbitals,
     extract_xtb_populations,
     extract_xtb_rotation_constants,
-    extract_xtb_running_time,
     extract_xtb_single_point_properties,
     extract_xtb_status,
     extract_xtb_thermal_information,
+    extract_xtb_timings,
     extract_xtb_vibrations,
 )
 
@@ -132,8 +132,7 @@ class XTBOutputFileFrameParserMixin:
     @staticmethod
     def _run_status_phase(text: str, result: ModelParseResult) -> XTBOutputParsePhase:
         result.set("status", extract_xtb_status(text))
-        if running_time := extract_xtb_running_time(text):
-            result.set("running_time", running_time)
+        result.update(extract_xtb_timings(text))
         return XTBOutputParsePhase.DONE
 
     def _parse_block_to_result(

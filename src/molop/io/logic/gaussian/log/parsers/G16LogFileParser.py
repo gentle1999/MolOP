@@ -20,6 +20,7 @@ from molop.io.base_models.FileParser import (
 )
 from molop.io.base_models.ParseContainers import ModelParseResult, TextParseContext
 from molop.io.base_models.source import LocatedSourceSegment
+from molop.io.base_models.timing import accumulate_calculation_timings
 from molop.io.logic.gaussian.input.GaussianRoute import (
     _with_dispersion_suffix,
     build_gaussian_model_chemistry,
@@ -56,6 +57,7 @@ from molop.io.logic.gaussian.log.parsers._g16_log_file_extractors import (
     first_frame_value,
     last_frame_value,
 )
+from molop.io.logic.gaussian.log.parsers._g16_timing import extract_g16_timings
 from molop.io.logic.gaussian.log.parsers._g16log_archive_tail import parse_archive_tail
 
 
@@ -159,8 +161,8 @@ class G16LogFileParserMixin:
         self, segment_content: str, result: ModelParseResult
     ) -> G16MetadataParsePhase:
         context = TextParseContext(segment_content)
-        if running_time := extract_g16_running_time(context):
-            result.set("running_time", running_time)
+        result.update(extract_g16_timings(segment_content))
+        result.set("running_time", extract_g16_running_time(context))
         if status := extract_g16_termination_status(context):
             result.set("status", status)
         return G16MetadataParsePhase.DONE
@@ -472,13 +474,7 @@ class G16LogFileParserMixin:
             metadata.update(segment_metadata[0])
         metadata.pop("atomic_masses", None)
         metadata.pop("atomic_masses_source", None)
-        running_times = [
-            running_time
-            for segment in segment_metadata
-            if (running_time := segment.get("running_time")) is not None
-        ]
-        if running_times:
-            metadata["running_time"] = sum(running_times[1:], running_times[0])
+        metadata.update(accumulate_calculation_timings(segment_metadata))
         for segment in reversed(segment_metadata):
             if (status := segment.get("status")) is not None:
                 metadata["status"] = status

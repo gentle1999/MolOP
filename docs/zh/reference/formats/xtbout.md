@@ -71,7 +71,7 @@ modern 合同，但在获得真实输出前仍属于前向兼容，而不是独�
 | 最终总能量 | 部分 | 支持 | Hartree `energies.total_energy`；启用 source evidence 时附带 `EnergyObservation` | 选择最后一个已知 final-energy 打印形式；不把每个 SCC iteration 作为能量轨迹。 |
 | SCC/能量分解表 | 不支持 | 不支持 | 无专用分解字段 | isotropic electrostatic、dispersion、repulsion 等分量当前不结构化。 |
 | SCC 与终止状态 | 部分 | 支持 | `status.scf_converged`、`status.normal_terminated` | SCC 成功可由收敛行或最终能量推断；正常终止依赖 `finished run` 标记。 |
-| wall time | 部分 | 支持 | 秒单位 `running_time`；多 segment 时在文件层汇总 | 解析 xTB wall-time 行，不解析 CPU time、各模块计时和外部调度时间。 |
+| CPU 与墙钟时间 | 部分 | 支持 | 秒单位独立的 `cpu_time` / `wall_time`；`running_time` 是墙钟时间别名 | 文件按时间类型分别累计选中任务段。优先打印的总计，总计块缺少的时间类型保持未知；没有总计时，各自采用最后一条匹配记录。不暴露详细模块计时和调度器时间。 |
 | 优化收敛与阈值 | 部分 | 支持 | `geometry_optimization_status`、energy change/threshold、gradient norm/threshold | 只保留最终打印值；不结构化每一步的收敛历史。 |
 | 完整优化轨迹 | 不支持 | 不支持 | 无逐步 frame 序列 | 一个命令行 run 当前对应一个结果 frame，而不是每个优化 step 一个 frame。 |
 | 梯度向量 | 不支持 | 不支持 | 仅能记录 `gradient` 任务请求和最终 gradient norm | stdout 中的逐原子梯度和 `gradient` sidecar 尚未映射到结构化数组。 |
@@ -115,7 +115,7 @@ PTB Raman 结果用 `frequency_method`、`raman_activity_method` 区分频率与
 
 | 属性 | 文件标记或数据来源 | 读取或写出约定 |
 | ---- | ------------------ | -------------- |
-| <!-- parsing-basis:Version scope, setup, tasks, and status -->版本、设置、任务与状态 | `Version banners`; `program call`; `Hamiltonian`; `charge/spin`; `OMP`; `solvent`; `T(el)`; `normal/converged/failure labels`; `total/component wall-time` | 映射版本、方法、任务、资源、溶剂请求及条件；多重度由未配对电子设置加一推导，不是 <S²> 观测。版本 banner 确定一次运行；支持 xTB 5 的部分旧式布局和 xTB 6 的现代布局；后续大版本的兼容性未确认。 `running_time` 优先使用总墙钟时间，否则使用最后一条墙钟记录并换算为秒；电子温度与振动温度区分。 |
+| <!-- parsing-basis:Version scope, setup, tasks, and status -->版本、设置、任务与状态 | `Version banners`; `program call`; `Hamiltonian`; `charge/spin`; `OMP`; `solvent`; `T(el)`; `normal/converged/failure labels`; `total/component wall-time` | 映射版本、方法、任务、资源、溶剂请求及条件；多重度由未配对电子设置加一推导，不是 <S²> 观测。版本 banner 确定一次运行；支持 xTB 5 的部分旧式布局和 xTB 6 的现代布局；后续大版本的兼容性未确认。 `cpu_time`、`wall_time` 分别读取打印的 CPU/墙钟秒数，`running_time` 是墙钟时间别名；存在总计块时，其中缺少的物理量保持未知，否则各自采用最后一条记录；电子温度与振动温度区分。 |
 | <!-- parsing-basis:Geometry availability -->可用几何 | `final structure: XYZ / $coord / V2000 atom block`; `legacy setup coordinates` | XYZ/SDF 坐标为 Å，旧式 Bohr 坐标转为 Å；仅打印的最终几何算作观测，文件名或布居表不是坐标，不自动读取相邻文件。 |
 | <!-- parsing-basis:Energies and geometry optimization -->能量与几何优化 | `TOTAL ENERGY / total energy / total E`; `energy/gradient changes and limits`; `optimization convergence` | 使用最后匹配的 Eh 总能量；优化值、阈值与收敛状态独立于程序正常终止；标量梯度范数不当作逐原子力数组。 |
 | <!-- parsing-basis:Orbitals, populations, and dipole -->轨道、布居、偶极矩与键级 | `occ./eps and modern orbital tables`; `HOMO/LUMO labels/ellipsis`; `GFN1 Mulliken/CM5 or GFN2 q`; `dipole full`; `rotational constants`; `Wiberg/Mayer heading with Wiberg subheading` | 保留总占据、省略轨道及打印前线标记，自旋拆分需依据；电荷方案保留标签，full 偶极分量按原子单位转换；转动波数转 GHz。Wiberg AO 矩阵保留阈值、未知对及双向舍入首次值策略，完整 WBO 行号可在无坐标时确定矩阵轴。 |

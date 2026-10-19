@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Protocol, cast
 from molop.io.base_models.FileParser import BaseFileParserDisk, BaseFileParserMemory
 from molop.io.base_models.ParseContainers import ModelParseResult, TextParseContext
 from molop.io.base_models.source import LocatedSourceSegment
+from molop.io.base_models.timing import accumulate_calculation_timings
 from molop.io.logic.orca.log.frame_models.ORCALogFileFrame import (
     ORCALogFileFrameDisk,
     ORCALogFileFrameMemory,
@@ -27,6 +28,7 @@ from molop.io.logic.orca.log.parsers._orca_log_file_extractors import (
     parse_orca_printed_input_metadata,
 )
 from molop.io.logic.orca.log.parsers._orca_log_shared import (
+    extract_orca_cpu_timing,
     extract_orca_running_time,
     extract_orca_status,
 )
@@ -88,8 +90,20 @@ class ORCALogFileParserMixin:
     ) -> ORCALogMetadataParsePhase:
         if status := extract_orca_status(context.text.content):
             result.set("status", status)
-        if running_time := extract_orca_running_time(context.text.content):
+        running_time = extract_orca_running_time(context.text.content)
+        if running_time is not None:
             result.set("running_time", running_time)
+            result.set("wall_time", running_time)
+        result.update(
+            extract_orca_cpu_timing(
+                context.text.content,
+                running_time,
+                cpu_time=result.fields.get("cpu_time"),
+                requested_num_cpu=result.fields.get("request_num_cpu"),
+                keywords=result.fields.get("keywords", ""),
+                serial_input=bool(context.printed_input),
+            )
+        )
         return ORCALogMetadataParsePhase.DONE
 
     def _parse_segment_metadata_result(self, file_content: str) -> ModelParseResult:
@@ -141,13 +155,7 @@ class ORCALogFileParserMixin:
         metadata = dict(artifact_metadata)
         if segment_metadata:
             metadata.update(segment_metadata[0])
-        running_times = [
-            running_time
-            for segment in segment_metadata
-            if (running_time := segment.get("running_time")) is not None
-        ]
-        if running_times:
-            metadata["running_time"] = sum(running_times[1:], running_times[0])
+        metadata.update(accumulate_calculation_timings(segment_metadata))
         for segment in reversed(segment_metadata):
             if (status := segment.get("status")) is not None:
                 metadata["status"] = status

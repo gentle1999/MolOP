@@ -97,7 +97,7 @@ Gaussian 输出语法。
 | Cartesian Hessian | 部分 | `hessian` 和 axis/order/orientation metadata | Raw/不支持 | 不支持 | 主 second-derivative block 优先，archive 可回填；矩阵要求 `(3N, 3N)`。 |
 | Berny convergence | 部分 | `geometry_optimization_status` | 支持 | 不支持 | 提取 force/displacement、threshold、energy change 和 optimized 标记；其他 optimizer 形式可能未结构化。 |
 | SCF 与 termination status | 部分 | frame-local `status`、segment/file 聚合 status | 合成 | 不支持 | SCF 证据属于 frame；normal/error termination 属于 segment/file。fakeG 终止行不是原始状态复现。 |
-| CPU / elapsed time | 部分支持 | 累计 `running_time` | 部分 | 不支持 | file 汇总 segment 时间；不暴露逐 Link timing records，多帧 fakeG 会移除 frame runtime 行。 |
+| CPU / elapsed time | 部分支持 | 独立的 `cpu_time` / `wall_time`；`running_time` 是墙钟时间别名 | 部分 | 不支持 | 文件按物理量分别汇总选中任务段；帧优先采用本帧 Link 计时。多帧 fakeG 移除逐帧时间行。 |
 | archive tail metadata/coords | 部分 | 缺失字段 fallback | 间接 | 不支持 | archive 可补充 metadata、坐标、能量、热化学、polarizability 和 Hessian；live 数据优先。 |
 | TD excited-state 结果 | 不支持 | 无稳定公共结果合同 | 不支持 | 不支持 | route 可识别 TD 请求，但 excitation energies、oscillator strengths 等结果尚未结构化。 |
 | NMR magnetic shielding | 部分 | `nmr.gauge`、逐原子 `shielding_tensors`、isotropic、anisotropy、principal values | 不支持 | 不支持 | 覆盖标准 SCF GIAO `(ppm)` 打印；张量按 source atom index 对齐，Cartesian orientation 当前标记为 `unknown`。逐原子 shielding 可通过 `qm_embedded_rdmol(embed_nmr=True)` 写入 RDKit atom properties。 |
@@ -141,7 +141,7 @@ Raman 结果包含 `raman_activities` 和独立的
 | <!-- parsing-basis:Geometry optimization convergence -->几何优化收敛 | `Maximum/RMS Force`; `Maximum/RMS Displacement`; `threshold and YES/NO`; `Optimization completed` | 分别保存观测值、阈值、收敛布尔值及完成状态；缺行保持未知，不视作成功；字段对应所选帧。 |
 | <!-- parsing-basis:Gaussian archive section -->Gaussian 归档区 | `Backslash-delimited archive: method, geometry, HF/MPn/CC energies, thermal/multipole/Hessian records` | 按归档标签补全，不覆盖更直接的已有值；归档存在不自动代替 SCF/终止状态依据，缺项保持缺失。 |
 | <!-- parsing-basis:Termination status -->终止与 SCF 状态 | `Normal/Error termination`; `SCF Done`; `External Energy`; `convergence-failure markers` | 正常终止与 SCF 成功分开，segment 状态不被帧字段覆盖；不单凭能量补造完整状态。 |
-| <!-- parsing-basis:CPU and elapsed time -->计算耗时 | `Job cpu time: days/hours/minutes/seconds` | `running_time` 将匹配到的 CPU 时长换算为秒后累加，不用 CPU 时间或核数猜测墙钟时间。 |
+| <!-- parsing-basis:CPU and elapsed time -->计算耗时 | `Job cpu time: days/hours/minutes/seconds`; `Elapsed time`; `Leave Link cpu/elap` | CPU 和墙钟秒数分别存入 `cpu_time`、`wall_time`，`running_time` 是墙钟时间别名；文件层优先作业总计，帧层优先本帧 Link 计时，各物理量独立回退。总计和 Link 明细择一使用，不重复相加；缺少墙钟时间时保持未知。 |
 | <!-- parsing-basis:Link1 multi-step jobs -->Link1 多步骤任务 | `Link1/Entering Link 1 and frame orientation/SCF boundaries` | 按任务与几何区块划分 segment 和帧，计算设置与终止证据在对应 segment 内分配，不跨任务继承成功状态。 |
 | <!-- parsing-basis:Registry conversion -->格式转换 | `解析得到的几何/分子图与目标格式写出选项` | 由解析字段调用目标写出器，必要时恢复拓扑；转换不等于新的量化计算，也不保留所有原日志节。 |
 

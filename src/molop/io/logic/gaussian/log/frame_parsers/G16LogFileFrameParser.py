@@ -30,7 +30,6 @@ from molop.io.logic.gaussian.log.frame_parsers._g16_extractors import (
     merge_g16_energy_payloads,
 )
 from molop.io.logic.gaussian.log.frame_parsers._g16_shared import (
-    _parse_running_time,
     _temperature_and_pressure_from_block,
 )
 from molop.io.logic.gaussian.log.parsers._g16_log_file_extractors import (
@@ -38,6 +37,7 @@ from molop.io.logic.gaussian.log.parsers._g16_log_file_extractors import (
     extract_g16_termination_status,
 )
 from molop.io.logic.gaussian.log.parsers._g16_log_patterns import g16_log_patterns
+from molop.io.logic.gaussian.log.parsers._g16_timing import extract_g16_timings
 
 
 class G16ParsePhase(Enum):
@@ -103,8 +103,9 @@ class G16LogFileFrameParserMixin:
         if matched := g16_log_patterns.CHARGE_MULTIPLICITY.search(block):
             result.set("charge", int(matched.group("charge")))
             result.set("multiplicity", int(matched.group("multiplicity")))
-        if running_time := _parse_running_time(block):
-            result.set("running_time", running_time)
+        timings = extract_g16_timings(block, prefer_job_totals=False)
+        result.update(timings)
+        result.set("running_time", timings["wall_time"])
         if not cast(_HasParseMethod, self).only_extract_structure:
             status = extract_g16_termination_status(
                 TextParseContext(block),

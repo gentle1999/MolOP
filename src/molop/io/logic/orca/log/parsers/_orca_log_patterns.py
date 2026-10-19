@@ -317,6 +317,14 @@ class ORCALogPatterns:
         content_pattern=rf"(?i)Isotropic polarizability\s*:\s*(?P<value>{ORCA_FLOAT_PATTERN})",
         content_repeat=0,
     )
+    RUNTIME_PROCESS_COUNT = MolOPPattern(
+        content_pattern=r"Program running with[ \t]+(?P<count>\d+)[ \t]+parallel MPI-processes",
+        content_repeat=0,
+    )
+    PAL_PROCESS_COUNT = MolOPPattern(
+        content_pattern=r"(?i)\bPAL(?P<count>\d+)\b",
+        content_repeat=0,
+    )
     RUN_TIME = MolOPPattern(
         content_pattern=r"(?i)TOTAL RUN TIME:\s*"
         r"(?P<days>\d+)\s+days\s+"

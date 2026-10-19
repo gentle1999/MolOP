@@ -546,9 +546,11 @@ FORMAT_SUPPORT: dict[str, FormatSupport] = {
             FeatureSupport(
                 area="CPU and elapsed time",
                 support="fixture-covered",
-                scope="Job CPU and elapsed-time style records are accumulated into the running-time value where present.",
+                scope="Job CPU and elapsed records populate independent cpu_time and wall_time fields; running_time aliases wall_time. File totals sum like quantities across selected segments, and frames prefer local Link timing without adding job totals again.",
                 limitations="Per-link timing rows are not exposed as separate public timing records.",
                 tests=(
+                    "tests/test_calculation_timing.py::test_gaussian_cpu_and_wall_time_are_never_added",
+                    "tests/test_calculation_timing.py::test_gaussian_real_multistep_totals_follow_selected_segment_scope",
                     "tests/test_g16log_numeric_regression.py::test_g16log_file_running_time_is_accumulated_into_model_field",
                     "tests/test_g16log_component_tree_payloads.py::test_g16log_component_tree_major_components_expose_model_payloads",
                     "tests/test_g16log_component_tree.py::test_g16log_components_expose_child_constraint_contracts",

@@ -172,6 +172,7 @@ equivalent resource requests across programs.
 | IR intensity/Raman activity | km/mol and Å⁴/amu | Preserve their distinct quantity names. |
 | Dipole/polarizability | Debye and Bohr³ | Interpret tensor component ordering together with orientation. |
 | Shielding/K and J coupling | ppm and Hz | Shielding differs from chemical shift; K and J remain distinct. |
+| Calculation time | s | `cpu_time` and `wall_time` are independent; `running_time` aliases `wall_time`. |
 
 Use `.to(...)` or `.m_as(...)` for another compatible unit. Equal units do not
 establish equal reference frames. `forces` has shape `(N, 3)` and the Hessian
@@ -180,6 +181,32 @@ Unknown orientation stays unknown; tensors are not all rotated automatically.
 Frames validate population lengths, bond-order matrix sizes and displacement atom
 counts against their atoms. Each optional per-mode array is either absent or aligned
 with all stored frequencies; incomplete tables must not shift values to another mode.
+
+### Calculation time
+
+Calculation files and frames expose `cpu_time` for CPU usage and `wall_time` for
+elapsed wall-clock duration. `running_time` is an alias of `wall_time` in every
+format. Missing wall time remains `None`, even when CPU time is available; CPU
+time is never added to elapsed time or divided by a requested core count.
+
+`cpu_time_source` distinguishes printed CPU durations (`observed`) from fallback
+estimates (`estimated`); `None` means the source is unknown. For ORCA, missing CPU
+time is estimated as wall time × process count, using the printed runtime MPI count
+first, then `%pal nprocs` or `PALn`. A complete printed input without a parallel
+request uses ORCA's serial default of one process. Unknown wall time or process
+count leaves CPU time unknown. `cpu_time_num_processes` records the multiplier.
+This estimate assumes every process uses the full elapsed duration; it does not
+measure CPU utilization or exclude waiting time.
+
+File totals sum each quantity independently across the selected source segments.
+If any selected segment lacks a quantity, its file total stays unknown. With
+`only_last_frame=True`, file timing follows the retained source segment, while
+frame timing remains local to the stored frame. Gaussian file scopes prefer
+printed job totals and frame scopes prefer local Link timings; these alternative
+records are not added together. File summary columns distinguish CPU and wall time.
+Any estimated segment makes the CPU total `estimated`; the process multiplier is
+retained only if it is the same across all selected segments. File summaries also
+include `CPUTimeSource` and `CPUTimeNumProcesses` when available.
 
 ### Energies and thermochemistry
 

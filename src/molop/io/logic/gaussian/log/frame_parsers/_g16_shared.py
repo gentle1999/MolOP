@@ -10,6 +10,7 @@ from pint.facets.plain import PlainQuantity
 from molop.io.base_models.DataClasses import MolecularOrbitals
 from molop.io.base_models.SearchPattern import MolOPMatch
 from molop.io.logic.gaussian.log.parsers._g16_log_patterns import g16_log_patterns
+from molop.io.logic.gaussian.log.parsers._g16_timing import extract_g16_timings
 from molop.unit import atom_ureg
 
 
@@ -216,22 +217,7 @@ def _trim_molecular_orbital_symmetries(mo: dict[str, Any]) -> dict[str, Any]:
 
 
 def _parse_running_time(block: str) -> PlainQuantity | None:
-    if matches := g16_log_patterns.PROCEDURE_TIME.find_matches(block):
-        total_seconds = 0.0
-        for matched in matches:
-            total_seconds += float(matched.group("cpu")) + float(matched.group("elapsed"))
-        return total_seconds * atom_ureg.second
-    if matches := g16_log_patterns.JOB_TIME.find_matches(block):
-        total_seconds = 0.0
-        for matched in matches:
-            total_seconds += (
-                float(matched.group("days")) * 24 * 3600
-                + float(matched.group("hours")) * 3600
-                + float(matched.group("minutes")) * 60
-                + float(matched.group("seconds"))
-            )
-        return total_seconds * atom_ureg.second
-    return None
+    return extract_g16_timings(block, prefer_job_totals=False)["wall_time"]
 
 
 def _temperature_and_pressure_from_block(block: str) -> dict[str, Any]:

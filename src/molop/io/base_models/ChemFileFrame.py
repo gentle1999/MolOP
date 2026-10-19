@@ -57,6 +57,7 @@ from molop.io.base_models.source import (
     SourceSpan,
 )
 from molop.io.base_models.summary import SummaryDict, summary_column, summary_item
+from molop.io.base_models.timing import resolve_wall_time
 from molop.structure.serialization import rdmol_to_xyz
 from molop.structure.ts_analysis import (
     VibrationSamplingMethod,
@@ -494,6 +495,8 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
         "forces": atom_ureg.Unit("hartree / bohr"),
         "rotation_constants": atom_ureg.Unit("gigahertz"),
         "running_time": atom_ureg.Unit("second"),
+        "cpu_time": atom_ureg.second,
+        "wall_time": atom_ureg.second,
         "temperature": atom_ureg.Unit("K"),
         "electron_temperature": atom_ureg.Unit("K"),
         "atomic_masses": atom_ureg.amu,
@@ -615,11 +618,37 @@ class BaseCalcFrame(BaseQMInputFrame[ChemFileFrame]):
     )
     running_time: PlainQuantity | None = Field(
         default=None,
-        description="Running time of the QM calculation, unit is `second`",
+        description="Wall-clock duration, alias of wall_time, unit is `second`",
+    )
+    cpu_time: PlainQuantity | None = Field(
+        default=None,
+        description="CPU duration of the QM calculation, unit is `second`",
+        exclude_if=lambda value: value is None,
+    )
+    cpu_time_source: Literal["observed", "estimated"] | None = Field(
+        default=None,
+        description="Whether CPU duration is observed or estimated",
+        exclude_if=lambda value: value is None,
+    )
+    cpu_time_num_processes: int | None = Field(
+        default=None,
+        ge=1,
+        description="Process count used to estimate CPU duration",
+        exclude_if=lambda value: value is None,
+    )
+    wall_time: PlainQuantity | None = Field(
+        default=None,
+        description="Wall-clock duration of the QM calculation, unit is `second`",
+        exclude_if=lambda value: value is None,
     )
     frame_role: str | None = Field(default=None, exclude_if=lambda value: value is None)
     force_source_field: str | None = Field(default=None, exclude_if=lambda value: value is None)
     force_transformation: str | None = Field(default=None, exclude_if=lambda value: value is None)
+
+    @model_validator(mode="after")
+    def validate_calculation_timings(self) -> Self:
+        self.running_time = self.wall_time = resolve_wall_time(self.running_time, self.wall_time)
+        return self
 
     @model_validator(mode="after")
     def validate_cartesian_array_conventions(self) -> Self:

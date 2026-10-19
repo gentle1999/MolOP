@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from molop.io.base_models.FileParser import BaseFileParserDisk, BaseFileParserMemory
 from molop.io.base_models.source import LocatedSourceSegment
+from molop.io.base_models.timing import accumulate_calculation_timings
 from molop.io.logic.xtb.output.frame_models.XTBOutputFileFrame import (
     XTBOutputFileFrameDisk,
     XTBOutputFileFrameMemory,
@@ -21,8 +22,8 @@ from molop.io.logic.xtb.output.models.XTBOutputFile import (
 from molop.io.logic.xtb.output.parsers._xtb_output_extractors import (
     ensure_xtb_output_content,
     extract_xtb_metadata,
-    extract_xtb_running_time,
     extract_xtb_status,
+    extract_xtb_timings,
     extract_xtb_version,
 )
 
@@ -58,8 +59,7 @@ class XTBOutputFileParserMixin:
         if not metadata.get("qm_software_version"):
             metadata["qm_software_version"] = artifact_metadata.get("qm_software_version", "")
         metadata["status"] = extract_xtb_status(segment_content)
-        if running_time := extract_xtb_running_time(segment_content):
-            metadata["running_time"] = running_time
+        metadata.update(extract_xtb_timings(segment_content))
         return metadata
 
     def _prepare_file_metadata(
@@ -70,13 +70,7 @@ class XTBOutputFileParserMixin:
         metadata = dict(artifact_metadata)
         if segment_metadata:
             metadata.update(segment_metadata[0])
-        running_times = [
-            value
-            for segment in segment_metadata
-            if (value := segment.get("running_time")) is not None
-        ]
-        if running_times:
-            metadata["running_time"] = sum(running_times[1:], running_times[0])
+        metadata.update(accumulate_calculation_timings(segment_metadata))
         if segment_metadata:
             last = segment_metadata[-1]
             for field in ("status", "qm_software_version"):

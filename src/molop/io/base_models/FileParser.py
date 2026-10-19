@@ -59,7 +59,9 @@ class BaseFileParser(BaseDataClassWithUnit, Generic[FileT, FrameT, FrameParserT]
     _chem_file: type[FileT] = PrivateAttr()
     _file_path: str | None = PrivateAttr(default=None)
     _parse_unselected_segment_metadata: ClassVar[bool] = False
-    _segment_scoped_frame_metadata: ClassVar[frozenset[str]] = frozenset({"status", "running_time"})
+    _segment_scoped_frame_metadata: ClassVar[frozenset[str]] = frozenset(
+        {"status", "running_time", "cpu_time", "wall_time", "cpu_time_source"}
+    )
     _assess_segment_calculation_status: ClassVar[bool] = False
     format_id: ClassVar[str] = ""
     parser_id: ClassVar[str | None] = None

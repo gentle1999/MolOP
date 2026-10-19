@@ -28,6 +28,7 @@ from molop.io.logic.orca.log.frame_parsers._orca_extractors import (
     extract_orca_vibrations,
 )
 from molop.io.logic.orca.log.parsers._orca_log_shared import (
+    extract_orca_cpu_timing,
     extract_orca_running_time,
     extract_orca_status,
 )
@@ -170,13 +171,29 @@ class ORCALogFileFrameParserMixin:
             result.set("polarizability", polarizability)
         return ORCALogParsePhase.STATUS
 
-    def _run_status_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
+    def _run_status_phase(
+        self,
+        text: str,
+        result: ModelParseResult,
+        context: FrameParseContext,
+    ) -> ORCALogParsePhase:
         status = extract_orca_status(text, include_termination=False)
         if status is not None:
             result.set("status", status)
         running_time = extract_orca_running_time(text)
         if running_time is not None:
             result.set("running_time", running_time)
+            result.set("wall_time", running_time)
+        result.update(
+            extract_orca_cpu_timing(
+                text,
+                running_time,
+                cpu_time=result.fields.get("cpu_time"),
+                requested_num_cpu=context.additional_data.get("request_num_cpu"),
+                inherited_num_cpu=context.additional_data.get("cpu_time_num_processes"),
+                keywords=context.additional_data.get("keywords", ""),
+            )
+        )
         return ORCALogParsePhase.OPTIMIZATION
 
     def _run_optimization_phase(self, text: str, result: ModelParseResult) -> ORCALogParsePhase:
@@ -233,7 +250,7 @@ class ORCALogFileFrameParserMixin:
             elif phase is ORCALogParsePhase.POLARIZABILITY:
                 phase = self._run_polarizability_phase(text, result)
             elif phase is ORCALogParsePhase.STATUS:
-                phase = self._run_status_phase(text, result)
+                phase = self._run_status_phase(text, result, context)
             elif phase is ORCALogParsePhase.OPTIMIZATION:
                 phase = self._run_optimization_phase(text, result)
             elif phase is ORCALogParsePhase.SOLVENT:

@@ -80,7 +80,7 @@ fakeG 可以脱离原始 Gaussian log 合成该区段。
 | optimization convergence | `geometry_optimization_status` | 部分 | 支持 | 不支持 | 文件级多帧渲染会生成 step number、四项 convergence；单 frame 主要依赖 component 内容。 |
 | 多帧 optimization 选择 | optimization status + total energy + 无 vibrations | 支持 | 支持 | 不支持 | 只纳入满足条件的 optimization frames；其他选中 frame 可能不会出现在合并 body。 |
 | frequency frame 选择 | 最后一个含 vibrations 的 frame | 支持 | 支持 | 不支持 | 多帧合并只选择最后一个 frequency frame，不保证逐 frame 完整输出。 |
-| runtime | `running_time` | 部分 | 部分 | 不支持 | 单 frame 可生成 `Job cpu time`；多帧 file body 会移除逐 frame runtime 行。 |
+| runtime | `cpu_time`、`wall_time`、`running_time` | 部分 | 部分 | 不支持 | 单帧将 CPU 值写为 `Job cpu time`、墙钟值写为 `Elapsed time`，缺失的时间类型不写出；`running_time` 是墙钟时间别名。CPU 估算值附带 `MolOP CPU time source` 标记，重新解析时保留 `cpu_time_source` 和 `cpu_time_num_processes`；多帧文件正文移除逐帧时间行及标记。 |
 | termination | renderer 合成 | 支持 | 支持 | 不支持 | 多帧 optimization/frequency 段后写入 `Normal termination`，不代表原文件实际正常结束。 |
 | component tree 全树渲染 | parsed/synthetic components | 部分 | 部分 | 不支持 | 有专用 renderer 的节点从 payload 生成；其他节点可能返回 `raw_text`。 |
 | 指定 component node | `component_tree.render_node(name)` | 支持 | 不适用 | 不支持 | 可渲染如 `l716.forceconstants`、`l716.vibration.mode[0]`、temperature 等节点。 |

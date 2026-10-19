@@ -130,7 +130,7 @@ class G16LogFileMixin(GaussianRouteSemanticFieldsMixin):
         lines = [
             line
             for line in rendered.splitlines()
-            if not line.startswith(("Job cpu time:", "Elapsed time:"))
+            if not line.startswith(("Job cpu time:", "Elapsed time:", "MolOP CPU time source:"))
         ]
         return "\n".join(lines).strip()
 
